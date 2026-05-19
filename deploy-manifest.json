@@ -1,0 +1,89 @@
+{
+    "format": "tinymash-deploy",
+    "format_version": 1,
+    "built_at_utc": "2026-05-19T14:15:51Z",
+    "site": {
+        "name": "tinymash",
+        "base_url": "",
+        "public_theme": "baseline"
+    },
+    "includes": {
+        "root_files": [
+            "LICENSE",
+            "README.md",
+            "INSTALL.md",
+            "CLI.md",
+            "bin/tinymash",
+            "bin/tinymash.php",
+            "composer.json",
+            "composer.lock",
+            "app/config/bootstrap.php",
+            "app/config/globals.inc.php",
+            "app/config/index.php",
+            "app/config/routes.inc.php"
+        ],
+        "directories": [
+            "app/classes",
+            "app/controllers",
+            "app/help",
+            "app/include",
+            "app/plugins",
+            "app/themes",
+            "app/views",
+            "public",
+            "samples",
+            "vendor"
+        ],
+        "optional_directories": [
+            "themes"
+        ],
+        "empty_directories": [
+            "data/content",
+            "data/drafts",
+            "data/media",
+            "data/plugins",
+            "data/runtime",
+            "data/runtime/latte-cache",
+            "users"
+        ],
+        "exclude_paths": [
+            "public/ext/bs/css/bootstrap.css",
+            "public/ext/bs/js/bootstrap.bundle.js",
+            "public/ext/bsi/bootstrap-icons.css",
+            "public/ext/bsi/bootstrap-icons.json",
+            "public/ext/bsi/bootstrap-icons.scss",
+            "public/ext/bsi/bootstrap-icons.svg"
+        ],
+        "exclude_suffixes": [
+            ".map"
+        ],
+        "active_plugins_only": true,
+        "plugin_data_directory": "data/plugins",
+        "copy_active_plugin_data": false,
+        "active_plugins": [
+            "backup",
+            "blogger-import",
+            "bludit-import",
+            "downloads",
+            "fediverse",
+            "feeds",
+            "footer",
+            "notes",
+            "photos",
+            "redirects",
+            "search",
+            "seo",
+            "statistics",
+            "syntax-highlighting",
+            "tiny-links"
+        ],
+        "site_identity_media_files": [],
+        "example_config": true,
+        "example_config_path": "app/config/tinymash.json.example"
+    },
+    "counts": {
+        "copied_files": 1351,
+        "copied_directories": 11
+    },
+    "warnings": []
+}

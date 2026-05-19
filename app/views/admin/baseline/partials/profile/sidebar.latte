@@ -1,0 +1,27 @@
+{var $profile_section = (string) ($profile_section ?? 'account')}
+{var $profile_section_urls = is_array($profile_section_urls ?? null) ? $profile_section_urls : []}
+{var $profile_user = is_array($profile_user ?? null) ? $profile_user : []}
+{var $profile_has_fediverse_settings = ! empty( $profile_has_fediverse_settings ?? false )}
+{var $settings_group_open = in_array($profile_section, ['account', 'editor', 'publishing', 'appearance', 'fediverse'], true)}
+{var $profile_nav_id_prefix = trim((string) ($profile_nav_id_prefix ?? 'tm-profile-sections-nav'))}
+{var $profile_nav_label = trim((string) ($profile_nav_label ?? 'Profile sections'))}
+
+<nav class="tm-section-nav" data-tm-section-nav="profile-sections" aria-label="{$profile_nav_label}">
+    <section class="tm-section-nav-group{if $settings_group_open} is-open{/if}" data-tm-section-node data-tm-section-key="settings" data-tm-section-default-open="{$settings_group_open ? '1' : '0'}" data-tm-section-force-open="{$settings_group_open ? '1' : '0'}">
+        <h2 class="mb-0" id="{$profile_nav_id_prefix}-settings-heading">
+            <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$settings_group_open ? 'true' : 'false'}" aria-controls="{$profile_nav_id_prefix}-settings">
+                <span class="tm-section-nav-title small text-uppercase text-body-secondary">Settings</span>
+                <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+            </button>
+        </h2>
+        <div id="{$profile_nav_id_prefix}-settings" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="{$profile_nav_id_prefix}-settings-heading" n:attr="hidden => ! $settings_group_open ? true : null">
+            <div class="tm-section-nav-items">
+                <a class="tm-section-nav-link link-offset-2{if $profile_section === 'account'} active{/if}" n:attr="aria-current => $profile_section === 'account' ? 'page' : null" href="{$profile_section_urls['account'] ?? '/admin/profile/account'}"><span class="tm-section-nav-link-label">Account</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $profile_section === 'editor'} active{/if}" n:attr="aria-current => $profile_section === 'editor' ? 'page' : null" href="{$profile_section_urls['editor'] ?? '/admin/profile/editor'}"><span class="tm-section-nav-link-label">Editor</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $profile_section === 'publishing'} active{/if}" n:attr="aria-current => $profile_section === 'publishing' ? 'page' : null" href="{$profile_section_urls['publishing'] ?? '/admin/profile/publishing'}"><span class="tm-section-nav-link-label">Publishing</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $profile_section === 'appearance'} active{/if}" n:attr="aria-current => $profile_section === 'appearance' ? 'page' : null" href="{$profile_section_urls['appearance'] ?? '/admin/profile/appearance'}"><span class="tm-section-nav-link-label">Appearance</span></a>
+                <a n:if="$profile_has_fediverse_settings" class="tm-section-nav-link link-offset-2{if $profile_section === 'fediverse'} active{/if}" n:attr="aria-current => $profile_section === 'fediverse' ? 'page' : null" href="{$profile_section_urls['fediverse'] ?? '/admin/profile/fediverse'}"><span class="tm-section-nav-link-label">Fediverse</span></a>
+            </div>
+        </div>
+    </section>
+</nav>

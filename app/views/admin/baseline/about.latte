@@ -1,0 +1,91 @@
+{extends 'layout.latte'}
+
+{block content}
+    {var $about_info = is_array($about_info ?? null) ? $about_info : []}
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-6">
+            <section class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                <div class="small text-uppercase text-body-secondary mb-2">
+                    About
+                </div>
+                <div class="border-2 border-bottom mb-3">
+                    <p>
+                        <a class="link-offset-2" href="https://tinymash.joho.se" target="_blank"><code>tinymash</code></a> was written by Joaquim Homrighausen while converting &#x2615; to <code>code</code>. The
+                        project started as a Blogger export experiment that went "slightly" out of hand &#128526;
+                    </p>
+                    <p class="text-center">
+                        Copyright 2026 Joaquim Homrighausen; all rights reserved.
+                    </p>
+
+                </div>
+
+                <div class="d-grid gap-2 small">
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Application</span>
+                        <span class="fw-semibold">{$about_info['app_name'] ?? 'tinymash'}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Version</span>
+                        <span class="fw-semibold font-monospace">{$about_info['app_version'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">License</span>
+                        <span class="fw-semibold font-monospace">{$about_info['license'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Site</span>
+                        <span class="fw-semibold text-end">{$about_info['site_name'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Base URL</span>
+                        <span class="fw-semibold font-monospace text-end">{$about_info['base_url'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Public theme</span>
+                        <span class="fw-semibold text-end">{$about_info['public_theme'] ?? ''} <span class="text-body-secondary font-monospace">({$about_info['public_theme_key'] ?? ''})</span></span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Admin theme</span>
+                        <span class="fw-semibold text-end">{$about_info['admin_theme'] ?? ''} <span class="text-body-secondary font-monospace">({$about_info['admin_theme_key'] ?? ''})</span></span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">PHP runtime</span>
+                        <span class="fw-semibold font-monospace">{$about_info['php_version'] ?? ''}</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <section class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                <div class="small text-uppercase text-body-secondary mb-2">Layout</div>
+                <div class="fw-semibold mb-3">Extension roots</div>
+
+                <div class="d-grid gap-2 small">
+                    {foreach ($about_info['extension_roots'] ?? []) as $extension_root}
+                        <div class="d-flex justify-content-between gap-3">
+                            <span class="text-body-secondary">{$extension_root['label'] ?? ''}</span>
+                            <span class="fw-semibold font-monospace">{$extension_root['path'] ?? ''}</span>
+                        </div>
+                    {/foreach}
+                </div>
+
+                <div class="border-top mt-3 pt-3 small text-body-secondary">
+                    Shipped tinymash code lives under <span class="font-monospace">app/</span>. Top-level <span class="font-monospace">plugins/</span> and <span class="font-monospace">themes/</span> are reserved for third-party or site-installed extensions.
+                </div>
+
+                <div class="border-top mt-3 pt-3 small text-uppercase text-body-secondary mb-2">
+                    Core runtime
+                </div>
+                <div class="fw-semibold mb-3">Key packages</div>
+                <div class="d-flex flex-wrap gap-2">
+                    {foreach ($about_info['core_packages'] ?? []) as $core_package}
+                        <span class="badge text-bg-secondary-subtle border text-body font-monospace fw-normal">{$core_package}</span>
+                    {/foreach}
+                </div>
+            </section>
+        </div>
+
+    </div>
+{/block}

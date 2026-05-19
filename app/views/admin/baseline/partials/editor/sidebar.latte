@@ -1,0 +1,92 @@
+<div class="d-lg-none mb-3">
+    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#tm-editor-load-panel" aria-expanded="false" aria-controls="tm-editor-load-panel">
+        Load existing
+    </button>
+</div>
+<div class="p-3 bg-body border rounded-3 shadow-sm h-100 collapse d-lg-block" id="tm-editor-load-panel">
+    <div class="small text-uppercase text-body-secondary mb-2">Load</div>
+    <div class="fw-semibold mb-1">Saved content</div>
+    <div class="small text-body-secondary mb-3">Load an existing page or post into the composer for explicit editing, or open one of your drafts below.</div>
+    <form class="row g-2" method="get" action="{$editor_url}">
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-load-filter">Filter content</label>
+            <input class="form-control" id="tm-editor-load-filter" type="search" placeholder="Search saved content" autocomplete="off" aria-describedby="tm-editor-content-search-status">
+            <div class="form-text" id="tm-editor-content-search-status" aria-live="polite"></div>
+            <div class="d-grid gap-2 mt-2 d-none" id="tm-editor-content-search-results" aria-live="polite"></div>
+        </div>
+        <div class="col-12" id="tm-editor-load-select-fallback">
+            <label class="form-label small mb-1" for="tm-editor-load-entry">Content</label>
+            <select class="form-select" id="tm-editor-load-entry" name="entry">
+                <option value="">Keep current composer state</option>
+                {foreach $editor_entry_options as $entry_option}
+                    <option
+                        value="{$entry_option['id']}"
+                        data-filter-text="{$entry_option['label']} {$entry_option['path']} {$entry_option['type']} {$entry_option['scope']} {$entry_option['author_slug']}"
+                        {if $editor_loaded_entry_id === $entry_option['id']}selected{/if}
+                    >{$entry_option['label']}</option>
+                {/foreach}
+            </select>
+            <div class="form-text">Choose content directly if incremental search is unavailable.</div>
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2" id="tm-editor-load-select-actions">
+            <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" type="submit"><span class="bi bi-folder2-open" aria-hidden="true"></span><span>Load content</span></button>
+            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_new_url}"><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>New content</span></a>
+        </div>
+    </form>
+    <div class="border-top mt-3 pt-3" id="tm-editor-drafts-panel">
+        <div class="small text-uppercase text-body-secondary mb-2">Recent drafts</div>
+        <div class="d-grid gap-2" id="tm-editor-drafts-list">
+            {if ! empty( $editor_drafts )}
+                {foreach $editor_drafts as $draft}
+                    <div class="d-flex gap-2 align-items-start">
+                        <a class="btn btn-outline-secondary btn-sm text-start flex-grow-1" href="{$editor_url}?draft={$draft['draft_id']}">
+                            <span class="d-block fw-semibold">{$draft['display_title']}</span>
+                            <span class="d-block small text-body-secondary">{$draft['entry_type']} draft | {$draft['scope'] === 'author' ? $draft['author_slug'] : 'root'} | {$draft['slug'] !== '' ? $draft['slug'] : 'no slug yet'}</span>
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm tm-editor-delete-draft" type="button" data-draft-id="{$draft['draft_id']}" data-draft-title="{$draft['display_title']}" title="Delete draft" aria-label="Delete draft">
+                            <span class="bi bi-trash" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                {/foreach}
+            {else}
+                <div class="small text-body-secondary">No drafts yet.</div>
+            {/if}
+        </div>
+    </div>
+    <div class="border-top mt-3 pt-3" id="tm-editor-recent-entries-panel">
+        <div class="small text-uppercase text-body-secondary mb-2">Recent content</div>
+        <div class="d-grid gap-2" id="tm-editor-recent-entries-list">
+            {if ! empty( $editor_recent_entries )}
+                {foreach $editor_recent_entries as $recent_entry}
+                    <a class="btn btn-outline-secondary btn-sm text-start" href="{$editor_url}?entry={$recent_entry['id']}">
+                        <span class="d-block fw-semibold">
+                            {$recent_entry['title']}
+                        </span>
+                        <span class="d-block small text-bg-body">
+                            {$recent_entry['type']} | {$recent_entry['scope'] === 'author' ? $recent_entry['author_slug'] : 'root'} | {$recent_entry['path']}
+                        </span>
+                    </a>
+                {/foreach}
+            {else}
+                <div class="small text-body-secondary">No saved content yet.</div>
+            {/if}
+        </div>
+    </div>
+    <div class="border-top mt-3 pt-3" id="tm-editor-revisions-panel">
+        <div class="small text-uppercase text-body-secondary mb-2">Revisions</div>
+        <div class="d-grid gap-2" id="tm-editor-revisions-list">
+            {if ! empty( $editor_revisions )}
+                {foreach $editor_revisions as $revision}
+                    <a class="btn btn-outline-secondary btn-sm text-start" href="{$revision['open_url']}">
+                        <span class="d-block fw-semibold">{$revision['title']}</span>
+                        <span class="d-block small text-body-secondary">{$revision['status']} | saved {$revision['saved_at_display']}</span>
+                    </a>
+                {/foreach}
+            {elseif ! empty( $editor_loaded_entry_id )}
+                <div class="small text-body-secondary">No saved revisions yet for this content item.</div>
+            {else}
+                <div class="small text-body-secondary">Load saved content to browse its revisions.</div>
+            {/if}
+        </div>
+    </div>
+</div>

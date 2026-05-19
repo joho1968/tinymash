@@ -1,0 +1,16 @@
+{
+    "key": "syntax-highlighting",
+    "name": "Syntax Highlighting",
+    "version": "0.90.0",
+    "description": "Adds fenced code highlighting for supported themes using local highlight.js assets.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "content.workflow"
+    ],
+    "default_active": false,
+    "stage": "before"
+}

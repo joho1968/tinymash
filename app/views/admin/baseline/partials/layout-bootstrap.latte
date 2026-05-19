@@ -1,0 +1,188 @@
+        <script>
+            (() => {
+                'use strict';
+    
+                var themeModeButtons = [];
+                const screenModeCookieName = {=json_encode($screen_mode_cookie_name)|noescape};
+                const screenModeStorageKey = screenModeCookieName;
+
+                // Set theme to the user's preferred color scheme
+                function updateBootstrapTheme() {
+                    if (getThemeMode() === 'auto') {
+                        applyThemeMode('auto');
+                    }
+                }
+                function getPreferredTheme() {
+                    return window.matchMedia("(prefers-color-scheme: dark)").matches ? 'dark' : 'light';
+                }
+                function getThemeMode() {
+                    try {
+                        const storedMode = window.localStorage ? String(window.localStorage.getItem(screenModeStorageKey) || '') : '';
+                        if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto') {
+                            return storedMode;
+                        }
+                    } catch (error) {
+                    }
+                    const screenMode = getCookie(screenModeCookieName);
+                    if (screenMode === 'light' || screenMode === 'dark' || screenMode === 'auto') {
+                        return screenMode;
+                    }
+                    const legacyDarkMode = getCookie('tmAdminDarkMode');
+                    if (legacyDarkMode === '0') {
+                        return 'light';
+                    }
+                    if (legacyDarkMode === '1') {
+                        return 'dark';
+                    }
+                    return {=json_encode($current_user_theme_mode)|noescape};
+                }
+                function updateThemeModeMenu(mode) {
+                    themeModeButtons.forEach((button) => {
+                        const buttonMode = button.getAttribute('data-tm-theme-mode') || '';
+                        button.classList.toggle('active', buttonMode === mode);
+                        button.setAttribute('aria-pressed', buttonMode === mode ? 'true' : 'false');
+                    });
+                }
+                function applyRootThemeChrome(mode) {
+                    const currentMode = document.documentElement.getAttribute('data-bs-theme') || '';
+                    if (
+                        currentMode === mode &&
+                        document.documentElement.style.colorScheme === mode
+                    ) {
+                        return;
+                    }
+                    document.documentElement.setAttribute('data-bs-theme', mode);
+                    document.documentElement.style.colorScheme = mode;
+                    document.documentElement.style.backgroundColor = mode === 'dark' ? '#212529' : '#f8f9fa';
+                    document.documentElement.style.color = mode === 'dark' ? '#dee2e6' : '#212529';
+                }
+                function applyThemeMode(mode) {
+                    const effectiveMode = mode === 'auto' ? getPreferredTheme() : mode;
+                    applyRootThemeChrome(effectiveMode);
+                    updateThemeModeMenu(mode);
+                    document.dispatchEvent(new CustomEvent('tm:theme-mode-changed', { detail: { mode, effectiveMode } }));
+                }
+                function setThemeMode(mode) {
+                    const secureSuffix = window.location.protocol === 'https:' ? '; Secure' : '';
+                    const cookieBase = 'Path=/; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
+                    const clearLegacyCookieBase = 'Path={$admin_url|noescape}; SameSite=Strict; Max-Age=0' + secureSuffix + ';';
+                    const clearAdminScopedScreenCookieBase = 'Path={$admin_url|noescape}; SameSite=Strict; Max-Age=0' + secureSuffix + ';';
+                    try {
+                        if (window.localStorage) {
+                            window.localStorage.setItem(screenModeStorageKey, mode);
+                        }
+                    } catch (error) {
+                    }
+                    if (mode === 'light') {
+                        document.cookie = screenModeCookieName + '=light; ' + cookieBase;
+                        document.cookie = screenModeCookieName + '=; ' + clearAdminScopedScreenCookieBase;
+                        document.cookie = 'tmAdminThemeMode=; ' + clearLegacyCookieBase;
+                        document.cookie = 'tmAdminDarkMode=; ' + clearLegacyCookieBase;
+                    } else if (mode === 'dark') {
+                        document.cookie = screenModeCookieName + '=dark; ' + cookieBase;
+                        document.cookie = screenModeCookieName + '=; ' + clearAdminScopedScreenCookieBase;
+                        document.cookie = 'tmAdminThemeMode=; ' + clearLegacyCookieBase;
+                        document.cookie = 'tmAdminDarkMode=; ' + clearLegacyCookieBase;
+                    } else {
+                        document.cookie = screenModeCookieName + '=auto; ' + cookieBase;
+                        document.cookie = screenModeCookieName + '=; ' + clearAdminScopedScreenCookieBase;
+                        document.cookie = 'tmAdminThemeMode=; ' + clearLegacyCookieBase;
+                        document.cookie = 'tmAdminDarkMode=; ' + clearLegacyCookieBase;
+                        mode = 'auto';
+                    }
+                    applyThemeMode(mode);
+                }
+                document.addEventListener('click', (event) => {
+                    const trigger = event.target.closest('[data-tm-theme-mode]');
+                    if (!(trigger instanceof HTMLElement)) {
+                        return;
+                    }
+                    event.preventDefault();
+                    const requestedMode = trigger.getAttribute('data-tm-theme-mode') || 'auto';
+                    setThemeMode(requestedMode);
+                });
+                function getCookie(nameOfCookie) {
+                    const cName = nameOfCookie + '=';
+                    const decodedCookies = decodeURIComponent(document.cookie);
+                    const cookies = decodedCookies.split('; ');
+                    let cookieRes = '*';
+                    cookies.forEach(val => {
+                        if (val.indexOf(cName) === 0 ) {
+                            cookieRes = val.substring(cName.length);
+                        }
+                    });
+                    return (cookieRes);
+                }
+{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/layout-bootstrap/fields.js.latte')|noescape}
+{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/layout-bootstrap/help-modal.js.latte')|noescape}
+{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/layout-bootstrap/admin-fragments.js.latte')|noescape}
+{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/layout-bootstrap/admin-media-library.js.latte')|noescape}
+                function documentSetup() {
+                    const breakpointBadge = document.getElementById('tm-current-breakpoint');
+                    themeModeButtons = Array.from(document.querySelectorAll('[data-tm-theme-mode]'));
+                    // Update theme when the preferred scheme changes
+                    const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    if (colorSchemeQuery && typeof colorSchemeQuery.addEventListener === 'function') {
+                        colorSchemeQuery.addEventListener('change', updateBootstrapTheme);
+                    } else if (colorSchemeQuery && typeof colorSchemeQuery.addListener === 'function') {
+                        colorSchemeQuery.addListener(updateBootstrapTheme);
+                    }
+                    // Some more BS initialization
+                    const popoverTriggerList = document.querySelectorAll('[data-bs-toggle=\"popover\"]');
+                    const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
+                    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+                    // Figure out light/dark mode
+                    const initialThemeMode = getThemeMode();
+                    updateThemeModeMenu(initialThemeMode);
+                    function updateBreakpointBadge() {
+                        const width = window.innerWidth;
+                        let breakpoint = 'XS';
+                        if (width >= 1400) {
+                            breakpoint = 'XXL';
+                        } else if (width >= 1200) {
+                            breakpoint = 'XL';
+                        } else if (width >= 992) {
+                            breakpoint = 'LG';
+                        } else if (width >= 768) {
+                            breakpoint = 'MD';
+                        } else if (width >= 576) {
+                            breakpoint = 'SM';
+                        }
+                        if (breakpointBadge) {
+                            breakpointBadge.textContent = breakpoint;
+                        }
+                    }
+                    updateBreakpointBadge();
+                    window.addEventListener('resize', updateBreakpointBadge);
+                    const helpController = createHelpModalController();
+                    if (helpController) {
+                        helpController.bindHelpModal();
+                    }
+                    // Handle password field toggles
+                    let pToggles = document.getElementsByClassName('tm-password-toggle');
+                    if (pToggles) {
+                        Array.from(pToggles).forEach((val) => {
+                            val.addEventListener("click", passwordToggleClick);
+                        });
+                    }
+                    initializePersistentSectionNavs(document);
+                    initializeDynamicAdminFields(document);
+                    window.tmAdminEnhanceFields = initializeDynamicAdminFields;
+                }
+                function scheduleDocumentSetup() {
+                    const runSetup = () => window.setTimeout(documentSetup, 0);
+                    if (typeof window.requestAnimationFrame === 'function') {
+                        window.requestAnimationFrame(runSetup);
+                    } else {
+                        runSetup();
+                    }
+                }
+                if (document.readyState === 'complete' ||
+                    (document.readyState !== 'loading' && !document.documentElement.doScroll)) {
+                    scheduleDocumentSetup();
+                } else {
+                    document.addEventListener('DOMContentLoaded', scheduleDocumentSetup, { once: true });
+                }
+            })();
+        </script>

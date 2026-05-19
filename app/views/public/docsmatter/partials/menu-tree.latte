@@ -1,0 +1,16 @@
+{if ! empty( $items )}
+    <div n:class="($level ?? 1) > 1 ? 'd-grid gap-1 mt-1 ps-3 ms-2 border-start tm-docsmatter-page-tree-nested' : 'd-grid gap-1 tm-docsmatter-page-tree-root'">
+        {foreach $items as $item}
+            {if ! empty( $item['is_separator'] )}
+                <hr class="my-2 text-body-tertiary opacity-100">
+            {else}
+                <div class="tm-docsmatter-page-node">
+                    <a n:class="! empty($item['is_current']) ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item current active-nav' : (! empty($item['is_ancestor']) ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item ancestor active-nav' : 'tm-docsmatter-page-link nav-link bs5docs-menu-item')" href="{$item['url']}" n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null">{$item['title']}</a>
+                    {if ! empty( $item['children'] )}
+                        {include './menu-tree.latte', items: $item['children'], level: (($level ?? 1) + 1)}
+                    {/if}
+                </div>
+            {/if}
+        {/foreach}
+    </div>
+{/if}

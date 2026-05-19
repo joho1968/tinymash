@@ -1,0 +1,9 @@
+{
+    "require": {
+        "flightphp/core": "^3.15",
+        "latte/latte": "^3.0",
+        "flightphp/runway": "^1.1",
+        "league/commonmark": "^2.8",
+        "symfony/mailer": "^7.4"
+    }
+}

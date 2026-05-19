@@ -1,0 +1,17 @@
+{
+    "key": "seo",
+    "name": "SEO",
+    "version": "0.90.0",
+    "description": "Adds generated robots.txt and sitemap.xml output plus AI crawler advisory rules.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.public",
+        "settings.system"
+    ],
+    "default_active": false,
+    "stage": "before"
+}

@@ -1,0 +1,210 @@
+            function getSelectedLinkText() {
+                if (!markdownField) {
+                    return '';
+                }
+
+                const start = markdownField.selectionStart;
+                const end = markdownField.selectionEnd;
+                return markdownField.value.slice(start, end).trim();
+            }
+
+            function readStickyCheckboxPreference(storageKey, defaultValue) {
+                try {
+                    const storedValue = window.localStorage.getItem(storageKey);
+                    if (storedValue === '1') {
+                        return true;
+                    }
+                    if (storedValue === '0') {
+                        return false;
+                    }
+                } catch (error) {
+                    // Ignore storage failures and use the default.
+                }
+
+                return Boolean(defaultValue);
+            }
+
+            function writeStickyCheckboxPreference(storageKey, checked) {
+                try {
+                    window.localStorage.setItem(storageKey, checked ? '1' : '0');
+                } catch (error) {
+                    // Ignore storage failures.
+                }
+            }
+
+            function buildInternalLinkOptions(filterValue = '') {
+                if (!internalLinkTargetField) {
+                    return;
+                }
+
+                const needle = String(filterValue || '').trim().toLowerCase();
+                const matchingEntries = editorLinkableEntries.filter((entry) => {
+                    const haystack = [ entry.label, entry.path, entry.type, entry.scope, entry.author_slug, entry.title ]
+                        .filter(Boolean)
+                        .join(' ')
+                        .toLowerCase();
+                    return needle === '' || haystack.includes(needle);
+                });
+
+                const optionMarkup = ['<option value="">Choose target</option>'];
+                matchingEntries.forEach((entry) => {
+                    optionMarkup.push(
+                        '<option value="' + escapeHtml(entry.id || '') + '" data-url="' + escapeHtml(entry.url || '') + '" data-title="' + escapeHtml(entry.title || '') + '" data-type="' + escapeHtml(entry.type || '') + '">' + escapeHtml(entry.label || entry.title || 'Untitled content') + '</option>'
+                    );
+                });
+                internalLinkTargetField.innerHTML = optionMarkup.join('');
+                if (matchingEntries.length > 0) {
+                    internalLinkTargetField.selectedIndex = 1;
+                    syncInternalLinkTextFromTarget();
+                } else {
+                    internalLinkTargetField.selectedIndex = 0;
+                }
+            }
+
+            function syncInternalLinkTextFromSelection(force = false) {
+                if (!internalLinkTextField) {
+                    return;
+                }
+
+                const selectedText = getSelectedLinkText();
+                if (!force && internalLinkTextField.value.trim() !== '') {
+                    return;
+                }
+                if (selectedText !== '') {
+                    internalLinkTextField.value = selectedText;
+                }
+            }
+
+            function syncInternalLinkTextFromTarget() {
+                if (!internalLinkTargetField || !internalLinkTextField) {
+                    return;
+                }
+                if (internalLinkTextField.value.trim() !== '') {
+                    return;
+                }
+
+                const selectedOption = internalLinkTargetField.selectedOptions[0];
+                if (!selectedOption || !selectedOption.dataset.title) {
+                    return;
+                }
+
+                internalLinkTextField.value = selectedOption.dataset.title;
+            }
+
+            function openInternalLinkModal() {
+                buildInternalLinkOptions('');
+                internalLinkFilterTouched = false;
+                if (internalLinkFilterField) {
+                    internalLinkFilterField.value = '';
+                }
+                if (internalLinkNewTabField) {
+                    internalLinkNewTabField.checked = readStickyCheckboxPreference(internalLinkNewTabStorageKey, false);
+                }
+                if (internalLinkTextField) {
+                    internalLinkTextField.value = '';
+                }
+                syncInternalLinkTextFromSelection(true);
+                const internalLinkModal = getBootstrapModal(internalLinkModalElement);
+                if (internalLinkModal) {
+                    internalLinkModal.show();
+                }
+                if (internalLinkFilterField) {
+                    window.setTimeout(() => internalLinkFilterField.focus(), 100);
+                }
+            }
+
+            function openExternalLinkModal() {
+                if (externalLinkUrlField) {
+                    externalLinkUrlField.value = '';
+                }
+                if (externalLinkTextField) {
+                    externalLinkTextField.value = '';
+                    const selectedText = getSelectedLinkText();
+                    if (selectedText !== '') {
+                        externalLinkTextField.value = selectedText;
+                    }
+                }
+                if (externalLinkNewTabField) {
+                    externalLinkNewTabField.checked = readStickyCheckboxPreference(externalLinkNewTabStorageKey, true);
+                }
+
+                const externalLinkModal = getBootstrapModal(externalLinkModalElement);
+                if (externalLinkModal) {
+                    externalLinkModal.show();
+                }
+                if (externalLinkUrlField) {
+                    window.setTimeout(() => externalLinkUrlField.focus(), 100);
+                }
+            }
+
+            function insertInternalLink() {
+                if (!internalLinkTargetField || !markdownField) {
+                    return;
+                }
+
+                const selectedOption = internalLinkTargetField.selectedOptions[0];
+                if (!selectedOption || !selectedOption.dataset.url) {
+                    return;
+                }
+
+                const url = String(selectedOption.dataset.url || '');
+                const selectedText = getSelectedLinkText();
+                const linkText = internalLinkTextField && internalLinkTextField.value.trim() !== ''
+                    ? internalLinkTextField.value.trim()
+                    : (selectedText !== '' ? selectedText : String(selectedOption.dataset.title || 'link text'));
+                const openInNewTab = Boolean(internalLinkNewTabField && internalLinkNewTabField.checked);
+                const targetType = String(selectedOption.dataset.type || '');
+                const forceSameTab = targetType === 'download_catalogue' || targetType === 'download_file';
+                if (!forceSameTab) {
+                    writeStickyCheckboxPreference(internalLinkNewTabStorageKey, openInNewTab);
+                }
+                const markdown = openInNewTab
+                    && !forceSameTab
+                    ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(linkText) + '</a>'
+                    : '[' + linkText + '](' + url + ')';
+
+                const start = markdownField.selectionStart;
+                const end = markdownField.selectionEnd;
+                markdownField.setRangeText(markdown, start, end, 'end');
+                markdownField.focus();
+                markDirty();
+
+                const internalLinkModal = getBootstrapModal(internalLinkModalElement);
+                if (internalLinkModal) {
+                    internalLinkModal.hide();
+                }
+            }
+
+            function insertExternalLink() {
+                if (!markdownField || !externalLinkUrlField) {
+                    return;
+                }
+
+                const url = String(externalLinkUrlField.value || '').trim();
+                if (url === '') {
+                    externalLinkUrlField.focus();
+                    return;
+                }
+
+                const selectedText = getSelectedLinkText();
+                const linkText = externalLinkTextField && externalLinkTextField.value.trim() !== ''
+                    ? externalLinkTextField.value.trim()
+                    : (selectedText !== '' ? selectedText : url);
+                const openInNewTab = Boolean(externalLinkNewTabField && externalLinkNewTabField.checked);
+                writeStickyCheckboxPreference(externalLinkNewTabStorageKey, openInNewTab);
+
+                const markdown = openInNewTab
+                    ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(linkText) + '</a>'
+                    : '[' + linkText + '](' + url + ')';
+
+                const start = markdownField.selectionStart;
+                const end = markdownField.selectionEnd;
+                markdownField.setRangeText(markdown, start, end, 'end');
+                markdownField.focus();
+                markDirty();
+
+                const externalLinkModal = getBootstrapModal(externalLinkModalElement);
+                if (externalLinkModal) {
+                    externalLinkModal.hide();
+                }
+            }

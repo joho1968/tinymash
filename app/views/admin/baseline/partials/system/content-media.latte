@@ -1,0 +1,76 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Content</div>
+    <div class="fw-semibold mb-1">Composer, revisions, housekeeping, and content behavior</div>
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="content_media">
+        <div class="row g-3">
+            <div class="col-12 col-xl-6">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Editor defaults</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-editor-autosave-enabled" name="editor_autosave_enabled" type="checkbox" n:attr="checked => $system_settings['editor_autosave_enabled']">
+                                <label class="form-check-label" for="tm-system-editor-autosave-enabled">Enable editor autosave sitewide</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-editor-autosave-interval">Editor autosave interval (seconds)</label>
+                            <input class="form-control font-monospace" id="tm-system-editor-autosave-interval" name="editor_autosave_interval_seconds" type="number" min="30" max="180" step="1" value="{$system_settings['editor_autosave_interval_seconds']}">
+                            <div class="form-text">Default is 120 seconds. User profiles can inherit this value or override it.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-editor-classic-smileys-enabled" name="editor_classic_smileys_enabled" type="checkbox" n:attr="checked => $system_settings['editor_classic_smileys_enabled']">
+                                <label class="form-check-label" for="tm-system-editor-classic-smileys-enabled">Convert classic smileys sitewide</label>
+                            </div>
+                            <div class="form-text">Profile settings can inherit this default or turn smiley conversion on or off per author.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-content-tags-enabled" name="content_tags_enabled" type="checkbox" n:attr="checked => $system_settings['content_tags_enabled']">
+                                <label class="form-check-label" for="tm-system-content-tags-enabled">Enable tags sitewide</label>
+                            </div>
+                            <div class="form-text">When disabled, tags stay stored but disappear from the composer and the public themes.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-content-show-page-timestamps" name="content_show_page_timestamps" type="checkbox" n:attr="checked => !empty($system_settings['content_show_page_timestamps'])">
+                                <label class="form-check-label" for="tm-system-content-show-page-timestamps">Show page timestamps</label>
+                            </div>
+                            <div class="form-text">When off, pages hide published and updated metadata in public themes. Posts still show dates.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Revision and housekeeping</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-content-revision-retention-limit">Stored revisions per content item</label>
+                            <input class="form-control font-monospace" id="tm-system-content-revision-retention-limit" name="content_revision_retention_limit" type="number" min="0" max="100" step="1" value="{$system_settings['content_revision_retention_limit']}">
+                            <div class="form-text">0 disables revision snapshots. Positive values keep only the newest saved revisions per item.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-housekeeping-stale-draft-retention-days">Stale draft retention (days)</label>
+                            <input class="form-control font-monospace" id="tm-system-housekeeping-stale-draft-retention-days" name="housekeeping_stale_draft_retention_days" type="number" min="0" max="365" step="1" value="{$system_settings['housekeeping_stale_draft_retention_days'] ?? 0}">
+                            <div class="form-text">0 disables stale-draft cleanup. Positive values let housekeeping remove drafts that have not been updated within that many days.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-rendered-content-cache-enabled" name="rendered_content_cache_enabled" type="checkbox" n:attr="checked => !empty($system_settings['rendered_content_cache_enabled'])">
+                                <label class="form-check-label" for="tm-system-rendered-content-cache-enabled">Enable rendered-content cache</label>
+                            </div>
+                            <div class="form-text">Advanced setting. Caches rendered entry bodies and summaries under <span class="font-monospace">data/runtime/rendered-content</span> to avoid repeated Markdown and DOM-decoration work on public requests.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save content settings</button>
+            </div>
+        </div>
+    </form>
+</section>

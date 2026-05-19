@@ -1,0 +1,33 @@
+{
+  "group": "Profile",
+  "roles": ["author", "admin"],
+  "order": 60,
+  "title": "Profile: Publishing",
+  "summary": "Default publishing values and public author-space settings.",
+  "sections": [
+    {
+      "title": "Default content type",
+      "markdown": "Used when you open the composer for new content. Choose whether new work starts as a post or a page."
+    },
+    {
+      "title": "Default save status",
+      "markdown": "Controls whether new content starts with **Published** or **Unpublished** as its default saved status."
+    },
+    {
+      "title": "Aggregate new posts to the root stream by default",
+      "markdown": "Applies only to new posts. Pages ignore aggregation."
+    },
+    {
+      "title": "Scope of these defaults",
+      "markdown": "These settings affect new content opened from the composer. They do not retroactively change existing saved content."
+    },
+    {
+      "title": "Author space",
+      "markdown": "This section also controls author-space presentation, including the author landing page and the optional author background override."
+    },
+    {
+      "title": "Secret links",
+      "markdown": "If the site allows secret links, you can generate a private link for your author space here without making the whole site public."
+    }
+  ]
+}

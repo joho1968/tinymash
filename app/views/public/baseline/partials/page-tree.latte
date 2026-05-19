@@ -1,0 +1,24 @@
+{var $tree_style = in_array(($tree_style ?? 'flat'), ['flat', 'cards'], true) ? (string) $tree_style : 'flat'}
+{var $tree_level = max(0, (int) ($tree_level ?? 0))}
+{if ! empty( $pages )}
+    <div n:class="$tree_style === 'cards' ? 'd-grid gap-2' : 'd-grid gap-1 tm-page-tree-flat'">
+        {foreach $pages as $page}
+            <div n:class="$tree_style === 'cards' && $tree_level === 0 ? 'border rounded-3 p-3 bg-body-tertiary tm-baseline-tree-item' : 'tm-page-tree-node'">
+                <a
+                    n:class="$tree_style === 'cards'
+                        ? ($page['is_current'] ? 'd-inline-flex align-items-center fw-semibold text-decoration-none link-body-emphasis tm-page-tree-link current' : ($page['is_ancestor'] ? 'd-inline-flex align-items-center fw-semibold text-decoration-none tm-page-tree-link ancestor' : 'd-inline-flex align-items-center text-decoration-none tm-page-tree-link'))
+                        : ($page['is_current'] ? 'd-inline-flex align-items-center fw-semibold text-decoration-none link-body-emphasis tm-page-tree-link current' : ($page['is_ancestor'] ? 'd-inline-flex align-items-center fw-semibold text-decoration-none tm-page-tree-link ancestor' : 'd-inline-flex align-items-center text-decoration-none tm-page-tree-link'))"
+                    href="{$page['url']}"
+                    n:attr="aria-current => ! empty( $page['is_current'] ) ? 'page' : null"
+                >
+                    <span>{$page['title']}</span>
+                </a>
+                {if ! empty( $page['children'] )}
+                    <div n:class="$tree_style === 'cards' ? 'mt-2 ms-3 border-start ps-3 d-grid gap-1 tm-page-tree-children' : 'ms-3 ps-2 border-start d-grid gap-1 tm-page-tree-children'">
+                        {include './page-tree.latte', pages: $page['children'], tree_style: $tree_style, tree_level: $tree_level + 1}
+                    </div>
+                {/if}
+            </div>
+        {/foreach}
+    </div>
+{/if}

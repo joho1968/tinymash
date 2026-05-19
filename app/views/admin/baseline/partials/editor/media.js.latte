@@ -1,0 +1,802 @@
+            function normalizeFeaturedImageRecord(record) {
+                if (!record || typeof record !== 'object') {
+                    return null;
+                }
+
+                const mediaId = String(record.media_id || '').trim();
+                const url = String(record.url || '').trim();
+                if (!mediaId || !url) {
+                    return null;
+                }
+
+                const ownerUsername = String(record.owner_username || '').trim().toLowerCase();
+                const width = Math.max(0, Number.parseInt(record.width || '0', 10) || 0);
+                const height = Math.max(0, Number.parseInt(record.height || '0', 10) || 0);
+                return {
+                    media_id: mediaId,
+                    owner_username: ownerUsername,
+                    filename: String(record.filename || '').trim(),
+                    url: url,
+                    thumbnail_url: String(record.thumbnail_url || '').trim(),
+                    alt_text: String(record.alt_text || '').trim(),
+                    markdown: String(record.markdown || '').trim(),
+                    mime: String(record.mime || '').trim(),
+                    width: width,
+                    height: height,
+                    bytes: Math.max(0, Number.parseInt(record.bytes || '0', 10) || 0),
+                    derivative_key: String(record.derivative_key || 'stored_primary').trim() || 'stored_primary',
+                    label: String(record.label || '').trim()
+                };
+            }
+
+            function mergeUniqueImageRecords(records, additions) {
+                const merged = Array.isArray(records) ? records.slice() : [];
+                (Array.isArray(additions) ? additions : []).forEach((record) => {
+                    const normalizedRecord = normalizeFeaturedImageRecord(record);
+                    if (!normalizedRecord) {
+                        return;
+                    }
+
+                    const existingIndex = merged.findIndex((candidate) => candidate.media_id === normalizedRecord.media_id);
+                    if (existingIndex >= 0) {
+                        merged[existingIndex] = normalizedRecord;
+                    } else {
+                        merged.push(normalizedRecord);
+                    }
+                });
+
+                return merged;
+            }
+
+            function seedSelectedImageRecords(records = null) {
+                const selectedRecords = Array.isArray(records) && records.length > 0 ? records : initialSelectedImageRecords;
+                libraryImageRecords = mergeUniqueImageRecords(libraryImageRecords, selectedRecords);
+            }
+
+            function getFeaturedImageOwner() {
+                const scope = scopeField ? String(scopeField.value || 'root') : 'root';
+                if (scope === 'author') {
+                    return authorSlugField ? String(authorSlugField.value || '').trim().toLowerCase() : '';
+                }
+
+                return 'root';
+            }
+
+            function buildFeaturedImageLabel(record) {
+                if (!record) {
+                    return 'Untitled image';
+                }
+                if (record.label) {
+                    return record.label;
+                }
+
+                const labelBase = record.alt_text || record.filename || record.media_id;
+                const details = [];
+                if (record.width > 0 && record.height > 0) {
+                    details.push(record.width + 'x' + record.height);
+                }
+
+                return details.length > 0 ? (labelBase + ' (' + details.join(', ') + ')') : labelBase;
+            }
+
+            function formatMediaSize(bytes) {
+                const value = Math.max(0, Number.parseInt(bytes || '0', 10) || 0);
+                if (value <= 0) {
+                    return '';
+                }
+
+                const units = ['B', 'KB', 'MB', 'GB'];
+                let size = value;
+                let unitIndex = 0;
+                while (size >= 1024 && unitIndex < units.length - 1) {
+                    size = size / 1024;
+                    unitIndex += 1;
+                }
+
+                const maximumFractionDigits = unitIndex === 0 ? 0 : (size >= 10 ? 1 : 2);
+                return new Intl.NumberFormat(undefined, {
+                    maximumFractionDigits: maximumFractionDigits
+                }).format(size) + ' ' + units[unitIndex];
+            }
+
+            function getVisibleFeaturedImageRecords() {
+                const ownerFilter = getFeaturedImageOwner();
+                if (!ownerFilter) {
+                    return [];
+                }
+
+                return featuredImageRecords.filter((record) => String(record.owner_username || '') === ownerFilter);
+            }
+
+            function getVisibleAttachedImageRecords() {
+                const ownerFilter = getFeaturedImageOwner();
+                if (!ownerFilter) {
+                    return [];
+                }
+
+                return attachedImageRecords.filter((record) => String(record.owner_username || '') === ownerFilter);
+            }
+
+            function getVisibleLibraryImageRecords() {
+                const ownerFilter = getFeaturedImageOwner();
+                if (!ownerFilter) {
+                    return [];
+                }
+
+                return libraryImageRecords.filter((record) => String(record.owner_username || '') === ownerFilter);
+            }
+
+            function getVisibleImageSelectionRecords() {
+                return mergeUniqueImageRecords(
+                    getVisibleFeaturedImageRecords(),
+                    getVisibleAttachedImageRecords().concat(getVisibleLibraryImageRecords())
+                );
+            }
+
+            function setMediaPickerSourceRecords(source, records) {
+                const normalizedRecords = Array.isArray(records)
+                    ? records.map((record) => normalizeFeaturedImageRecord(record)).filter((record) => record)
+                    : [];
+
+                if (source === 'attached') {
+                    attachedImageRecords = normalizedRecords;
+                    return;
+                }
+                if (source === 'recent') {
+                    featuredImageRecords = mergeUniqueImageRecords([], normalizedRecords);
+                    return;
+                }
+                if (source === 'library') {
+                    libraryImageRecords = mergeUniqueImageRecords(normalizedRecords, initialSelectedImageRecords);
+                }
+            }
+
+            function getMediaPickerRequestPayload(source) {
+                const payload = new FormData();
+                payload.append('tinymash_csrf', csrfToken);
+                payload.append('source', source);
+                payload.append('media_type', 'image');
+                if (scopeField) {
+                    payload.append('scope', scopeField.value || 'root');
+                }
+                if (authorSlugField) {
+                    payload.append('author_slug', authorSlugField.value || '');
+                }
+                payload.append('loaded_entry_id', loadedEntryId || '');
+                payload.append('draft_id', loadedDraftId || '');
+                payload.append('attachment_session_id', attachmentSessionId);
+                return payload;
+            }
+
+            async function loadMediaPickerSource(source, options = {}) {
+                const normalizedSource = ['attached', 'recent', 'library'].includes(String(source || '').trim())
+                    ? String(source || '').trim()
+                    : 'attached';
+                const force = Boolean(options && options.force);
+                if (!mediaPickerUrl) {
+                    return [];
+                }
+                if (!force && mediaPickerSourceLoaded[normalizedSource]) {
+                    return normalizedSource === 'attached'
+                        ? attachedImageRecords
+                        : (normalizedSource === 'recent' ? featuredImageRecords : libraryImageRecords);
+                }
+                if (mediaPickerSourceLoading[normalizedSource]) {
+                    return normalizedSource === 'attached'
+                        ? attachedImageRecords
+                        : (normalizedSource === 'recent' ? featuredImageRecords : libraryImageRecords);
+                }
+
+                mediaPickerSourceLoading[normalizedSource] = true;
+                if (normalizedSource === featuredImageSource) {
+                    renderFeaturedImagePickerGrid();
+                }
+                if (normalizedSource === 'attached') {
+                    renderAttachedImages();
+                }
+
+                try {
+                    const response = await fetch(mediaPickerUrl, {
+                        method: 'POST',
+                        body: getMediaPickerRequestPayload(normalizedSource),
+                        credentials: 'same-origin'
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        throw new Error(payload && payload.error ? String(payload.error) : 'Media library could not be loaded.');
+                    }
+
+                    setMediaPickerSourceRecords(normalizedSource, payload.records || []);
+                    mediaPickerSourceLoaded[normalizedSource] = true;
+                    return normalizedSource === 'attached'
+                        ? attachedImageRecords
+                        : (normalizedSource === 'recent' ? featuredImageRecords : libraryImageRecords);
+                } finally {
+                    mediaPickerSourceLoading[normalizedSource] = false;
+                    if (normalizedSource === 'attached') {
+                        renderAttachedImages();
+                    }
+                    if (normalizedSource === featuredImageSource) {
+                        renderFeaturedImagePickerGrid();
+                    }
+                }
+            }
+
+            function invalidateMediaPickerCollections() {
+                const selectedRecords = [];
+                const featuredRecord = findFeaturedImageRecord(featuredImageField ? featuredImageField.value : '');
+                const socialRecord = findFeaturedImageRecord(seoSocialImageField ? seoSocialImageField.value : '');
+                if (featuredRecord) {
+                    selectedRecords.push(featuredRecord);
+                }
+                if (socialRecord && (!featuredRecord || socialRecord.media_id !== featuredRecord.media_id)) {
+                    selectedRecords.push(socialRecord);
+                }
+                attachedImageRecords = [];
+                featuredImageRecords = [];
+                libraryImageRecords = [];
+                mediaPickerSourceLoaded.attached = false;
+                mediaPickerSourceLoaded.recent = false;
+                mediaPickerSourceLoaded.library = false;
+                mediaPickerSourceLoading.attached = false;
+                mediaPickerSourceLoading.recent = false;
+                mediaPickerSourceLoading.library = false;
+                seedSelectedImageRecords(selectedRecords);
+                renderAttachedImages();
+                renderFeaturedImageSummary();
+                renderSeoSocialImageSummary();
+                renderFeaturedImagePreview();
+                renderSeoSocialImagePreview();
+                renderFeaturedImagePickerGrid();
+            }
+
+            function findFeaturedImageRecord(mediaId) {
+                const normalizedMediaId = String(mediaId || '').trim();
+                if (!normalizedMediaId) {
+                    return null;
+                }
+
+                return featuredImageRecords.find((record) => record.media_id === normalizedMediaId)
+                    || attachedImageRecords.find((record) => record.media_id === normalizedMediaId)
+                    || libraryImageRecords.find((record) => record.media_id === normalizedMediaId)
+                    || null;
+            }
+
+            function getImagePickerConfig(target) {
+                if (target === 'inline') {
+                    return {
+                        field: null,
+                        disabledValueField: null,
+                        summary: null,
+                        preview: null,
+                        emptyText: '',
+                        modalTitle: 'Insert image',
+                        removeLabel: '',
+                        activeLabel: 'Selected image',
+                        actionLabel: 'Insert image'
+                    };
+                }
+                if (target === 'gallery') {
+                    return {
+                        field: null,
+                        disabledValueField: null,
+                        summary: null,
+                        preview: null,
+                        emptyText: '',
+                        modalTitle: 'Choose existing images',
+                        removeLabel: '',
+                        activeLabel: 'Selected image',
+                        actionLabel: 'Add to gallery'
+                    };
+                }
+
+                return target === 'social'
+                    ? {
+                        field: seoSocialImageField,
+                        disabledValueField: seoSocialImageDisabledValueField,
+                        summary: seoSocialImageSummary,
+                        preview: seoSocialImagePreview,
+                        emptyText: 'No social image selected.',
+                        modalTitle: 'Choose social image',
+                        removeLabel: 'Remove social image',
+                        activeLabel: 'Social image',
+                        actionLabel: 'Use as social image'
+                    }
+                    : {
+                        field: featuredImageField,
+                        disabledValueField: featuredImageDisabledValueField,
+                        summary: featuredImageSummary,
+                        preview: featuredImagePreview,
+                        emptyText: 'No featured image selected.',
+                        modalTitle: 'Choose featured image',
+                        removeLabel: 'Remove featured image',
+                        activeLabel: 'Featured image',
+                        actionLabel: 'Use as featured image'
+                    };
+            }
+
+            function getSelectedImageMediaId(target) {
+                const config = getImagePickerConfig(target);
+                if (!config.field) {
+                    return config.disabledValueField ? String(config.disabledValueField.value || '').trim() : '';
+                }
+
+                return String(config.field.value || '').trim();
+            }
+
+            function updateImagePickerModalUi() {
+                const config = getImagePickerConfig(imagePickerTarget);
+                if (featuredImageModalLabel) {
+                    featuredImageModalLabel.textContent = config.modalTitle;
+                }
+                if (featuredImageRemoveButton) {
+                    featuredImageRemoveButton.textContent = config.removeLabel;
+                    featuredImageRemoveButton.classList.toggle('d-none', [ 'inline', 'gallery' ].includes(imagePickerTarget));
+                }
+                if (imagePickerUploadButton) {
+                    imagePickerUploadButton.classList.toggle('d-none', !imagesEnabled);
+                }
+                if (imagePickerInsertSelectedButton) {
+                    imagePickerInsertSelectedButton.classList.toggle('d-none', ![ 'inline', 'gallery' ].includes(imagePickerTarget));
+                    imagePickerInsertSelectedButton.disabled = true;
+                    imagePickerInsertSelectedButton.textContent = imagePickerTarget === 'gallery' ? 'Add selected' : 'Insert selected';
+                }
+            }
+
+            async function openImagePickerModal(target) {
+                try {
+                    imagePickerTarget = target;
+                    featuredImageSource = 'attached';
+                    const featuredImageModal = getBootstrapModal(featuredImageModalElement);
+                    updateImagePickerModalUi();
+                    renderFeaturedImagePickerGrid();
+                    if (featuredImageModal) {
+                        featuredImageModal.show();
+                    }
+
+                    const attachedPromise = loadMediaPickerSource('attached', { force: true });
+                    renderFeaturedImagePickerGrid();
+                    await attachedPromise;
+
+                    if (getVisibleAttachedImageRecords().length === 0) {
+                        featuredImageSource = 'recent';
+                        const recentPromise = loadMediaPickerSource('recent', { force: true });
+                        renderFeaturedImagePickerGrid();
+                        await recentPromise;
+                    }
+
+                    featuredImageSource = getDefaultImagePickerSource();
+                    if (featuredImageSource === 'library' && !mediaPickerSourceLoaded.library) {
+                        const libraryPromise = loadMediaPickerSource('library', { force: true });
+                        renderFeaturedImagePickerGrid();
+                        await libraryPromise;
+                    } else if (featuredImageSource === 'recent' && !mediaPickerSourceLoaded.recent) {
+                        const recentPromise = loadMediaPickerSource('recent', { force: true });
+                        renderFeaturedImagePickerGrid();
+                        await recentPromise;
+                    }
+
+                    renderFeaturedImagePickerGrid();
+                } catch (error) {
+                    setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
+                }
+            }
+
+            function renderImageSelectionSummary(target) {
+                const config = getImagePickerConfig(target);
+                if (!config.field || !config.summary) {
+                    return;
+                }
+
+                const selectedRecord = findFeaturedImageRecord(config.field.value);
+                if (!selectedRecord) {
+                    config.summary.textContent = config.emptyText;
+                    return;
+                }
+
+                config.summary.textContent = buildFeaturedImageLabel(selectedRecord);
+            }
+
+            function renderFeaturedImageSummary() {
+                renderImageSelectionSummary('featured');
+            }
+
+            function renderSeoSocialImageSummary() {
+                renderImageSelectionSummary('social');
+            }
+
+            function renderImageSelectionPreview(target) {
+                const config = getImagePickerConfig(target);
+                if (!config.field || !config.preview) {
+                    return;
+                }
+
+                const selectedRecord = findFeaturedImageRecord(config.field.value);
+                if (!selectedRecord) {
+                    config.preview.classList.add('d-none');
+                    config.preview.innerHTML = '';
+                    return;
+                }
+
+                const metaParts = [];
+                if (selectedRecord.width > 0 && selectedRecord.height > 0) {
+                    metaParts.push(selectedRecord.width + 'x' + selectedRecord.height);
+                }
+                const mediaSize = formatMediaSize(selectedRecord.bytes);
+                if (mediaSize !== '') {
+                    metaParts.push(mediaSize);
+                }
+                if (selectedRecord.mime) {
+                    metaParts.push(selectedRecord.mime);
+                }
+
+                config.preview.innerHTML = ''
+                    + '<div class="row g-3 align-items-start">'
+                    + '<div class="col-12 col-md-4">'
+                    + '<img class="img-fluid rounded border" src="' + escapeHtml(selectedRecord.url) + '" alt="' + escapeHtml(selectedRecord.alt_text || '') + '">'
+                    + '</div>'
+                    + '<div class="col-12 col-md-8">'
+                    + '<div class="fw-semibold">' + escapeHtml(selectedRecord.alt_text || selectedRecord.filename || selectedRecord.media_id) + '</div>'
+                    + (metaParts.length > 0
+                        ? '<div class="small text-body-secondary mt-1">' + escapeHtml(metaParts.join(' | ')) + '</div>'
+                        : '')
+                    + '</div>'
+                    + '</div>';
+                config.preview.classList.remove('d-none');
+            }
+
+            function renderFeaturedImagePreview() {
+                renderImageSelectionPreview('featured');
+            }
+
+            function renderSeoSocialImagePreview() {
+                renderImageSelectionPreview('social');
+            }
+
+            function rebuildFeaturedImageOptions() {
+                if (!featuredImageField) {
+                    return;
+                }
+
+                const previousValue = String(featuredImageField.value || featuredImageField.dataset.currentMediaId || '').trim();
+                const visibleRecords = getVisibleImageSelectionRecords();
+                if (previousValue !== '' && !visibleRecords.some((record) => record.media_id === previousValue)) {
+                    featuredImageField.value = '';
+                } else {
+                    featuredImageField.value = previousValue;
+                }
+                featuredImageField.dataset.currentMediaId = featuredImageField.value;
+                renderFeaturedImageSummary();
+                renderFeaturedImagePreview();
+                if (seoSocialImageField) {
+                    const socialValue = String(seoSocialImageField.value || seoSocialImageField.dataset.currentMediaId || '').trim();
+                    if (socialValue !== '' && !visibleRecords.some((record) => record.media_id === socialValue)) {
+                        seoSocialImageField.value = '';
+                    } else {
+                        seoSocialImageField.value = socialValue;
+                    }
+                    seoSocialImageField.dataset.currentMediaId = seoSocialImageField.value;
+                    renderSeoSocialImageSummary();
+                    renderSeoSocialImagePreview();
+                }
+                renderAttachedImages();
+                renderFeaturedImagePickerGrid();
+            }
+
+            function upsertFeaturedImageRecord(record) {
+                const normalizedRecord = normalizeFeaturedImageRecord(record);
+                if (!normalizedRecord) {
+                    return null;
+                }
+
+                const existingIndex = featuredImageRecords.findIndex((candidate) => candidate.media_id === normalizedRecord.media_id);
+                if (existingIndex >= 0) {
+                    featuredImageRecords[existingIndex] = normalizedRecord;
+                } else {
+                    featuredImageRecords.unshift(normalizedRecord);
+                }
+                mediaPickerSourceLoaded.recent = false;
+
+                return normalizedRecord;
+            }
+
+            function upsertAttachedImageRecord(record) {
+                const normalizedRecord = normalizeFeaturedImageRecord(record);
+                if (!normalizedRecord) {
+                    return null;
+                }
+
+                const existingIndex = attachedImageRecords.findIndex((candidate) => candidate.media_id === normalizedRecord.media_id);
+                if (existingIndex >= 0) {
+                    attachedImageRecords[existingIndex] = normalizedRecord;
+                } else {
+                    attachedImageRecords.unshift(normalizedRecord);
+                }
+                mediaPickerSourceLoaded.attached = false;
+
+                return normalizedRecord;
+            }
+
+            function upsertLibraryImageRecord(record) {
+                const normalizedRecord = normalizeFeaturedImageRecord(record);
+                if (!normalizedRecord) {
+                    return null;
+                }
+
+                const existingIndex = libraryImageRecords.findIndex((candidate) => candidate.media_id === normalizedRecord.media_id);
+                if (existingIndex >= 0) {
+                    libraryImageRecords[existingIndex] = normalizedRecord;
+                } else {
+                    libraryImageRecords.unshift(normalizedRecord);
+                }
+                mediaPickerSourceLoaded.library = false;
+
+                return normalizedRecord;
+            }
+
+            function setImageSelection(target, mediaId) {
+                const config = getImagePickerConfig(target);
+                if (!config.field) {
+                    return;
+                }
+
+                const normalizedMediaId = String(mediaId || '').trim();
+                config.field.value = normalizedMediaId;
+                config.field.dataset.currentMediaId = normalizedMediaId;
+                renderImageSelectionSummary(target);
+                renderImageSelectionPreview(target);
+                renderAttachedImages();
+                renderFeaturedImagePickerGrid();
+                markDirty();
+            }
+
+            function setFeaturedImage(mediaId) {
+                setImageSelection('featured', mediaId);
+            }
+
+            function setSeoSocialImage(mediaId) {
+                setImageSelection('social', mediaId);
+            }
+
+            function buildInlineImageMarkdown(record) {
+                if (!record) {
+                    return '';
+                }
+
+                const markdown = String(record.markdown || '').trim();
+                if (markdown !== '') {
+                    return markdown;
+                }
+
+                const altText = String(record.alt_text || '').trim();
+                const url = String(record.url || '').trim();
+                if (url === '') {
+                    return '';
+                }
+
+                return '![' + altText + '](' + url + ')';
+            }
+
+            function insertInlineImage(mediaId) {
+                const normalizedMediaId = String(mediaId || '').trim();
+                if (normalizedMediaId === '') {
+                    return;
+                }
+
+                const record =
+                    findFeaturedImageRecord(normalizedMediaId)
+                    || libraryImageRecords.find((candidate) => candidate.media_id === normalizedMediaId)
+                    || attachedImageRecords.find((candidate) => candidate.media_id === normalizedMediaId);
+                if (!record) {
+                    return;
+                }
+
+                const markdown = buildInlineImageMarkdown(record);
+                if (markdown === '') {
+                    return;
+                }
+
+                insertText('\n\n' + markdown + '\n\n');
+            }
+
+            function getImagePickerSelectedIds() {
+                if (!featuredImagePickerGrid) {
+                    return [];
+                }
+
+                return Array.from(featuredImagePickerGrid.querySelectorAll('.tm-editor-image-picker-check:checked'))
+                    .map((field) => String(field.value || '').trim())
+                    .filter((mediaId, index, values) => mediaId !== '' && values.indexOf(mediaId) === index);
+            }
+
+            function getImagePickerSelectedRecords() {
+                return getImagePickerSelectedIds()
+                    .map((mediaId) => findFeaturedImageRecord(mediaId))
+                    .filter((record) => record);
+            }
+
+            function updateInlinePickerInsertState() {
+                if (!imagePickerInsertSelectedButton || ![ 'inline', 'gallery' ].includes(imagePickerTarget)) {
+                    return;
+                }
+
+                const count = getImagePickerSelectedIds().length;
+                imagePickerInsertSelectedButton.disabled = count === 0;
+                const label = imagePickerTarget === 'gallery' ? 'Add selected' : 'Insert selected';
+                imagePickerInsertSelectedButton.textContent = count > 0 ? (label + ' (' + count + ')') : label;
+            }
+
+            function applyImagePickerSelection() {
+                const selectedIds = getImagePickerSelectedIds();
+                if (selectedIds.length === 0) {
+                    return;
+                }
+
+                if (imagePickerTarget === 'gallery') {
+                    document.dispatchEvent(new CustomEvent('tinymash:editor-gallery-images-selected', {
+                        detail: {
+                            target: 'gallery',
+                            records: getImagePickerSelectedRecords()
+                        }
+                    }));
+                } else {
+                    selectedIds.forEach((mediaId) => {
+                        insertInlineImage(mediaId);
+                    });
+                }
+
+                const featuredImageModal = getBootstrapModal(featuredImageModalElement);
+                if (featuredImageModal) {
+                    featuredImageModal.hide();
+                }
+            }
+
+            function syncImageSelectionStateFromPayload(state, target, mediaIdKey, imageKey) {
+                const config = getImagePickerConfig(target);
+                if (!config.field || !state || typeof state !== 'object') {
+                    return;
+                }
+
+                if (state[imageKey] && typeof state[imageKey] === 'object') {
+                    upsertFeaturedImageRecord(state[imageKey]);
+                }
+
+                config.field.dataset.currentMediaId = String(state[mediaIdKey] || '').trim();
+                rebuildFeaturedImageOptions();
+            }
+
+            function syncFeaturedImageStateFromPayload(state) {
+                syncImageSelectionStateFromPayload(state, 'featured', 'featured_image_media_id', 'featured_image');
+            }
+
+            function syncSeoSocialImageStateFromPayload(state) {
+                syncImageSelectionStateFromPayload(state, 'social', 'seo_social_image_media_id', 'seo_social_image');
+            }
+
+            function renderAttachedImages() {
+                if (!attachedImagesContainer) {
+                    return;
+                }
+
+                if (mediaPickerSourceLoading.attached && !mediaPickerSourceLoaded.attached) {
+                    attachedImagesContainer.innerHTML = '<div class="col-12"><div class="small text-body-secondary">Loading attached images...</div></div>';
+                    return;
+                }
+
+                const attachedRecords = getVisibleAttachedImageRecords();
+                if (attachedRecords.length === 0) {
+                    attachedImagesContainer.innerHTML = '<div class="col-12"><div class="small text-body-secondary">No images are attached to this content yet.</div></div>';
+                    return;
+                }
+
+                const selectedMediaId = String(featuredImageField ? featuredImageField.value : '').trim();
+                attachedImagesContainer.innerHTML = attachedRecords.map((record) => {
+                    const active = selectedMediaId !== '' && selectedMediaId === record.media_id;
+                    const thumbnailUrl = record.thumbnail_url || record.url;
+                    return ''
+                        + '<div class="col-12 col-sm-6 col-lg-4 col-xl-3">'
+                        + '<div class="border rounded-3 bg-body-tertiary h-100 p-2">'
+                        + '<img class="img-fluid rounded border mb-2" src="' + escapeHtml(thumbnailUrl) + '" alt="' + escapeHtml(record.alt_text || '') + '" loading="lazy" decoding="async">'
+                        + '<div class="fw-semibold small text-break">' + escapeHtml(record.alt_text || record.filename || record.media_id) + '</div>'
+                        + '<div class="small text-body-secondary mb-2" title="' + escapeHtml(record.filename || record.media_id) + '">' + escapeHtml(buildFeaturedImageLabel(record)) + '</div>'
+                        + '<button class="btn btn-sm ' + (active ? 'btn-primary' : 'btn-outline-secondary') + ' w-100 tm-editor-use-attached-image" type="button" data-media-id="' + escapeHtml(record.media_id) + '">'
+                        + (active ? 'Featured image' : 'Use as featured image')
+                        + '</button>'
+                        + '</div>'
+                        + '</div>';
+                }).join('');
+            }
+
+            function getFeaturedImagePickerSourceRecords() {
+                if (featuredImageSource === 'recent') {
+                    return getVisibleFeaturedImageRecords();
+                }
+                if (featuredImageSource === 'library') {
+                    return getVisibleLibraryImageRecords();
+                }
+
+                return getVisibleAttachedImageRecords();
+            }
+
+            function getDefaultImagePickerSource() {
+                if (getVisibleAttachedImageRecords().length > 0) {
+                    return 'attached';
+                }
+                if (getVisibleFeaturedImageRecords().length > 0) {
+                    return 'recent';
+                }
+
+                return 'library';
+            }
+
+            function renderFeaturedImagePickerGrid() {
+                if (!featuredImagePickerGrid) {
+                    return;
+                }
+
+                if (mediaPickerSourceLoading[featuredImageSource] && !mediaPickerSourceLoaded[featuredImageSource]) {
+                    featuredImagePickerGrid.innerHTML = '<div class="col-12"><div class="small text-body-secondary">Loading images...</div></div>';
+                    return;
+                }
+
+                const needle = featuredImageFilterField ? String(featuredImageFilterField.value || '').trim().toLowerCase() : '';
+                const selectedMediaId = getSelectedImageMediaId(imagePickerTarget);
+                const pickerConfig = getImagePickerConfig(imagePickerTarget);
+                const records = getFeaturedImagePickerSourceRecords().filter((record) => {
+                    if (needle === '') {
+                        return true;
+                    }
+                    const haystack = [ record.alt_text, record.filename, buildFeaturedImageLabel(record) ]
+                        .filter(Boolean)
+                        .join(' ')
+                        .toLowerCase();
+                    return haystack.includes(needle);
+                });
+
+                featuredImageSourceButtons.forEach((button) => {
+                    const active = button.dataset.source === featuredImageSource;
+                    button.classList.toggle('active', active);
+                });
+
+                if (records.length === 0) {
+                    featuredImagePickerGrid.innerHTML = '<div class="col-12"><div class="small text-body-secondary">No matching images are available in this view.</div></div>';
+                    updateInlinePickerInsertState();
+                    return;
+                }
+
+                featuredImagePickerGrid.innerHTML = records.map((record) => {
+                    const active = selectedMediaId !== '' && selectedMediaId === record.media_id;
+                    const thumbnailUrl = record.thumbnail_url || record.url;
+                    const displayTitle = record.alt_text || record.filename || record.media_id;
+                    const dimensions = record.width > 0 && record.height > 0 ? (record.width + 'x' + record.height) : '';
+                    const mediaSize = formatMediaSize(record.bytes);
+                    const details = [dimensions, mediaSize].filter((value) => value !== '').join(' | ');
+                    if ([ 'inline', 'gallery' ].includes(imagePickerTarget)) {
+                        return ''
+                            + '<div class="col-12 col-md-6 col-xl-4">'
+                            + '<label class="border rounded-3 p-2 bg-body h-100 d-flex gap-2 w-100 overflow-hidden" style="min-width: 0;">'
+                            + '<input class="form-check-input mt-1 tm-editor-image-picker-check" type="checkbox" value="' + escapeHtml(record.media_id) + '">'
+                            + '<img class="rounded-2 object-fit-cover flex-shrink-0" src="' + escapeHtml(thumbnailUrl) + '" alt="' + escapeHtml(record.alt_text || '') + '" loading="lazy" decoding="async" style="width: 4.5rem; height: 4.5rem; min-width: 4.5rem;">'
+                            + '<span class="d-flex flex-column gap-1 flex-grow-1 overflow-hidden" style="min-width: 0;">'
+                            + '<span class="fw-semibold text-truncate" title="' + escapeHtml(displayTitle) + '">' + escapeHtml(displayTitle) + '</span>'
+                            + '<span class="small text-body-secondary text-truncate" title="' + escapeHtml(record.filename || record.media_id) + '">' + escapeHtml(record.filename || record.media_id) + '</span>'
+                            + (details !== '' ? '<span class="small text-body-secondary">' + escapeHtml(details) + '</span>' : '')
+                            + '</span>'
+                            + '</label>'
+                            + '</div>';
+                    }
+                    return ''
+                        + '<div class="col-12 col-md-6 col-xl-4">'
+                        + '<button class="btn text-start border rounded-3 bg-body h-100 w-100 p-2 d-flex gap-2 overflow-hidden tm-editor-featured-image-choice' + (active ? ' border-primary' : '') + '" type="button" data-media-id="' + escapeHtml(record.media_id) + '" style="min-width: 0;">'
+                        + '<img class="rounded-2 object-fit-cover flex-shrink-0" src="' + escapeHtml(thumbnailUrl) + '" alt="' + escapeHtml(record.alt_text || '') + '" loading="lazy" decoding="async" style="width: 4.5rem; height: 4.5rem; min-width: 4.5rem;">'
+                        + '<span class="d-flex flex-column gap-1 flex-grow-1 overflow-hidden" style="min-width: 0;">'
+                        + '<span class="fw-semibold text-truncate" title="' + escapeHtml(displayTitle) + '">' + escapeHtml(displayTitle) + '</span>'
+                        + '<span class="small text-body-secondary text-truncate" title="' + escapeHtml(record.filename || record.media_id) + '">' + escapeHtml(record.filename || record.media_id) + '</span>'
+                        + (details !== '' ? '<span class="small text-body-secondary">' + escapeHtml(details) + '</span>' : '')
+                        + '<div class="small text-body-secondary mt-1">' + escapeHtml(active ? pickerConfig.activeLabel : pickerConfig.actionLabel) + '</div>'
+                        + '</span>'
+                        + '</button>'
+                        + '</div>';
+                }).join('');
+                updateInlinePickerInsertState();
+            }

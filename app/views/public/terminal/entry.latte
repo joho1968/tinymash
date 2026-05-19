@@ -1,0 +1,94 @@
+{extends './layout.latte'}
+
+{block content}
+    <article class="tm-terminal-panel tm-terminal-entry-view{if ! empty( $entry['is_photo_post'] )} tm-entry-photo-post tm-terminal-photo-post{/if}{if ! empty( $entry['has_photo_gallery'] )} tm-entry-has-photo-gallery tm-terminal-has-photo-gallery{/if}">
+        {if ! empty( $entry_breadcrumbs ) && ! empty( $theme_breadcrumbs_enabled ) }
+            <nav aria-label="Breadcrumb" class="tm-terminal-breadcrumbs">
+                <ol>
+                    <li><a href="{$home_url}">home</a></li>
+                    {foreach $entry_breadcrumbs as $breadcrumb}
+                        <li>
+                            {if $iterator->last}
+                                <span aria-current="page">{$breadcrumb['title']}</span>
+                            {else}
+                                <a href="{$breadcrumb['url']}">{$breadcrumb['title']}</a>
+                            {/if}
+                        </li>
+                    {/foreach}
+                </ol>
+            </nav>
+        {/if}
+
+        {if ! empty( $entry_navigation ) || ! empty( $entry_can_edit ) }
+            <section class="tm-terminal-entry-navigation">
+                <div class="tm-terminal-entry-navigation-row">
+                    <div class="tm-terminal-entry-navigation-group">
+                        {if ! empty( $entry_navigation['back_url'] )}
+                            <a href="{$entry_navigation['back_url']}">[Back]</a>
+                        {/if}
+                        {if ! empty( $entry_can_edit ) && ! empty( $entry_edit_url ) }
+                            <a href="{$entry_edit_url}">[Edit]</a>
+                        {/if}
+                    </div>
+                    <div class="tm-terminal-entry-navigation-group tm-terminal-entry-navigation-group-end">
+                        {if ! empty( $entry_navigation['previous'] )}
+                            <a href="{$entry_navigation['previous']['url']}">[&lt; Previous]</a>
+                        {/if}
+                        {if ! empty( $entry_navigation['next'] )}
+                            <a href="{$entry_navigation['next']['url']}">[Next &gt;]</a>
+                        {/if}
+                    </div>
+                </div>
+            </section>
+        {/if}
+
+        {if ! empty( $entry['content_heading_html'] )}
+            <header class="tm-terminal-entry-header">
+                {$entry['content_heading_html']|noescape}
+            </header>
+        {else}
+            <header class="tm-terminal-entry-header">
+                <h1>{$entry['title_html']|noescape}</h1>
+            </header>
+        {/if}
+
+        <div class="tm-terminal-panel-title tm-terminal-entry-path">{$entry['path'] !== '' ? '/' . $entry['path'] : '/entry'}</div>
+
+        <p class="tm-terminal-meta">
+            {if $entry['scope'] === 'author'}
+                by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
+            {/if}
+            {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['published_at_display'] )}
+                {if $entry['scope'] === 'author'}<span class="tm-terminal-meta-divider">|</span>{/if}{$entry['published_at_display']}
+            {/if}
+            {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['updated_at_display'] ) && $entry['updated_at_display'] !== $entry['published_at_display']}
+                <span class="tm-terminal-meta-divider">|</span>updated {$entry['updated_at_display_without_timezone'] ?? $entry['updated_at_display']}
+            {/if}
+            {if ! empty( $entry['sticky'] )}
+                <span class="tm-terminal-meta-divider">|</span>sticky
+            {/if}
+        </p>
+        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+            <p class="tm-terminal-meta">
+                {foreach $entry['tag_links'] as $tag_link}
+                    <a class="tm-terminal-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                {/foreach}
+            </p>
+        {/if}
+
+        <div class="tm-terminal-rendered tm-terminal-entry-body" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+            {$entry['content_body_html']|noescape}
+        </div>
+
+        {if ! empty( $entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+            <section class="tm-terminal-child-pages">
+                <div class="tm-terminal-panel-title">{$theme_child_pages_heading}</div>
+                <ul class="tm-terminal-simple-list">
+                    {foreach $entry_child_pages as $child_page}
+                        <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                    {/foreach}
+                </ul>
+            </section>
+        {/if}
+    </article>
+{/block}

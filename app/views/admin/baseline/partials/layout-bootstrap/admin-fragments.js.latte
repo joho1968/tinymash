@@ -1,0 +1,138 @@
+                const adminFragmentControllers = new WeakMap();
+                function getAdminFragmentCsrfToken() {
+                    const tokenMeta = document.querySelector('meta[name="tinymash-csrf-token"]');
+                    return tokenMeta instanceof HTMLMetaElement ? String(tokenMeta.content || '') : '';
+                }
+                function resolveAdminFragmentRoot(element) {
+                    if (!(element instanceof HTMLElement)) {
+                        return null;
+                    }
+                    const root = element.closest('[data-tm-admin-fragment]');
+                    return root instanceof HTMLElement ? root : null;
+                }
+                function buildAdminFragmentUrl(root, sourceUrl) {
+                    const fragmentUrl = String(root.getAttribute('data-tm-admin-fragment-url') || '');
+                    if (fragmentUrl === '') {
+                        return null;
+                    }
+                    const source = new URL(sourceUrl, window.location.href);
+                    const target = new URL(fragmentUrl, window.location.href);
+                    if (source.origin !== window.location.origin || target.origin !== window.location.origin) {
+                        return null;
+                    }
+                    target.search = source.search;
+                    return target;
+                }
+                function parseAdminFragmentHtml(html, expectedFragment) {
+                    const template = document.createElement('template');
+                    template.innerHTML = String(html || '').trim();
+                    const replacement = template.content.firstElementChild;
+                    if (!(replacement instanceof HTMLElement)) {
+                        return null;
+                    }
+                    if (String(replacement.getAttribute('data-tm-admin-fragment') || '') !== expectedFragment) {
+                        return null;
+                    }
+                    replacement.querySelectorAll('script').forEach((script) => script.remove());
+                    return replacement;
+                }
+                async function loadAdminFragment(root, requestUrl, fallbackUrl) {
+                    const csrfToken = getAdminFragmentCsrfToken();
+                    const fragmentKey = String(root.getAttribute('data-tm-admin-fragment') || '');
+                    if (csrfToken === '' || fragmentKey === '') {
+                        return false;
+                    }
+                    const previousController = adminFragmentControllers.get(root);
+                    if (previousController) {
+                        previousController.abort();
+                    }
+                    const controller = new AbortController();
+                    adminFragmentControllers.set(root, controller);
+                    root.setAttribute('aria-busy', 'true');
+                    root.classList.add('tm-admin-fragment-loading');
+                    try {
+                        const response = await fetch(requestUrl.toString(), {
+                            method: 'GET',
+                            credentials: 'same-origin',
+                            cache: 'no-store',
+                            signal: controller.signal,
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-TinyMash-CSRF': csrfToken
+                            }
+                        });
+                        const payload = await response.json().catch(() => ({}));
+                        if (!response.ok || !payload || payload.fragment !== fragmentKey || typeof payload.html !== 'string') {
+                            throw new Error('Fragment request failed.');
+                        }
+                        const replacement = parseAdminFragmentHtml(payload.html, fragmentKey);
+                        if (!replacement) {
+                            throw new Error('Fragment response was not valid.');
+                        }
+                        root.replaceWith(replacement);
+                        if (fallbackUrl && window.history && typeof window.history.pushState === 'function') {
+                            window.history.pushState({ tmAdminFragment: fragmentKey }, '', fallbackUrl.toString());
+                        }
+                        document.dispatchEvent(new CustomEvent('tm:admin-fragment-loaded', { detail: { fragment: fragmentKey, root: replacement } }));
+                        return true;
+                    } catch (error) {
+                        if (error && error.name === 'AbortError') {
+                            return true;
+                        }
+                        root.removeAttribute('aria-busy');
+                        root.classList.remove('tm-admin-fragment-loading');
+                        return false;
+                    }
+                }
+                document.addEventListener('click', (event) => {
+                    const link = event.target instanceof Element ? event.target.closest('a[data-tm-admin-fragment-link]') : null;
+                    if (!(link instanceof HTMLAnchorElement)) {
+                        return;
+                    }
+                    const root = resolveAdminFragmentRoot(link);
+                    if (!root || link.getAttribute('aria-disabled') === 'true' || link.closest('.disabled')) {
+                        return;
+                    }
+                    const fallbackUrl = new URL(link.href, window.location.href);
+                    const requestUrl = buildAdminFragmentUrl(root, fallbackUrl.toString());
+                    if (!requestUrl) {
+                        return;
+                    }
+                    event.preventDefault();
+                    loadAdminFragment(root, requestUrl, fallbackUrl).then((loaded) => {
+                        if (!loaded) {
+                            window.location.assign(fallbackUrl.toString());
+                        }
+                    });
+                });
+                document.addEventListener('submit', (event) => {
+                    const form = event.target;
+                    if (!(form instanceof HTMLFormElement) || !form.matches('form[data-tm-admin-fragment-form]')) {
+                        return;
+                    }
+                    if (String(form.method || 'get').toLowerCase() !== 'get') {
+                        return;
+                    }
+                    const root = resolveAdminFragmentRoot(form);
+                    if (!root) {
+                        return;
+                    }
+                    const fallbackUrl = new URL(form.action || window.location.href, window.location.href);
+                    fallbackUrl.search = new URLSearchParams(new FormData(form)).toString();
+                    const requestUrl = buildAdminFragmentUrl(root, fallbackUrl.toString());
+                    if (!requestUrl) {
+                        return;
+                    }
+                    event.preventDefault();
+                    loadAdminFragment(root, requestUrl, fallbackUrl).then((loaded) => {
+                        if (!loaded) {
+                            window.location.assign(fallbackUrl.toString());
+                        }
+                    });
+                });
+                window.addEventListener('popstate', () => {
+                    if (document.querySelector('[data-tm-admin-fragment]')) {
+                        window.location.reload();
+                    }
+                });

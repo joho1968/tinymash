@@ -1,0 +1,16 @@
+{
+    "key": "photos",
+    "name": "Photos",
+    "version": "0.90.0",
+    "description": "Adds photo-post settings and explicit per-post gallery planning.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "content.workflow"
+    ],
+    "default_active": true,
+    "stage": "early"
+}

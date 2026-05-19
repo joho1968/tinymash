@@ -1,0 +1,12 @@
+{extends 'layout.latte'}
+
+{block content}
+    <div class="p-3 bg-body border rounded-3 shadow-sm">
+        <h1 class="h3 mb-2">Access denied</h1>
+        <p class="mb-0 text-body-secondary">This section is reserved for higher-privilege site administration. Your current account can continue working in the author-facing area.</p>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <a class="btn btn-primary btn-sm" href="{$admin_author_url}">Go to content</a>
+            <a class="btn btn-outline-secondary btn-sm" href="{$admin_url}">Back to dashboard</a>
+        </div>
+    </div>
+{/block}

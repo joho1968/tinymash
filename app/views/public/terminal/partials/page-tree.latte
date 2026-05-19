@@ -1,0 +1,10 @@
+{foreach $pages as $page}
+    <li n:class="'tm-terminal-tree-item', ! empty( $page['is_current'] ) ? 'is-current', ! empty( $page['is_ancestor'] ) ? 'is-ancestor'">
+        <a href="{$page['url']}" n:attr="aria-current => ! empty($page['is_current']) ? 'page' : null">{$page['title']}</a>
+        {if ! empty( $page['children'] )}
+            <ul class="tm-terminal-tree">
+                {include './page-tree.latte', pages: $page['children']}
+            </ul>
+        {/if}
+    </li>
+{/foreach}

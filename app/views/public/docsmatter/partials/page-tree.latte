@@ -1,0 +1,12 @@
+{if ! empty( $pages )}
+    <div n:class="($level ?? 1) > 1 ? 'd-grid gap-1 mt-1 ps-3 ms-2 border-start tm-docsmatter-page-tree-nested' : 'd-grid gap-1 tm-docsmatter-page-tree-root'">
+        {foreach $pages as $page}
+            <div class="tm-docsmatter-page-node">
+                <a n:class="$page['is_current'] ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item current active-nav' : ($page['is_ancestor'] ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item ancestor active-nav' : 'tm-docsmatter-page-link nav-link bs5docs-menu-item')" href="{$page['url']}">{$page['title']}</a>
+                {if ! empty( $page['children'] )}
+                    {include './page-tree.latte', pages: $page['children'], level: (($level ?? 1) + 1)}
+                {/if}
+            </div>
+        {/foreach}
+    </div>
+{/if}

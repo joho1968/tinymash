@@ -1,0 +1,109 @@
+{var $layout_hide_admin_menu = true}
+{extends 'layout.latte'}
+
+{block content}
+    <div class="container mt-3">
+        <div class="row">
+            <div class="col-11 mx-auto">
+                <form method="post" action="{$login_url}" id="tinymash-admin-loginform">
+                    <input type="hidden" name="email" value="" />
+                    <input type="hidden" name="tinymash_csrf" value="{$csrf_token}" />
+                    <input type="hidden" name="return_url" value="{$return_url ?? ''}" />
+                    <div class="row">
+                        <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5 col-xxl-5 mx-auto p-3">
+                            <div class="row">
+                                <div class="col mb-3">
+                                    <h1 class="h2 mb-1 ms-0 px-0">Login</h1>
+                                    <div class="small">Login with your username or e-mail address and password.</div>
+                                </div>
+                            </div>
+                            {if ! empty( $login_error )}
+                                <div class="row">
+                                    <div class="col mb-3">
+                                        <div class="alert alert-danger mb-0" role="alert">
+                                            {$login_error}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                            {if ! empty( $maintenance_notice ) && empty( $login_error )}
+                                <div class="row">
+                                    <div class="col mb-3">
+                                        <div class="alert alert-warning mb-0" role="alert">
+                                            {$maintenance_notice}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                            {if ! empty( $login_screen_message ) }
+                                <div class="row">
+                                    <div class="col mb-3">
+                                        <div class="alert alert-secondary mb-0" role="status">
+                                            <div style="white-space: pre-wrap;">{$login_screen_message}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                            <div class="row">
+                                <div class="col mb-3">
+                                    <label class="form-label small mb-0" for="tinymash-admin-username">
+                                        Username or e-mail
+                                    </label>
+                                    <input class="form-control font-monospace" type="text"
+                                           name="tinymash-admin_username" id="tinymash-admin-username" minlength="1"
+                                           maxlength="200" value="{$admin_username}"
+                                           tabindex="1" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col mb-3">
+                                    <label class="form-label small mb-0" for="tinymash-admin-password">
+                                        Password
+                                    </label>
+                                    <div class="input-group">
+                                        <input class="form-control font-monospace" type="password"
+                                               name="tinymash-admin_password" id="tinymash-admin-password"
+                                               minlength="1" maxlength="1024"
+                                               value="" tabindex="2" />
+                                        <span class="bi bi-eye-slash-fill input-group-text tm-password-toggle text-body-secondary" title="Toggle visibility" data-target="tinymash-admin-password"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               id="tinymash-admin-remember" name="tinymash-admin_remember"
+                                               tabindex="3" />
+                                        <label class="form-check-label small" for="tinymash-admin-remember">
+                                            Remember me
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col my-3">
+                                    <button tabindex="4" class="form-control btn btn-success" role="button" type="submit" id="tinymash-admin-submit" name="submit">
+                                        Login<span class="bi bi-box-arrow-in-right ms-1"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col mt-3 text-body-secondary small">
+                                    Access to this area is managed by the site administrator.
+                                </div>
+                            </div>
+                            {if ! empty( $password_reset_allowed ) }
+                            <div class="row">
+                                <div class="col mt-2 small">
+                                    <a href="{$password_reset_url}">Forgot your password?</a>
+                                </div>
+                            </div>
+                            {/if}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{/block}

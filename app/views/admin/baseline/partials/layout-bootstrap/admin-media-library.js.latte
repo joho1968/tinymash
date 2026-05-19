@@ -1,0 +1,28 @@
+                document.addEventListener('click', (event) => {
+                    const trigger = event.target instanceof Element ? event.target.closest('[data-tm-media-detail-trigger]') : null;
+                    if (!(trigger instanceof HTMLElement)) {
+                        return;
+                    }
+                    const templateId = String(trigger.getAttribute('data-tm-media-detail-template') || '');
+                    if (templateId === '') {
+                        return;
+                    }
+                    const template = document.getElementById(templateId);
+                    const modal = document.getElementById('tm-system-media-library-detail-modal');
+                    if (!(template instanceof HTMLTemplateElement) || !(modal instanceof HTMLElement) || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                        return;
+                    }
+                    const modalTitle = modal.querySelector('[data-tm-media-detail-modal-title]');
+                    const modalBody = modal.querySelector('[data-tm-media-detail-modal-body]');
+                    if (!(modalTitle instanceof HTMLElement) || !(modalBody instanceof HTMLElement)) {
+                        return;
+                    }
+                    const fragment = template.content.cloneNode(true);
+                    if (!(fragment instanceof DocumentFragment)) {
+                        return;
+                    }
+                    fragment.querySelectorAll('script').forEach((script) => script.remove());
+                    modalTitle.textContent = String(trigger.getAttribute('data-tm-media-detail-title') || 'Media item');
+                    modalBody.replaceChildren(fragment);
+                    bootstrap.Modal.getOrCreateInstance(modal).show();
+                });

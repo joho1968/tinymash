@@ -1,0 +1,18 @@
+{
+    "key": "wordpress-import",
+    "name": "WordPress Import",
+    "version": "0.90.0",
+    "description": "Imports posts and pages from a WordPress WXR export into an author space.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.admin",
+        "navigation.author",
+        "storage.private"
+    ],
+    "default_active": false,
+    "stage": "early"
+}

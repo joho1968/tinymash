@@ -1,0 +1,91 @@
+{extends './layout.latte'}
+
+{block content}
+    {if ! empty( $landing_entry ) }
+        <article class="tm-terminal-panel">
+            {if ! empty( $landing_entry['content_heading_html'] )}
+                <header class="tm-terminal-entry-header">
+                    {$landing_entry['content_heading_html']|noescape}
+                </header>
+            {else}
+                <header class="tm-terminal-entry-header">
+                    <h1>{$landing_entry['title_html']|noescape}</h1>
+                </header>
+            {/if}
+            <div class="tm-terminal-rendered" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+                {$landing_entry['content_body_html']|noescape}
+            </div>
+            {if ! empty( $landing_entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+                <section class="mt-4 pt-3 border-top">
+                    <h2 class="tm-terminal-entry-title h5 mb-3">{$theme_child_pages_heading}</h2>
+                    <ul class="mb-0 list-unstyled d-grid gap-2">
+                        {foreach $landing_entry_child_pages as $child_page}
+                            <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                        {/foreach}
+                    </ul>
+                </section>
+            {/if}
+        </article>
+    {else}
+    {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
+        <section class="tm-terminal-panel tm-terminal-listing-header">
+            {if ! empty( $listing_context_title ) }
+                <h2 class="tm-terminal-entry-title tm-terminal-listing-title">{$listing_context_title}</h2>
+            {/if}
+            {if ! empty( $listing_context_summary ) }
+                <p class="tm-terminal-muted tm-terminal-listing-summary">{$listing_context_summary}</p>
+            {/if}
+        </section>
+    {/if}
+    {if empty( $entries )}
+        <section class="tm-terminal-panel">
+            <p class="tm-terminal-muted">{$listing_empty_message ?? 'No published posts are currently aggregated to the front page.'}</p>
+        </section>
+    {else}
+        <section>
+            <div class="tm-terminal-stack tm-terminal-entry-stack">
+                {foreach $entries as $entry}
+                    <article class="tm-terminal-panel tm-terminal-entry-card">
+                        <div class="tm-terminal-entry-heading">
+                            <h2 class="tm-terminal-entry-title"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h2>
+                            {if ! empty( $entry['sticky'] )}
+                                <span class="tm-terminal-tag">sticky</span>
+                            {/if}
+                        </div>
+                        <p class="tm-terminal-meta">
+                            {if $entry['scope'] === 'author'}
+                                by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
+                            {/if}
+                            {if ! empty( $entry['published_at_display'] )}
+                                {if $entry['scope'] === 'author'}
+                                    <span class="tm-terminal-meta-divider">|</span>
+                                {/if}
+                                {$entry['published_at_display']}
+                            {/if}
+                        </p>
+                        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+                            <p class="tm-terminal-meta">
+                                {foreach $entry['tag_links'] as $tag_link}
+                                    <a class="tm-terminal-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                                {/foreach}
+                            </p>
+                        {/if}
+                        {if ! empty( $entry['featured_image']['url'] )}
+                            <p class="tm-terminal-featured-image tm-terminal-featured-image-summary">
+                                <a href="{$entry['url']}">
+                                    <img src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                                </a>
+                            </p>
+                        {/if}
+                        {if ! empty( $entry['summary_html'] )}
+                            <div class="tm-terminal-rendered tm-terminal-entry-summary" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                        {/if}
+                        <p class="tm-terminal-entry-link"><a href="{$entry['url']}">[ Read ]</a></p>
+                    </article>
+                {/foreach}
+            </div>
+            {include './partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+        </section>
+    {/if}
+    {/if}
+{/block}

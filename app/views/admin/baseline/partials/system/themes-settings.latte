@@ -1,0 +1,101 @@
+<section class="d-grid gap-3">
+    {include './themes-nav.latte'}
+    {var $theme_custom_css = is_array($system_theme_custom_css ?? null) ? $system_theme_custom_css : ['enabled' => false, 'css' => '']}
+
+    <form id="tm-active-theme-settings" method="post" action="{$system_theme_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="themes">
+        <section class="p-3 bg-body border rounded-3 shadow-sm">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                <div>
+                    <div class="small text-uppercase text-body-secondary mb-2">Active public theme settings</div>
+                    <h3 class="h5 mb-1">{$system_theme_name} settings</h3>
+                    <p class="text-body-secondary mb-0">These settings apply to the currently active public theme only.</p>
+                </div>
+            </div>
+            {if empty( $system_theme_settings_schema )}
+                <div class="small text-body-secondary">This theme does not currently expose any configurable settings.</div>
+            {else}
+                <div class="row g-3  bg-body-secondary m-1 p-1 rounded-3">
+                    {foreach $system_theme_settings_schema as $theme_setting}
+                        {if ($theme_setting['lookup'] ?? '') === 'published_pages'}
+                            {var $theme_lookup_options = $system_theme_setting_lookups[$theme_setting['key']] ?? []}
+                            <div class="col-12 col-xl-6">
+                                <label class="form-label small mb-1" for="tm-theme-setting-{$theme_setting['key']}">{$theme_setting['label']}</label>
+                                <div class="tm-search-picker">
+                                    <div class="input-group">
+                                        <input class="form-control font-monospace" id="tm-theme-setting-{$theme_setting['key']}" name="{$theme_setting['key']}" type="text" value="{=ltrim((string) ($system_theme_settings[$theme_setting['key']] ?? $theme_setting['default'] ?? ''), '/')}" autocomplete="off" data-tm-validate-list="tm-theme-setting-options-{$theme_setting['key']}" data-tm-picker-menu="tm-theme-setting-menu-{$theme_setting['key']}" data-tm-allow-empty="1" data-tm-invalid-message="Choose one of the published pages from the list, or leave the field blank." n:attr="disabled => !empty($theme_setting['disabled'])">
+                                        <button class="btn btn-outline-secondary" type="button" data-tm-picker-toggle="tm-theme-setting-{$theme_setting['key']}" aria-label="Browse published pages" title="Browse published pages" n:attr="disabled => !empty($theme_setting['disabled'])">
+                                            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                                        </button>
+                                        <button class="btn btn-outline-secondary" type="button" data-tm-reset-input="tm-theme-setting-{$theme_setting['key']}" n:attr="disabled => !empty($theme_setting['disabled'])">Automatic</button>
+                                    </div>
+                                    <div class="dropdown-menu tm-search-picker-menu w-100 shadow-sm" id="tm-theme-setting-menu-{$theme_setting['key']}" data-tm-picker-menu-for="tm-theme-setting-{$theme_setting['key']}">
+                                        <div class="tm-search-picker-summary small text-body-secondary" data-tm-picker-summary></div>
+                                        <div class="list-group list-group-flush small tm-search-picker-options" data-tm-picker-options></div>
+                                    </div>
+                                    <datalist id="tm-theme-setting-options-{$theme_setting['key']}">
+                                        {foreach $theme_lookup_options as $theme_lookup_option}
+                                            <option value="{$theme_lookup_option['value']}" label="{$theme_lookup_option['label']}"></option>
+                                        {/foreach}
+                                    </datalist>
+                                </div>
+                                {if ! empty( $theme_setting['help'] )}
+                                    <div class="form-text">{$theme_setting['help']}</div>
+                                {/if}
+                            </div>
+                        {elseif $theme_setting['type'] === 'select'}
+                            <div class="col-12 col-xl-6">
+                                <label class="form-label small mb-1" for="tm-theme-setting-{$theme_setting['key']}">{$theme_setting['label']}</label>
+                                <select class="form-select" id="tm-theme-setting-{$theme_setting['key']}" name="{$theme_setting['key']}" n:attr="disabled => !empty($theme_setting['disabled'])">
+                                    {foreach $theme_setting['options'] as $theme_setting_option}
+                                        <option value="{$theme_setting_option['value']}" n:attr="selected => ($system_theme_settings[$theme_setting['key']] ?? $theme_setting['default']) === $theme_setting_option['value']">{$theme_setting_option['label']}</option>
+                                    {/foreach}
+                                </select>
+                                {if ! empty( $theme_setting['help'] )}
+                                    <div class="form-text">{$theme_setting['help']}</div>
+                                {/if}
+                            </div>
+                        {elseif $theme_setting['type'] === 'checkbox'}
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" id="tm-theme-setting-{$theme_setting['key']}" name="{$theme_setting['key']}" type="checkbox" n:attr="checked => ! empty($system_theme_settings[$theme_setting['key']]), disabled => !empty($theme_setting['disabled'])">
+                                    <label class="form-check-label" for="tm-theme-setting-{$theme_setting['key']}">{$theme_setting['label']}</label>
+                                </div>
+                                {if ! empty( $theme_setting['help'] )}
+                                    <div class="form-text">{$theme_setting['help']}</div>
+                                {/if}
+                            </div>
+                        {else}
+                            <div class="col-12 col-xl-6">
+                                <label class="form-label small mb-1" for="tm-theme-setting-{$theme_setting['key']}">{$theme_setting['label']}</label>
+                                <input class="form-control" id="tm-theme-setting-{$theme_setting['key']}" name="{$theme_setting['key']}" type="text" value="{$system_theme_settings[$theme_setting['key']] ?? $theme_setting['default'] ?? ''}" n:attr="disabled => !empty($theme_setting['disabled'])">
+                                {if ! empty( $theme_setting['help'] )}
+                                    <div class="form-text">{$theme_setting['help']}</div>
+                                {/if}
+                            </div>
+                        {/if}
+                    {/foreach}
+                </div>
+            {/if}
+            <hr class="my-4">
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="tm-theme-custom-css-enabled" name="custom_css_enabled" type="checkbox" n:attr="checked => !empty($theme_custom_css['enabled'])">
+                        <label class="form-check-label" for="tm-theme-custom-css-enabled">Include Custom CSS on public pages</label>
+                    </div>
+                    <div class="form-text">Custom CSS is saved with {$system_theme_name}.</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small mb-1" for="tm-theme-custom-css">Custom CSS</label>
+                    <textarea class="form-control font-monospace" id="tm-theme-custom-css" name="custom_css" rows="14" spellcheck="false">{$theme_custom_css['css'] ?? ''}</textarea>
+                    <div class="form-text">Remote imports and remote URLs are not allowed.</div>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-primary btn-sm" type="submit">Save theme settings</button>
+            </div>
+        </section>
+    </form>
+</section>

@@ -1,0 +1,86 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">SMTP</div>
+    <div class="fw-semibold mb-1">Outbound mail settings</div>
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="smtp">
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Delivery</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-smtp-enabled" name="smtp_enabled" type="checkbox" n:attr="checked => $system_settings['smtp_enabled']">
+                                <label class="form-check-label" for="tm-system-smtp-enabled">Enable SMTP delivery</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <label class="form-label small mb-1" for="tm-system-smtp-host">SMTP host</label>
+                            <input class="form-control font-monospace" id="tm-system-smtp-host" name="smtp_host" type="text" value="{$system_settings['smtp_host']}" placeholder="smtp.example.com">
+                        </div>
+                        <div class="col-12 col-lg-3">
+                            <label class="form-label small mb-1" for="tm-system-smtp-port">SMTP port</label>
+                            <input class="form-control font-monospace" id="tm-system-smtp-port" name="smtp_port" type="number" min="1" max="65535" value="{$system_settings['smtp_port']}">
+                        </div>
+                        <div class="col-12 col-lg-3">
+                            <label class="form-label small mb-1" for="tm-system-smtp-encryption">Encryption</label>
+                            <select class="form-select" id="tm-system-smtp-encryption" name="smtp_encryption">
+                                <option value="tls" n:attr="selected => $system_settings['smtp_encryption'] === 'tls'">TLS</option>
+                                <option value="ssl" n:attr="selected => $system_settings['smtp_encryption'] === 'ssl'">SSL</option>
+                                <option value="none" n:attr="selected => $system_settings['smtp_encryption'] === 'none'">None</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <label class="form-label small mb-1" for="tm-system-smtp-username">SMTP username</label>
+                            <input class="form-control font-monospace" id="tm-system-smtp-username" name="smtp_username" type="text" value="{$system_settings['smtp_username']}">
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <label class="form-label small mb-1" for="tm-system-smtp-password">SMTP password</label>
+                            <input class="form-control font-monospace" id="tm-system-smtp-password" name="smtp_password" type="text" value="">
+                            <div class="form-text">Leave blank to keep the currently stored password.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Sender identity</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label small mb-1" for="tm-system-smtp-from-email">From e-mail address</label>
+                            <input class="form-control font-monospace" id="tm-system-smtp-from-email" name="smtp_from_email" type="email" value="{$system_settings['smtp_from_email']}" placeholder="noreply@example.com">
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label small mb-1" for="tm-system-smtp-from-name">From display name</label>
+                            <input class="form-control" id="tm-system-smtp-from-name" name="smtp_from_name" type="text" value="{$system_settings['smtp_from_name']}">
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label small mb-1" for="tm-system-smtp-reply-to-email">Reply-To e-mail address</label>
+                            <input class="form-control font-monospace" id="tm-system-smtp-reply-to-email" name="smtp_reply_to_email" type="email" value="{$system_settings['smtp_reply_to_email']}" placeholder="replyto@example.com">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save SMTP settings</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="border-top mt-4 pt-4">
+        <div class="fw-semibold mb-1">Send test e-mail</div>
+        <form method="post" action="{$system_smtp_test_url}">
+            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-lg-8">
+                    <label class="form-label small mb-1" for="tm-system-smtp-test-email">Test recipient</label>
+                    <input class="form-control font-monospace" id="tm-system-smtp-test-email" name="test_email" type="email" value="{$system_settings['admin_email']}" placeholder="admin@example.com">
+                </div>
+                <div class="col-12 col-lg-4 d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Send test e-mail</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>

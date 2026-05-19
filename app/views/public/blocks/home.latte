@@ -1,0 +1,126 @@
+{extends './layout.latte'}
+
+{block content}
+    {var $blocks_featured_entries = is_array($blocks_featured_entries ?? null) ? $blocks_featured_entries : []}
+    {var $blocks_regular_entries = is_array($blocks_regular_entries ?? null) ? $blocks_regular_entries : (is_array($entries ?? null) ? $entries : [])}
+    {var $blocks_featured_columns = max(1, (int) ($blocks_featured_columns ?? 1))}
+    {var $blocks_general_columns = max(1, (int) ($blocks_general_columns ?? 3))}
+    {if ! empty( $landing_entry ) }
+        <article class="tm-blocks-panel p-4 p-lg-5">
+            {if ! empty( $landing_entry['content_heading_html'] )}
+                <header class="tm-blocks-entry-header mb-4">
+                    {$landing_entry['content_heading_html']|noescape}
+                </header>
+            {else}
+                <header class="tm-blocks-entry-header mb-4">
+                    <h1 class="mb-0">{$landing_entry['title_html']|noescape}</h1>
+                </header>
+            {/if}
+            <div class="tm-blocks-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+                {$landing_entry['content_body_html']|noescape}
+            </div>
+            {if ! empty( $landing_entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+                <section class="tm-blocks-section mt-4">
+                    <h2 class="h5 mb-3">{$theme_child_pages_heading}</h2>
+                    <ul class="list-unstyled d-grid gap-2 mb-0">
+                        {foreach $landing_entry_child_pages as $child_page}
+                            <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                        {/foreach}
+                    </ul>
+                </section>
+            {/if}
+        </article>
+    {else}
+        {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
+            <section class="tm-blocks-panel tm-blocks-context p-4 mb-4">
+                {if ! empty( $listing_context_title ) }
+                    <h2 class="h5 mb-2">{$listing_context_title}</h2>
+                {/if}
+                {if ! empty( $listing_context_summary ) }
+                    <p class="mb-0 text-secondary">{$listing_context_summary}</p>
+                {/if}
+            </section>
+        {/if}
+        {if empty( $entries )}
+            <div class="tm-blocks-panel p-4">
+                <p class="mb-0 text-secondary">{$listing_empty_message ?? 'No published posts are currently aggregated to the front page.'}</p>
+            </div>
+        {else}
+            {if ! empty( $blocks_featured_entries ) }
+                <section class="tm-blocks-grid tm-blocks-grid-featured tm-blocks-grid-count-{count($blocks_featured_entries)} mb-4" style="--tm-blocks-grid-columns: {$blocks_featured_columns};">
+                    {foreach $blocks_featured_entries as $entry}
+                        <article class="tm-blocks-card tm-blocks-card-featured">
+                            <a class="tm-blocks-card-link" href="{$entry['url']}">
+                                <div n:class="'tm-blocks-card-cover', ! empty($entry['featured_image']['url']) ? 'tm-blocks-card-cover-image' : 'tm-blocks-card-cover-fallback', empty($entry['featured_image']['url']) && empty($entry['blocks_cover_style']) ? ('tm-blocks-card-cover-' . ($entry['blocks_cover_color'] ?? 'slate')) : null" n:attr="style => empty($entry['featured_image']['url']) && ! empty($entry['blocks_cover_style']) ? $entry['blocks_cover_style'] : null">
+                                    {if ! empty( $entry['featured_image']['url'] )}
+                                        <img class="img-fluid" src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                                    {/if}
+                                    <span class="tm-blocks-card-cover-title tm-blocks-card-cover-title-featured text-truncate" title="{$entry['title']}">{$entry['title_html']|noescape}</span>
+                                </div>
+                            </a>
+                            <div class="tm-blocks-card-body">
+                                <div class="tm-blocks-card-eyebrow">
+                                    {if ! empty( $entry['sticky'] )}Sticky{elseif ! empty( $entry['featured'] )}Featured{/if}
+                                </div>
+                                <div class="tm-blocks-card-meta">
+                                    <div class="tm-blocks-card-meta-line text-truncate" n:attr="title => ! empty( $entry['published_at_display'] ) ? $entry['published_at_display'] : null">
+                                        {$entry['published_at_display'] ?? ''}
+                                    </div>
+                                    <div class="tm-blocks-card-meta-line text-truncate" n:attr="title => $entry['scope'] === 'author' ? ('By ' . ($entry['author_display_name'] ?? $entry['author_slug'])) : null">
+                                        {if $entry['scope'] === 'author'}
+                                            By <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
+                                        {else}
+                                            &nbsp;
+                                        {/if}
+                                    </div>
+                                </div>
+                                {if ! empty( $entry['summary_html'] )}
+                                    <div class="tm-blocks-card-summary tm-blocks-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                                {/if}
+                                <div class="mt-auto pt-2">
+                                    <a class="btn btn-outline-secondary btn-sm" href="{$entry['url']}">Read</a>
+                                </div>
+                            </div>
+                        </article>
+                    {/foreach}
+                </section>
+            {/if}
+
+            <section class="tm-blocks-grid tm-blocks-grid-regular" style="--tm-blocks-grid-columns: {$blocks_general_columns};">
+                {foreach $blocks_regular_entries as $entry}
+                    <article class="tm-blocks-card">
+                        <a class="tm-blocks-card-link" href="{$entry['url']}">
+                            <div n:class="'tm-blocks-card-cover', ! empty($entry['featured_image']['url']) ? 'tm-blocks-card-cover-image' : 'tm-blocks-card-cover-fallback', empty($entry['featured_image']['url']) && empty($entry['blocks_cover_style']) ? ('tm-blocks-card-cover-' . ($entry['blocks_cover_color'] ?? 'slate')) : null" n:attr="style => empty($entry['featured_image']['url']) && ! empty($entry['blocks_cover_style']) ? $entry['blocks_cover_style'] : null">
+                                {if ! empty( $entry['featured_image']['url'] )}
+                                    <img class="img-fluid" src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                                {/if}
+                                <span class="tm-blocks-card-cover-title text-truncate" title="{$entry['title']}">{$entry['title_html']|noescape}</span>
+                            </div>
+                        </a>
+                        <div class="tm-blocks-card-body">
+                            <div class="tm-blocks-card-meta">
+                                <div class="tm-blocks-card-meta-line text-truncate" n:attr="title => ! empty( $entry['published_at_display'] ) ? $entry['published_at_display'] : null">
+                                    {$entry['published_at_display'] ?? ''}
+                                </div>
+                                <div class="tm-blocks-card-meta-line text-truncate" n:attr="title => $entry['scope'] === 'author' ? ('By ' . ($entry['author_display_name'] ?? $entry['author_slug'])) : null">
+                                    {if $entry['scope'] === 'author'}
+                                        By <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
+                                    {else}
+                                        &nbsp;
+                                    {/if}
+                                </div>
+                            </div>
+                            {if ! empty( $entry['summary_html'] )}
+                                <div class="tm-blocks-card-summary tm-blocks-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                            {/if}
+                            <div class="mt-auto pt-2">
+                                <a class="btn btn-outline-secondary btn-sm" href="{$entry['url']}">Read</a>
+                            </div>
+                        </div>
+                    </article>
+                {/foreach}
+            </section>
+            {include '../baseline/partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+        {/if}
+    {/if}
+{/block}

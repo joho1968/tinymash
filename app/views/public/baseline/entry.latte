@@ -1,0 +1,87 @@
+{extends './layout.latte'}
+
+{block content}
+    <article class="p-4 p-lg-5 bg-body border rounded-3 shadow-sm tm-baseline-panel{if ! empty( $entry['is_photo_post'] )} tm-entry-photo-post tm-baseline-photo-post{/if}{if ! empty( $entry['has_photo_gallery'] )} tm-entry-has-photo-gallery tm-baseline-has-photo-gallery{/if}">
+        {if ! empty( $entry_breadcrumbs ) && ! empty( $theme_breadcrumbs_enabled ) }
+            <nav aria-label="Breadcrumb" class="mb-4">
+                <ol class="breadcrumb small mb-0">
+                    <li class="breadcrumb-item"><a href="{$home_url}">Home</a></li>
+                    {foreach $entry_breadcrumbs as $breadcrumb}
+                        <li class="breadcrumb-item"{if ! empty( $iterator->last )} aria-current="page"{/if}>
+                            {if ! empty( $iterator->last )}
+                                <span>{$breadcrumb['title']}</span>
+                            {else}
+                                <a href="{$breadcrumb['url']}">{$breadcrumb['title']}</a>
+                            {/if}
+                        </li>
+                    {/foreach}
+                </ol>
+            </nav>
+        {/if}
+        {if ! empty( $entry['content_heading_html'] )}
+            <header class="tm-baseline-entry-header mb-4">
+                {$entry['content_heading_html']|noescape}
+            </header>
+        {else}
+            <header class="tm-baseline-entry-header mb-4">
+                <h1 class="mb-0">{$entry['title_html']|noescape}</h1>
+            </header>
+        {/if}
+        <div class="small text-secondary mb-2">
+            {if $entry['scope'] === 'author'}
+                <span>by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a></span>
+            {/if}
+            {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['published_at_display'] )}
+                {if $entry['scope'] === 'author'}<span class="mx-1">|</span>{/if}{$entry['published_at_display']}
+            {/if}
+            {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['updated_at_display'] ) && $entry['updated_at_display'] !== $entry['published_at_display']}
+                <span class="mx-1">|</span>Updated {$entry['updated_at_display_without_timezone'] ?? $entry['updated_at_display']}
+            {/if}
+            {if ! empty( $entry['sticky'] )}
+                <span class="mx-1">|</span>Sticky
+            {/if}
+        </div>
+        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+            <div class="tm-baseline-tags d-flex flex-wrap gap-2 mb-4">
+                {foreach $entry['tag_links'] as $tag_link}
+                    <a class="tm-baseline-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                {/foreach}
+            </div>
+        {/if}
+        {if ! empty( $entry_navigation ) || ! empty( $entry_can_edit ) }
+            <section class="mb-4 p-3 bg-body-tertiary border rounded-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        {if ! empty( $entry_navigation['back_url'] )}
+                            <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['back_url']}">{$entry_navigation['back_label'] ?? 'Back'}</a>
+                        {/if}
+                        {if ! empty( $entry_can_edit ) && ! empty( $entry_edit_url ) }
+                            <a class="btn btn-outline-primary btn-sm" href="{$entry_edit_url}">Edit</a>
+                        {/if}
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                        {if ! empty( $entry_navigation['previous'] )}
+                            <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['previous']['url']}">&larr; Previous</a>
+                        {/if}
+                        {if ! empty( $entry_navigation['next'] )}
+                            <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['next']['url']}">Next &rarr;</a>
+                        {/if}
+                    </div>
+                </div>
+            </section>
+        {/if}
+        <div class="entry-content tm-baseline-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+            {$entry['content_body_html']|noescape}
+        </div>
+        {if ! empty( $entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+            <section class="mt-4 p-3 bg-body-tertiary border rounded-3">
+                <h3 class="h5 mb-3">{$theme_child_pages_heading}</h3>
+                <ul class="mb-0 list-unstyled">
+                    {foreach $entry_child_pages as $child_page}
+                        <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                    {/foreach}
+                </ul>
+            </section>
+        {/if}
+    </article>
+{/block}

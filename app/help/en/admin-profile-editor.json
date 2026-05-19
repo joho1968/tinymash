@@ -1,0 +1,21 @@
+{
+  "group": "Profile",
+  "roles": ["author", "admin"],
+  "order": 50,
+  "title": "Profile: Editor",
+  "summary": "Editor preferences for the current user.",
+  "sections": [
+    {
+      "title": "Autosave mode",
+      "markdown": "- **Enabled**: autosave is on for this user\n- **Disabled**: autosave is off for this user\n- **Inherit site default**: follows the current site setting shown in the field label"
+    },
+    {
+      "title": "Autosave interval override",
+      "markdown": "If set, this value overrides the site autosave interval for this user. Leave it blank to keep the current inherited interval."
+    },
+    {
+      "title": "What autosave stores",
+      "markdown": "Autosave updates your private draft. It does not publish content and it does not create a revision."
+    }
+  ]
+}

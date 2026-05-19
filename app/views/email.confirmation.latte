@@ -1,0 +1,21 @@
+{extends 'generic.layout.latte'}
+
+{block content}
+    {var $confirmation_state = (string) ($confirmation_state ?? 'error')}
+    {var $confirmation_message = (string) ($confirmation_message ?? 'The e-mail confirmation flow is not available right now.')}
+    {var $login_url = (string) ($login_url ?? '/admin/login')}
+    <div class="row justify-content-center py-4">
+        <div class="col-12 col-md-10 col-lg-8 col-xl-6">
+            <div class="p-4 bg-body border rounded-3 shadow-sm">
+                <div class="small text-uppercase text-secondary mb-2">Account</div>
+                <h1 class="h3 mb-3">E-mail confirmation</h1>
+                <div class="alert {if $confirmation_state === 'success'}alert-success{elseif $confirmation_state === 'invalid'}alert-warning{else}alert-danger{/if} mb-4" role="alert">
+                    {$confirmation_message}
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary" href="{$login_url}">Go to login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{/block}

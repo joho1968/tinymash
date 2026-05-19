@@ -1,0 +1,17 @@
+{
+    "key": "backup",
+    "name": "Backup",
+    "version": "0.90.0",
+    "description": "Adds downloadable author exports and site backups on top of the core export bridge.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.admin",
+        "navigation.admin"
+    ],
+    "default_active": false,
+    "stage": "early"
+}

@@ -1,0 +1,177 @@
+{
+    "key": "timeline",
+    "name": "Timeline",
+    "description": "A modern archive-oriented public theme with a vertical date rail.",
+    "version": "1.0.0",
+    "template_root": "public/timeline",
+    "views": {
+        "home": "public/timeline/home.latte",
+        "author-home": "public/timeline/author.home.latte",
+        "entry-post": "public/timeline/entry.latte",
+        "entry-page": "public/timeline/entry.latte",
+        "404": "public/timeline/404.latte"
+    },
+    "css_urls": [
+        "/ext/bs/css/bootstrap.min.css",
+        "/ext/bsi/bootstrap-icons.min.css",
+        "/css/tinymash.css",
+        "/css/tinymash-timeline.css"
+    ],
+    "js_urls": [
+        "/ext/bs/js/bootstrap.bundle.min.js"
+    ],
+    "supports": {
+        "menus": true,
+        "primary_menu": true,
+        "sidebar_menu": true,
+        "breadcrumbs": true,
+        "page_sidebar": true,
+        "after_content_child_pages": true,
+        "footer_menu": true,
+        "public_background": true,
+        "syntax_highlighting": true
+    },
+    "settings_schema": [
+        {
+            "key": "primary_menu_position",
+            "label": "Primary menu position",
+            "type": "select",
+            "default": "header",
+            "options": [
+                { "value": "header", "label": "Header" },
+                { "value": "sidebar", "label": "Sidebar" },
+                { "value": "off", "label": "Off" }
+            ],
+            "help": "Controls where the primary site menu is rendered when a menu is configured."
+        },
+        {
+            "key": "footer_menu_position",
+            "label": "Footer menu position",
+            "type": "select",
+            "default": "footer",
+            "options": [
+                { "value": "footer", "label": "Footer" },
+                { "value": "off", "label": "Off" }
+            ],
+            "help": "Controls whether the configured footer menu is rendered by this theme."
+        },
+        {
+            "key": "root_landing_mode",
+            "label": "Root start page",
+            "type": "select",
+            "default": "blogroll",
+            "options": [
+                { "value": "blogroll", "label": "Blogroll" },
+                { "value": "page", "label": "Static page" }
+            ],
+            "help": "Controls whether the public root space starts on the aggregated post list or a published static page."
+        },
+        {
+            "key": "landing_page_path",
+            "label": "Root landing page path",
+            "type": "text",
+            "lookup": "published_pages",
+            "default": "",
+            "help": "Used when `Static page` is selected. Choose one of the published root pages."
+        },
+        {
+            "key": "content_width",
+            "label": "Content width",
+            "type": "select",
+            "author_override": true,
+            "default": "reading",
+            "options": [
+                { "value": "theme_default", "label": "Theme default" },
+                { "value": "small", "label": "Small (600)" },
+                { "value": "compact", "label": "Compact (720)" },
+                { "value": "reading", "label": "Reading (840)" },
+                { "value": "standard", "label": "Standard (960)" },
+                { "value": "wide", "label": "Wide (1140)" },
+                { "value": "full", "label": "Full" }
+            ],
+            "help": "Bounds the main public content area using tinymash width presets instead of free-form pixel values."
+        },
+        {
+            "key": "show_search",
+            "label": "Public search",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether the public search form is shown when the Search plugin is active."
+        },
+        {
+            "key": "show_tags",
+            "label": "Show tags",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether entry tags are shown publicly in this theme when tags are enabled sitewide."
+        },
+        {
+            "key": "enable_syntax_highlighting",
+            "label": "Enable syntax highlighting",
+            "type": "select",
+            "requires_plugin": "syntax-highlighting",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+        },
+        {
+            "key": "page_sidebar_style",
+            "label": "Page sidebar style",
+            "type": "select",
+            "default": "cards",
+            "options": [
+                { "value": "flat", "label": "Flat list" },
+                { "value": "cards", "label": "Card tree" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls how published page trees render in the sidebar."
+        },
+        {
+            "key": "top_navigation_depth",
+            "label": "Top navigation depth",
+            "type": "select",
+            "default": "1",
+            "options": [
+                { "value": "disabled", "label": "Disabled" },
+                { "value": "1", "label": "1st level" },
+                { "value": "2", "label": "2nd level" },
+                { "value": "3", "label": "3rd level" }
+            ],
+            "help": "Used for the fallback page-tree menu when no primary menu is configured and the position is set to `Header`."
+        },
+        {
+            "key": "page_breadcrumbs",
+            "label": "Page breadcrumbs",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether page entries render breadcrumb trails."
+        },
+        {
+            "key": "page_children_after_content",
+            "label": "After-content child pages",
+            "type": "select",
+            "default": "subpages",
+            "options": [
+                { "value": "disabled", "label": "Disabled" },
+                { "value": "more", "label": "More in this section" },
+                { "value": "subpages", "label": "Subpages" }
+            ],
+            "help": "Controls whether page entries list published child pages after the content body."
+        }
+    ]
+}

@@ -1,0 +1,79 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Orphans</div>
+    <div class="fw-semibold mb-1">Orphaned content</div>
+    {if empty( $system_orphan_groups )}
+        <div class="rounded-3 p-3 bg-body-secondary">
+            <div class="small text-body-secondary">No orphaned content buckets exist right now.</div>
+        </div>
+    {else}
+        <div class="d-grid gap-3">
+            {foreach $system_orphan_groups as $orphan_group}
+                <div class="rounded-3 p-3 bg-body-secondary">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <div class="fw-semibold font-monospace me-auto">{$orphan_group['author_slug']}</div>
+                        <span class="badge text-bg-secondary">{$orphan_group['entry_count']} entr{if $orphan_group['entry_count'] === 1}y{else}ies{/if}</span>
+                        <span class="badge text-bg-warning">{$orphan_group['pending_review_count']} pending</span>
+                    </div>
+                    <div class="row g-3 align-items-end mb-3">
+                        <div class="col-12 col-xl-7">
+                            <form method="post" action="{$system_orphan_reassign_url}">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <input type="hidden" name="orphan_slug" value="{$orphan_group['author_slug']}">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-12 col-lg-8">
+                                        <label class="form-label small mb-1" for="tm-orphan-target-{$iterator->counter}">Reassign all content to</label>
+                                        <select class="form-select" id="tm-orphan-target-{$iterator->counter}" name="target_username">
+                                            <option value="">Choose user</option>
+                                            {foreach $system_reassign_users as $reassign_user}
+                                                <option value="{$reassign_user['username']}">{$reassign_user['username']}</option>
+                                            {/foreach}
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-lg-4 d-flex gap-2">
+                                        <button class="btn btn-outline-primary btn-sm" type="submit">Reassign bucket</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-12 col-xl-5">
+                            <form method="post" action="{$system_orphan_delete_url}" onsubmit="return window.confirm('Delete all orphaned content in this bucket?');">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <input type="hidden" name="orphan_slug" value="{$orphan_group['author_slug']}">
+                                <button class="btn btn-outline-danger btn-sm" type="submit">Delete all content in bucket</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Title</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Updated</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {foreach $orphan_group['entries'] as $entry}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">{$entry['title']}</div>
+                                            <div class="small text-body-secondary font-monospace">{$entry['path']}</div>
+                                        </td>
+                                        <td><span class="badge text-bg-secondary text-uppercase">{$entry['type']}</span></td>
+                                        <td><span class="badge text-bg-warning text-uppercase">{$entry['status']}</span></td>
+                                        <td><span class="small text-body-secondary">{$entry['updated_at_utc']}</span></td>
+                                        <td>
+                                            <a class="btn btn-outline-secondary btn-sm" href="{$admin_url}/editor?entry={$entry['id']}">Open in composer</a>
+                                        </td>
+                                    </tr>
+                                {/foreach}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {/foreach}
+        </div>
+    {/if}
+</section>

@@ -1,0 +1,18 @@
+{
+    "key": "feeds",
+    "name": "Feeds",
+    "version": "0.90.0",
+    "description": "Adds RSS 2.0, Atom 1.0, and JSON Feed endpoints for the front page and author spaces.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.public",
+        "settings.system",
+        "settings.profile"
+    ],
+    "default_active": false,
+    "stage": "before"
+}

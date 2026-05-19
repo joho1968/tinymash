@@ -1,0 +1,28 @@
+{if ! empty( $items )}
+    <div class="d-grid gap-1 tm-page-tree-flat">
+        {foreach $items as $item}
+            {if ! empty( $item['is_separator'] )}
+                <hr class="my-2 text-body-tertiary opacity-100">
+            {else}
+                <div class="tm-page-tree-node">
+                    <a
+                        n:class="! empty($item['is_current'])
+                            ? 'd-inline-flex align-items-center fw-semibold text-decoration-none link-body-emphasis tm-page-tree-link current'
+                            : (! empty($item['is_ancestor'])
+                                ? 'd-inline-flex align-items-center fw-semibold text-decoration-none tm-page-tree-link ancestor'
+                                : 'd-inline-flex align-items-center text-decoration-none tm-page-tree-link')"
+                        href="{$item['url']}"
+                        n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null, aria-current => ! empty($item['is_current']) ? 'page' : null"
+                    >
+                        <span>{$item['title']}</span>
+                    </a>
+                    {if ! empty( $item['children'] )}
+                        <div class="ms-3 ps-2 border-start d-grid gap-1 tm-page-tree-children">
+                            {include './menu-tree.latte', items: $item['children']}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+        {/foreach}
+    </div>
+{/if}

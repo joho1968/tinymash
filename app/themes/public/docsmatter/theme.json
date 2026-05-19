@@ -1,0 +1,130 @@
+{
+    "key": "docsmatter",
+    "name": "DocsMatter",
+    "description": "Documentation-oriented public theme with Bootstrap-based layout, sidebar navigation, and mobile offcanvas browsing.",
+    "version": "1.0.0",
+    "template_root": "public/docsmatter",
+    "views": {
+        "home": "public/docsmatter/home.latte",
+        "author-home": "public/docsmatter/author.home.latte",
+        "entry-post": "public/docsmatter/entry.latte",
+        "entry-page": "public/docsmatter/entry.latte",
+        "404": "public/docsmatter/404.latte"
+    },
+    "css_urls": [
+        "/ext/bs/css/bootstrap.min.css",
+        "/ext/bsi/bootstrap-icons.min.css",
+        "/css/tinymash-docsmatter.css"
+    ],
+    "js_urls": [
+        "/ext/bs/js/bootstrap.bundle.min.js"
+    ],
+    "supports": {
+        "menus": true,
+        "primary_menu": true,
+        "sidebar_menu": true,
+        "breadcrumbs": false,
+        "page_sidebar": true,
+        "after_content_child_pages": true,
+        "footer_menu": true,
+        "public_background": false,
+        "syntax_highlighting": true
+    },
+    "settings_schema": [
+        {
+            "key": "primary_menu_position",
+            "label": "Primary menu position",
+            "type": "select",
+            "default": "header",
+            "options": [
+                { "value": "header", "label": "Header" },
+                { "value": "sidebar", "label": "Sidebar" },
+                { "value": "off", "label": "Off" }
+            ],
+            "help": "Controls whether the primary site menu appears in the header, the sidebar, or not at all."
+        },
+        {
+            "key": "footer_menu_position",
+            "label": "Footer menu position",
+            "type": "select",
+            "default": "footer",
+            "options": [
+                { "value": "footer", "label": "Footer" },
+                { "value": "off", "label": "Off" }
+            ],
+            "help": "Controls whether the configured footer menu appears in the sidebar footer area for this theme."
+        },
+        {
+            "key": "content_width",
+            "label": "Content width",
+            "type": "select",
+            "author_override": true,
+            "default": "theme_default",
+            "options": [
+                { "value": "theme_default", "label": "Theme default" },
+                { "value": "small", "label": "Small (600)" },
+                { "value": "compact", "label": "Compact (720)" },
+                { "value": "reading", "label": "Reading (840)" },
+                { "value": "standard", "label": "Standard (960)" },
+                { "value": "wide", "label": "Wide (1140)" },
+                { "value": "full", "label": "Full" }
+            ],
+            "help": "Bounds the public reading area using tinymash width presets."
+        },
+        {
+            "key": "show_search",
+            "label": "Public search",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether the public search form is shown when the Search plugin is active."
+        },
+        {
+            "key": "landing_page_path",
+            "label": "Landing page path",
+            "type": "text",
+            "lookup": "published_pages",
+            "author_override": true,
+            "default": "",
+            "help": "Optional published page path to use as the docs starting page for home and author-home in this theme."
+        },
+        {
+            "key": "enable_syntax_highlighting",
+            "label": "Enable syntax highlighting",
+            "type": "select",
+            "requires_plugin": "syntax-highlighting",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+        },
+        {
+            "key": "show_tags",
+            "label": "Show tags",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether entry tags are shown publicly in this theme when tags are enabled sitewide."
+        },
+        {
+            "key": "page_children_after_content",
+            "label": "After-content child pages",
+            "type": "select",
+            "default": "subpages",
+            "options": [
+                { "value": "disabled", "label": "Disabled" },
+                { "value": "more", "label": "More" },
+                { "value": "subpages", "label": "Sub pages" }
+            ],
+            "help": "Controls whether published child pages are listed after page content."
+        }
+    ]
+}

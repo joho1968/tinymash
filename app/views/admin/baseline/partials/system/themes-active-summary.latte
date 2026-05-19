@@ -1,0 +1,41 @@
+<div class="row g-3">
+    <div class="col-12 col-xl-8">
+        <section class="p-3 bg-body border rounded-3 shadow-sm h-100">
+            <div class="small text-uppercase text-body-secondary mb-2">Active public theme</div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h3 class="h5 mb-0">{$system_theme_name}</h3>
+                <span class="small font-monospace text-mute">{$system_theme_key}</span>
+                {if ! empty( $system_theme_version )}
+                    <span class="small font-monospace text-muted">{$system_theme_version}</span>
+                {/if}
+            </div>
+            {if ! empty( $system_theme_description )}
+                <p class="text-body-secondary mb-3">{$system_theme_description}</p>
+            {/if}
+            {if ! empty( $system_theme_supports )}
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    {foreach $system_theme_supports as $theme_support}
+                        <span class="badge {if ! empty( $theme_support['enabled'] )}text-bg-success{else}text-bg-secondary{/if}">{$theme_support['label']}</span>
+                    {/foreach}
+                </div>
+            {else}
+                <p class="small text-body-secondary mb-0">This theme does not currently declare typed supports.</p>
+            {/if}
+        </section>
+    </div>
+    <div class="col-12 col-xl-4">
+        <section class="p-3 bg-body border rounded-3 shadow-sm h-100">
+            <div class="small text-uppercase text-body-secondary mb-2">Admin theme</div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h3 class="h6 mb-0">{$system_admin_theme_name}</h3>
+                <span class="badge border bg-body-tertiary text-body-secondary">{$system_admin_theme_key}</span>
+                {if ! empty( $system_admin_theme_version )}
+                    <span class="small text-body-secondary">{$system_admin_theme_version}</span>
+                {/if}
+            </div>
+            {if ! empty( $system_admin_theme_description )}
+                <p class="text-body-secondary mb-2">{$system_admin_theme_description}</p>
+            {/if}
+        </section>
+    </div>
+</div>

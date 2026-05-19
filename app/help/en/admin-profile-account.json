@@ -1,0 +1,33 @@
+{
+  "group": "Profile",
+  "roles": ["author", "admin"],
+  "order": 40,
+  "title": "Profile: Account",
+  "summary": "Account settings for the current user.",
+  "sections": [
+    {
+      "title": "Username/Author",
+      "markdown": "This is your login username and public author path. It is managed in **System > Users**."
+    },
+    {
+      "title": "Role",
+      "markdown": "Your role is managed in **System > Users**. It is shown here for reference only."
+    },
+    {
+      "title": "E-mail address",
+      "markdown": "Used for account-related mail and mail-backed features. If self-service e-mail changes are allowed, a confirmation link should be sent to the new address before the change takes effect."
+    },
+    {
+      "title": "Timezone",
+      "markdown": "Used for your account-level time display. Leave it blank to use the current site timezone."
+    },
+    {
+      "title": "Theme mode",
+      "markdown": "Sets your default admin theme mode. A browser-level override can still take precedence."
+    },
+    {
+      "title": "Password",
+      "markdown": "Leave the password fields blank unless you want to change your password."
+    }
+  ]
+}

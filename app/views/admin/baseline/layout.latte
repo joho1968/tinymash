@@ -1,0 +1,177 @@
+{var $layout_hide_admin_menu = $layout_hide_admin_menu ?? false}
+{var $layout_is_maintenance = $layout_is_maintenance ?? false}
+{var $current_location = trim((string) ($current_location ?? 'overview'))}
+{var $help_contexts = is_array($help_contexts ?? null) ? $help_contexts : ['admin-global']}
+{var $help_contexts_csv = implode(',', $help_contexts)}
+{var $entries_url = (string) ($entries_url ?? (($admin_url ?? '/admin') . '/content'))}
+{var $admin_theme_name = (string) ($admin_theme_name ?? 'Baseline Admin')}
+{var $admin_theme_css_urls = is_array($admin_theme_css_urls ?? null) ? $admin_theme_css_urls : ['/ext/bs/css/bootstrap.min.css', '/ext/bsi/bootstrap-icons.min.css', '/css/tinymash.css']}
+{var $admin_theme_js_urls = is_array($admin_theme_js_urls ?? null) ? $admin_theme_js_urls : ['/ext/bs/js/bootstrap.bundle.min.js']}
+{var $admin_theme_slot_head_extra = (string) ($admin_theme_slot_head_extra ?? '')}
+{var $admin_theme_slot_topbar_actions = (string) ($admin_theme_slot_topbar_actions ?? '')}
+{var $screen_mode_cookie_name = (string) ($screen_mode_cookie_name ?? 'tinymashScreen')}
+{var $current_user_theme_mode = in_array(($current_user_theme_mode ?? 'auto'), ['auto', 'light', 'dark'], true) ? (string) $current_user_theme_mode : 'auto'}
+{var $current_user_theme_override = in_array(($current_user_theme_override ?? ''), ['light', 'dark'], true) ? (string) $current_user_theme_override : ''}
+{var $initial_bs_theme = $current_user_theme_override !== '' ? $current_user_theme_override : ($current_user_theme_mode === 'dark' ? 'dark' : 'light')}
+{var $site_favicon_png_image = is_array($site_favicon_png_image ?? null) ? $site_favicon_png_image : []}
+{var $site_favicon_ico_image = is_array($site_favicon_ico_image ?? null) ? $site_favicon_ico_image : []}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{$initial_bs_theme}">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light dark">
+        {if ! empty( $csrf_token )}
+        <meta name="tinymash-csrf-token" content="{$csrf_token}">
+        {/if}
+        <script>
+            (() => {
+                const root = document.documentElement;
+                root.setAttribute('data-tm-screen-mode-script', '1');
+                const screenModeCookieName = {=json_encode($screen_mode_cookie_name)|noescape};
+                const screenModeStorageKey = screenModeCookieName;
+                const preferredCookieMatch = document.cookie.match(new RegExp('(?:^|;\\\\s*)' + screenModeCookieName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '=([^;]+)'));
+                const legacyCookieMatch = document.cookie.match(/(?:^|;\s*)tmAdminDarkMode=([^;]+)/);
+                const cookieValue = preferredCookieMatch ? decodeURIComponent(preferredCookieMatch[1]) : '';
+                const legacyCookieValue = legacyCookieMatch ? decodeURIComponent(legacyCookieMatch[1]) : '';
+                let storedMode = '';
+                try {
+                    storedMode = window.localStorage ? String(window.localStorage.getItem(screenModeStorageKey) || '') : '';
+                } catch (error) {
+                    storedMode = '';
+                }
+                const savedMode = {=json_encode($current_user_theme_mode)|noescape};
+                let requestedMode = savedMode;
+                if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto') {
+                    requestedMode = storedMode;
+                } else if (cookieValue === 'light' || cookieValue === 'dark' || cookieValue === 'auto') {
+                    requestedMode = cookieValue;
+                } else if (legacyCookieValue === '0') {
+                    requestedMode = 'light';
+                } else if (legacyCookieValue === '1') {
+                    requestedMode = 'dark';
+                }
+                const resolvedMode = requestedMode === 'auto'
+                    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                    : requestedMode;
+                root.setAttribute('data-bs-theme', resolvedMode);
+                root.style.colorScheme = resolvedMode;
+                root.style.backgroundColor = resolvedMode === 'dark' ? '#212529' : '#f8f9fa';
+                root.style.color = resolvedMode === 'dark' ? '#dee2e6' : '#212529';
+                root.setAttribute('data-tm-screen-mode-ready', '1');
+            })();
+        </script>
+        <style>
+            html {
+                background-color: #f8f9fa;
+                color: #212529;
+            }
+
+            html[data-bs-theme="dark"] {
+                background-color: #212529;
+                color: #dee2e6;
+            }
+
+            body {
+                background-color: inherit;
+                color: inherit;
+            }
+
+            html[data-bs-theme="light"] body.bg-body-secondary,
+            html[data-bs-theme="light"] .bg-body-secondary {
+                background-color: #e9ecef !important;
+                color: #212529 !important;
+            }
+
+            html[data-bs-theme="light"] .bg-body,
+            html[data-bs-theme="light"] .bg-body-tertiary {
+                background-color: #fff !important;
+                color: #212529 !important;
+            }
+
+            html[data-bs-theme="dark"] body.bg-body-secondary,
+            html[data-bs-theme="dark"] .bg-body-secondary {
+                background-color: #1b1f24 !important;
+                color: #dee2e6 !important;
+            }
+
+            html[data-bs-theme="dark"] .bg-body {
+                background-color: #212529 !important;
+                color: #dee2e6 !important;
+            }
+
+            html[data-bs-theme="dark"] .bg-body-tertiary {
+                background-color: #2b3035 !important;
+                color: #dee2e6 !important;
+            }
+
+        </style>
+        {foreach $admin_theme_css_urls as $admin_theme_css_url}
+        <link href="{$admin_theme_css_url}" rel="stylesheet">
+        {/foreach}
+        {if $admin_theme_slot_head_extra !== ''}
+        {include $admin_theme_slot_head_extra}
+        {/if}
+        {include cache from 'cache.latte'}
+        <title>{$title}</title>
+        {if ! empty( $site_favicon_png_image['url'] )}
+        <link rel="icon" type="image/png" href="{$site_favicon_png_image['url']}"{if ! empty( $site_favicon_png_image['width'] ) && ! empty( $site_favicon_png_image['height'] )} sizes="{$site_favicon_png_image['width']}x{$site_favicon_png_image['height']}"{/if}>
+        <link rel="apple-touch-icon" href="{$site_favicon_png_image['url']}">
+        {/if}
+        {if ! empty( $site_favicon_ico_image['url'] )}
+        <link rel="icon" type="image/x-icon" href="{$site_favicon_ico_image['url']}">
+        {/if}
+    </head>
+    <body class="bg-body-secondary d-flex flex-column min-vh-100">
+
+        {if ! $layout_hide_admin_menu && ! $layout_is_maintenance}
+        {include 'partials/offcanvas.latte',
+            app_url: $app_url,
+            admin_url: $admin_url,
+            admin_author_url: $admin_author_url ?? '',
+            admin_system_url: $admin_system_url ?? '',
+            admin_profile_url: $admin_profile_url ?? (($admin_url ?? '/admin') . '/profile'),
+            entries_url: $entries_url,
+            current_section: $current_section ?? '',
+            is_superadmin: $is_superadmin ?? false
+        }
+        {/if}
+
+        {include 'partials/topbar.latte',
+            layout_hide_admin_menu: $layout_hide_admin_menu,
+            layout_is_maintenance: $layout_is_maintenance,
+            current_location: $current_location,
+            current_role: $current_role ?? null,
+            current_role_label: $current_role_label ?? null,
+            admin_theme_slot_topbar_actions: $admin_theme_slot_topbar_actions
+        }
+
+        {if ! $layout_hide_admin_menu}
+        {include 'partials/help-modal.latte',
+            app_url: $app_url,
+            admin_url: $admin_url,
+            help_contexts_csv: $help_contexts_csv
+        }
+        {/if}
+
+        <div class="container py-3 flex-grow-1" id="maincontent" style="min-height:550px !important;">
+            <div class="row">
+                <div class="col-12 w-100">
+
+                    <main>
+                        {block content}{/block}
+                    </main>
+
+                </div>
+            </div>
+        </div>
+
+        {include 'partials/footer.latte', admin_theme_name: $admin_theme_name}
+
+        <!-- Bootstrap -->
+        {foreach $admin_theme_js_urls as $admin_theme_js_url}
+        <script src="{$admin_theme_js_url}"></script>
+        {/foreach}
+        {include 'partials/layout-bootstrap.latte'}
+    </body>
+</html>

@@ -1,0 +1,32 @@
+{var $current_username = trim((string) ($current_username ?? 'account'))}
+{var $admin_profile_url = (string) ($admin_profile_url ?? (($admin_url ?? '/admin') . '/profile'))}
+<div class="dropdown">
+    <button
+        class="btn btn-outline-secondary btn-sm dropdown-toggle"
+        type="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+        title="Open account menu"
+        aria-label="Open account menu"
+    >
+        <span class="bi bi-person-circle me-1" aria-hidden="true"></span>{$current_username}
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li>
+            <a class="dropdown-item" href="{$admin_profile_url}">
+                <span class="bi bi-person-lines-fill me-2" aria-hidden="true"></span>Profile
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">Theme mode</h6></li>
+        <li><button class="dropdown-item" type="button" data-tm-theme-mode="auto"><span class="bi bi-circle-half me-2" aria-hidden="true"></span>Auto</button></li>
+        <li><button class="dropdown-item" type="button" data-tm-theme-mode="light"><span class="bi bi-sun me-2" aria-hidden="true"></span>Light</button></li>
+        <li><button class="dropdown-item" type="button" data-tm-theme-mode="dark"><span class="bi bi-moon-stars me-2" aria-hidden="true"></span>Dark</button></li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <a class="dropdown-item" href="{$admin_url}/logout">
+                <span class="bi bi-box-arrow-right me-2" aria-hidden="true"></span>Log out
+            </a>
+        </li>
+    </ul>
+</div>

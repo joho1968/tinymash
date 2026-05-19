@@ -1,0 +1,22 @@
+{var $pagination = is_array($listing_pagination ?? null) ? $listing_pagination : []}
+{if ($pagination['total_pages'] ?? 1) > 1}
+    <nav class="tm-terminal-listing-pagination" aria-label="Listing pagination">
+        <div class="tm-terminal-panel tm-terminal-pagination-row">
+            <div class="tm-terminal-pagination-cell tm-terminal-pagination-cell-start">
+                {if $pagination['has_previous'] ?? false}
+                    <a href="{$pagination['previous_url'] ?? '#'}" title="Previous page" aria-label="Previous page">&lt;- previous</a>
+                {else}
+                    <span class="tm-terminal-muted">&lt;- previous</span>
+                {/if}
+            </div>
+            <div class="tm-terminal-muted tm-terminal-pagination-current">{$pagination['current_page'] ?? 1}/{$pagination['total_pages'] ?? 1}</div>
+            <div class="tm-terminal-pagination-cell tm-terminal-pagination-cell-end">
+                {if $pagination['has_next'] ?? false}
+                    <a href="{$pagination['next_url'] ?? '#'}" title="Next page" aria-label="Next page">next -&gt;</a>
+                {else}
+                    <span class="tm-terminal-muted">next -&gt;</span>
+                {/if}
+            </div>
+        </div>
+    </nav>
+{/if}

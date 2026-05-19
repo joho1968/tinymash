@@ -1,0 +1,438 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm" data-tm-menu-editor>
+    <div class="d-flex flex-wrap align-items-start gap-3 justify-content-between mb-3">
+        <div>
+            <div class="small text-uppercase text-body-secondary mb-2">Menus</div>
+            <div class="fw-semibold mb-1">Primary and footer navigation</div>
+            <div class="text-body-secondary small">Build ordered parent and child items for the menu locations your current public theme can render.</div>
+        </div>
+        <div class="d-grid gap-2 justify-content-lg-end">
+            <button class="btn btn-primary btn-sm" type="submit" form="tm-system-menus-form">Save menus</button>
+            <div>
+                <div class="small text-uppercase text-body-secondary mb-2">Current theme menu support</div>
+                <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+                    {foreach $system_theme_supports as $theme_support}
+                        {if in_array((string) ($theme_support['key'] ?? ''), ['primary_menu', 'sidebar_menu', 'footer_menu'], true)}
+                            <span class="badge {if ! empty($theme_support['enabled'])}text-bg-success{else}text-bg-secondary{/if}">{$theme_support['label']}</span>
+                        {/if}
+                    {/foreach}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="tm-system-menus-form" method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="menus">
+
+        <div class="row g-3">
+            {foreach $system_menu_location_definitions as $menu_location_key => $menu_location_definition}
+                {var $menu_rows = $system_menu_locations[$menu_location_key] ?? []}
+                <div class="col-12">
+                    <section class="border rounded-3 p-3 bg-body-tertiary tm-menu-location-root" data-tm-menu-location-root="{$menu_location_key}">
+                        <div class="d-flex flex-wrap align-items-start gap-2 justify-content-between mb-3">
+                            <div>
+                                <div class="small text-uppercase text-body-secondary mb-1">{$menu_location_definition['label']}</div>
+                                <div class="small text-body-secondary">Add menu items, delete what you do not need, and drag rows to reorder them.</div>
+                            </div>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" data-tm-menu-add>
+                                <span class="bi bi-plus-lg me-1" aria-hidden="true"></span>New item
+                            </button>
+                        </div>
+
+                        <div class="d-grid gap-3" data-tm-menu-list="{$menu_location_key}">
+                            {foreach $menu_rows as $row_index => $menu_row}
+                                {var $menu_row_depth = max(0, min(1, (int) ($menu_row['depth'] ?? 0)))}
+                                {var $menu_row_type = in_array((string) ($menu_row['type'] ?? 'page'), ['page', 'url', 'separator'], true) ? (string) ($menu_row['type'] ?? 'page') : 'page'}
+                                <article class="border rounded-3 p-3 bg-body tm-menu-row{if $menu_row_depth === 1} tm-menu-row-child{/if}" data-tm-menu-row draggable="false">
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                        <button class="btn btn-outline-secondary btn-sm tm-menu-row-handle" type="button" data-tm-menu-drag-handle title="Drag to reorder" aria-label="Drag to reorder">
+                                            <span class="bi bi-grip-vertical" aria-hidden="true"></span>
+                                        </button>
+                                        <div class="small text-uppercase text-body-secondary">Menu item</div>
+                                        <button class="btn btn-outline-danger btn-sm ms-auto" type="button" data-tm-menu-delete>
+                                            <span class="bi bi-trash" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Delete item</span>
+                                        </button>
+                                    </div>
+
+                                    <div class="row g-3 align-items-start">
+                                        <div class="col-12 col-xl-2">
+                                            <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-depth-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-depth-__INDEX__">Level</label>
+                                            <select class="form-select form-select-sm" id="tm-menu-{$menu_location_key}-depth-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-depth-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][depth]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][depth]" data-tm-menu-input="depth">
+                                                <option value="0" n:attr="selected => $menu_row_depth === 0">Parent item</option>
+                                                <option value="1" n:attr="selected => $menu_row_depth === 1">Child item</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-xl-2">
+                                            <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-type-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-type-__INDEX__">Item type</label>
+                                            <select class="form-select form-select-sm" id="tm-menu-{$menu_location_key}-type-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-type-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][type]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][type]" data-tm-menu-input="type">
+                                                <option value="page" n:attr="selected => $menu_row_type === 'page'">Published page</option>
+                                                <option value="url" n:attr="selected => $menu_row_type === 'url'">Custom URL</option>
+                                                <option value="separator" n:attr="selected => $menu_row_type === 'separator'">Separator</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-xl-3" data-tm-menu-field="path">
+                                            <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-path-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-path-__INDEX__">Published page path</label>
+                                            <div class="tm-search-picker">
+                                                <div class="input-group input-group-sm">
+                                                    <input class="form-control font-monospace" id="tm-menu-{$menu_location_key}-path-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-path-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][path]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][path]" type="text" value="{=ltrim((string) ($menu_row['path'] ?? ''), '/')}" autocomplete="off" data-tm-validate-list="tm-menu-{$menu_location_key}-path-options-{$row_index}" data-list-template="tm-menu-{$menu_location_key}-path-options-__INDEX__" data-tm-picker-menu="tm-menu-{$menu_location_key}-path-menu-{$row_index}" data-menu-template="tm-menu-{$menu_location_key}-path-menu-__INDEX__" data-tm-allow-empty="1" data-tm-invalid-message="Choose one of the published root pages from the list, or leave the field blank.">
+                                                    <button class="btn btn-outline-secondary" type="button" data-tm-picker-toggle="tm-menu-{$menu_location_key}-path-{$row_index}" data-toggle-template="tm-menu-{$menu_location_key}-path-__INDEX__" aria-label="Browse published pages" title="Browse published pages">
+                                                        <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                                                    </button>
+                                                </div>
+                                                <div class="dropdown-menu tm-search-picker-menu w-100 shadow-sm" id="tm-menu-{$menu_location_key}-path-menu-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-path-menu-__INDEX__" data-tm-picker-menu-for="tm-menu-{$menu_location_key}-path-{$row_index}">
+                                                    <div class="tm-search-picker-summary small text-body-secondary" data-tm-picker-summary></div>
+                                                    <div class="list-group list-group-flush small tm-search-picker-options" data-tm-picker-options></div>
+                                                </div>
+                                                <datalist id="tm-menu-{$menu_location_key}-path-options-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-path-options-__INDEX__">
+                                                    {foreach $system_menu_page_lookup_options as $menu_page_option}
+                                                        <option value="{$menu_page_option['value']}" label="{$menu_page_option['label']}"></option>
+                                                    {/foreach}
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-xl-3" data-tm-menu-field="url">
+                                            <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-url-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-url-__INDEX__">Custom URL</label>
+                                            <input class="form-control form-control-sm font-monospace" id="tm-menu-{$menu_location_key}-url-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-url-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][url]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][url]" type="text" value="{$menu_row['url'] ?? ''}" placeholder="/about or https://example.com">
+                                        </div>
+                                        <div class="col-12 col-xl-2" data-tm-menu-field="label">
+                                            <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-label-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-label-__INDEX__">Label override</label>
+                                            <input class="form-control form-control-sm" id="tm-menu-{$menu_location_key}-label-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-label-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][label]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][label]" type="text" value="{$menu_row['label'] ?? ''}" placeholder="Optional">
+                                        </div>
+                                        <div class="col-12" data-tm-menu-field="new-tab">
+                                            <div class="form-check">
+                                                <input class="form-check-input" id="tm-menu-{$menu_location_key}-new-tab-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-new-tab-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][new_tab]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][new_tab]" type="checkbox" value="1" data-tm-menu-input="new-tab" n:attr="checked => !empty($menu_row['new_tab'])">
+                                                <label class="form-check-label small" for="tm-menu-{$menu_location_key}-new-tab-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-new-tab-__INDEX__">Open custom URL in new tab</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-text mb-0">Child items attach to the nearest parent item above them.</div>
+                                        </div>
+                                    </div>
+                                </article>
+                            {/foreach}
+                        </div>
+
+                        <div class="small text-body-secondary mt-3" data-tm-menu-empty-state n:if="empty($menu_rows)">No items yet. Use <span class="fw-semibold">New item</span> to start this menu.</div>
+
+                        <template id="tm-menu-row-template-{$menu_location_key}">
+                            <article class="border rounded-3 p-3 bg-body tm-menu-row" data-tm-menu-row draggable="false">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                    <button class="btn btn-outline-secondary btn-sm tm-menu-row-handle" type="button" data-tm-menu-drag-handle title="Drag to reorder" aria-label="Drag to reorder">
+                                        <span class="bi bi-grip-vertical" aria-hidden="true"></span>
+                                    </button>
+                                    <div class="small text-uppercase text-body-secondary">Menu item</div>
+                                    <button class="btn btn-outline-danger btn-sm ms-auto" type="button" data-tm-menu-delete>
+                                        <span class="bi bi-trash" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Delete item</span>
+                                    </button>
+                                </div>
+
+                                <div class="row g-3 align-items-start">
+                                    <div class="col-12 col-xl-2">
+                                        <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-depth-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-depth-__INDEX__">Level</label>
+                                        <select class="form-select form-select-sm" id="tm-menu-{$menu_location_key}-depth-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-depth-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][depth]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][depth]" data-tm-menu-input="depth">
+                                            <option value="0" selected>Parent item</option>
+                                            <option value="1">Child item</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-xl-2">
+                                        <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-type-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-type-__INDEX__">Item type</label>
+                                        <select class="form-select form-select-sm" id="tm-menu-{$menu_location_key}-type-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-type-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][type]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][type]" data-tm-menu-input="type">
+                                            <option value="page" selected>Published page</option>
+                                            <option value="url">Custom URL</option>
+                                            <option value="separator">Separator</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-xl-3" data-tm-menu-field="path">
+                                        <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-path-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-path-__INDEX__">Published page path</label>
+                                        <div class="tm-search-picker">
+                                            <div class="input-group input-group-sm">
+                                                <input class="form-control font-monospace" id="tm-menu-{$menu_location_key}-path-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-path-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][path]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][path]" type="text" value="" autocomplete="off" data-tm-validate-list="tm-menu-{$menu_location_key}-path-options-__INDEX__" data-list-template="tm-menu-{$menu_location_key}-path-options-__INDEX__" data-tm-picker-menu="tm-menu-{$menu_location_key}-path-menu-__INDEX__" data-menu-template="tm-menu-{$menu_location_key}-path-menu-__INDEX__" data-tm-allow-empty="1" data-tm-invalid-message="Choose one of the published root pages from the list, or leave the field blank.">
+                                                <button class="btn btn-outline-secondary" type="button" data-tm-picker-toggle="tm-menu-{$menu_location_key}-path-__INDEX__" data-toggle-template="tm-menu-{$menu_location_key}-path-__INDEX__" aria-label="Browse published pages" title="Browse published pages">
+                                                    <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                                                </button>
+                                            </div>
+                                            <div class="dropdown-menu tm-search-picker-menu w-100 shadow-sm" id="tm-menu-{$menu_location_key}-path-menu-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-path-menu-__INDEX__" data-tm-picker-menu-for="tm-menu-{$menu_location_key}-path-__INDEX__">
+                                                <div class="tm-search-picker-summary small text-body-secondary" data-tm-picker-summary></div>
+                                                <div class="list-group list-group-flush small tm-search-picker-options" data-tm-picker-options></div>
+                                            </div>
+                                            <datalist id="tm-menu-{$menu_location_key}-path-options-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-path-options-__INDEX__">
+                                                {foreach $system_menu_page_lookup_options as $menu_page_option}
+                                                    <option value="{$menu_page_option['value']}" label="{$menu_page_option['label']}"></option>
+                                                {/foreach}
+                                            </datalist>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-xl-3 d-none" data-tm-menu-field="url">
+                                        <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-url-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-url-__INDEX__">Custom URL</label>
+                                        <input class="form-control form-control-sm font-monospace" id="tm-menu-{$menu_location_key}-url-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-url-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][url]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][url]" type="text" value="" placeholder="/about or https://example.com">
+                                    </div>
+                                    <div class="col-12 col-xl-2" data-tm-menu-field="label">
+                                        <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-label-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-label-__INDEX__">Label override</label>
+                                        <input class="form-control form-control-sm" id="tm-menu-{$menu_location_key}-label-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-label-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][label]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][label]" type="text" value="" placeholder="Optional">
+                                    </div>
+                                    <div class="col-12 d-none" data-tm-menu-field="new-tab">
+                                        <div class="form-check">
+                                            <input class="form-check-input" id="tm-menu-{$menu_location_key}-new-tab-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-new-tab-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][new_tab]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][new_tab]" type="checkbox" value="1" data-tm-menu-input="new-tab">
+                                            <label class="form-check-label small" for="tm-menu-{$menu_location_key}-new-tab-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-new-tab-__INDEX__">Open custom URL in new tab</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-text mb-0">Child items attach to the nearest parent item above them.</div>
+                                    </div>
+                                </div>
+                            </article>
+                        </template>
+                    </section>
+                </div>
+            {/foreach}
+
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save menus</button>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        (() => {
+            function replaceIndexToken(value, index) {
+                return value.replace(/__INDEX__/g, String(index));
+            }
+
+            function renumberRow(row, index) {
+                row.querySelectorAll('[data-id-template]').forEach((element) => {
+                    element.id = replaceIndexToken(element.getAttribute('data-id-template') || '', index);
+                });
+                row.querySelectorAll('[data-name-template]').forEach((element) => {
+                    element.name = replaceIndexToken(element.getAttribute('data-name-template') || '', index);
+                });
+                row.querySelectorAll('[data-for-template]').forEach((element) => {
+                    element.setAttribute('for', replaceIndexToken(element.getAttribute('data-for-template') || '', index));
+                });
+                row.querySelectorAll('[data-toggle-template]').forEach((element) => {
+                    element.setAttribute('data-tm-picker-toggle', replaceIndexToken(element.getAttribute('data-toggle-template') || '', index));
+                });
+                row.querySelectorAll('[data-list-template]').forEach((element) => {
+                    element.setAttribute('data-tm-validate-list', replaceIndexToken(element.getAttribute('data-list-template') || '', index));
+                });
+                row.querySelectorAll('[data-menu-template]').forEach((element) => {
+                    element.setAttribute('data-tm-picker-menu', replaceIndexToken(element.getAttribute('data-menu-template') || '', index));
+                });
+            }
+
+            function updateRowDepthState(row) {
+                const depthField = row.querySelector('[data-tm-menu-input="depth"]');
+                const depth = depthField instanceof HTMLSelectElement ? depthField.value : '0';
+                row.classList.toggle('tm-menu-row-child', depth === '1');
+            }
+
+            function updateRowTypeState(row) {
+                const typeField = row.querySelector('[data-tm-menu-input="type"]');
+                const type = typeField instanceof HTMLSelectElement ? typeField.value : 'page';
+                row.querySelectorAll('[data-tm-menu-field]').forEach((field) => {
+                    const role = field.getAttribute('data-tm-menu-field') || '';
+                    const shouldShow = (type === 'page' && (role === 'path' || role === 'label'))
+                        || (type === 'url' && (role === 'url' || role === 'label' || role === 'new-tab'))
+                        || (type === 'separator' && role === '');
+                    field.classList.toggle('d-none', !shouldShow);
+                    field.querySelectorAll('input, select').forEach((input) => {
+                        if (input instanceof HTMLInputElement || input instanceof HTMLSelectElement) {
+                            if (input.hasAttribute('data-tm-menu-input')) {
+                                return;
+                            }
+                            input.disabled = !shouldShow;
+                            if (!shouldShow && input instanceof HTMLInputElement && input.type !== 'checkbox') {
+                                input.value = '';
+                            }
+                            if (!shouldShow && input instanceof HTMLInputElement && input.type === 'checkbox') {
+                                input.checked = false;
+                            }
+                        }
+                    });
+                });
+            }
+
+            function updateEmptyState(locationRoot) {
+                const list = locationRoot.querySelector('[data-tm-menu-list]');
+                const emptyState = locationRoot.querySelector('[data-tm-menu-empty-state]');
+                if (!(list instanceof HTMLElement) || !(emptyState instanceof HTMLElement)) {
+                    return;
+                }
+                emptyState.classList.toggle('d-none', list.querySelector('[data-tm-menu-row]') !== null);
+            }
+
+            function renumberLocation(locationRoot) {
+                const list = locationRoot.querySelector('[data-tm-menu-list]');
+                if (!(list instanceof HTMLElement)) {
+                    return;
+                }
+                Array.from(list.querySelectorAll('[data-tm-menu-row]')).forEach((row, index) => {
+                    if (row instanceof HTMLElement) {
+                        renumberRow(row, index);
+                        updateRowDepthState(row);
+                        updateRowTypeState(row);
+                    }
+                });
+                updateEmptyState(locationRoot);
+            }
+
+            function initializeRow(row, locationRoot) {
+                if (!(row instanceof HTMLElement) || row.getAttribute('data-tm-menu-row-initialized') === '1') {
+                    return;
+                }
+                row.setAttribute('data-tm-menu-row-initialized', '1');
+
+                const typeField = row.querySelector('[data-tm-menu-input="type"]');
+                const depthField = row.querySelector('[data-tm-menu-input="depth"]');
+                const deleteButton = row.querySelector('[data-tm-menu-delete]');
+                const dragHandle = row.querySelector('[data-tm-menu-drag-handle]');
+
+                if (typeField instanceof HTMLSelectElement) {
+                    typeField.addEventListener('change', () => {
+                        updateRowTypeState(row);
+                    });
+                }
+                if (depthField instanceof HTMLSelectElement) {
+                    depthField.addEventListener('change', () => {
+                        updateRowDepthState(row);
+                    });
+                }
+                if (deleteButton instanceof HTMLElement) {
+                    deleteButton.addEventListener('click', () => {
+                        row.remove();
+                        renumberLocation(locationRoot);
+                    });
+                }
+                if (dragHandle instanceof HTMLElement) {
+                    const armDrag = () => {
+                        row.setAttribute('data-tm-menu-drag-armed', '1');
+                        row.setAttribute('draggable', 'true');
+                    };
+                    const disarmDrag = () => {
+                        row.removeAttribute('data-tm-menu-drag-armed');
+                        row.setAttribute('draggable', 'false');
+                    };
+                    dragHandle.addEventListener('mousedown', armDrag);
+                    dragHandle.addEventListener('mouseup', disarmDrag);
+                    dragHandle.addEventListener('mouseleave', disarmDrag);
+                    dragHandle.addEventListener('touchstart', armDrag, { passive: true });
+                    dragHandle.addEventListener('touchend', disarmDrag);
+                }
+
+                row.addEventListener('dragstart', (event) => {
+                    if (row.getAttribute('data-tm-menu-drag-armed') !== '1') {
+                        event.preventDefault();
+                        return;
+                    }
+                    row.classList.add('tm-menu-row-dragging');
+                    if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', 'tinymash-menu-row');
+                    }
+                });
+                row.addEventListener('dragend', () => {
+                    row.classList.remove('tm-menu-row-dragging');
+                    row.removeAttribute('data-tm-menu-drag-armed');
+                    row.setAttribute('draggable', 'false');
+                    renumberLocation(locationRoot);
+                });
+
+                updateRowDepthState(row);
+                updateRowTypeState(row);
+            }
+
+            function getDragAfterRow(list, clientY) {
+                const rows = Array.from(list.querySelectorAll('[data-tm-menu-row]:not(.tm-menu-row-dragging)'));
+                return rows.reduce((closest, candidate) => {
+                    if (!(candidate instanceof HTMLElement)) {
+                        return closest;
+                    }
+                    const box = candidate.getBoundingClientRect();
+                    const offset = clientY - box.top - (box.height / 2);
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset, element: candidate };
+                    }
+                    return closest;
+                }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+            }
+
+            function addRow(locationRoot) {
+                const locationKey = locationRoot.getAttribute('data-tm-menu-location-root') || '';
+                const template = document.getElementById('tm-menu-row-template-' + locationKey);
+                const list = locationRoot.querySelector('[data-tm-menu-list]');
+                if (!(template instanceof HTMLTemplateElement) || !(list instanceof HTMLElement)) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = template.innerHTML.trim();
+                const row = wrapper.firstElementChild;
+                if (!(row instanceof HTMLElement)) {
+                    return;
+                }
+
+                list.appendChild(row);
+                renumberLocation(locationRoot);
+                initializeRow(row, locationRoot);
+                if (typeof window.tmAdminEnhanceFields === 'function') {
+                    window.tmAdminEnhanceFields(row);
+                }
+                const firstField = row.querySelector('input, select');
+                if (firstField instanceof HTMLElement) {
+                    firstField.focus();
+                }
+            }
+
+            function initializeLocation(locationRoot) {
+                if (!(locationRoot instanceof HTMLElement)) {
+                    return;
+                }
+
+                const list = locationRoot.querySelector('[data-tm-menu-list]');
+                const addButton = locationRoot.querySelector('[data-tm-menu-add]');
+                if (!(list instanceof HTMLElement)) {
+                    return;
+                }
+
+                Array.from(list.querySelectorAll('[data-tm-menu-row]')).forEach((row) => {
+                    initializeRow(row, locationRoot);
+                });
+
+                list.addEventListener('dragover', (event) => {
+                    event.preventDefault();
+                    const draggingRow = list.querySelector('.tm-menu-row-dragging');
+                    if (!(draggingRow instanceof HTMLElement)) {
+                        return;
+                    }
+                    const afterRow = getDragAfterRow(list, event.clientY);
+                    if (afterRow === null) {
+                        list.appendChild(draggingRow);
+                    } else {
+                        list.insertBefore(draggingRow, afterRow);
+                    }
+                });
+
+                if (addButton instanceof HTMLElement) {
+                    addButton.addEventListener('click', () => {
+                        addRow(locationRoot);
+                    });
+                }
+
+                renumberLocation(locationRoot);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.querySelectorAll('[data-tm-menu-location-root]').forEach((locationRoot) => {
+                        initializeLocation(locationRoot);
+                    });
+                }, { once: true });
+            } else {
+                document.querySelectorAll('[data-tm-menu-location-root]').forEach((locationRoot) => {
+                    initializeLocation(locationRoot);
+                });
+            }
+        })();
+    </script>
+</section>

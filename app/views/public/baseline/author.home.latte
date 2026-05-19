@@ -1,0 +1,54 @@
+{extends './layout.latte'}
+
+{block content}
+    <section class="d-grid gap-4">
+        <div n:if="! empty( $listing_context_title ) || ! empty( $listing_context_summary )">
+            {if ! empty( $listing_context_title ) }
+                <h3 class="h5 mb-0">{$listing_context_title}</h3>
+            {/if}
+            {if ! empty( $listing_context_summary ) }
+                <p class="small text-secondary mb-0 mt-2">{$listing_context_summary}</p>
+            {/if}
+        </div>
+        {if empty( $posts )}
+            <div class="p-4 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                <p class="mb-0 text-secondary">{$listing_empty_message ?? 'No published posts yet.'}</p>
+            </div>
+        {else}
+            {foreach $posts as $entry}
+                <article class="p-4 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        <h4 class="h6 mb-0"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h4>
+                        {if ! empty( $entry['sticky'] )}
+                            <span class="badge text-bg-warning">Sticky</span>
+                        {/if}
+                    </div>
+                    {if ! empty( $entry['published_at_display'] )}
+                        <p class="small text-secondary mb-2">{$entry['published_at_display']}</p>
+                    {/if}
+                    {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+                        <div class="tm-baseline-tags d-flex flex-wrap gap-2 mb-3">
+                            {foreach $entry['tag_links'] as $tag_link}
+                                <a class="tm-baseline-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                            {/foreach}
+                        </div>
+                    {/if}
+                    {if ! empty( $entry['featured_image']['url'] )}
+                        <p class="mb-3 tm-baseline-featured-image tm-baseline-featured-image-summary">
+                            <a class="d-block" href="{$entry['url']}">
+                                <img class="img-fluid rounded" src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                            </a>
+                        </p>
+                    {/if}
+                    {if ! empty( $entry['summary_html'] )}
+                        <div class="tm-baseline-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                    {/if}
+                    <div class="mt-3">
+                        <a class="btn btn-outline-secondary btn-sm text-decoration-none" href="{$entry['url']}">Read</a>
+                    </div>
+                </article>
+            {/foreach}
+            {include './partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+        {/if}
+    </section>
+{/block}

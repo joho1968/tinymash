@@ -1,0 +1,259 @@
+{var $site_image_picker_records = is_array($system_site_image_picker_records ?? null) ? $system_site_image_picker_records : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Site settings</div>
+    <div class="fw-semibold mb-1">General site configuration</div>
+    <form method="post" action="{$system_settings_url}" enctype="multipart/form-data">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="site">
+        <div class="row g-3">
+            <div class="col-12 col-xl-6">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Identity</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-site-name">Site title</label>
+                            <input class="form-control" id="tm-system-site-name" name="site_name" type="text" value="{$system_settings['site_name']}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-site-slogan">Site slogan</label>
+                            <input class="form-control" id="tm-system-site-slogan" name="site_slogan" type="text" value="{$system_settings['site_slogan']}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-login-message">Login screen message</label>
+                            <textarea class="form-control" id="tm-system-login-message" name="login_message" rows="4">{$system_settings['login_message']}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Mail addresses</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-admin-email">Site admin e-mail address</label>
+                            <input class="form-control font-monospace" id="tm-system-admin-email" name="admin_email" type="email" value="{$system_settings['admin_email']}" placeholder="admin@example.com">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-notifications-email">System notifications e-mail address</label>
+                            <input class="form-control font-monospace" id="tm-system-notifications-email" name="system_notifications_email" type="email" value="{$system_settings['system_notifications_email'] ?? ''}" placeholder="ops@example.com">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text mb-0">SMTP settings are configured in <a href="{$system_section_urls['smtp']}">System &gt; SMTP</a>.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="border rounded-3 p-3 bg-body-tertiary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Identity images</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-site-banner-image-file">Site banner image</label>
+                            <input class="form-control" id="tm-system-site-banner-image-file" name="site_banner_image_file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml">
+                            <input type="hidden" id="tm-system-site-banner-image-media-id" name="site_banner_image_media_id" value="">
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-tm-site-image-picker-open="site_banner_image"><span class="bi bi-images me-1" aria-hidden="true"></span>Choose from root media</button>
+                                <span class="small text-body-secondary align-self-center" id="tm-system-site-banner-image-picked"></span>
+                            </div>
+                            {if ! empty( $system_settings['site_banner_image']['url'] )}
+                                <div class="mt-2 d-flex flex-wrap align-items-start gap-3">
+                                    <img class="rounded border bg-body" src="{$system_settings['site_banner_image']['url']}" alt="{$system_settings['site_banner_image']['alt_text'] ?? ''}" style="max-width: 12rem; max-height: 6rem;">
+                                    <div class="small text-body-secondary flex-grow-1">
+                                        <div class="fw-semibold text-body text-break">Current: {$system_settings['site_banner_image']['filename'] ?? 'banner'}</div>
+                                        <div>{$system_settings['site_banner_image']['mime'] ?? ''}{if ! empty( $system_settings['site_banner_image']['width'] ) && ! empty( $system_settings['site_banner_image']['height'] )} | {$system_settings['site_banner_image']['width']}x{$system_settings['site_banner_image']['height']}{/if}</div>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" id="tm-system-site-banner-image-clear" name="site_banner_image_clear" type="checkbox" value="1">
+                                            <label class="form-check-label" for="tm-system-site-banner-image-clear">Remove current banner image</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-site-og-image-file">Fallback OG image</label>
+                            <input class="form-control" id="tm-system-site-og-image-file" name="site_og_image_file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml">
+                            <input type="hidden" id="tm-system-site-og-image-media-id" name="site_og_image_media_id" value="">
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-tm-site-image-picker-open="site_og_image"><span class="bi bi-images me-1" aria-hidden="true"></span>Choose from root media</button>
+                                <span class="small text-body-secondary align-self-center" id="tm-system-site-og-image-picked"></span>
+                            </div>
+                            <div class="form-text">Use an opaque background for social previews. Some platforms render transparent areas as black.</div>
+                            {if ! empty( $system_settings['site_og_image']['url'] )}
+                                <div class="mt-2 d-flex flex-wrap align-items-start gap-3">
+                                    <img class="rounded border bg-body" src="{$system_settings['site_og_image']['url']}" alt="{$system_settings['site_og_image']['alt_text'] ?? ''}" style="max-width: 12rem; max-height: 6rem;">
+                                    <div class="small text-body-secondary flex-grow-1">
+                                        <div class="fw-semibold text-body text-break">Current: {$system_settings['site_og_image']['filename'] ?? 'og image'}</div>
+                                        <div>{$system_settings['site_og_image']['mime'] ?? ''}{if ! empty( $system_settings['site_og_image']['width'] ) && ! empty( $system_settings['site_og_image']['height'] )} | {$system_settings['site_og_image']['width']}x{$system_settings['site_og_image']['height']}{/if}</div>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" id="tm-system-site-og-image-clear" name="site_og_image_clear" type="checkbox" value="1">
+                                            <label class="form-check-label" for="tm-system-site-og-image-clear">Remove current OG image</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                        <div class="col-12 col-xl-6">
+                            <label class="form-label small mb-1" for="tm-system-site-background-image-file">Site background image</label>
+                            <input class="form-control" id="tm-system-site-background-image-file" name="site_background_image_file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml">
+                            <input type="hidden" id="tm-system-site-background-image-media-id" name="site_background_image_media_id" value="">
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button class="btn btn-outline-secondary btn-sm" type="button" data-tm-site-image-picker-open="site_background_image"><span class="bi bi-images me-1" aria-hidden="true"></span>Choose from root media</button>
+                                <span class="small text-body-secondary align-self-center" id="tm-system-site-background-image-picked"></span>
+                            </div>
+                            {if ! empty( $system_settings['site_background_image']['url'] )}
+                                <div class="mt-2 d-flex flex-wrap align-items-start gap-3">
+                                    <img class="rounded border bg-body" src="{$system_settings['site_background_image']['url']}" alt="{$system_settings['site_background_image']['alt_text'] ?? ''}" style="max-width: 12rem; max-height: 7rem;">
+                                    <div class="small text-body-secondary flex-grow-1">
+                                        <div class="fw-semibold text-body text-break">Current: {$system_settings['site_background_image']['filename'] ?? 'background image'}</div>
+                                        <div>{$system_settings['site_background_image']['mime'] ?? ''}{if ! empty( $system_settings['site_background_image']['width'] ) && ! empty( $system_settings['site_background_image']['height'] )} | {$system_settings['site_background_image']['width']}x{$system_settings['site_background_image']['height']}{/if}</div>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" id="tm-system-site-background-image-clear" name="site_background_image_clear" type="checkbox" value="1">
+                                            <label class="form-check-label" for="tm-system-site-background-image-clear">Remove current background image</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                        <div class="col-12 col-xl-6">
+                            <label class="form-label small mb-1" for="tm-system-site-background-render-mode">Background render mode</label>
+                            <select class="form-select" id="tm-system-site-background-render-mode" name="site_background_render_mode">
+                                <option value="as_is" n:attr="selected => ($system_settings['site_background_render_mode'] ?? 'scaled') === 'as_is'">As-is</option>
+                                <option value="centered" n:attr="selected => ($system_settings['site_background_render_mode'] ?? 'scaled') === 'centered'">Centered</option>
+                                <option value="scaled" n:attr="selected => ($system_settings['site_background_render_mode'] ?? 'scaled') === 'scaled'">Scaled</option>
+                                <option value="tiled" n:attr="selected => ($system_settings['site_background_render_mode'] ?? 'scaled') === 'tiled'">Tiled</option>
+                            </select>
+                            <div class="form-text">Public background images are rendered as fixed backgrounds.</div>
+                        </div>
+                        <div class="col-12 col-xl-6">
+                            <label class="form-label small mb-1" for="tm-system-site-favicon-png-image-file">Favicon PNG</label>
+                            <input class="form-control" id="tm-system-site-favicon-png-image-file" name="site_favicon_png_image_file" type="file" accept="image/png">
+                            {if ! empty( $system_settings['site_favicon_png_image']['url'] )}
+                                <div class="mt-2 d-flex flex-wrap align-items-start gap-3">
+                                    <img class="rounded border bg-body" src="{$system_settings['site_favicon_png_image']['url']}" alt="{$system_settings['site_favicon_png_image']['alt_text'] ?? ''}" style="width: 3rem; height: 3rem; object-fit: contain;">
+                                    <div class="small text-body-secondary flex-grow-1">
+                                        <div class="fw-semibold text-body text-break">Current: {$system_settings['site_favicon_png_image']['filename'] ?? 'favicon.png'}</div>
+                                        <div>{if ! empty( $system_settings['site_favicon_png_image']['width'] ) && ! empty( $system_settings['site_favicon_png_image']['height'] )}{$system_settings['site_favicon_png_image']['width']}x{$system_settings['site_favicon_png_image']['height']}{/if}</div>
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" id="tm-system-site-favicon-png-image-clear" name="site_favicon_png_image_clear" type="checkbox" value="1">
+                                            <label class="form-check-label" for="tm-system-site-favicon-png-image-clear">Remove current PNG favicon</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                        <div class="col-12 col-xl-6">
+                            <label class="form-label small mb-1" for="tm-system-site-favicon-ico-image-file">Favicon ICO</label>
+                            <input class="form-control" id="tm-system-site-favicon-ico-image-file" name="site_favicon_ico_image_file" type="file" accept=".ico,image/x-icon,image/vnd.microsoft.icon">
+                            {if ! empty( $system_settings['site_favicon_ico_image']['url'] )}
+                                <div class="mt-2 small text-body-secondary">
+                                    <div class="fw-semibold text-body text-break">Current: {$system_settings['site_favicon_ico_image']['filename'] ?? 'favicon.ico'}</div>
+                                    <div>{$system_settings['site_favicon_ico_image']['mime'] ?? 'image/x-icon'}</div>
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" id="tm-system-site-favicon-ico-image-clear" name="site_favicon_ico_image_clear" type="checkbox" value="1">
+                                        <label class="form-check-label" for="tm-system-site-favicon-ico-image-clear">Remove current ICO favicon</label>
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save site settings</button>
+            </div>
+        </div>
+
+        <div class="modal fade" id="tm-system-site-image-picker-modal" tabindex="-1" aria-labelledby="tm-system-site-image-picker-title" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <div class="small text-uppercase text-body-secondary mb-1">Root media</div>
+                            <h5 class="modal-title" id="tm-system-site-image-picker-title">Choose site image</h5>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body d-grid gap-3">
+                        <input class="form-control" id="tm-system-site-image-picker-filter" type="search" placeholder="Search filename or label">
+                        {if empty($site_image_picker_records)}
+                            <div class="small text-body-secondary">No root-owned images are available yet.</div>
+                        {else}
+                            <div class="row g-2" id="tm-system-site-image-picker-grid">
+                                {foreach $site_image_picker_records as $picker_record}
+                                    <div class="col-12 col-sm-6 col-xl-4" data-tm-site-image-picker-item data-search-text="{strtolower(($picker_record['label'] ?? '') . ' ' . ($picker_record['filename'] ?? '') . ' ' . ($picker_record['media_id'] ?? ''))}">
+                                        <button class="btn text-start border rounded-3 bg-body-tertiary h-100 w-100 p-2" type="button" data-tm-site-image-picker-choice data-media-id="{$picker_record['media_id']}" data-label="{$picker_record['label'] ?? $picker_record['filename'] ?? $picker_record['media_id']}">
+                                            <img class="img-fluid rounded border mb-2" src="{$picker_record['thumbnail_url'] ?: $picker_record['url']}" alt="" loading="lazy" decoding="async">
+                                            <div class="fw-semibold small text-break">{$picker_record['label'] ?? $picker_record['filename'] ?? $picker_record['media_id']}</div>
+                                            <div class="small text-body-secondary text-truncate" title="{$picker_record['filename'] ?? ''}">{$picker_record['filename'] ?? ''}</div>
+                                            <div class="small text-body-secondary">{$picker_record['dimensions'] ?? ''}{if ! empty($picker_record['dimensions']) && ! empty($picker_record['mime'])} · {/if}{$picker_record['mime'] ?? ''}</div>
+                                        </button>
+                                    </div>
+                                {/foreach}
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</section>
+
+<script>
+(() => {
+    const modalElement = document.getElementById('tm-system-site-image-picker-modal');
+    const filterField = document.getElementById('tm-system-site-image-picker-filter');
+    let activeTarget = '';
+    const fieldMap = {
+        site_banner_image: 'tm-system-site-banner-image-media-id',
+        site_og_image: 'tm-system-site-og-image-media-id',
+        site_background_image: 'tm-system-site-background-image-media-id'
+    };
+    const statusMap = {
+        site_banner_image: 'tm-system-site-banner-image-picked',
+        site_og_image: 'tm-system-site-og-image-picked',
+        site_background_image: 'tm-system-site-background-image-picked'
+    };
+    const getModal = () => {
+        if (!modalElement || !window.bootstrap || !window.bootstrap.Modal) {
+            return null;
+        }
+        return window.bootstrap.Modal.getOrCreateInstance(modalElement);
+    };
+    document.querySelectorAll('[data-tm-site-image-picker-open]').forEach((button) => {
+        button.addEventListener('click', () => {
+            activeTarget = String(button.getAttribute('data-tm-site-image-picker-open') || '');
+            const modal = getModal();
+            if (modal) {
+                modal.show();
+            }
+        });
+    });
+    document.querySelectorAll('[data-tm-site-image-picker-choice]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const fieldId = fieldMap[activeTarget] || '';
+            const field = fieldId !== '' ? document.getElementById(fieldId) : null;
+            if (field) {
+                field.value = String(button.getAttribute('data-media-id') || '');
+            }
+            const status = statusMap[activeTarget] ? document.getElementById(statusMap[activeTarget]) : null;
+            if (status) {
+                status.textContent = 'Selected: ' + String(button.getAttribute('data-label') || button.getAttribute('data-media-id') || '');
+            }
+            const modal = getModal();
+            if (modal) {
+                modal.hide();
+            }
+        });
+    });
+    if (filterField) {
+        filterField.addEventListener('input', () => {
+            const needle = String(filterField.value || '').trim().toLowerCase();
+            document.querySelectorAll('[data-tm-site-image-picker-item]').forEach((item) => {
+                const haystack = String(item.getAttribute('data-search-text') || '');
+                item.classList.toggle('d-none', needle !== '' && !haystack.includes(needle));
+            });
+        });
+    }
+})();
+</script>

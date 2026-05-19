@@ -1,0 +1,19 @@
+{foreach $items as $item}
+    {var $item_level = max(1, (int) ($level ?? 1))}
+    {var $item_indent_class = $item_level > 2 ? 'ps-4' : ($item_level > 1 ? 'ps-3' : '')}
+    {if ! empty( $item['is_separator'] )}
+        <li><hr class="dropdown-divider"></li>
+    {elseif ! empty( $item['children'] ) && $item_level < 3}
+        <li class="dropdown-submenu">
+            <a n:class="'dropdown-item d-flex justify-content-between align-items-center', $item_indent_class" href="{$item['url']}" n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null">
+                <span>{$item['title']}</span>
+                <span class="small text-secondary">&rsaquo;</span>
+            </a>
+            <ul class="dropdown-menu">
+                {include './navigation-menu-items.latte', items: $item['children'], level: $item_level + 1}
+            </ul>
+        </li>
+    {else}
+        <li><a n:class="'dropdown-item', $item_indent_class" href="{$item['url']}" n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null">{$item['title']}</a></li>
+    {/if}
+{/foreach}

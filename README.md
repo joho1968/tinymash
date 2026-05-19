@@ -1,0 +1,124 @@
+# tinymash
+
+tinymash is a flat-file CMS and publishing platform for PHP 8.4+. It stores content on disk, does not require a database server, and ships with both a public site and an admin interface.
+
+It is built for self-hosted publishing: pages, posts, author spaces, themes, plugins, media, tags, feeds, maintenance tasks, and a CLI for day-to-day operations.
+
+## What tinymash is for
+
+tinymash is a good fit if you want:
+
+- a database-free CMS
+- a small self-hosted publishing stack
+- pages and blog posts in the same system
+- multiple authors without adding a lot of platform weight
+- a PHP application that stays readable and easy to deploy
+
+## What ships with it
+
+The shipped runtime includes:
+
+- a web-based admin interface
+- flat-file content, draft, user, and media storage
+- public themes and theme settings
+- plugin support
+- media uploads for editor and site imagery
+- feeds, tags, menus, search, backup/export, imports, and housekeeping tooling
+- a CLI for cache management, deploy builds, housekeeping, imports, backups, and other maintenance work
+
+## Normal installation path
+
+The normal production path is to run tinymash from a prepared runtime tree and point your web server at `public/`.
+
+If you are holding a tinymash deploy package, the short version is:
+
+1. copy the runtime tree to the server
+2. point the web root at `public/`
+3. make `data/`, `users/`, and `tmp/` writable by the PHP/web-server user
+4. create `app/config/tinymash.json` from `app/config/tinymash.json.example` if it does not already exist, then review it
+5. create the first admin user
+6. set up housekeeping from cron
+
+The full step-by-step version is in `INSTALL.md`.
+
+## Runtime requirements
+
+- PHP `8.4` or newer
+- a web server such as Nginx or Apache
+- PHP-FPM or another supported PHP SAPI
+- writable `data/`, `users/`, and `tmp/` directories
+
+Required PHP extensions:
+
+- `mbstring`
+- `json`
+- `dom`
+- `session`
+- `openssl`
+- `fileinfo`
+
+Recommended PHP extensions for full feature coverage:
+
+- `curl`
+- `gd` or `imagick`
+- `simplexml`
+- `exif`
+- `intl`
+- `zip`
+
+## First admin user
+
+Before you can use `/admin/login`, create at least one local admin user:
+
+```bash
+php8.4 bin/tinymash.php user set-password admin strong-password-here superadmin
+```
+
+## Command line
+
+Common operator commands are documented in [CLI.md](CLI.md).
+
+## Sample files
+
+Public sample files live under `samples/`:
+
+- `samples/server/nginx.sample.conf`
+- `samples/server/apache.sample.conf`
+- `samples/server/php-fpm.sample.conf`
+- `samples/server/php-opcache-production.ini`
+- `samples/server/php-opcache-development.ini`
+- `samples/cron/tinymash.cron`
+- `samples/deploy/rsync-deploy.sh`
+
+## Files and paths
+
+- `public/`: web root
+- `app/config/tinymash.json`: main runtime configuration; deploy packages ship `app/config/tinymash.json.example` as the safe starting point
+- `data/`: content, drafts, media, caches, plugin/theme data
+- `users/`: user records
+- `tmp/`: temporary runtime files
+- `bin/tinymash.php`: CLI entrypoint
+
+## Source checkouts
+
+If you are running tinymash directly from a source checkout instead of a prepared runtime tree, install the PHP dependencies first and treat that as a developer/operator workflow rather than the normal end-user install path.
+
+## License
+
+tinymash is licensed under `AGPL-3.0-or-later`. See `LICENSE`.
+
+Copyright 2026 Joaquim Homrighausen; all rights reserved.
+
+## Credits
+
+tinymash uses a small set of bundled third-party packages and frontend assets, including:
+
+- Bootstrap
+- Bootstrap Icons
+- highlight.js
+- emoji-picker-element and bundled emoji picker data
+- `flightphp/core`
+- `flightphp/runway`
+- `latte/latte`
+- `league/commonmark`
+- `symfony/mailer`

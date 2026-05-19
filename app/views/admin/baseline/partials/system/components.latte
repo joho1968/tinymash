@@ -1,0 +1,139 @@
+{var $system_components_report = is_array($system_components_report ?? null) ? $system_components_report : []}
+{var $components_summary = is_array($system_components_report['summary'] ?? null) ? $system_components_report['summary'] : []}
+{var $components_checks = is_array($system_components_report['checks'] ?? null) ? $system_components_report['checks'] : []}
+{var $components_packages = is_array($system_components_report['packages'] ?? null) ? $system_components_report['packages'] : []}
+{var $components_status = trim((string) ($system_components_report['status'] ?? 'missing'))}
+{var $components_advisory_data = is_array($system_components_report['advisory_data'] ?? null) ? $system_components_report['advisory_data'] : []}
+{var $components_has_check_errors = false}
+{foreach ['outdated', 'audit'] as $components_check_probe}
+    {if empty(($components_checks[$components_check_probe]['ok'] ?? false))}
+        {var $components_has_check_errors = true}
+    {/if}
+{/foreach}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Components</div>
+    <div class="fw-semibold mb-1">Composer package update status</div>
+    <div class="small text-body-secondary mb-3">This page reads the last cached result from <span class="font-monospace">tinymash check-updates</span>. It does not run Composer in the web request.</div>
+
+    {if empty($system_components_report)}
+        <div class="alert alert-secondary mb-3" role="alert">
+            No component check has been run yet. Use <span class="font-monospace">tinymash check-updates</span> from the CLI first.
+        </div>
+    {else}
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-4">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Last checked</div>
+                    <div class="fw-semibold">{$system_components_report['checked_at_display'] ?? 'Unknown'}</div>
+                    <div class="small text-body-secondary mt-1">Composer: {$system_components_report['composer_version'] ?? 'Unavailable'}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Status</div>
+                    <div>
+                        <span class="badge {if $components_status === 'ok'}text-bg-success{elseif $components_status === 'partial'}text-bg-warning{else}text-bg-danger{/if}">
+                            {if $components_status === 'ok'}OK{elseif $components_status === 'partial'}Partial{else}Error{/if}
+                        </span>
+                    </div>
+                    <div class="small d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge {if ! empty($components_checks['outdated']['ok'])}text-bg-success{else}text-bg-danger{/if}">Outdated check</span>
+                        <span class="badge {if ! empty($components_checks['audit']['ok'])}text-bg-success{else}text-bg-danger{/if}">Security audit</span>
+                    </div>
+                    {if ($components_advisory_data['source'] ?? '') === 'previous'}
+                        <div class="small text-body-secondary mt-2">Security advisory data is being reused from the last successful audit{if ! empty($components_advisory_data['checked_at_display'])} on {$components_advisory_data['checked_at_display']}{/if}.</div>
+                    {elseif ($components_advisory_data['source'] ?? '') === 'unavailable'}
+                        <div class="small text-body-secondary mt-2">Security advisory data is unavailable until the next successful audit.</div>
+                    {/if}
+                    {if $components_has_check_errors}
+                        <details class="mt-3">
+                            <summary class="small text-body-secondary">Check details</summary>
+                            <div class="d-grid gap-3 mt-3">
+                                {foreach ['outdated' => 'Outdated check', 'audit' => 'Security audit'] as $components_check_key => $components_check_label}
+                                    {var $components_check = is_array($components_checks[$components_check_key] ?? null) ? $components_checks[$components_check_key] : []}
+                                    <div class="small">
+                                        <div class="fw-semibold mb-1">{$components_check_label}</div>
+                                        <div class="text-body-secondary font-monospace text-break">{$components_check['command'] ?? ''}</div>
+                                        <div class="text-body-secondary mt-1">Exit code: {$components_check['exit_code'] ?? 1}</div>
+                                        {if ! empty($components_check['stderr'])}
+                                            <div class="text-body-secondary mt-2 text-break">{$components_check['stderr']}</div>
+                                        {/if}
+                                    </div>
+                                {/foreach}
+                            </div>
+                        </details>
+                    {/if}
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Summary</div>
+                    <div class="small d-grid gap-1">
+                        <div>Security updates: <span class="fw-semibold">{$components_summary['security_updates'] ?? 0}</span></div>
+                        <div>Patch and minor updates: <span class="fw-semibold">{$components_summary['safe_updates'] ?? 0}</span></div>
+                        <div>Major updates: <span class="fw-semibold">{$components_summary['version_updates'] ?? 0}</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {foreach ['security_updates' => 'Security updates', 'safe_updates' => 'Patch and minor updates', 'version_updates' => 'Major updates'] as $components_group_key => $components_group_label}
+            {var $components_group = is_array($components_packages[$components_group_key] ?? null) ? $components_packages[$components_group_key] : []}
+            <section class="rounded-3 p-3 bg-body-secondary mb-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div>
+                        <div class="small text-uppercase text-body-secondary">{$components_group_label}</div>
+                        <div class="fw-semibold">{$components_group_label}</div>
+                    </div>
+                    <span class="badge text-bg-secondary">{count($components_group)}</span>
+                </div>
+                {if empty($components_group)}
+                    <div class="small text-body-secondary">No {$components_group_label|lower} found in the last check.</div>
+                {else}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-top mb-0">
+                            <colgroup>
+                                <col style="width: 40%;">
+                                <col style="width: 15%;">
+                                <col style="width: 15%;">
+                                <col style="width: 30%;">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th class="fw-normal" scope="col">Package</th>
+                                    <th class="fw-normal" scope="col">Installed</th>
+                                    <th class="fw-normal" scope="col">Latest</th>
+                                    <th class="fw-normal" scope="col">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody class="table-group-divider">
+                                {foreach $components_group as $components_package}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold font-monospace">{$components_package['name'] ?? ''}</div>
+                                            <div class="small text-body-secondary">{$components_package['description'] ?? ''}</div>
+                                        </td>
+                                        <td class="font-monospace">{$components_package['version'] ?? ''}</td>
+                                        <td class="font-monospace">{$components_package['latest'] ?? ''}</td>
+                                        <td>
+                                            {if ! empty($components_package['security_advisories'])}
+                                                <div class="small text-body-secondary">
+                                                    {foreach $components_package['security_advisories'] as $components_advisory}
+                                                        <div>{$components_advisory['title'] ?? $components_advisory['advisory_id'] ?? 'Security advisory'}</div>
+                                                    {/foreach}
+                                                </div>
+                                            {else}
+                                                <div class="small text-body-secondary">{if ! empty($components_package['direct_dependency'])}Direct dependency{else}Transitive dependency{/if}</div>
+                                            {/if}
+                                        </td>
+                                    </tr>
+                                {/foreach}
+                            </tbody>
+                        </table>
+                    </div>
+                {/if}
+            </section>
+        {/foreach}
+    {/if}
+</section>
