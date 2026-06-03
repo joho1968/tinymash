@@ -377,6 +377,14 @@ $router->post( $config->configGetAdminURL() . '/system/orphans/delete', function
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->deleteSystemOrphanContent();
 });
+$router->post( $config->configGetAdminURL() . '/system/media-library/review', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->updateSystemMediaLibraryReview();
+});
+$router->post( $config->configGetAdminURL() . '/system/media-library/delete', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->deleteSystemMediaLibraryItem();
+});
 // admin
 $router->get( $config->configGetAdminURL(), function() use ( $app, $router, $security, $config, $redirect_to_login) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );

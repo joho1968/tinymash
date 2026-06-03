@@ -86,14 +86,7 @@
             const previewTarget = document.getElementById('tm-editor-preview');
             const previewStatus = document.getElementById('tm-editor-status');
             const tabButtons = document.querySelectorAll('#tinymash-editor-tabs [data-mode]');
-            const inlineButtons = document.querySelectorAll('.tm-editor-insert');
-            const prefixLineButtons = document.querySelectorAll('.tm-editor-prefix-lines');
-            const wrapBlockButtons = document.querySelectorAll('.tm-editor-wrap-block');
-            const calloutButtons = document.querySelectorAll('.tm-editor-callout-option');
-            const tableButtons = document.querySelectorAll('.tm-editor-table');
-            const headingApplyButton = document.getElementById('tm-editor-heading-apply');
-            const headingLabel = document.getElementById('tm-editor-heading-label');
-            const headingLevelButtons = document.querySelectorAll('.tm-editor-heading-level');
+
             const previewUrl = editorRoot ? (editorRoot.dataset.previewUrl || '') : '';
             const editorUrl = editorRoot ? (editorRoot.dataset.editorUrl || '') : '';
             const draftUrl = editorRoot ? (editorRoot.dataset.draftUrl || '') : '';
@@ -205,19 +198,18 @@
             const tagsAutocomplete = document.getElementById('tm-editor-tags-autocomplete');
             const emojiPickerModalElement = document.getElementById('tm-editor-emoji-modal');
             const emojiPickerElement = document.getElementById('tm-editor-emoji-picker');
-            const headingStorageKey = 'tinymash.editor.headingLevel';
             const externalLinkNewTabStorageKey = 'tinymash.editor.externalLinkNewTab';
             const internalLinkNewTabStorageKey = 'tinymash.editor.internalLinkNewTab';
             const fallbackCoverColorStorageKey = 'tinymash.editor.blocksRecentCoverColors';
 
             let lastPreviewSource = null;
-            let currentHeadingLevel = '1';
             let loadedEntryId = editorRoot ? (editorRoot.dataset.loadedEntryId || '') : '';
             let loadedDraftId = initialDraftId;
             let loadedRevisionId = initialRevisionId;
             let slugTouched = loadedEntryId !== '';
             let lastAutoSlug = slugField ? slugField.value.trim() : '';
             let slugCheckTimer = null;
+            let slugCheckSequence = 0;
             let autosaveTimer = null;
             let hasUnsavedChanges = false;
             let draftSaveInFlight = false;
@@ -915,16 +907,6 @@
                 });
             }
 
-            function replaceSelection(prefix, suffix, placeholder) {
-                const start = markdownField.selectionStart;
-                const end = markdownField.selectionEnd;
-                const selectedText = markdownField.value.slice(start, end) || placeholder;
-                const replacement = prefix + selectedText + suffix;
-                markdownField.setRangeText(replacement, start, end, 'select');
-                markdownField.focus();
-                markDirty();
-            }
-
             function insertText(text) {
                 const start = markdownField.selectionStart;
                 const end = markdownField.selectionEnd;
@@ -932,6 +914,8 @@
                 markdownField.focus();
                 markDirty();
             }
+
+
             {{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/editor/links.js.latte')|noescape}}
 
             function setTransientStatus(text, tone) {
@@ -1343,115 +1327,6 @@
                 }
             }
 
-            function prefixSelectedLines(prefix, placeholder) {
-                const start = markdownField.selectionStart;
-                const end = markdownField.selectionEnd;
-                const selectedText = markdownField.value.slice(start, end) || placeholder;
-                const lines = selectedText.split('\n').map((line) => prefix + line);
-                markdownField.setRangeText(lines.join('\n'), start, end, 'select');
-                markdownField.focus();
-                markDirty();
-            }
-
-            function wrapSelectionBlock(prefix, suffix, placeholder) {
-                const start = markdownField.selectionStart;
-                const end = markdownField.selectionEnd;
-                const selectedText = markdownField.value.slice(start, end) || placeholder;
-                const needsLeadingBreak = start > 0 && markdownField.value.charAt(start - 1) !== '\n';
-                const needsTrailingBreak = end < markdownField.value.length && markdownField.value.charAt(end) !== '\n';
-                const wrappedText = (needsLeadingBreak ? '\n\n' : '') + prefix + selectedText + suffix + (needsTrailingBreak ? '\n\n' : '');
-                markdownField.setRangeText(wrappedText, start, end, 'select');
-                markdownField.focus();
-                markDirty();
-            }
-
-            function setHeadingLevel(level) {
-                const normalizedLevel = String(level || '1').replace(/[^1-6]/g, '') || '1';
-                currentHeadingLevel = normalizedLevel;
-                if (headingLabel) {
-                    headingLabel.textContent = 'H' + normalizedLevel;
-                }
-                try {
-                    window.localStorage.setItem(headingStorageKey, normalizedLevel);
-                } catch (error) {
-                    console.debug('[tinymash] heading level could not be persisted', error);
-                }
-            }
-
-            function loadHeadingLevel() {
-                let storedLevel = '1';
-                try {
-                    storedLevel = window.localStorage.getItem(headingStorageKey) || '1';
-                } catch (error) {
-                    storedLevel = '1';
-                }
-                setHeadingLevel(storedLevel);
-            }
-
-            function applyHeadingLevel() {
-                prefixSelectedLines('#'.repeat(Number(currentHeadingLevel || '1')) + ' ', 'Heading');
-            }
-
-            function insertCallout(calloutType) {
-                const start = markdownField.selectionStart;
-                const end = markdownField.selectionEnd;
-                const selectedText = markdownField.value.slice(start, end).trim() || 'Callout text';
-                const lines = selectedText.split('\n');
-                const prefixedLines = lines.map((line) => '> ' + line);
-                const needsLeadingBreak = start > 0 && markdownField.value.charAt(start - 1) !== '\n';
-                const needsTrailingBreak = end < markdownField.value.length && markdownField.value.charAt(end) !== '\n';
-                const replacement = (needsLeadingBreak ? '\n\n' : '') + '> [!' + calloutType + ']\n' + prefixedLines.join('\n') + (needsTrailingBreak ? '\n\n' : '');
-                markdownField.setRangeText(replacement, start, end, 'select');
-                markdownField.focus();
-                markDirty();
-            }
-
-            function insertTable() {
-                const start = markdownField.selectionStart;
-                const end = markdownField.selectionEnd;
-                const selectedText = markdownField.value.slice(start, end).trim();
-                let replacement = '| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |';
-
-                if (selectedText !== '') {
-                    const rows = selectedText.split('\n').map((line) => line.trim()).filter((line) => line !== '');
-                    if (rows.length > 0) {
-                        let tableCells = rows.map((line) => {
-                            if (line.includes('|')) {
-                                return line.split('|').map((cell) => cell.trim()).filter((cell) => cell !== '');
-                            }
-                            if (line.includes('\t')) {
-                                return line.split('\t').map((cell) => cell.trim()).filter((cell) => cell !== '');
-                            }
-                            return [ line ];
-                        });
-
-                        const singleColumnSelection = tableCells.every((row) => row.length === 1);
-                        if (singleColumnSelection) {
-                            const whitespaceRows = rows.map((line) => line.split(/\s+/).map((cell) => cell.trim()).filter((cell) => cell !== ''));
-                            const firstWidth = whitespaceRows[0] ? whitespaceRows[0].length : 0;
-                            const canPromoteWhitespaceGrid = firstWidth > 1 && whitespaceRows.every((row) => row.length === firstWidth);
-                            if (canPromoteWhitespaceGrid) {
-                                tableCells = whitespaceRows;
-                            }
-                        }
-
-                        const tableLines = tableCells.map((cells) => cells.length > 0 ? '| ' + cells.join(' | ') + ' |' : '').filter((line) => line !== '');
-
-                        if (tableLines.length > 0) {
-                            const headerCellCount = (tableLines[0].match(/\|/g) || []).length - 1;
-                            const separator = '| ' + Array.from({ length: Math.max(1, headerCellCount) }, () => '---').join(' | ') + ' |';
-                            replacement = [ tableLines[0], separator ].concat(tableLines.slice(1)).join('\n');
-                        }
-                    }
-                }
-
-                const needsLeadingBreak = start > 0 && markdownField.value.charAt(start - 1) !== '\n';
-                const needsTrailingBreak = end < markdownField.value.length && markdownField.value.charAt(end) !== '\n';
-                markdownField.setRangeText((needsLeadingBreak ? '\n\n' : '') + replacement + (needsTrailingBreak ? '\n\n' : ''), start, end, 'select');
-                markdownField.focus();
-                markDirty();
-            }
-
             function updateFieldVisibility() {
                 const isPage = entryTypeField && entryTypeField.value === 'page';
                 const isAuthorScope = scopeField && scopeField.value === 'author';
@@ -1711,7 +1586,7 @@
                 slugStatus.classList.add(state === 'danger' ? 'text-danger' : (state === 'success' ? 'text-success' : 'text-body-secondary'));
             }
 
-            async function checkSlugAvailability() {
+            async function checkSlugAvailability(requestSequence) {
                 if (!slugCheckUrl || !slugField) {
                     return;
                 }
@@ -1726,6 +1601,9 @@
                 const payload = await response.json();
                 if (!response.ok) {
                     throw new Error(payload.error || ('Slug check failed with status ' + response.status));
+                }
+                if (requestSequence !== slugCheckSequence) {
+                    return;
                 }
 
                 if (!slugTouched && payload.slug && slugField.value.trim() !== payload.slug) {
@@ -1743,9 +1621,12 @@
                 if (slugCheckTimer) {
                     window.clearTimeout(slugCheckTimer);
                 }
+                const requestSequence = ++slugCheckSequence;
                 slugCheckTimer = window.setTimeout(() => {
-                    checkSlugAvailability().catch((error) => {
-                        updateSlugStatus(error.message || 'Unable to validate slug right now.', 'danger');
+                    checkSlugAvailability(requestSequence).catch((error) => {
+                        if (requestSequence === slugCheckSequence) {
+                            updateSlugStatus(error.message || 'Unable to validate slug right now.', 'danger');
+                        }
                     });
                 }, 250);
             }
@@ -2247,56 +2128,6 @@
                 button.addEventListener('click', () => {
                     setMode(button.getAttribute('data-mode'));
                 });
-            });
-
-            inlineButtons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    replaceSelection(
-                        button.getAttribute('data-prefix') || '',
-                        button.getAttribute('data-suffix') || '',
-                        button.getAttribute('data-placeholder') || 'text'
-                    );
-                });
-            });
-
-            prefixLineButtons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    prefixSelectedLines(
-                        button.getAttribute('data-prefix') || '',
-                        button.getAttribute('data-placeholder') || 'Text'
-                    );
-                });
-            });
-
-            wrapBlockButtons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    wrapSelectionBlock(
-                        button.getAttribute('data-prefix') || '',
-                        button.getAttribute('data-suffix') || '',
-                        button.getAttribute('data-placeholder') || 'code'
-                    );
-                });
-            });
-
-            if (headingApplyButton) {
-                headingApplyButton.addEventListener('click', applyHeadingLevel);
-            }
-
-            headingLevelButtons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    setHeadingLevel(button.getAttribute('data-heading-level') || '1');
-                    applyHeadingLevel();
-                });
-            });
-
-            calloutButtons.forEach((button) => {
-                button.addEventListener('click', () => {
-                    insertCallout(button.getAttribute('data-callout') || 'NOTE');
-                });
-            });
-
-            tableButtons.forEach((button) => {
-                button.addEventListener('click', insertTable);
             });
 
             [
@@ -2890,7 +2721,6 @@
             if (!contentSearchUrl) {
                 filterLoadOptions();
             }
-            loadHeadingLevel();
             updateDeleteDraftVisibility();
             updateRevisionList(editorRevisions);
             syncEmojiPickerTheme();

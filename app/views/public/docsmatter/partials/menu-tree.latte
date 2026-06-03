@@ -1,13 +1,42 @@
+{var $menu_tree_collapsible = ! empty( $menu_tree_collapsible ?? false )}
+{var $menu_tree_prefix = (string) ( $menu_tree_prefix ?? 'tm-docsmatter-menu' )}
+{var $menu_tree_level = max(1, (int) ($menu_tree_level ?? 1))}
 {if ! empty( $items )}
     <div n:class="($level ?? 1) > 1 ? 'd-grid gap-1 mt-1 ps-3 ms-2 border-start tm-docsmatter-page-tree-nested' : 'd-grid gap-1 tm-docsmatter-page-tree-root'">
         {foreach $items as $item}
             {if ! empty( $item['is_separator'] )}
                 <hr class="my-2 text-body-tertiary opacity-100">
             {else}
+                {var $branch_id = $menu_tree_prefix . '-' . $menu_tree_level . '-' . $iterator->counter}
+                {var $branch_expanded = ! empty($item['is_current']) || ! empty($item['is_ancestor'])}
+                {var $toggle_only_branch = $menu_tree_collapsible && ! empty( $item['children'] ) && ( ($item['url'] ?? '') === '#' || trim((string) ($item['url'] ?? '')) === '' )}
                 <div class="tm-docsmatter-page-node">
-                    <a n:class="! empty($item['is_current']) ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item current active-nav' : (! empty($item['is_ancestor']) ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item ancestor active-nav' : 'tm-docsmatter-page-link nav-link bs5docs-menu-item')" href="{$item['url']}" n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null">{$item['title']}</a>
+                    <div class="d-flex align-items-center gap-1 tm-docsmatter-menu-row">
+                        {if $toggle_only_branch}
+                            <button n:class="'btn btn-link btn-sm text-start text-decoration-none d-inline-flex align-items-center tm-docsmatter-page-link nav-link bs5docs-menu-item tm-docsmatter-menu-toggle tm-docsmatter-menu-toggle-label', $branch_expanded ? 'fw-semibold' : null"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#{$branch_id}"
+                                aria-controls="{$branch_id}" n:attr="aria-expanded => $branch_expanded ? 'true' : 'false', aria-label => 'Toggle submenu for ' . $item['title']">
+                                <span>{$item['title']}</span>
+                                <span class="bi bi-chevron-down ms-2" aria-hidden="true"></span>
+                            </button>
+                        {else}
+                            <a n:class="'flex-grow-1', ! empty($item['is_current']) ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item current active-nav' : (! empty($item['is_ancestor']) ? 'tm-docsmatter-page-link nav-link bs5docs-menu-item ancestor active-nav' : 'tm-docsmatter-page-link nav-link bs5docs-menu-item')" href="{$item['url']}" n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null">{$item['title']}</a>
+                            <button n:if="$menu_tree_collapsible && ! empty( $item['children'] )"
+                                class="btn btn-link btn-sm text-body-secondary tm-docsmatter-menu-toggle"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#{$branch_id}"
+                                aria-controls="{$branch_id}" n:attr="aria-expanded => $branch_expanded ? 'true' : 'false', aria-label => 'Toggle submenu for ' . $item['title']">
+                                <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                            </button>
+                        {/if}
+                    </div>
                     {if ! empty( $item['children'] )}
-                        {include './menu-tree.latte', items: $item['children'], level: (($level ?? 1) + 1)}
+                        {if $menu_tree_collapsible}
+                            <div n:class="'collapse tm-docsmatter-menu-branch', $branch_expanded ? 'show'" id="{$branch_id}">
+                                {include './menu-tree.latte', items: $item['children'], level: (($level ?? 1) + 1), menu_tree_collapsible: true, menu_tree_prefix: $branch_id, menu_tree_level: $menu_tree_level + 1}
+                            </div>
+                        {else}
+                            {include './menu-tree.latte', items: $item['children'], level: (($level ?? 1) + 1), menu_tree_collapsible: false, menu_tree_prefix: $branch_id, menu_tree_level: $menu_tree_level + 1}
+                        {/if}
                     {/if}
                 </div>
             {/if}

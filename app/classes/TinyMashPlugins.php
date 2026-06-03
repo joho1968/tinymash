@@ -26,6 +26,7 @@ class TinyMashPlugins {
         'markdown.renderer',
         'date.formatter',
         'content.renderer',
+        'shortcode.registry',
         'menu.service',
         'media.metadata_store',
         'media.import_map_store',
@@ -54,14 +55,17 @@ class TinyMashPlugins {
     protected array $profile_settings_sections = [];
     protected array $booted_stages = [];
     protected array $public_slot_renderers = [];
+    protected bool $has_dynamic_public_slot_renderer = false;
     protected array $public_entry_renderers = [];
     protected array $public_content_filters = [];
     protected array $public_assets = [];
     protected array $admin_navigation_items = [];
+    protected array $admin_configuration_urls = [];
     protected array $cli_commands = [];
     protected array $housekeeping_tasks = [];
     protected array $export_contributors = [];
     protected array $import_contributors = [];
+    protected array $media_usage_contributors = [];
     protected array $editor_tabs = [];
     protected array $plugin_directories = [];
     protected string $booting_plugin_key = '';
@@ -103,10 +107,12 @@ class TinyMashPlugins {
         $this->public_content_filters = [];
         $this->public_assets = [];
         $this->admin_navigation_items = [];
+        $this->admin_configuration_urls = [];
         $this->cli_commands = [];
         $this->housekeeping_tasks = [];
         $this->export_contributors = [];
         $this->import_contributors = [];
+        $this->media_usage_contributors = [];
         $this->editor_tabs = [];
 
         foreach ( $this->plugin_directories as $plugins_directory ) {
@@ -152,7 +158,7 @@ class TinyMashPlugins {
     }
 
     public function getPlugin( string $plugin_key ) : ?array {
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         if ( $plugin_key === '' || empty( $this->registered_plugins[$plugin_key] ) || ! is_array( $this->registered_plugins[$plugin_key] ) ) {
             return( null );
         }
@@ -199,7 +205,7 @@ class TinyMashPlugins {
         return( $capabilities );
     }
 
-    public function registerPublicSlotRenderer( string $plugin_key, string $slot, callable $renderer ) : bool {
+    public function registerPublicSlotRenderer( string $plugin_key, string $slot, callable $renderer, bool $dynamic = false ) : bool {
         $slot = $this->normalizePublicSlot( $slot );
         if ( $slot === '' || ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
             return( false );
@@ -209,11 +215,19 @@ class TinyMashPlugins {
             $this->public_slot_renderers[$slot] = [];
         }
         $this->public_slot_renderers[$slot][] = [
-            'plugin_key' => $plugin_key,
+            'plugin_key' => $this->canonicalizePluginKey( $plugin_key ),
             'renderer' => $renderer,
+            'dynamic' => $dynamic,
         ];
+        if ( $dynamic ) {
+            $this->has_dynamic_public_slot_renderer = true;
+        }
 
         return( true );
+    }
+
+    public function hasDynamicPublicSlotRenderer() : bool {
+        return( $this->has_dynamic_public_slot_renderer );
     }
 
     public function registerPublicEntryRenderer( string $plugin_key, callable $renderer ) : bool {
@@ -221,7 +235,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         if ( $plugin_key === '' ) {
             return( false );
         }
@@ -239,7 +253,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         if ( $plugin_key === '' ) {
             return( false );
         }
@@ -252,12 +266,82 @@ class TinyMashPlugins {
         return( true );
     }
 
+    public function registerMediaUsageContributor( string $plugin_key, callable $contributor ) : bool {
+        if ( ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
+            return( false );
+        }
+
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
+        if ( $plugin_key === '' ) {
+            return( false );
+        }
+
+        $this->media_usage_contributors[] = [
+            'plugin_key' => $plugin_key,
+            'contributor' => $contributor,
+        ];
+        return( true );
+    }
+
+    public function collectMediaUsageReferences() : array {
+        $references = [];
+        foreach ( $this->media_usage_contributors as $contributor ) {
+            if ( ! is_array( $contributor ) || empty( $contributor['contributor'] ) || ! is_callable( $contributor['contributor'] ) ) {
+                continue;
+            }
+            $plugin_key = (string) ( $contributor['plugin_key'] ?? '' );
+            if ( $plugin_key === '' || empty( $this->registered_plugins[$plugin_key]['active'] ) || empty( $this->registered_plugins[$plugin_key]['booted'] ) ) {
+                continue;
+            }
+            try {
+                $plugin_references = call_user_func( $contributor['contributor'] );
+            } catch ( \Throwable $e ) {
+                error_log( basename( __FILE__ ) . ': Media usage contributor failed for "' . $plugin_key . '" (' . $e->getMessage() . ')' );
+                continue;
+            }
+            if ( ! is_array( $plugin_references ) ) {
+                continue;
+            }
+            foreach ( $plugin_references as $reference ) {
+                if ( ! is_array( $reference ) || trim( (string) ( $reference['media_id'] ?? '' ) ) === '' ) {
+                    continue;
+                }
+                $reference['plugin_key'] = $plugin_key;
+                $references[] = $reference;
+            }
+        }
+
+        return( $references );
+    }
+
+    public function registerShortcode( string $plugin_key, string $name, callable $handler, array $definition = [] ) : bool {
+        if ( ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
+            return( false );
+        }
+
+        $shortcode_registry = $this->getService( 'shortcode.registry' );
+        if ( ! $shortcode_registry instanceof TinyMashShortcodeRegistry ) {
+            return( false );
+        }
+
+        return( $shortcode_registry->registerShortcode( $this->canonicalizePluginKey( $plugin_key ), $name, $handler, $definition ) );
+    }
+
+    public function getRegisteredShortcodes() : array {
+        $shortcode_registry = $this->getService( 'shortcode.registry' );
+        if ( ! $shortcode_registry instanceof TinyMashShortcodeRegistry ) {
+            return( [] );
+        }
+
+        return( $shortcode_registry->getRegisteredShortcodes() );
+    }
+
     public function registerPublicAsset( string $plugin_key, string $type, string $url ) : bool {
         if ( ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $type = strtolower( trim( $type ) );
         $url = $this->normalizePublicAssetUrl( $url );
         if ( $plugin_key === '' || ! in_array( $type, [ 'css', 'js' ], true ) || $url === '' ) {
@@ -280,7 +364,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $area = $this->normalizeAdminNavigationArea( $area );
         if ( $plugin_key === '' || $area === '' ) {
             return( false );
@@ -313,6 +397,32 @@ class TinyMashPlugins {
         ];
 
         return( true );
+    }
+
+    public function registerAdminConfigurationUrl( string $plugin_key, string $url ) : bool {
+        if ( ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
+            return( false );
+        }
+
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
+        $url = $this->normalizePublicAssetUrl( $url );
+        if ( $plugin_key === '' || $url === '' ) {
+            return( false );
+        }
+
+        $this->admin_configuration_urls[$plugin_key] = $url;
+        return( true );
+    }
+
+    public function getAdminConfigurationUrls() : array {
+        $urls = [];
+        foreach ( $this->admin_configuration_urls as $plugin_key => $url ) {
+            if ( empty( $this->registered_plugins[$plugin_key]['active'] ) || empty( $this->registered_plugins[$plugin_key]['booted'] ) ) {
+                continue;
+            }
+            $urls[$plugin_key] = $url;
+        }
+        return( $urls );
     }
 
     public function registerHelpDocument( string $plugin_key, string $context, array $document ) : bool {
@@ -381,7 +491,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $task_key = $this->normalizePluginKey( $task_key !== '' ? $task_key : $plugin_key );
         if ( $plugin_key === '' || $task_key === '' ) {
             return( false );
@@ -402,7 +512,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $command = $this->normalizePluginKey( (string) ( $definition['command'] ?? '' ) );
         $handler = $definition['handler'] ?? null;
         if ( $plugin_key === '' || $command === '' || ! is_callable( $handler ) ) {
@@ -480,7 +590,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $scope = $this->normalizeExportScope( $scope );
         if ( $plugin_key === '' || $scope === '' ) {
             return( false );
@@ -501,7 +611,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $scope = $this->normalizeExportScope( $scope );
         if ( $plugin_key === '' || $scope === '' ) {
             return( false );
@@ -522,7 +632,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $section_definition = $this->normalizeSettingsSectionDefinition( $plugin_key, $definition );
         if ( $section_definition === null ) {
             return( false );
@@ -537,7 +647,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $section = strtolower( trim( $section ) );
         if ( ! in_array( $section, [ 'account', 'editor', 'publishing', 'appearance', 'fediverse' ], true ) ) {
             return( false );
@@ -560,7 +670,7 @@ class TinyMashPlugins {
             return( false );
         }
 
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $tab_key = $this->normalizePluginKey( (string) ( $definition['key'] ?? $plugin_key ) );
         $label = trim( (string) ( $definition['label'] ?? '' ) );
         $renderer = $definition['renderer'] ?? null;
@@ -806,7 +916,7 @@ class TinyMashPlugins {
     }
 
     protected function normalizePublicSlotFragment( string $plugin_key, mixed $rendered_fragment ) : array {
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         if ( $plugin_key === '' ) {
             return( [] );
         }
@@ -1153,7 +1263,7 @@ class TinyMashPlugins {
     }
 
     protected function registerPluginDefinition( array $plugin_definition ) : void {
-        $plugin_key = $this->normalizePluginKey( (string) ( $plugin_definition['key'] ?? '' ) );
+        $plugin_key = $this->canonicalizePluginKey( (string) ( $plugin_definition['key'] ?? '' ) );
         if ( $plugin_key === '' ) {
             return;
         }
@@ -1196,7 +1306,7 @@ class TinyMashPlugins {
             return;
         }
         if ( ! $this->canLoadPluginFile( $bootstrap_path ) ) {
-            $this->markPluginBootError( $plugin_key, 'Bootstrap file is not readable or has invalid syntax.' );
+            $this->markPluginBootError( $plugin_key, 'Bootstrap file is not readable.' );
             return;
         }
 
@@ -1238,7 +1348,7 @@ class TinyMashPlugins {
     }
 
     protected function canRegisterForCurrentPlugin( string $plugin_key ) : bool {
-        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         return( $plugin_key !== '' && $plugin_key === $this->booting_plugin_key );
     }
 
@@ -1279,7 +1389,7 @@ class TinyMashPlugins {
             return( null );
         }
 
-        $plugin_key = $this->normalizePluginKey( (string) ( $manifest['key'] ?? $fallback_key ) );
+        $plugin_key = $this->canonicalizePluginKey( (string) ( $manifest['key'] ?? $fallback_key ) );
         if ( $plugin_key === '' ) {
             return( null );
         }
@@ -1339,6 +1449,16 @@ class TinyMashPlugins {
     protected function normalizePluginKey( string $plugin_key ) : string {
         $plugin_key = strtolower( trim( $plugin_key ) );
         return( preg_replace( '/[^a-z0-9_-]/', '', $plugin_key ) ?? '' );
+    }
+
+    protected function canonicalizePluginKey( string $plugin_key ) : string {
+        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        return(
+            match ( $plugin_key ) {
+                'visitor-context' => 'footer',
+                default => $plugin_key,
+            }
+        );
     }
 
     protected function normalizeBootStage( string $stage ) : string {
@@ -1527,22 +1647,6 @@ class TinyMashPlugins {
     protected function canLoadPluginFile( string $plugin_file ) : bool {
         if ( ! is_file( $plugin_file ) || ! is_readable( $plugin_file ) ) {
             error_log( basename( __FILE__ ) . ': Plugin file is not readable "' . basename( $plugin_file ) . '"' );
-            return( false );
-        }
-
-        if ( ! function_exists( 'exec' ) ) {
-            return( true );
-        }
-
-        $escaped_file = escapeshellarg( $plugin_file );
-        $output = [];
-        $return_code = 0;
-        exec( PHP_BINARY . ' -l ' . $escaped_file . ' 2>&1', $output, $return_code );
-        if ( $return_code !== 0 ) {
-            error_log( basename( __FILE__ ) . ': Skipping plugin with invalid syntax "' . basename( $plugin_file ) . '"' );
-            foreach ( $output as $line ) {
-                error_log( basename( __FILE__ ) . ': ' . $line );
-            }
             return( false );
         }
 

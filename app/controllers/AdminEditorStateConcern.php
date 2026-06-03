@@ -3,6 +3,7 @@ namespace app\controllers;
 
 use app\classes\TinyMashContentTargetPickerService;
 use app\classes\TinyMashEditorMediaPickerService;
+use app\classes\TinyMashMarkdownEditorComponent;
 
 trait AdminEditorStateConcern {
 
@@ -18,6 +19,8 @@ trait AdminEditorStateConcern {
         $requested_source = ! empty( $data['source'] ) ? trim( (string) $data['source'] ) : '';
         $editor_state = $this->getEditorState( $requested_entry_id, $requested_draft_id, ! empty( $data['new'] ), $requested_source, $requested_revision_id );
         $editor_attachment_session_id = $this->buildEditorAttachmentSessionId( $editor_state );
+        $editor_image_upload = $this->getCurrentEditorImageUploadSettings();
+        $editor_shortcodes = $this->getEditorShortcodes();
         if ( $requested_entry_id !== '' && ! empty( $editor_state['requested_entry_denied'] ) ) {
             $this->app->response()->status( 403 );
             $this->renderAdmin(
@@ -96,11 +99,25 @@ trait AdminEditorStateConcern {
                 'current_author_slug' => $this->getCurrentAuthorSlug(),
                 'editor_author_options' => $this->getEditorAuthorOptions(),
                 'editor_autosave' => $this->getCurrentEditorAutosaveSettings(),
-                'editor_image_upload' => $this->getCurrentEditorImageUploadSettings(),
+                'editor_image_upload' => $editor_image_upload,
+                'editor_markdown_component_html' => TinyMashMarkdownEditorComponent::render(
+                    [
+                        'field_id' => 'tm-editor-markdown',
+                        'content' => (string) ( $editor_state['draft']['content'] ?? '' ),
+                        'rows' => 22,
+                        'shortcodes' => $editor_shortcodes,
+                        'external_links' => true,
+                        'internal_links' => true,
+                        'images' => ! empty( $editor_image_upload['enabled'] ),
+                        'emoji' => true,
+                        'emoji_autocomplete' => true,
+                    ]
+                ),
                 'editor_featured_image' => $this->getCurrentEditorFeaturedImageSettings(),
                 'editor_tags_enabled' => $this->config->areTagsEnabled(),
                 'editor_seo_enabled' => $this->app->has( 'public.seo.service' ),
                 'editor_plugin_tabs' => $this->getEditorPluginTabs( $editor_state ),
+                'editor_shortcodes' => $editor_shortcodes,
                 'help_contexts' => [ 'admin-editor' ],
             ]
         );
@@ -462,17 +479,19 @@ trait AdminEditorStateConcern {
                 continue;
             }
 
-            $slug = (string) ( $entry_option['path'] ?? '' );
+            $slug = (string) ( $entry_option['slug'] ?? '' );
+            $path = (string) ( $entry_option['path'] ?? $slug );
             $page_options[] = [
                 'id' => (string) ( $entry_option['id'] ?? '' ),
                 'scope' => (string) ( $entry_option['scope'] ?? 'root' ),
                 'author_slug' => (string) ( $entry_option['author_slug'] ?? '' ),
                 'slug' => $slug,
+                'path' => $path,
                 'parent_slug' => (string) ( $entry_option['parent_slug'] ?? '' ),
                 'sort_order' => (int) ( $entry_option['sort_order'] ?? 0 ),
                 'title' => (string) ( $entry_option['title'] ?? '' ),
                 'status' => (string) ( $entry_option['status'] ?? 'unpublished' ),
-                'local_slug' => $this->getEditorParentPageLocalSlug( $slug ),
+                'local_slug' => $slug,
             ];
         }
 
@@ -542,7 +561,7 @@ trait AdminEditorStateConcern {
         $page_option['depth'] = max( 0, $depth );
         $page_option['display_path'] = (int) $page_option['depth'] > 0
             ? '../' . (string) ( $page_option['local_slug'] ?? $this->getEditorParentPageLocalSlug( (string) ( $page_option['slug'] ?? '' ) ) )
-            : '/' . trim( (string) ( $page_option['slug'] ?? '' ), '/' );
+            : '/' . trim( (string) ( $page_option['path'] ?? $page_option['slug'] ?? '' ), '/' );
         $sorted_options[] = $page_option;
 
         $child_group_key = (string) ( $page_option['scope'] ?? 'root' )
@@ -1159,6 +1178,8 @@ trait AdminEditorStateConcern {
                 'editor_author_slug' => 'Choose an existing non-deleted Username/Author for author-scoped publishing.',
                 'published_at_local' => 'Publish date/time is not valid.',
                 'editor_entry_access' => 'You cannot edit that content item in this composer.',
+                'trash_restore_slug_conflict' => 'That trashed item cannot be restored because active content already uses its slug in the same scope.',
+                'trash_restore_parent_unavailable' => 'That trashed page cannot be restored because its parent page is missing or still in Trash.',
                 'featured_image_media_id' => 'Choose a valid featured image.',
                 'seo_social_image_media_id' => 'Choose a valid social image.',
                 'SEO canonical URL must be an absolute http(s) URL.' => 'SEO canonical URL must be an absolute http(s) URL.',
@@ -1305,5 +1326,19 @@ trait AdminEditorStateConcern {
                 ]
             )
         );
+    }
+
+    protected function getEditorShortcodes() : array {
+        if ( ! $this->app->has( 'shortcode.registry' ) ) {
+            return( [] );
+        }
+
+        $shortcode_registry = $this->app->get( 'shortcode.registry' );
+        if ( ! is_object( $shortcode_registry ) || ! method_exists( $shortcode_registry, 'getRegisteredShortcodes' ) ) {
+            return( [] );
+        }
+
+        $shortcodes = $shortcode_registry->getRegisteredShortcodes();
+        return( is_array( $shortcodes ) ? $shortcodes : [] );
     }
 }

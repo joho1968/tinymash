@@ -562,6 +562,20 @@ trait AdminEditorActionConcern {
         $markdown = (string) ( $data['markdown'] ?? '' );
         $html = '';
         if ( $this->markdown_renderer !== null ) {
+            if ( $this->app->has( 'shortcode.registry' ) ) {
+                $shortcode_registry = $this->app->get( 'shortcode.registry' );
+                if ( $shortcode_registry instanceof \app\classes\TinyMashShortcodeRegistry ) {
+                    $shortcode_registry->resetRequestState();
+                    $markdown = $shortcode_registry->renderShortcodes(
+                        $markdown,
+                        [
+                            'surface' => 'preview',
+                            'current_user' => $this->security->getCurrentUsername(),
+                            'is_superadmin' => $this->security->isSuperAdmin(),
+                        ]
+                    );
+                }
+            }
             $html = $this->markdown_renderer->render( $markdown, [ 'classic_smileys_enabled' => $this->getCurrentClassicSmileysSettings()['enabled'] ] );
         }
 

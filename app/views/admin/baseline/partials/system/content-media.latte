@@ -54,6 +54,11 @@
                             <div class="form-text">0 disables revision snapshots. Positive values keep only the newest saved revisions per item.</div>
                         </div>
                         <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-content-trash-retention-days">Trash retention (days)</label>
+                            <input class="form-control font-monospace" id="tm-system-content-trash-retention-days" name="content_trash_retention_days" type="number" min="0" max="90" step="1" value="{$system_settings['content_trash_retention_days'] ?? 30}">
+                            <div class="form-text">0 deletes saved content immediately. Positive values move deleted saved content to Trash and let housekeeping purge older entries.</div>
+                        </div>
+                        <div class="col-12">
                             <label class="form-label small mb-1" for="tm-system-housekeeping-stale-draft-retention-days">Stale draft retention (days)</label>
                             <input class="form-control font-monospace" id="tm-system-housekeeping-stale-draft-retention-days" name="housekeeping_stale_draft_retention_days" type="number" min="0" max="365" step="1" value="{$system_settings['housekeeping_stale_draft_retention_days'] ?? 0}">
                             <div class="form-text">0 disables stale-draft cleanup. Positive values let housekeeping remove drafts that have not been updated within that many days.</div>
@@ -65,7 +70,45 @@
                             </div>
                             <div class="form-text">Advanced setting. Caches rendered entry bodies and summaries under <span class="font-monospace">data/runtime/rendered-content</span> to avoid repeated Markdown and DOM-decoration work on public requests.</div>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-unknown-shortcode-mode">Unknown shortcodes</label>
+                            <select class="form-select" id="tm-system-unknown-shortcode-mode" name="unknown_shortcode_mode">
+                                <option value="code" n:attr="selected => ($system_settings['unknown_shortcode_mode'] ?? 'code') === 'code'">Render as code block</option>
+                                <option value="hide" n:attr="selected => ($system_settings['unknown_shortcode_mode'] ?? 'code') === 'hide'">Hide from public output</option>
+                            </select>
+                            <div class="form-text">Applies to shortcode-shaped content without an active registered handler. Plain Markdown links are left alone.</div>
+                        </div>
                     </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary">
+                    <div class="small text-uppercase text-body-secondary mb-2">Registered shortcodes</div>
+                    {if ! empty( $system_registered_shortcodes )}
+                        <div class="row g-2">
+                            {foreach $system_registered_shortcodes as $shortcode}
+                                <div class="col-12 col-xl-6">
+                                    <div class="border rounded-3 p-2 bg-body h-100">
+                                        <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+                                            <span class="font-monospace fw-semibold">[{$shortcode['name']}]</span>
+                                            <span class="badge text-bg-secondary">{$shortcode['plugin_key']}</span>
+                                            {if ! empty( $shortcode['dynamic'] )}
+                                                <span class="badge text-bg-warning">Dynamic</span>
+                                            {/if}
+                                        </div>
+                                        {if ! empty( $shortcode['description'] )}
+                                            <div class="small text-body-secondary mb-1">{$shortcode['description']}</div>
+                                        {/if}
+                                        {if ! empty( $shortcode['example'] )}
+                                            <code class="small">{$shortcode['example']}</code>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/foreach}
+                        </div>
+                    {else}
+                        <div class="small text-body-secondary">No active plugin has registered content shortcodes.</div>
+                    {/if}
                 </div>
             </div>
             <div class="col-12 d-flex flex-wrap gap-2">

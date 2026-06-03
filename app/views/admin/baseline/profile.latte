@@ -40,9 +40,9 @@
                     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
                 </div>
                 <div class="offcanvas-body d-grid gap-3">
-                    {var $profile_nav_id_prefix = 'tm-profile-sections-mobile'}
-                    {var $profile_nav_label = 'Profile navigation'}
-                    {include './partials/profile/sidebar.latte'}
+                    {include './partials/profile/sidebar.latte',
+                        profile_nav_id_prefix: 'tm-profile-sections-mobile',
+                        profile_nav_label: 'Profile navigation'}
                     {include './partials/profile/status-card.latte'}
                 </div>
             </div>
@@ -51,9 +51,9 @@
         <div class="col-lg-3 d-none d-lg-block">
             <div class="d-grid gap-3 position-lg-sticky" style="top: 5rem;">
                 <div class="p-3 bg-body border rounded-3 shadow-sm">
-                    {var $profile_nav_id_prefix = 'tm-profile-sections-desktop'}
-                    {var $profile_nav_label = 'Profile sections'}
-                    {include './partials/profile/sidebar.latte'}
+                    {include './partials/profile/sidebar.latte',
+                        profile_nav_id_prefix: 'tm-profile-sections-desktop',
+                        profile_nav_label: 'Profile sections'}
                 </div>
                 {include './partials/profile/status-card.latte'}
             </div>
@@ -142,21 +142,27 @@
                                 <label class="form-label small mb-1" for="tm-profile-current-password">Current password</label>
                                 <div class="input-group">
                                     <input class="form-control font-monospace" id="tm-profile-current-password" name="current_password" type="password" value="" autocomplete="current-password">
-                                    <span class="bi bi-eye-slash-fill input-group-text tm-password-toggle text-body-secondary" title="Toggle visibility" data-target="tm-profile-current-password"></span>
+                                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-profile-current-password">
+                                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label class="form-label small mb-1" for="tm-profile-new-password">New password</label>
                                 <div class="input-group">
                                     <input class="form-control font-monospace" id="tm-profile-new-password" name="new_password" type="password" value="" autocomplete="new-password">
-                                    <span class="bi bi-eye-slash-fill input-group-text tm-password-toggle text-body-secondary" title="Toggle visibility" data-target="tm-profile-new-password"></span>
+                                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-profile-new-password">
+                                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label class="form-label small mb-1" for="tm-profile-confirm-password">Confirm new password</label>
                                 <div class="input-group">
                                     <input class="form-control font-monospace" id="tm-profile-confirm-password" name="confirm_password" type="password" value="" autocomplete="new-password">
-                                    <span class="bi bi-eye-slash-fill input-group-text tm-password-toggle text-body-secondary" title="Toggle visibility" data-target="tm-profile-confirm-password"></span>
+                                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-profile-confirm-password">
+                                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                                    </button>
                                 </div>
                             </div>
                         </div>

@@ -6,13 +6,14 @@
     {var $entry_drafts = is_array($entry_management['drafts'] ?? null) ? $entry_management['drafts'] : []}
     {var $entries = is_array($entry_management['entries'] ?? null) ? $entry_management['entries'] : []}
     {var $pending_review_entries = is_array($entry_management['pending_review_entries'] ?? null) ? $entry_management['pending_review_entries'] : []}
+    {var $trash_entries = is_array($entry_management['trash_entries'] ?? null) ? $entry_management['trash_entries'] : []}
     {var $owner_filter_options = is_array($entry_management['owner_filter_options'] ?? null) ? $entry_management['owner_filter_options'] : []}
     {var $filtered_counts = is_array($entry_management['filtered_counts'] ?? null) ? $entry_management['filtered_counts'] : []}
     {var $pagination = is_array($entry_management['pagination'] ?? null) ? $entry_management['pagination'] : []}
     {var $content_notice = is_array($content_notice ?? null) ? $content_notice : []}
     {var $content_batch_url = (string) ($content_batch_url ?? '/admin/content/batch')}
     {var $can_moderate_here = !empty($is_superadmin)}
-    {var $content_active_tab = in_array(($content_active_tab ?? 'entries'), ['entries', 'drafts', 'moderation'], true) ? (string) $content_active_tab : 'entries'}
+    {var $content_active_tab = in_array(($content_active_tab ?? 'entries'), ['entries', 'drafts', 'moderation', 'trash'], true) ? (string) $content_active_tab : 'entries'}
     {if $content_active_tab === 'moderation' && empty($content_moderation_required)}
         {var $content_active_tab = 'entries'}
     {/if}
@@ -28,12 +29,17 @@
     {var $moderation_owner_filter = (string) ($content_filters['moderation_owner'] ?? '')}
     {var $moderation_title_filter = (string) ($content_filters['moderation_title'] ?? '')}
     {var $moderation_type_filter = (string) ($content_filters['moderation_type'] ?? '')}
+    {var $trash_owner_filter = (string) ($content_filters['trash_owner'] ?? '')}
+    {var $trash_title_filter = (string) ($content_filters['trash_title'] ?? '')}
+    {var $trash_type_filter = (string) ($content_filters['trash_type'] ?? '')}
     {var $entries_pagination = is_array($pagination['entries'] ?? null) ? $pagination['entries'] : []}
     {var $drafts_pagination = is_array($pagination['drafts'] ?? null) ? $pagination['drafts'] : []}
     {var $moderation_pagination = is_array($pagination['moderation'] ?? null) ? $pagination['moderation'] : []}
+    {var $trash_pagination = is_array($pagination['trash'] ?? null) ? $pagination['trash'] : []}
     {var $entries_page = (int) ($entries_pagination['current_page'] ?? ($content_filters['entries_page'] ?? 1))}
     {var $drafts_page = (int) ($drafts_pagination['current_page'] ?? ($content_filters['drafts_page'] ?? 1))}
     {var $moderation_page = (int) ($moderation_pagination['current_page'] ?? ($content_filters['moderation_page'] ?? 1))}
+    {var $trash_page = (int) ($trash_pagination['current_page'] ?? ($content_filters['trash_page'] ?? 1))}
 
     <div class="row g-3">
         {if ! empty($content_notice)}
@@ -115,6 +121,11 @@
                             </button>
                         </li>
                     {/if}
+                    <li class="nav-item" role="presentation">
+                        <button n:class="'nav-link', $content_active_tab === 'trash' ? 'active'" id="tm-entry-tab-trash" data-bs-toggle="tab" data-bs-target="#tm-entry-pane-trash" type="button" role="tab" aria-controls="tm-entry-pane-trash" n:attr="aria-selected => $content_active_tab === 'trash' ? 'true' : 'false'">
+                            Trash <span class="badge text-bg-secondary ms-1">{$entry_counts['trash'] ?? 0}</span>
+                        </button>
+                    </li>
                 </ul>
                 <div class="tab-content p-3" id="tm-entry-tabs-content">
                     <div n:class="'tab-pane fade', $content_active_tab === 'entries' ? 'show active'" id="tm-entry-pane-entries" role="tabpanel" aria-labelledby="tm-entry-tab-entries" tabindex="0">
@@ -185,7 +196,7 @@
                                 <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
                                 <input type="hidden" name="moderation_page" value="{$moderation_page}">
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                                    <select class="form-select form-select-sm w-auto" name="batch_action">
+                                    <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Content batch action">
                                         <option value="">Batch action</option>
                                         <option value="publish">Publish</option>
                                         <option value="unpublish">Unpublish</option>
@@ -226,7 +237,7 @@
                                     <thead class="tm-sticky-divider">
                                         <tr>
                                             <th scope="col" class="text-center" style="width: 2.5rem;">
-                                                <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-entries">
+                                                <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-entries" aria-label="Select all saved content">
                                             </th>
                                             <th scope="col">Title</th>
                                             <th scope="col">Path</th>
@@ -244,7 +255,7 @@
                                             {var $entry_tree_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $entry_tree_depth)}
                                             <tr n:attr="data-open-url => $entry['active_draft'] ? ($editor_url . '?draft=' . rawurlencode((string) $entry['active_draft']['draft_id'])) : ($editor_url . '?entry=' . rawurlencode((string) $entry['id']))" class="tm-library-row">
                                                 <td class="text-center">
-                                                    <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$entry['id']}">
+                                                    <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$entry['id']}" aria-label="Select {$entry['title']}">
                                                 </td>
                                                 <td style="max-width:35% !important;">
                                                     <div class="fw-semibold">
@@ -268,8 +279,9 @@
                                                     {/if}
                                                 </td>
                                                 <td class="text-center">
-                                                    <span class="badge d-inline-flex align-items-center justify-content-center {if $entry['status'] === 'published'}text-success{elseif $entry['status'] === 'pending_review'}text-warning{else}text-secondary{/if}" title="{$entry_status_label}" aria-label="{$entry_status_label}">
+                                                    <span class="badge d-inline-flex align-items-center justify-content-center {if $entry['status'] === 'published'}text-success{elseif $entry['status'] === 'pending_review'}text-warning{else}text-secondary{/if}" title="{$entry_status_label}">
                                                         <span class="bi {$entry_status_icon}" aria-hidden="true"></span>
+                                                        <span class="visually-hidden">{$entry_status_label}</span>
                                                     </span>
                                                 </td>
                                                 <td class="text-center small text-body-secondary font-monospace" title="{$entry['revision_count']} revisions">{$entry['revision_count']}</td>
@@ -359,6 +371,7 @@
                                 <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
                                 <input type="hidden" name="entries_title" value="{$entries_title_filter}">
                                 <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
                                 <input type="hidden" name="entries_page" value="{$entries_page}">
                                 <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
                                 <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
@@ -369,7 +382,7 @@
                                 <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
                                 <input type="hidden" name="moderation_page" value="{$moderation_page}">
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                                    <select class="form-select form-select-sm w-auto" name="batch_action">
+                                    <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Draft batch action">
                                         <option value="">Batch action</option>
                                         <option value="delete">Delete</option>
                                     </select>
@@ -408,7 +421,7 @@
                                     <thead>
                                         <tr>
                                             <th scope="col" class="text-center" style="width: 2.5rem;">
-                                                <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-drafts">
+                                                <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-drafts" aria-label="Select all drafts">
                                             </th>
                                             <th scope="col">Draft</th>
                                             <th scope="col">Scope</th>
@@ -420,7 +433,7 @@
                                         {foreach $entry_drafts as $draft}
                                             <tr n:attr="data-open-url => $draft['open_url'] ?? ($editor_url . '?draft=' . rawurlencode((string) $draft['draft_id']))" class="tm-library-row">
                                                 <td class="text-center">
-                                                    <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$draft['draft_id']}">
+                                                    <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$draft['draft_id']}" aria-label="Select {$draft['title']}">
                                                 </td>
                                                 <td>
                                                     <div class="fw-semibold">{$draft['title_highlight_html']|noescape}</div>
@@ -573,6 +586,141 @@
                             {/if}
                         </div>
                     {/if}
+                    <div n:class="'tab-pane fade', $content_active_tab === 'trash' ? 'show active'" id="tm-entry-pane-trash" role="tabpanel" aria-labelledby="tm-entry-tab-trash" tabindex="0">
+                        <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                            <input type="hidden" name="tab" value="trash">
+                            <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                            <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                            <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                            <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                            <input type="hidden" name="entries_page" value="{$entries_page}">
+                            <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                            <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                            <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                            <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                            <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                            <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                            <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                            <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                            {if ! empty( $is_superadmin )}
+                                <div class="col-12 col-md-4 col-lg-3">
+                                    <label class="form-label small mb-1" for="tm-content-filter-trash-owner">Owner</label>
+                                    <select class="form-select form-select-sm" id="tm-content-filter-trash-owner" name="trash_owner">
+                                        {foreach (is_array($owner_filter_options['trash'] ?? null) ? $owner_filter_options['trash'] : []) as $owner_option}
+                                            <option value="{$owner_option['value']}" n:attr="selected => $trash_owner_filter === (string) $owner_option['value']">{$owner_option['label']}</option>
+                                        {/foreach}
+                                    </select>
+                                </div>
+                            {else}
+                                <input type="hidden" name="trash_owner" value="">
+                            {/if}
+                            <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-4 col-lg-4' : 'col-md-6 col-lg-5'">
+                                <label class="form-label small mb-1" for="tm-content-filter-trash-title">Title</label>
+                                <input class="form-control form-control-sm" id="tm-content-filter-trash-title" name="trash_title" value="{$trash_title_filter}" type="text">
+                            </div>
+                            <div class="col-12 col-md-3 col-lg-2">
+                                <label class="form-label small mb-1" for="tm-content-filter-trash-type">Type</label>
+                                <select class="form-select form-select-sm" id="tm-content-filter-trash-type" name="trash_type">
+                                    <option value="" n:attr="selected => $trash_type_filter === ''">All</option>
+                                    <option value="post" n:attr="selected => $trash_type_filter === 'post'">Post</option>
+                                    <option value="page" n:attr="selected => $trash_type_filter === 'page'">Page</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+                                <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=trash&entries_tree={$entries_tree_filter}">Reset</a>
+                            </div>
+                            <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
+                                Showing {count($trash_entries)} ({$filtered_counts['trash'] ?? count($trash_entries)})
+                            </div>
+                        </form>
+                        {if ! empty( $trash_entries )}
+                            <form method="post" action="{$content_batch_url}" class="d-grid gap-3 tm-content-batch-form">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <input type="hidden" name="batch_tab" value="trash">
+                                <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                                <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                                <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                                <input type="hidden" name="entries_page" value="{$entries_page}">
+                                <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                                <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                                <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                                <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                                <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                                <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                                <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                                <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                                <input type="hidden" name="trash_owner" value="{$trash_owner_filter}">
+                                <input type="hidden" name="trash_title" value="{$trash_title_filter}">
+                                <input type="hidden" name="trash_type" value="{$trash_type_filter}">
+                                <input type="hidden" name="trash_page" value="{$trash_page}">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Trash batch action">
+                                        <option value="">Batch action</option>
+                                        <option value="restore">Restore as unpublished</option>
+                                        <option value="permanent_delete">Delete permanently</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Apply</button>
+                                    <span class="small text-body-secondary d-none tm-batch-selected-count" aria-live="polite"></span>
+                                    {if ($trash_pagination['total_pages'] ?? 1) > 1}
+                                        <nav class="ms-auto" aria-label="Trash pages">
+                                            <ul class="pagination pagination-sm mb-0">
+                                                <li n:class="'page-item', !($trash_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=trash&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}&trash_owner={$trash_owner_filter}&trash_title={$trash_title_filter}&trash_type={$trash_type_filter}&trash_page={$trash_pagination['previous_page'] ?? 1}" title="Previous Trash page" aria-label="Previous Trash page"><span class="bi bi-chevron-left" aria-hidden="true"></span></a>
+                                                </li>
+                                                <li class="page-item disabled"><span class="page-link">{$trash_page}/{$trash_pagination['total_pages'] ?? 1}</span></li>
+                                                <li n:class="'page-item', !($trash_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=trash&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}&trash_owner={$trash_owner_filter}&trash_title={$trash_title_filter}&trash_type={$trash_type_filter}&trash_page={$trash_pagination['next_page'] ?? $trash_page}" title="Next Trash page" aria-label="Next Trash page"><span class="bi bi-chevron-right" aria-hidden="true"></span></a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                    {/if}
+                                </div>
+                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col" class="text-center" style="width: 2.5rem;">
+                                                    <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-trash" aria-label="Select all Trash content">
+                                                </th>
+                                                <th scope="col">Content</th>
+                                                <th scope="col">Path</th>
+                                                <th scope="col">Previous state</th>
+                                                <th scope="col">Trashed</th>
+                                                <th scope="col" class="text-center" style="width: 4rem;">Rev</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {foreach $trash_entries as $entry}
+                                                <tr>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$entry['id']}" aria-label="Select {$entry['title']}">
+                                                    </td>
+                                                    <td>
+                                                        <div class="fw-semibold">{$entry['title_highlight_html']|noescape}</div>
+                                                        <div class="small text-body-secondary">{$entry['type']}{if ! empty($entry['trashed_by'])} · by {$entry['trashed_by']}{/if}</div>
+                                                    </td>
+                                                    <td class="small text-body-secondary font-monospace">
+                                                        {if ! empty( $is_superadmin )}
+                                                            {$entry['scope'] === 'author' ? $entry['author_slug'] : 'root'} / {$entry['path']}
+                                                        {else}
+                                                            {$entry['path']}
+                                                        {/if}
+                                                    </td>
+                                                    <td class="small text-body-secondary">{$entry['pre_trash_status'] ?? 'unpublished'}</td>
+                                                    <td class="small text-body-secondary">{$entry['trashed_at_display'] ?? ''}</td>
+                                                    <td class="text-center small text-body-secondary font-monospace" title="{$entry['revision_count']} revisions">{$entry['revision_count']}</td>
+                                                </tr>
+                                            {/foreach}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </form>
+                        {else}
+                            <div class="small text-body-secondary">Trash is empty.</div>
+                        {/if}
+                    </div>
                 </div>
             </div>
         </div>
@@ -586,7 +734,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">Delete the selected items?</p>
+                    <p class="mb-0" id="tm-batch-delete-modal-message">Delete the selected items?</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -596,7 +744,7 @@
         </div>
     </div>
 
-    <div class="modal fade" id="tm-batch-working-modal" tabindex="-1" aria-labelledby="tm-batch-working-modal-label" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal fade" id="tm-batch-working-modal" tabindex="-1" aria-label="Working" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content">
                 <div class="modal-body text-center py-4">
@@ -615,6 +763,9 @@
         const entriesTreeStorageKey = 'tinymash.admin.content.entries_tree';
         const deleteModalElement = document.getElementById('tm-batch-delete-modal');
         const deleteModal = deleteModalElement && window.bootstrap ? new bootstrap.Modal(deleteModalElement) : null;
+        const deleteModalLabel = document.getElementById('tm-batch-delete-modal-label');
+        const deleteModalMessage = document.getElementById('tm-batch-delete-modal-message');
+        const confirmDeleteButton = document.getElementById('tm-batch-delete-confirm');
         const workingModalElement = document.getElementById('tm-batch-working-modal');
         const workingModal = workingModalElement && window.bootstrap ? new bootstrap.Modal(workingModalElement) : null;
         const workingMessage = document.getElementById('tm-batch-working-message');
@@ -735,21 +886,29 @@
                     return;
                 }
 
-                if (action === 'delete' && deleteModal) {
+                if ((action === 'delete' || action === 'permanent_delete') && deleteModal) {
                     event.preventDefault();
                     pendingDeleteForm = form;
                     pendingDeleteCount = checkedItems.length;
+                    if (deleteModalLabel) {
+                        deleteModalLabel.textContent = action === 'permanent_delete' ? 'Confirm permanent delete' : 'Confirm delete';
+                    }
+                    if (deleteModalMessage) {
+                        deleteModalMessage.textContent = action === 'permanent_delete' ? 'Delete the selected items permanently? This cannot be undone.' : 'Delete the selected items?';
+                    }
+                    if (confirmDeleteButton) {
+                        confirmDeleteButton.textContent = action === 'permanent_delete' ? 'Delete permanently' : 'Delete';
+                    }
                     deleteModal.show();
                     return;
                 }
 
                 if (checkedItems.length >= 5) {
-                    showWorkingModal(action === 'delete' ? 'Deleting selected items…' : 'Applying batch action…');
+                    showWorkingModal((action === 'delete' || action === 'permanent_delete') ? 'Deleting selected items…' : 'Applying batch action…');
                 }
             });
         });
 
-        const confirmDeleteButton = document.getElementById('tm-batch-delete-confirm');
         if (confirmDeleteButton) {
             confirmDeleteButton.addEventListener('click', function () {
                 if (pendingDeleteForm) {
@@ -774,6 +933,8 @@
                         tabName = 'drafts';
                     } else if (target === '#tm-entry-pane-moderation') {
                         tabName = 'moderation';
+                    } else if (target === '#tm-entry-pane-trash') {
+                        tabName = 'trash';
                     }
                     const url = new URL(window.location.href);
                     if (tabName === 'entries') {

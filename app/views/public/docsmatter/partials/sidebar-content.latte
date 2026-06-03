@@ -6,12 +6,14 @@
 {var $sidebar_site_name = trim((string) ($sidebar_site_name ?? ''))}
 {var $sidebar_site_slogan = trim((string) ($sidebar_site_slogan ?? ''))}
 {var $sidebar_theme_name = trim((string) ($sidebar_theme_name ?? ''))}
+{var $sidebar_navigation_collapsible = ! empty( $sidebar_navigation_collapsible ?? false )}
+{var $sidebar_navigation_prefix = (string) ( $sidebar_navigation_prefix ?? 'tm-docsmatter-menu' )}
 <div class="tm-docsmatter-sidebar-layout">
     <div class="tm-docsmatter-sidebar-main d-grid gap-4">
         {if ! empty( $sidebar_navigation_menu )}
             <section class="tm-docsmatter-sidebar-section">
                 <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
-                {include './menu-tree.latte', items: $sidebar_navigation_menu}
+                {include './menu-tree.latte', items: $sidebar_navigation_menu, menu_tree_collapsible: $sidebar_navigation_collapsible, menu_tree_prefix: $sidebar_navigation_prefix}
             </section>
         {/if}
 

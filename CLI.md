@@ -125,6 +125,18 @@ php8.4 bin/tinymash.php housekeeping run --no-plugins
 
 Cron is the recommended way to run housekeeping in production. See `INSTALL.md` for an example crontab entry.
 
+Core housekeeping includes stale-draft cleanup, Trash retention cleanup, content revision catch-up pruning, media-thumbnail maintenance, expired notification/password-reset cleanup, media-import temporary cleanup, and cache refresh work. Content entry saves prune their own revision snapshots immediately; the housekeeping catch-up also applies a reduced revision limit to entries that have not been edited again.
+
+## What's Up Calendars
+
+Refresh configured `What's Up` iCalendar sources and rebuild cached agenda events:
+
+```bash
+php8.4 bin/tinymash.php whats-up refresh
+```
+
+Public shortcode rendering never retrieves remote calendars. Run this command from scheduled housekeeping/cron, or use the plugin admin refresh action after changing a source.
+
 ## Media
 
 Report stored media usage:

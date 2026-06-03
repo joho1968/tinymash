@@ -123,6 +123,7 @@
         {/if}
     </head>
     <body class="bg-body-secondary d-flex flex-column min-vh-100">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
 
         {if ! $layout_hide_admin_menu && ! $layout_is_maintenance}
         {include 'partials/offcanvas.latte',
@@ -154,11 +155,11 @@
         }
         {/if}
 
-        <div class="container py-3 flex-grow-1" id="maincontent" style="min-height:550px !important;">
+        <div class="container py-3 flex-grow-1" style="min-height:550px !important;">
             <div class="row">
                 <div class="col-12 w-100">
 
-                    <main>
+                    <main id="tm-main-content" tabindex="-1">
                         {block content}{/block}
                     </main>
 
@@ -172,6 +173,7 @@
         {foreach $admin_theme_js_urls as $admin_theme_js_url}
         <script src="{$admin_theme_js_url}"></script>
         {/foreach}
+        <script src="/js/tinymash-markdown-editor.js"></script>
         {include 'partials/layout-bootstrap.latte'}
     </body>
 </html>

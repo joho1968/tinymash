@@ -10,6 +10,7 @@
         <title>{$title}</title>
     </head>
     <body class="bg-body-secondary">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
         <script>
             (() => {
                 'use strict';
@@ -20,13 +21,13 @@
             })();
         </script>
 
-        <div class="container-fluid px-1 px-sm-3 px-md-3 py-3" id="maincontent" style="min-height:550px !important;">
+        <main class="container-fluid px-1 px-sm-3 px-md-3 py-3" id="tm-main-content" tabindex="-1" style="min-height:550px !important;">
             <div class="row">
                 <div class="col-12 w-100">
                     {block content}{/block}
                 </div>
             </div>
-        </div>
+        </main>
 
         <!-- Bootstrap -->
         <script src="/ext/bs/js/bootstrap.bundle.min.js"></script>

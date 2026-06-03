@@ -499,6 +499,7 @@ class TinyMashTheme {
     }
 
     protected function getResolvedPrimaryMenu( string $current_path = '', ?array $theme_settings = null ) : array {
+        $resolved_theme_settings = is_array( $theme_settings ) ? $theme_settings : $this->getThemeSettings();
         if ( $this->menu_service instanceof TinyMashMenuService ) {
             $configured_menu = $this->menu_service->getResolvedLocation( 'primary', $current_path );
             if ( ! empty( $configured_menu ) ) {
@@ -506,11 +507,14 @@ class TinyMashTheme {
             }
         }
 
+        if ( (string) ( $resolved_theme_settings['page_navigation_position'] ?? '' ) === 'identity_panel' ) {
+            return( [] );
+        }
+
         if ( $this->isDocsMatterTheme() ) {
             return( [] );
         }
 
-        $resolved_theme_settings = is_array( $theme_settings ) ? $theme_settings : $this->getThemeSettings();
         if ( $this->getPrimaryMenuPosition( $resolved_theme_settings ) !== 'header' ) {
             return( [] );
         }
@@ -990,10 +994,23 @@ class TinyMashTheme {
     }
 
     public function getBodyClasses( array $page_context = [], ?array $context_entry = null ) : string {
+        $theme_key = $this->getThemeKey();
         $classes = [
             'tm-public',
-            'tm-theme-' . $this->getThemeKey(),
+            'tm-theme-' . $theme_key,
         ];
+
+        if ( in_array( $theme_key, [ 'baseline', 'blocks', 'timeline', 'panel-magazine' ], true ) ) {
+            $theme_settings = $this->getThemeSettings();
+            $default_title_style = $theme_key === 'panel-magazine' ? 'serif' : 'sans-serif';
+            $classes[] = (string) ( ( $theme_settings['publication_title_style'] ?? $default_title_style ) === 'serif' ? 'tm-titles-serif' : 'tm-titles-sans' );
+        }
+
+        if ( $theme_key === 'panel-magazine' ) {
+            $theme_settings = $theme_settings ?? $this->getThemeSettings();
+            $classes[] = (string) ( ( $theme_settings['panel_position'] ?? 'left' ) === 'right' ? 'tm-panel-right' : 'tm-panel-left' );
+            $classes[] = (string) ( ( $theme_settings['compact_header'] ?? 'sticky' ) === 'static' ? 'tm-panel-compact-static' : 'tm-panel-compact-sticky' );
+        }
 
         if ( ! empty( $page_context['scope'] ) && $page_context['scope'] === 'author' ) {
             $classes[] = 'tm-author-space';
@@ -1270,6 +1287,10 @@ class TinyMashTheme {
     }
 
     public function isSidebarEnabled( ?array $context_entry = null ) : bool {
+        if ( (string) ( $this->getThemeSettings()['secondary_sidebar'] ?? 'enabled' ) === 'disabled' ) {
+            return( false );
+        }
+
         if ( $this->getPrimaryMenuPosition( $this->getThemeSettings() ) === 'sidebar' ) {
             return( true );
         }
@@ -1525,6 +1546,36 @@ class TinyMashTheme {
                 'blocks_regular_entries' => $ordinary_entries,
                 'blocks_featured_columns' => $featured_columns,
                 'blocks_general_columns' => max( 1, $general_limit ),
+            ]
+        );
+    }
+
+    public function getPanelMagazineListingViewData( array $entries, ?array $theme_settings = null ) : array {
+        $theme_settings = is_array( $theme_settings ) ? $theme_settings : $this->getThemeSettings();
+        $layout = strtolower( trim( (string) ( $theme_settings['post_list_layout'] ?? 'magazine' ) ) );
+        $layout = $layout === 'stream' ? 'stream' : 'magazine';
+        $candidate_entries = array_values( array_filter( $entries, 'is_array' ) );
+        $lead_index = 0;
+
+        foreach ( $candidate_entries as $index => $entry ) {
+            if ( ! empty( $entry['sticky'] ) ) {
+                $lead_index = $index;
+                break;
+            }
+        }
+
+        $lead_entry = $candidate_entries[$lead_index] ?? null;
+        if ( is_array( $lead_entry ) ) {
+            unset( $candidate_entries[$lead_index] );
+        }
+        $candidate_entries = array_values( $candidate_entries );
+
+        return(
+            [
+                'panel_magazine_list_layout' => $layout,
+                'panel_magazine_lead_entry' => $lead_entry,
+                'panel_magazine_secondary_entries' => array_slice( $candidate_entries, 0, 2 ),
+                'panel_magazine_stream_entries' => array_slice( $candidate_entries, 2 ),
             ]
         );
     }

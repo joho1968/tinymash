@@ -1,7 +1,7 @@
 {
     "format": "tinymash-deploy",
     "format_version": 1,
-    "built_at_utc": "2026-05-19T14:15:51Z",
+    "built_at_utc": "2026-06-03T17:13:04Z",
     "site": {
         "name": "tinymash",
         "base_url": "",
@@ -10,6 +10,7 @@
     "includes": {
         "root_files": [
             "LICENSE",
+            "CHANGELOG.md",
             "README.md",
             "INSTALL.md",
             "CLI.md",
@@ -61,6 +62,7 @@
         "plugin_data_directory": "data/plugins",
         "copy_active_plugin_data": false,
         "active_plugins": [
+            "are-we-open",
             "backup",
             "blogger-import",
             "bludit-import",
@@ -73,16 +75,18 @@
             "redirects",
             "search",
             "seo",
+            "signage",
             "statistics",
             "syntax-highlighting",
-            "tiny-links"
+            "tiny-links",
+            "whats-up"
         ],
         "site_identity_media_files": [],
         "example_config": true,
         "example_config_path": "app/config/tinymash.json.example"
     },
     "counts": {
-        "copied_files": 1351,
+        "copied_files": 1510,
         "copied_directories": 11
     },
     "warnings": []

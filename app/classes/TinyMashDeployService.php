@@ -181,7 +181,7 @@ class TinyMashDeployService {
             $sanitized_public_theme_settings[$normalized_theme_key] = [];
         }
 
-        foreach ( [ 'baseline', 'blocks', 'docsmatter', 'terminal', 'timeline' ] as $theme_key ) {
+        foreach ( [ 'baseline', 'blocks', 'docsmatter', 'panel-magazine', 'terminal', 'timeline' ] as $theme_key ) {
             if ( ! array_key_exists( $theme_key, $sanitized_public_theme_settings ) ) {
                 $sanitized_public_theme_settings[$theme_key] = [];
             }

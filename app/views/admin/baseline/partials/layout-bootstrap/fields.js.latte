@@ -1,17 +1,27 @@
                 function passwordToggleClick(e) {
-                    let t = e.target.getAttribute('data-target');
+                    const toggle = e.currentTarget;
+                    const icon = toggle.querySelector('.bi');
+                    let t = toggle.getAttribute('data-target');
                     if (t) {
                         let field = document.getElementById(t);
                         if (field) {
                             let fType = field.getAttribute('type');
                             if (fType === 'text') {
                                 fType = 'password';
-                                e.target.classList.add('bi-eye-slash-fill');
-                                e.target.classList.remove('bi-eye-fill');
+                                if (icon) {
+                                    icon.classList.add('bi-eye-slash-fill');
+                                    icon.classList.remove('bi-eye-fill');
+                                }
+                                toggle.setAttribute('aria-label', 'Show password');
+                                toggle.setAttribute('title', 'Show password');
                             } else {
                                 fType = 'text';
-                                e.target.classList.add('bi-eye-fill');
-                                e.target.classList.remove('bi-eye-slash-fill');
+                                if (icon) {
+                                    icon.classList.add('bi-eye-fill');
+                                    icon.classList.remove('bi-eye-slash-fill');
+                                }
+                                toggle.setAttribute('aria-label', 'Hide password');
+                                toggle.setAttribute('title', 'Hide password');
                             }
                             field.setAttribute('type', fType);
                         } else {

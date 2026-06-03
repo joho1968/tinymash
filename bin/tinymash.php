@@ -20,11 +20,13 @@ require_once __DIR__ . '/../app/classes/TinyMashDraftRepository.php';
 require_once __DIR__ . '/../app/classes/TinyMashMarkdownRenderer.php';
 require_once __DIR__ . '/../app/classes/TinyMashDateFormatter.php';
 require_once __DIR__ . '/../app/classes/TinyMashContentRenderer.php';
+require_once __DIR__ . '/../app/classes/TinyMashShortcodeRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashMenuService.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaAttachmentMetadataStore.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaImportMapStore.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaService.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaImportBridge.php';
+require_once __DIR__ . '/../app/classes/TinyMashMediaUsageReporter.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaCapabilityRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaDerivativeRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashLockedJsonFile.php';
@@ -54,11 +56,13 @@ use app\classes\TinyMashDraftRepository;
 use app\classes\TinyMashMarkdownRenderer;
 use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashContentRenderer;
+use app\classes\TinyMashShortcodeRegistry;
 use app\classes\TinyMashMenuService;
 use app\classes\TinyMashMediaAttachmentMetadataStore;
 use app\classes\TinyMashMediaImportMapStore;
 use app\classes\TinyMashMediaService;
 use app\classes\TinyMashMediaImportBridge;
+use app\classes\TinyMashMediaUsageReporter;
 use app\classes\TinyMashMediaCapabilityRegistry;
 use app\classes\TinyMashMediaDerivativeRegistry;
 use app\classes\TinyMashImportLockService;
@@ -91,6 +95,64 @@ const TINYMASH_DEPLOY_MANIFEST = __DIR__ . '/../app/config/deploy-manifest.php';
 function fail(string $message, int $exit_code = 1): never {
     fwrite(STDERR, 'tinymash: ' . $message . PHP_EOL);
     exit($exit_code);
+}
+
+function printCliTitle(string $title): void {
+    fwrite(STDOUT, $title . PHP_EOL);
+    fwrite(STDOUT, str_repeat('=', strlen($title)) . PHP_EOL);
+}
+
+function printCliSection(string $title): void {
+    fwrite(STDOUT, PHP_EOL . $title . PHP_EOL);
+    fwrite(STDOUT, str_repeat('-', strlen($title)) . PHP_EOL);
+}
+
+function printCliRows(array $rows): void {
+    if ($rows === []) {
+        return;
+    }
+
+    $label_width = 0;
+    foreach ($rows as $label => $value) {
+        $label_width = max($label_width, strlen((string) $label));
+    }
+
+    foreach ($rows as $label => $value) {
+        fwrite(STDOUT, '  ' . str_pad((string) $label, $label_width) . '  ' . (string) $value . PHP_EOL);
+    }
+}
+
+function printCliTasks(array $tasks): void {
+    if ($tasks === []) {
+        fwrite(STDOUT, '  None' . PHP_EOL);
+        return;
+    }
+
+    $status_width = 0;
+    $label_width = 0;
+    foreach ($tasks as $task) {
+        if (!is_array($task)) {
+            continue;
+        }
+        $status_width = max($status_width, strlen((string) ($task['status'] ?? 'unknown')));
+        $label_width = max($label_width, strlen((string) ($task['label'] ?? 'Task')));
+    }
+
+    foreach ($tasks as $task) {
+        if (!is_array($task)) {
+            continue;
+        }
+        $status = (string) ($task['status'] ?? 'unknown');
+        $label = (string) ($task['label'] ?? 'Task');
+        $message = trim((string) ($task['message'] ?? ''));
+        fwrite(
+            STDOUT,
+            '  [' . str_pad($status, $status_width) . '] '
+            . str_pad($label, $label_width)
+            . ($message !== '' ? '  ' . $message : '')
+            . PHP_EOL
+        );
+    }
 }
 
 function isEffectiveRootUser(): bool {
@@ -228,14 +290,20 @@ function writeUsers(array $data): void {
 
 function showHelp(): void {
     $help = <<<TEXT
-usage:
+tinymash
+========
+
+Usage
+-----
   tinymash [--allow-root] <command> [options]
 
-global options:
+Global option
+-------------
   --allow-root
       allow mutating commands to run as root without an interactive confirmation
 
-commands:
+Runtime
+-------
   help
       show this help
 
@@ -251,6 +319,8 @@ commands:
   maintenance off
       disable maintenance mode in config
 
+Cache and housekeeping
+----------------------
   cache clear
       remove compiled Latte cache files, the persistent content index cache, and cached public page responses
 
@@ -263,12 +333,16 @@ commands:
   housekeeping run [--no-plugins]
       run core housekeeping now, and optionally active plugin housekeeping tasks
 
+Media
+-----
   media usage [--owner=<root-or-author>] [--unused-only] [--limit=<n>]
       report stored media usage from content, drafts, site/profile settings, and known media IDs in plugin settings
 
   media cleanup [--dry-run] [--generate-missing-derivatives] [--report-unused] [--owner=<root-or-author>] [--limit=<n>]
       report likely unused media or generate missing display/lightbox derivatives without rewriting originals
 
+Inspection
+----------
   benchmark public [--base-url=<url>] [--userpass=<user:pass>] [--login-user=<username>] [--login-pass=<password>] [--author=<slug>] [--entry=<slug>] [--repeat=<n>]
       fetch public URLs with curl and show timing summaries for root, author home, page 2, and an optional entry; can also benchmark the logged-in public path
 
@@ -278,6 +352,8 @@ commands:
   check-updates [--notify]
       run composer outdated/audit, write a cached components report, and optionally send notification e-mail
 
+Transfer
+--------
   deploy <target-directory>
       build a deployable runtime tree from the explicit include-only deploy manifest
 
@@ -293,6 +369,8 @@ commands:
   import author <source-directory> <new-password> [--replace-existing] [--with-plugins]
       import one author export bundle and assign a new login password
 
+Users
+-----
   user list
       list local tinymash users from users/*.json
 
@@ -307,7 +385,8 @@ TEXT;
         return;
     }
 
-    fwrite(STDOUT, PHP_EOL . "plugin commands:" . PHP_EOL);
+    fwrite(STDOUT, PHP_EOL . "Plugin commands" . PHP_EOL);
+    fwrite(STDOUT, "---------------" . PHP_EOL);
     foreach ($plugin_commands as $plugin_command) {
         if (!is_array($plugin_command)) {
             continue;
@@ -387,19 +466,30 @@ function printSystemStatus(): void {
             : ('HTTP ' . $http_code . ' - ' . $base_url . '/');
     }
 
-    fwrite(STDOUT, 'base_url: ' . ($config->configGetBaseURL() ?: '-') . PHP_EOL);
-    fwrite(STDOUT, 'admin_url: ' . ($config->configGetAdminURL() ?: '-') . PHP_EOL);
-    fwrite(STDOUT, 'login_url: ' . ($config->configGetLoginURL() ?: '-') . PHP_EOL);
-    fwrite(STDOUT, 'maintenance: ' . ($config->getMaintenance() ? 'on' : 'off') . PHP_EOL);
-    fwrite(STDOUT, 'active_users: ' . $active_users . PHP_EOL);
-    fwrite(STDOUT, 'entries: ' . $content_stats['entries'] . PHP_EOL);
-    fwrite(STDOUT, 'posts: ' . $content_stats['posts'] . PHP_EOL);
-    fwrite(STDOUT, 'pages: ' . $content_stats['pages'] . PHP_EOL);
-    fwrite(STDOUT, 'authors: ' . $content_stats['authors'] . PHP_EOL);
-    fwrite(STDOUT, 'cache_files: ' . $cache_count . PHP_EOL);
-    fwrite(STDOUT, 'public_cache_warm_auth: ' . (trim((string) ($system_settings['public_cache_warm_basic_auth_username'] ?? '')) !== '' ? 'configured' : 'off') . PHP_EOL);
-    fwrite(STDOUT, 'public_cache_warm_insecure_tls: ' . (!empty($system_settings['public_cache_warm_insecure_tls']) ? 'on' : 'off') . PHP_EOL);
-    fwrite(STDOUT, 'public_url_check: ' . $public_url_check . PHP_EOL);
+    printCliTitle('tinymash system status');
+    printCliSection('Site');
+    printCliRows([
+        'Version' => APP_VERSION,
+        'Base URL' => $config->configGetBaseURL() ?: '-',
+        'Admin URL' => $config->configGetAdminURL() ?: '-',
+        'Login URL' => $config->configGetLoginURL() ?: '-',
+        'Maintenance' => $config->getMaintenance() ? 'on' : 'off',
+    ]);
+    printCliSection('Content');
+    printCliRows([
+        'Active users' => $active_users,
+        'Entries' => $content_stats['entries'],
+        'Posts' => $content_stats['posts'],
+        'Pages' => $content_stats['pages'],
+        'Authors' => $content_stats['authors'],
+    ]);
+    printCliSection('Cache');
+    printCliRows([
+        'Compiled files' => $cache_count,
+        'Warm auth' => trim((string) ($system_settings['public_cache_warm_basic_auth_username'] ?? '')) !== '' ? 'configured' : 'off',
+        'Insecure TLS' => !empty($system_settings['public_cache_warm_insecure_tls']) ? 'on' : 'off',
+        'Public URL check' => $public_url_check,
+    ]);
 }
 
 function printMaintenanceStatus(): void {
@@ -408,7 +498,8 @@ function printMaintenanceStatus(): void {
         fail('unable to read config file');
     }
 
-    fwrite(STDOUT, ($config->getMaintenance() ? 'on' : 'off') . PHP_EOL);
+    printCliTitle('tinymash maintenance status');
+    printCliRows([ 'Status' => $config->getMaintenance() ? 'on' : 'off' ]);
 }
 
 function setMaintenance(bool $flag): void {
@@ -422,7 +513,8 @@ function setMaintenance(bool $flag): void {
         fail('unable to write config file');
     }
 
-    fwrite(STDOUT, 'maintenance set to ' . ($flag ? 'on' : 'off') . PHP_EOL);
+    printCliTitle('tinymash maintenance');
+    printCliRows([ 'Status' => $flag ? 'on' : 'off' ]);
 }
 
 function clearCache(): void {
@@ -450,11 +542,14 @@ function clearCache(): void {
     $public_page_cache_removed = $public_page_cache->clear();
     $rendered_content_cache_removed = clearDirectoryFiles(TINYMASH_RUNTIME_DIR . '/rendered-content');
 
-    fwrite(STDOUT, 'removed ' . $removed . ' cache file(s)' . PHP_EOL);
-    fwrite(STDOUT, 'removed ' . $content_cache_removed . ' persistent content index file(s)' . PHP_EOL);
-    fwrite(STDOUT, 'removed ' . $media_metadata_cache_removed . ' media metadata index file(s)' . PHP_EOL);
-    fwrite(STDOUT, 'removed ' . $public_page_cache_removed . ' public page cache file(s)' . PHP_EOL);
-    fwrite(STDOUT, 'removed ' . $rendered_content_cache_removed . ' rendered content cache file(s)' . PHP_EOL);
+    printCliTitle('tinymash cache clear');
+    printCliRows([
+        'Compiled files removed' => $removed,
+        'Content indexes removed' => $content_cache_removed,
+        'Media indexes removed' => $media_metadata_cache_removed,
+        'Public pages removed' => $public_page_cache_removed,
+        'Rendered entries removed' => $rendered_content_cache_removed,
+    ]);
 }
 
 function clearDirectoryFiles(string $directory): int {
@@ -497,20 +592,31 @@ function warmCache(array $arguments = []): void {
         true
     );
 
-    fwrite(STDOUT, 'entries: ' . (int) ($result['entries'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'published_entries: ' . (int) ($result['published_entries'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'authors: ' . (int) ($result['authors'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'aggregated_posts: ' . (int) ($result['aggregated_posts'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'cache_file: ' . ($result['cache_file'] ?? '-') . PHP_EOL);
-    fwrite(STDOUT, 'media_metadata_items: ' . (int) ($media_result['items'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'media_metadata_cache_file: ' . ($media_result['cache_file'] ?? '-') . PHP_EOL);
-    fwrite(STDOUT, 'public_page_cache_pruned: ' . $public_page_cache_pruned . PHP_EOL);
-    fwrite(STDOUT, 'public_page_cache_warmed: ' . (int) ($public_warm_result['warmed'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'public_page_cache_failed: ' . (int) ($public_warm_result['failed'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'public_page_cache_skipped: ' . (string) ($public_warm_result['skipped_reason'] ?? 'none') . PHP_EOL);
+    printCliTitle('tinymash cache warm');
+    printCliSection('Content index');
+    printCliRows([
+        'Entries' => (int) ($result['entries'] ?? 0),
+        'Published entries' => (int) ($result['published_entries'] ?? 0),
+        'Authors' => (int) ($result['authors'] ?? 0),
+        'Aggregated posts' => (int) ($result['aggregated_posts'] ?? 0),
+        'File' => $result['cache_file'] ?? '-',
+    ]);
+    printCliSection('Media index');
+    printCliRows([
+        'Items' => (int) ($media_result['items'] ?? 0),
+        'File' => $media_result['cache_file'] ?? '-',
+    ]);
+    printCliSection('Public pages');
+    $public_page_rows = [
+        'Expired removed' => $public_page_cache_pruned,
+        'Warmed' => (int) ($public_warm_result['warmed'] ?? 0),
+        'Failed' => (int) ($public_warm_result['failed'] ?? 0),
+        'Skipped' => (string) ($public_warm_result['skipped_reason'] ?? 'none'),
+    ];
     if (($public_warm_result['failure_example'] ?? '') !== '') {
-        fwrite(STDOUT, 'public_page_cache_failure_example: ' . (string) $public_warm_result['failure_example'] . PHP_EOL);
+        $public_page_rows['Failure example'] = (string) $public_warm_result['failure_example'];
     }
+    printCliRows($public_page_rows);
 }
 
 function buildCliRuntime(bool $with_plugins = false): array {
@@ -563,6 +669,13 @@ function buildCliRuntime(bool $with_plugins = false): array {
         $media_service,
         $media_import_map_store
     );
+    $media_usage_reporter = new TinyMashMediaUsageReporter(
+        $content_repository,
+        $draft_repository,
+        $user_repository,
+        $config,
+        $media_service
+    );
     $import_lock_service = new TinyMashImportLockService(
         TINYMASH_RUNTIME_DIR . '/import-locks.json'
     );
@@ -574,6 +687,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
         $media_service,
         TINYMASH_RUNTIME_DIR . '/rendered-content'
     );
+    $shortcode_registry = new TinyMashShortcodeRegistry($config->getUnknownShortcodeMode());
     $help_catalog = new TinyMashHelpCatalog(
         dirname(__DIR__) . '/app/help',
         'en'
@@ -618,6 +732,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $app->set('markdown.renderer', $markdown_renderer);
     $app->set('date.formatter', $date_formatter);
     $app->set('content.renderer', $content_renderer);
+    $app->set('shortcode.registry', $shortcode_registry);
     $app->set('menu.service', $menu_service);
     $app->set('theme.support_registry', $theme_support_registry);
     $app->set('theme.registry', $theme_registry);
@@ -626,6 +741,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $app->set('media.import_map_store', $media_import_map_store);
     $app->set('media.service', $media_service);
     $app->set('media.import_bridge', $media_import_bridge);
+    $app->set('media.usage_reporter', $media_usage_reporter);
     $app->set('import.lock_service', $import_lock_service);
     $app->set('media.capability_registry', $media_capability_registry);
     $app->set('media.derivative_registry', $media_derivative_registry);
@@ -663,6 +779,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
         'media_metadata_store' => $media_metadata_store,
         'media_service' => $media_service,
         'media_import_bridge' => $media_import_bridge,
+        'media_usage_reporter' => $media_usage_reporter,
         'export_service' => $export_service,
         'notification_service' => $notification_service,
         'password_reset_service' => $password_reset_service,
@@ -676,11 +793,14 @@ function printHousekeepingStatus(): void {
         fail('unable to read config file');
     }
 
-    fwrite(STDOUT, 'last_run_utc: ' . ($config->getHousekeepingLastRunUtc() ?: '-') . PHP_EOL);
-    fwrite(STDOUT, 'last_trigger: ' . ($config->getHousekeepingLastTrigger() ?: '-') . PHP_EOL);
-    fwrite(STDOUT, 'last_mode: ' . ($config->getHousekeepingLastMode() ?: '-') . PHP_EOL);
-    fwrite(STDOUT, 'stale_draft_retention_days: ' . $config->getHousekeepingDraftRetentionDays() . PHP_EOL);
-    fwrite(STDOUT, 'web_fallback_mode: ' . $config->getHousekeepingWebFallbackMode() . PHP_EOL);
+    printCliTitle('tinymash housekeeping status');
+    printCliRows([
+        'Last run UTC' => $config->getHousekeepingLastRunUtc() ?: '-',
+        'Last trigger' => $config->getHousekeepingLastTrigger() ?: '-',
+        'Last mode' => $config->getHousekeepingLastMode() ?: '-',
+        'Stale draft retention' => $config->getHousekeepingDraftRetentionDays() . ' day(s)',
+        'Web fallback' => $config->getHousekeepingWebFallbackMode(),
+    ]);
 }
 
 function runHousekeeping(bool $run_plugins = true): void {
@@ -699,7 +819,8 @@ function runHousekeeping(bool $run_plugins = true): void {
         $runtime['password_reset_service'] ?? null,
         $runtime['theme'] ?? null,
         TINYMASH_RUNTIME_DIR . '/housekeeping-web.lock',
-        $runtime['media_import_bridge'] ?? null
+        $runtime['media_import_bridge'] ?? null,
+        $runtime['content_repository'] ?? null
     );
     $result = $service->run(
         $run_plugins,
@@ -711,35 +832,25 @@ function runHousekeeping(bool $run_plugins = true): void {
         true
     );
 
-    fwrite(STDOUT, 'started_at_utc: ' . ($result['started_at_utc'] ?? '-') . PHP_EOL);
-    fwrite(STDOUT, 'last_run_saved: ' . (!empty($result['last_run_saved']) ? 'yes' : 'no') . PHP_EOL);
-    fwrite(STDOUT, 'stale_draft_retention_days: ' . (int) ($result['stale_draft_retention_days'] ?? 0) . PHP_EOL);
+    printCliTitle('tinymash housekeeping run');
+    printCliSection('Run');
+    printCliRows([
+        'Started UTC' => $result['started_at_utc'] ?? '-',
+        'State saved' => !empty($result['last_run_saved']) ? 'yes' : 'no',
+        'Stale draft retention' => (int) ($result['stale_draft_retention_days'] ?? 0) . ' day(s)',
+    ]);
 
-    foreach (($result['core_tasks'] ?? []) as $task) {
-        if (!is_array($task)) {
-            continue;
-        }
-        fwrite(
-            STDOUT,
-            'core.' . ($task['key'] ?? 'task') . ': ' . ($task['status'] ?? 'unknown') . ' - ' . ($task['message'] ?? '') . PHP_EOL
-        );
-    }
+    printCliSection('Core tasks');
+    printCliTasks($result['core_tasks'] ?? []);
 
-    foreach (($result['plugin_tasks'] ?? []) as $task) {
-        if (!is_array($task)) {
-            continue;
-        }
-        fwrite(
-            STDOUT,
-            'plugin.' . ($task['plugin_key'] ?? 'plugin') . '.' . ($task['task_key'] ?? 'task') . ': ' . ($task['status'] ?? 'unknown') . ' - ' . ($task['message'] ?? '') . PHP_EOL
-        );
+    if (!empty($result['plugin_tasks'])) {
+        printCliSection('Plugin tasks');
+        printCliTasks($result['plugin_tasks']);
     }
 
     if (is_array($result['theme_task'] ?? null) && !empty($result['theme_task'])) {
-        fwrite(
-            STDOUT,
-            'theme.' . ($result['theme_task']['theme_key'] ?? 'theme') . ': ' . ($result['theme_task']['status'] ?? 'unknown') . ' - ' . ($result['theme_task']['message'] ?? '') . PHP_EOL
-        );
+        printCliSection('Theme task');
+        printCliTasks([$result['theme_task']]);
     }
 
     $cache_result = $runtime['content_repository']->warmPersistentCache();
@@ -747,21 +858,46 @@ function runHousekeeping(bool $run_plugins = true): void {
     $public_page_cache = new TinyMashPublicPageCache(TINYMASH_PUBLIC_PAGE_CACHE_DIR);
     $public_page_cache_pruned = $public_page_cache->pruneExpired();
     $public_warm_result = warmPublicPageCache($runtime, '', '', '', false, 0, false);
-    fwrite(STDOUT, 'core.content_index_cache: warmed - ' . (int) ($cache_result['published_entries'] ?? 0) . ' published entr' . ((int) ($cache_result['published_entries'] ?? 0) === 1 ? 'y' : 'ies') . PHP_EOL);
-    fwrite(STDOUT, 'core.media_metadata_cache: warmed - ' . (int) ($media_cache_result['items'] ?? 0) . ' metadata entr' . ((int) ($media_cache_result['items'] ?? 0) === 1 ? 'y' : 'ies') . PHP_EOL);
-    fwrite(STDOUT, 'core.public_page_cache: pruned - ' . $public_page_cache_pruned . ' expired entr' . ($public_page_cache_pruned === 1 ? 'y' : 'ies') . PHP_EOL);
+    printCliSection('Cache tasks');
+    $cache_tasks = [
+        [
+            'status' => 'warmed',
+            'label' => 'Content index',
+            'message' => (int) ($cache_result['published_entries'] ?? 0) . ' published entr' . ((int) ($cache_result['published_entries'] ?? 0) === 1 ? 'y' : 'ies'),
+        ],
+        [
+            'status' => 'warmed',
+            'label' => 'Media metadata',
+            'message' => (int) ($media_cache_result['items'] ?? 0) . ' metadata entr' . ((int) ($media_cache_result['items'] ?? 0) === 1 ? 'y' : 'ies'),
+        ],
+        [
+            'status' => 'pruned',
+            'label' => 'Public page cache',
+            'message' => $public_page_cache_pruned . ' expired entr' . ($public_page_cache_pruned === 1 ? 'y' : 'ies'),
+        ],
+    ];
     if (($public_warm_result['skipped_reason'] ?? '') !== '') {
-        fwrite(STDOUT, 'core.public_page_cache_warm: skipped - ' . $public_warm_result['skipped_reason'] . PHP_EOL);
+        $cache_tasks[] = [
+            'status' => 'skipped',
+            'label' => 'Public page warm',
+            'message' => (string) $public_warm_result['skipped_reason'],
+        ];
     } else {
-        fwrite(
-            STDOUT,
-            'core.public_page_cache_warm: warmed - ' . (int) ($public_warm_result['warmed'] ?? 0)
-            . ' page(s), failed - ' . (int) ($public_warm_result['failed'] ?? 0) . PHP_EOL
-        );
+        $cache_tasks[] = [
+            'status' => 'warmed',
+            'label' => 'Public page warm',
+            'message' => (int) ($public_warm_result['warmed'] ?? 0) . ' page(s), '
+                . (int) ($public_warm_result['failed'] ?? 0) . ' failed',
+        ];
         if (($public_warm_result['failure_example'] ?? '') !== '') {
-            fwrite(STDOUT, 'core.public_page_cache_warm_example: ' . (string) $public_warm_result['failure_example'] . PHP_EOL);
+            $cache_tasks[] = [
+                'status' => 'warning',
+                'label' => 'Warm failure example',
+                'message' => (string) $public_warm_result['failure_example'],
+            ];
         }
     }
+    printCliTasks($cache_tasks);
 }
 
 function runMediaCleanup(array $arguments): void {
@@ -806,15 +942,19 @@ function runMediaCleanup(array $arguments): void {
         $dry_run
     );
 
-    fwrite(STDOUT, 'mode: ' . ($dry_run ? 'dry-run' : 'generate-missing-derivatives') . PHP_EOL);
-    fwrite(STDOUT, 'owner: ' . ($owner !== '' ? $owner : 'all') . PHP_EOL);
-    fwrite(STDOUT, 'checked: ' . (int) ($result['checked'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'skipped: ' . (int) ($result['skipped'] ?? 0) . PHP_EOL);
+    printCliTitle('tinymash media cleanup');
+    $cleanup_rows = [
+        'Mode' => $dry_run ? 'dry-run' : 'generate missing derivatives',
+        'Owner' => $owner !== '' ? $owner : 'all',
+        'Checked' => (int) ($result['checked'] ?? 0),
+        'Skipped' => (int) ($result['skipped'] ?? 0),
+    ];
     if ($dry_run) {
-        fwrite(STDOUT, 'would_generate: ' . (int) ($result['would_generate'] ?? 0) . PHP_EOL);
+        $cleanup_rows['Would generate'] = (int) ($result['would_generate'] ?? 0);
     } else {
-        fwrite(STDOUT, 'generated: ' . (int) ($result['generated'] ?? 0) . PHP_EOL);
+        $cleanup_rows['Generated'] = (int) ($result['generated'] ?? 0);
     }
+    printCliRows($cleanup_rows);
 }
 
 function runMediaUsage(array $arguments, bool $unused_only = false, string $mode = 'usage'): void {
@@ -847,20 +987,26 @@ function runMediaUsage(array $arguments, bool $unused_only = false, string $mode
         $rows = array_slice($rows, 0, $output_limit);
     }
 
-    fwrite(STDOUT, 'mode: ' . $mode . PHP_EOL);
-    fwrite(STDOUT, 'owner: ' . ($owner !== '' ? $owner : 'all') . PHP_EOL);
-    fwrite(STDOUT, 'checked: ' . (int) ($usage['summary']['checked'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'used: ' . (int) ($usage['summary']['used'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'unreferenced: ' . (int) ($usage['summary']['unreferenced'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'direct_marker_only: ' . (int) ($usage['summary']['direct_marker_only'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'missing_references: ' . (int) ($usage['summary']['missing_references'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'listed: ' . count($rows) . PHP_EOL);
+    printCliTitle('tinymash media usage');
+    printCliRows([
+        'Mode' => $mode,
+        'Owner' => $owner !== '' ? $owner : 'all',
+        'Checked' => (int) ($usage['summary']['checked'] ?? 0),
+        'Used' => (int) ($usage['summary']['used'] ?? 0),
+        'Unreferenced' => (int) ($usage['summary']['unreferenced'] ?? 0),
+        'Direct marker only' => (int) ($usage['summary']['direct_marker_only'] ?? 0),
+        'Missing references' => (int) ($usage['summary']['missing_references'] ?? 0),
+        'Listed' => count($rows),
+    ]);
 
+    if ($rows !== []) {
+        printCliSection('Media');
+    }
     foreach ($rows as $record) {
         fwrite(
             STDOUT,
-            'media: ' . (string) ($record['status'] ?? 'unknown')
-            . ' id=' . (string) ($record['media_id'] ?? '')
+                '  [' . (string) ($record['status'] ?? 'unknown') . ']'
+                . ' id=' . (string) ($record['media_id'] ?? '')
             . ' owner=' . (string) ($record['owner_username'] ?? '')
             . ' refs=' . (int) ($record['reference_count'] ?? 0)
             . ' markers=' . (string) ($record['direct_markers'] ?? '-')
@@ -871,13 +1017,14 @@ function runMediaUsage(array $arguments, bool $unused_only = false, string $mode
     }
 
     if (!empty($usage['missing_references']) && is_array($usage['missing_references'])) {
+        printCliSection('Missing references');
         foreach (array_slice($usage['missing_references'], 0, 25) as $missing_reference) {
             if (!is_array($missing_reference)) {
                 continue;
             }
             fwrite(
                 STDOUT,
-                'missing_reference: source=' . formatCliValue((string) ($missing_reference['source'] ?? ''))
+                '  source=' . formatCliValue((string) ($missing_reference['source'] ?? ''))
                 . ' value=' . formatCliValue((string) ($missing_reference['value'] ?? ''))
                 . PHP_EOL
             );
@@ -913,309 +1060,12 @@ function parseMediaAuditOptions(array $arguments): array {
 }
 
 function buildMediaUsageReport(array $runtime, array $media_records, string $owner_filter = ''): array {
-    $records_by_id = [];
-    foreach ($media_records as $metadata) {
-        if (!is_array($metadata)) {
-            continue;
-        }
-        $media_id = trim((string) ($metadata['media_id'] ?? ''));
-        if ($media_id === '') {
-            continue;
-        }
-        $records_by_id[$media_id] = [
-            'media_id' => $media_id,
-            'owner_username' => strtolower(trim((string) ($metadata['owner_username'] ?? ''))),
-            'filename' => basename(trim((string) ($metadata['filename'] ?? ($metadata['original_filename'] ?? '')))),
-            'direct_markers' => buildMediaUsageDirectMarkerLabel($metadata),
-            'attached_entry_id' => trim((string) ($metadata['attached_entry_id'] ?? '')),
-            'attached_draft_id' => trim((string) ($metadata['attached_draft_id'] ?? '')),
-            'attachment_session_id' => trim((string) ($metadata['attachment_session_id'] ?? '')),
-            'references' => [],
-        ];
+    $reporter = $runtime['media_usage_reporter'] ?? null;
+    if (!$reporter instanceof TinyMashMediaUsageReporter) {
+        fail('media usage reporter unavailable');
     }
 
-    $missing_references = [];
-    collectMediaUsageReferences($runtime, $records_by_id, $missing_references, $owner_filter);
-
-    $rows = [];
-    $summary = [
-        'checked' => count($records_by_id),
-        'used' => 0,
-        'unreferenced' => 0,
-        'direct_marker_only' => 0,
-        'missing_references' => count($missing_references),
-    ];
-
-    foreach ($records_by_id as $record) {
-        $references = is_array($record['references'] ?? null) ? $record['references'] : [];
-        $reference_count = count($references);
-        $direct_markers = (string) ($record['direct_markers'] ?? '-');
-        if ($reference_count > 0) {
-            $status = 'used';
-            $summary['used']++;
-        } elseif ($direct_markers !== '-') {
-            $status = 'direct_marker_only';
-            $summary['direct_marker_only']++;
-        } else {
-            $status = 'unreferenced';
-            $summary['unreferenced']++;
-        }
-
-        $categories = [];
-        foreach ($references as $reference) {
-            if (!is_array($reference)) {
-                continue;
-            }
-            $category = trim((string) ($reference['category'] ?? 'reference'));
-            if ($category === '') {
-                $category = 'reference';
-            }
-            $categories[$category] = ($categories[$category] ?? 0) + 1;
-        }
-        ksort($categories, SORT_STRING);
-        $category_labels = [];
-        foreach ($categories as $category => $count) {
-            $category_labels[] = $category . ':' . $count;
-        }
-
-        $record['status'] = $status;
-        $record['reference_count'] = $reference_count;
-        $record['reference_categories'] = !empty($category_labels) ? implode(',', $category_labels) : '-';
-        unset($record['references']);
-        $rows[] = $record;
-    }
-
-    usort(
-        $rows,
-        static function(array $left, array $right): int {
-            $status_order = [ 'unreferenced' => 0, 'direct_marker_only' => 1, 'used' => 2 ];
-            $left_status = $status_order[(string) ($left['status'] ?? '')] ?? 9;
-            $right_status = $status_order[(string) ($right['status'] ?? '')] ?? 9;
-            if ($left_status !== $right_status) {
-                return $left_status <=> $right_status;
-            }
-            return strcmp((string) ($left['media_id'] ?? ''), (string) ($right['media_id'] ?? ''));
-        }
-    );
-
-    return [
-        'summary' => $summary,
-        'records' => $rows,
-        'missing_references' => $missing_references,
-    ];
-}
-
-function collectMediaUsageReferences(array $runtime, array &$records_by_id, array &$missing_references, string $owner_filter): void {
-    $content_repository = $runtime['content_repository'] ?? null;
-    $draft_repository = $runtime['draft_repository'] ?? null;
-    $user_repository = $runtime['user_repository'] ?? null;
-    $config = $runtime['config'] ?? null;
-    $known_entry_ids = [];
-    $known_draft_ids = [];
-
-    if ($content_repository instanceof TinyMashContentRepository) {
-        $content_author_filter = $owner_filter !== '' && $owner_filter !== 'root' ? $owner_filter : null;
-        foreach ($content_repository->getEntriesForAudit(null, $content_author_filter, true, false) as $entry) {
-            if (!is_array($entry)) {
-                continue;
-            }
-            $source = 'entry:' . (string) ($entry['id'] ?? '');
-            if (trim((string) ($entry['id'] ?? '')) !== '') {
-                $known_entry_ids[(string) $entry['id']] = true;
-            }
-            $label = (string) ($entry['path'] ?? ($entry['slug'] ?? $source));
-            $status = (string) ($entry['status'] ?? '');
-            $category = $status === 'published' ? 'published_content' : 'unpublished_content';
-            addMediaUsageIdReference($records_by_id, $missing_references, (string) ($entry['featured_image_media_id'] ?? ''), $category, $source, $label . ' featured image', $owner_filter === '');
-            addMediaUsageIdReference($records_by_id, $missing_references, (string) ($entry['seo_social_image_media_id'] ?? ''), $category, $source, $label . ' social image', $owner_filter === '');
-            collectMediaUsageIdsFromMixed($entry['plugin_settings'] ?? [], $records_by_id, $missing_references, $category, $source, $label . ' plugin settings', $owner_filter === '');
-            foreach (collectMediaUsageEntryContents($entry) as $content) {
-                collectMediaUsageUrlsFromContent($runtime, $content, $records_by_id, $missing_references, $category, $source, $label . ' body', $owner_filter);
-            }
-        }
-    }
-
-    if ($draft_repository instanceof TinyMashDraftRepository && $user_repository instanceof TinyMashUserRepository) {
-        foreach ($user_repository->getAllUsers() as $user) {
-            if (!is_array($user)) {
-                continue;
-            }
-            $username = strtolower(trim((string) ($user['username'] ?? '')));
-            if ($username === '') {
-                continue;
-            }
-            foreach ($draft_repository->listEditorDrafts($username) as $draft) {
-                if (!is_array($draft)) {
-                    continue;
-                }
-                $source = 'draft:' . $username . ':' . (string) ($draft['draft_id'] ?? '');
-                if (trim((string) ($draft['draft_id'] ?? '')) !== '') {
-                    $known_draft_ids[(string) $draft['draft_id']] = true;
-                }
-                $label = $username . '/' . (string) ($draft['draft_id'] ?? '');
-                addMediaUsageIdReference($records_by_id, $missing_references, (string) ($draft['featured_image_media_id'] ?? ''), 'draft', $source, $label . ' featured image', $owner_filter === '');
-                addMediaUsageIdReference($records_by_id, $missing_references, (string) ($draft['seo_social_image_media_id'] ?? ''), 'draft', $source, $label . ' social image', $owner_filter === '');
-                collectMediaUsageIdsFromMixed($draft['plugin_settings'] ?? [], $records_by_id, $missing_references, 'draft', $source, $label . ' plugin settings', $owner_filter === '');
-                collectMediaUsageUrlsFromContent($runtime, (string) ($draft['content'] ?? ''), $records_by_id, $missing_references, 'draft', $source, $label . ' body', $owner_filter);
-            }
-        }
-    }
-
-    if ($config instanceof TinyMashConfig) {
-        $site_images = [
-            'site.banner' => $config->getSiteBannerImage(),
-            'site.favicon_png' => $config->getSiteFaviconPngImage(),
-            'site.favicon_ico' => $config->getSiteFaviconIcoImage(),
-            'site.og' => $config->getSiteOgImage(),
-            'site.background' => $config->getSiteBackgroundImage(),
-        ];
-        foreach ($site_images as $source => $image) {
-            if (is_array($image)) {
-                addMediaUsageIdReference($records_by_id, $missing_references, (string) ($image['media_id'] ?? ''), 'site', $source, $source, $owner_filter === '');
-            }
-        }
-        foreach ($config->getPluginStates() as $plugin_key => $active) {
-            if (!is_string($plugin_key)) {
-                continue;
-            }
-            collectMediaUsageIdsFromMixed($config->getPluginSettings($plugin_key), $records_by_id, $missing_references, 'system_plugin_settings', 'system-plugin:' . $plugin_key, $plugin_key, $owner_filter === '');
-        }
-    }
-
-    if ($user_repository instanceof TinyMashUserRepository) {
-        foreach ($user_repository->getAllUsers() as $user) {
-            if (!is_array($user)) {
-                continue;
-            }
-            $username = strtolower(trim((string) ($user['username'] ?? '')));
-            $source = 'user:' . ($username !== '' ? $username : 'unknown');
-            addMediaUsageIdReference($records_by_id, $missing_references, (string) ($user['public_banner_media_id'] ?? ''), 'profile', $source, $source . ' public banner', $owner_filter === '');
-            addMediaUsageIdReference($records_by_id, $missing_references, (string) ($user['public_background_media_id'] ?? ''), 'profile', $source, $source . ' public background', $owner_filter === '');
-            collectMediaUsageIdsFromMixed($user['plugin_settings'] ?? [], $records_by_id, $missing_references, 'profile_plugin_settings', $source . ':plugin-settings', $source . ' plugin settings', $owner_filter === '');
-        }
-    }
-
-    collectMediaUsageDirectMarkerReferences($records_by_id, $known_entry_ids, $known_draft_ids);
-}
-
-function collectMediaUsageDirectMarkerReferences(array &$records_by_id, array $known_entry_ids, array $known_draft_ids): void {
-    $ignored_missing_references = [];
-    foreach ($records_by_id as $media_id => $record) {
-        $entry_id = trim((string) ($record['attached_entry_id'] ?? ''));
-        if ($entry_id !== '' && isset($known_entry_ids[$entry_id])) {
-            addMediaUsageIdReference($records_by_id, $ignored_missing_references, (string) $media_id, 'direct_attachment', 'entry:' . $entry_id, 'entry attachment marker', false);
-        }
-        $draft_id = trim((string) ($record['attached_draft_id'] ?? ''));
-        if ($draft_id !== '' && isset($known_draft_ids[$draft_id])) {
-            addMediaUsageIdReference($records_by_id, $ignored_missing_references, (string) $media_id, 'direct_attachment', 'draft:' . $draft_id, 'draft attachment marker', false);
-        }
-    }
-}
-
-function collectMediaUsageEntryContents(array $entry): array {
-    $contents = [];
-    if (isset($entry['content'])) {
-        $contents[] = (string) $entry['content'];
-    }
-    if (is_array($entry['translations'] ?? null)) {
-        foreach ($entry['translations'] as $translation) {
-            if (is_array($translation) && array_key_exists('content', $translation)) {
-                $contents[] = (string) $translation['content'];
-            }
-        }
-    }
-
-    return array_values(array_unique(array_filter($contents, static fn(string $content): bool => $content !== '')));
-}
-
-function collectMediaUsageUrlsFromContent(array $runtime, string $content, array &$records_by_id, array &$missing_references, string $category, string $source, string $label, string $owner_filter): void {
-    if ($content === '' || !str_contains($content, '/media/')) {
-        return;
-    }
-    if (!preg_match_all('#(?:src|href)\s*=\s*["\'](?P<html>/media/[^"\']+)["\']|\((?P<markdown>/media/[^)\s]+)\)#i', $content, $matches, PREG_SET_ORDER)) {
-        return;
-    }
-    $media_service = $runtime['media_service'] ?? null;
-    if (!$media_service instanceof TinyMashMediaService) {
-        return;
-    }
-    foreach ($matches as $match) {
-        $url = trim((string) (($match['html'] ?? '') !== '' ? $match['html'] : ($match['markdown'] ?? '')));
-        $url = normalizeMediaUsageUrl($url);
-        if ($url === '') {
-            continue;
-        }
-        $metadata = $media_service->getAttachmentMetadataByUrl($url, $owner_filter !== '' ? [ $owner_filter ] : []);
-        if (is_array($metadata)) {
-            addMediaUsageIdReference($records_by_id, $missing_references, (string) ($metadata['media_id'] ?? ''), $category, $source, $label . ' ' . $url, $owner_filter === '');
-        } elseif ($owner_filter === '') {
-            $missing_references[] = [ 'source' => $source, 'value' => $url ];
-        }
-    }
-}
-
-function collectMediaUsageIdsFromMixed(mixed $value, array &$records_by_id, array &$missing_references, string $category, string $source, string $label, bool $record_missing): void {
-    if (is_array($value)) {
-        foreach ($value as $child_key => $child_value) {
-            $child_label = is_string($child_key) || is_int($child_key) ? $label . '.' . (string) $child_key : $label;
-            collectMediaUsageIdsFromMixed($child_value, $records_by_id, $missing_references, $category, $source, $child_label, $record_missing);
-        }
-        return;
-    }
-    if (!is_scalar($value)) {
-        return;
-    }
-    $text = trim((string) $value);
-    if ($text === '' || !str_contains($text, 'media_')) {
-        return;
-    }
-    if (!preg_match_all('/media_[A-Za-z0-9_-]+/', $text, $matches)) {
-        return;
-    }
-    foreach (array_unique($matches[0]) as $media_id) {
-        addMediaUsageIdReference($records_by_id, $missing_references, $media_id, $category, $source, $label, $record_missing);
-    }
-}
-
-function addMediaUsageIdReference(array &$records_by_id, array &$missing_references, string $media_id, string $category, string $source, string $label, bool $record_missing = true): void {
-    $media_id = trim($media_id);
-    if ($media_id === '') {
-        return;
-    }
-    if (!isset($records_by_id[$media_id]) || !is_array($records_by_id[$media_id])) {
-        if (!$record_missing) {
-            return;
-        }
-        $missing_references[] = [ 'source' => $source, 'value' => $media_id ];
-        return;
-    }
-    $reference_key = $category . '|' . $source . '|' . $label;
-    $records_by_id[$media_id]['references'][$reference_key] = [
-        'category' => $category,
-        'source' => $source,
-        'label' => $label,
-    ];
-}
-
-function buildMediaUsageDirectMarkerLabel(array $metadata): string {
-    $markers = [];
-    foreach ([ 'attached_entry_id' => 'entry', 'attached_draft_id' => 'draft', 'attachment_session_id' => 'session' ] as $key => $label) {
-        $value = trim((string) ($metadata[$key] ?? ''));
-        if ($value !== '') {
-            $markers[] = $label . ':' . $value;
-        }
-    }
-
-    return !empty($markers) ? implode(',', $markers) : '-';
-}
-
-function normalizeMediaUsageUrl(string $url): string {
-    $url = html_entity_decode(trim($url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    if ($url === '' || !str_starts_with($url, '/media/')) {
-        return '';
-    }
-    $path = parse_url($url, PHP_URL_PATH);
-    return is_string($path) && str_starts_with($path, '/media/') ? $path : '';
+    return $reporter->buildReport($media_records, $owner_filter);
 }
 
 function formatCliValue(string $value): string {
@@ -1469,13 +1319,16 @@ function runPublicBenchmark(array $arguments): void {
         }
     }
 
-    fwrite(STDOUT, 'base_url: ' . $base_url . PHP_EOL);
-    fwrite(STDOUT, 'repeat: ' . $options['repeat'] . PHP_EOL);
+    printCliTitle('tinymash benchmark public');
+    $benchmark_rows = [
+        'Base URL' => $base_url,
+        'Repeat' => $options['repeat'],
+    ];
     if ($author_slug !== '') {
-        fwrite(STDOUT, 'author: ' . $author_slug . PHP_EOL);
+        $benchmark_rows['Author'] = $author_slug;
     }
     if ($entry_path !== '') {
-        fwrite(STDOUT, 'entry: ' . $entry_path . PHP_EOL);
+        $benchmark_rows['Entry'] = $entry_path;
     }
     $cookie_file = '';
     if ($options['login_user'] !== '' || $options['login_pass'] !== '') {
@@ -1484,9 +1337,9 @@ function runPublicBenchmark(array $arguments): void {
         }
         $normalized_login_url = str_starts_with((string) $login_url, '/') ? (string) $login_url : '/' . (string) $login_url;
         $cookie_file = loginForBenchmarkSession($base_url . $normalized_login_url, $options['userpass'], $options['login_user'], $options['login_pass']);
-        fwrite(STDOUT, 'logged_in_as: ' . $options['login_user'] . PHP_EOL);
+        $benchmark_rows['Logged in as'] = $options['login_user'];
     }
-    fwrite(STDOUT, PHP_EOL);
+    printCliRows($benchmark_rows);
 
     try {
         foreach ($targets as $label => $path) {
@@ -1510,14 +1363,17 @@ function runPublicBenchmark(array $arguments): void {
                 $samples[] = (float) ($result['time_total_ms'] ?? 0.0);
             }
 
-            fwrite(STDOUT, '[' . $label . ']' . PHP_EOL);
-            fwrite(STDOUT, 'path: ' . $path . PHP_EOL);
-            fwrite(STDOUT, 'http_code: ' . $http_code . PHP_EOL);
+            printCliSection($label);
+            $target_rows = [
+                'Path' => $path,
+                'HTTP code' => $http_code,
+            ];
             if ($effective_url !== '') {
-                fwrite(STDOUT, 'effective_url: ' . $effective_url . PHP_EOL);
+                $target_rows['Effective URL'] = $effective_url;
             }
             if ($error_message !== '') {
-                fwrite(STDOUT, 'error: ' . $error_message . PHP_EOL . PHP_EOL);
+                $target_rows['Error'] = $error_message;
+                printCliRows($target_rows);
                 continue;
             }
 
@@ -1526,11 +1382,11 @@ function runPublicBenchmark(array $arguments): void {
             $minimum = $sample_count > 0 ? min($samples) : 0.0;
             $maximum = $sample_count > 0 ? max($samples) : 0.0;
 
-            fwrite(STDOUT, 'avg_ms: ' . number_format($average, 2, '.', '') . PHP_EOL);
-            fwrite(STDOUT, 'min_ms: ' . number_format($minimum, 2, '.', '') . PHP_EOL);
-            fwrite(STDOUT, 'max_ms: ' . number_format($maximum, 2, '.', '') . PHP_EOL);
-            fwrite(STDOUT, 'bytes: ' . $downloaded_bytes . PHP_EOL);
-            fwrite(STDOUT, PHP_EOL);
+            $target_rows['Average ms'] = number_format($average, 2, '.', '');
+            $target_rows['Minimum ms'] = number_format($minimum, 2, '.', '');
+            $target_rows['Maximum ms'] = number_format($maximum, 2, '.', '');
+            $target_rows['Bytes'] = $downloaded_bytes;
+            printCliRows($target_rows);
         }
     } finally {
         if ($cookie_file !== '' && is_file($cookie_file)) {
@@ -1556,13 +1412,16 @@ function runRemoteMediaAudit(array $arguments): void {
         }
     }
 
-    fwrite(STDOUT, 'scope: ' . ($options['author'] !== '' ? 'author=' . $options['author'] : 'all') . PHP_EOL);
-    fwrite(STDOUT, 'published_only: ' . ($options['include_unpublished'] ? 'no' : 'yes') . PHP_EOL);
-    fwrite(STDOUT, 'entries_scanned: ' . count($entries) . PHP_EOL);
-    fwrite(STDOUT, 'remote_image_findings: ' . count($findings) . PHP_EOL . PHP_EOL);
+    printCliTitle('tinymash audit remote-media');
+    printCliRows([
+        'Scope' => $options['author'] !== '' ? 'author=' . $options['author'] : 'all',
+        'Published only' => $options['include_unpublished'] ? 'no' : 'yes',
+        'Entries scanned' => count($entries),
+        'Remote image findings' => count($findings),
+    ]);
 
     if ($findings === []) {
-        fwrite(STDOUT, "No remote image URLs found." . PHP_EOL);
+        fwrite(STDOUT, PHP_EOL . "No remote image URLs found." . PHP_EOL);
         return;
     }
 
@@ -1573,19 +1432,18 @@ function runRemoteMediaAudit(array $arguments): void {
     }
     ksort($classification_counts, SORT_STRING);
 
-    fwrite(STDOUT, "summary:" . PHP_EOL);
-    foreach ($classification_counts as $classification => $count) {
-        fwrite(STDOUT, '  ' . $classification . ': ' . $count . PHP_EOL);
-    }
-    fwrite(STDOUT, PHP_EOL);
+    printCliSection('Summary');
+    printCliRows($classification_counts);
 
     foreach ($findings as $finding) {
-        fwrite(STDOUT, '[' . (string) $finding['classification'] . ']' . PHP_EOL);
-        fwrite(STDOUT, 'path: ' . (string) $finding['path'] . PHP_EOL);
-        fwrite(STDOUT, 'type: ' . (string) $finding['type'] . PHP_EOL);
-        fwrite(STDOUT, 'location: ' . (string) $finding['location'] . PHP_EOL);
-        fwrite(STDOUT, 'title: ' . (string) $finding['title'] . PHP_EOL);
-        fwrite(STDOUT, 'url: ' . (string) $finding['url'] . PHP_EOL . PHP_EOL);
+        printCliSection((string) $finding['classification']);
+        printCliRows([
+            'Path' => (string) $finding['path'],
+            'Type' => (string) $finding['type'],
+            'Location' => (string) $finding['location'],
+            'Title' => (string) $finding['title'],
+            'URL' => (string) $finding['url'],
+        ]);
     }
 }
 
@@ -1972,23 +1830,26 @@ function runCheckUpdates(bool $notify = false): void {
 
     $notification_service = new TinyMashNotificationService(TINYMASH_RUNTIME_DIR . '/notifications.json');
 
-    fwrite(STDOUT, 'checked_at_utc: ' . (string) ($report['checked_at_utc'] ?? '-') . PHP_EOL);
-    fwrite(STDOUT, 'status: ' . (string) ($report['status'] ?? 'error') . PHP_EOL);
-    fwrite(STDOUT, 'composer_version: ' . (string) ($report['composer_version'] ?? 'Unavailable') . PHP_EOL);
-    fwrite(STDOUT, 'security_updates: ' . (int) ($report['summary']['security_updates'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'safe_updates: ' . (int) ($report['summary']['safe_updates'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'version_updates: ' . (int) ($report['summary']['version_updates'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'report_file: ' . $service->getReportFilename() . PHP_EOL);
+    printCliTitle('tinymash check-updates');
+    printCliRows([
+        'Checked UTC' => (string) ($report['checked_at_utc'] ?? '-'),
+        'Status' => (string) ($report['status'] ?? 'error'),
+        'Composer' => (string) ($report['composer_version'] ?? 'Unavailable'),
+        'Security updates' => (int) ($report['summary']['security_updates'] ?? 0),
+        'Safe updates' => (int) ($report['summary']['safe_updates'] ?? 0),
+        'Version updates' => (int) ($report['summary']['version_updates'] ?? 0),
+        'Report file' => $service->getReportFilename(),
+    ]);
 
+    printCliSection('Checks');
     foreach (['outdated', 'audit'] as $check_key) {
         $check = is_array($report['checks'][$check_key] ?? null) ? $report['checks'][$check_key] : [];
-        fwrite(
-            STDOUT,
-            $check_key . ': ' . (!empty($check['ok']) ? 'ok' : 'error')
-            . ' (exit=' . (int) ($check['exit_code'] ?? 1) . ')' . PHP_EOL
-        );
+        printCliRows([
+            ucfirst($check_key) => (!empty($check['ok']) ? 'ok' : 'error')
+                . ' (exit=' . (int) ($check['exit_code'] ?? 1) . ')',
+        ]);
         if (!empty($check['stderr'])) {
-            fwrite(STDOUT, $check_key . '_message: ' . trim((string) $check['stderr']) . PHP_EOL);
+            printCliRows([ ucfirst($check_key) . ' message' => trim((string) $check['stderr']) ]);
         }
     }
 
@@ -2051,8 +1912,11 @@ function runCheckUpdates(bool $notify = false): void {
         $base_url,
         $components_url
     );
-    fwrite(STDOUT, 'notification: ' . (string) ($notification['status'] ?? 'skipped') . PHP_EOL);
-    fwrite(STDOUT, 'notification_message: ' . (string) ($notification['message'] ?? '') . PHP_EOL);
+    printCliSection('Notification');
+    printCliRows([
+        'Status' => (string) ($notification['status'] ?? 'skipped'),
+        'Message' => (string) ($notification['message'] ?? ''),
+    ]);
 }
 
 function runDeploy(string $target_directory): void {
@@ -2069,24 +1933,28 @@ function runDeploy(string $target_directory): void {
     );
     $manifest = $deploy_service->deploy($target_directory);
 
-    fwrite(STDOUT, 'deployed_to: ' . $target_directory . PHP_EOL);
-    fwrite(STDOUT, 'public_theme: ' . (string) ($manifest['site']['public_theme'] ?? '-') . PHP_EOL);
-    fwrite(STDOUT, 'active_plugins: ' . count((array) ($manifest['includes']['active_plugins'] ?? [])) . PHP_EOL);
-    fwrite(STDOUT, 'copied_files: ' . (int) ($manifest['counts']['copied_files'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'copied_directories: ' . (int) ($manifest['counts']['copied_directories'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'manifest: ' . rtrim($target_directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'deploy-manifest.json' . PHP_EOL);
+    printCliTitle('tinymash deploy');
+    $deploy_rows = [
+        'Target' => $target_directory,
+        'Public theme' => (string) ($manifest['site']['public_theme'] ?? '-'),
+        'Active plugins' => count((array) ($manifest['includes']['active_plugins'] ?? [])),
+        'Copied files' => (int) ($manifest['counts']['copied_files'] ?? 0),
+        'Copied directories' => (int) ($manifest['counts']['copied_directories'] ?? 0),
+        'Manifest' => rtrim($target_directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'deploy-manifest.json',
+    ];
 
     $active_plugins = (array) ($manifest['includes']['active_plugins'] ?? []);
     if ($active_plugins !== []) {
-        fwrite(STDOUT, 'plugins: ' . implode(', ', $active_plugins) . PHP_EOL);
+        $deploy_rows['Plugins'] = implode(', ', $active_plugins);
     }
+    printCliRows($deploy_rows);
 
     foreach ((array) ($manifest['warnings'] ?? []) as $warning) {
         $warning = trim((string) $warning);
         if ($warning === '') {
             continue;
         }
-        fwrite(STDOUT, 'warning: ' . $warning . PHP_EOL);
+        fwrite(STDOUT, '  Warning: ' . $warning . PHP_EOL);
     }
 }
 
@@ -2103,9 +1971,12 @@ function runExportSite(string $target_directory, bool $with_plugins = false): vo
         $with_plugins
     );
 
-    fwrite(STDOUT, 'exported site to ' . $target_directory . PHP_EOL);
-    fwrite(STDOUT, 'entries: ' . (int) ($manifest['counts']['entries'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'users: ' . (int) ($manifest['counts']['users'] ?? 0) . PHP_EOL);
+    printCliTitle('tinymash export site');
+    printCliRows([
+        'Target' => $target_directory,
+        'Entries' => (int) ($manifest['counts']['entries'] ?? 0),
+        'Users' => (int) ($manifest['counts']['users'] ?? 0),
+    ]);
 }
 
 function runExportAuthor(string $username, string $target_directory, bool $with_plugins = false): void {
@@ -2122,9 +1993,13 @@ function runExportAuthor(string $username, string $target_directory, bool $with_
         $with_plugins
     );
 
-    fwrite(STDOUT, 'exported author ' . $username . ' to ' . $target_directory . PHP_EOL);
-    fwrite(STDOUT, 'entries: ' . (int) ($manifest['counts']['entries'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'drafts: ' . (int) ($manifest['counts']['drafts'] ?? 0) . PHP_EOL);
+    printCliTitle('tinymash export author');
+    printCliRows([
+        'Author' => $username,
+        'Target' => $target_directory,
+        'Entries' => (int) ($manifest['counts']['entries'] ?? 0),
+        'Drafts' => (int) ($manifest['counts']['drafts'] ?? 0),
+    ]);
 }
 
 function runImportSite(string $source_directory, bool $replace_existing = false, bool $with_plugins = false): void {
@@ -2141,9 +2016,12 @@ function runImportSite(string $source_directory, bool $replace_existing = false,
         $with_plugins
     );
 
-    fwrite(STDOUT, 'imported site from ' . $source_directory . PHP_EOL);
-    fwrite(STDOUT, 'users: ' . (int) ($result['copied']['users'] ?? 0) . PHP_EOL);
-    fwrite(STDOUT, 'content_files: ' . (int) ($result['copied']['content'] ?? 0) . PHP_EOL);
+    printCliTitle('tinymash import site');
+    printCliRows([
+        'Source' => $source_directory,
+        'Users' => (int) ($result['copied']['users'] ?? 0),
+        'Content files' => (int) ($result['copied']['content'] ?? 0),
+    ]);
 }
 
 function runImportAuthor(string $source_directory, string $new_password, bool $replace_existing = false, bool $with_plugins = false): void {
@@ -2161,13 +2039,17 @@ function runImportAuthor(string $source_directory, string $new_password, bool $r
         $with_plugins
     );
 
-    fwrite(STDOUT, 'imported author from ' . $source_directory . PHP_EOL);
-    fwrite(STDOUT, 'author: ' . (string) ($result['author_username'] ?? '-') . PHP_EOL);
-    fwrite(STDOUT, 'content_files: ' . (int) ($result['copied']['content'] ?? 0) . PHP_EOL);
+    printCliTitle('tinymash import author');
+    printCliRows([
+        'Source' => $source_directory,
+        'Author' => (string) ($result['author_username'] ?? '-'),
+        'Content files' => (int) ($result['copied']['content'] ?? 0),
+    ]);
 }
 
 function listUsers(): void {
     $data = readUsers();
+    $rows = [];
 
     foreach ($data['users'] as $user) {
         if (!is_array($user) || empty($user['username'])) {
@@ -2176,7 +2058,25 @@ function listUsers(): void {
 
         $role = !empty($user['role']) ? (string) $user['role'] : '-';
         $active = !empty($user['active']) ? 'active' : 'inactive';
-        fwrite(STDOUT, $user['username'] . "\t" . $role . "\t" . $active . PHP_EOL);
+        $rows[] = [
+            'username' => (string) $user['username'],
+            'role' => $role,
+            'status' => $active,
+        ];
+    }
+
+    printCliTitle('tinymash user list');
+    if ($rows === []) {
+        fwrite(STDOUT, PHP_EOL . 'No users found.' . PHP_EOL);
+        return;
+    }
+
+    $username_width = max(strlen('Username'), ...array_map(static fn(array $row): int => strlen($row['username']), $rows));
+    $role_width = max(strlen('Role'), ...array_map(static fn(array $row): int => strlen($row['role']), $rows));
+    fwrite(STDOUT, PHP_EOL . '  ' . str_pad('Username', $username_width) . '  ' . str_pad('Role', $role_width) . '  Status' . PHP_EOL);
+    fwrite(STDOUT, '  ' . str_repeat('-', $username_width) . '  ' . str_repeat('-', $role_width) . '  ------' . PHP_EOL);
+    foreach ($rows as $row) {
+        fwrite(STDOUT, '  ' . str_pad($row['username'], $username_width) . '  ' . str_pad($row['role'], $role_width) . '  ' . $row['status'] . PHP_EOL);
     }
 }
 
@@ -2210,7 +2110,11 @@ function setUserPassword(string $username, string $password, string $role = 'sup
             'content_active' => is_array($existing) ? !empty($existing['content_active']) : true,
         ]
     );
-    fwrite(STDOUT, (is_array($existing) ? 'updated' : 'created') . ' user "' . $username . '"' . PHP_EOL);
+    printCliTitle('tinymash user set-password');
+    printCliRows([
+        'User' => $username,
+        'Result' => is_array($existing) ? 'updated' : 'created',
+    ]);
 }
 
 function runPluginCliCommand(string $command, array $arguments): bool {

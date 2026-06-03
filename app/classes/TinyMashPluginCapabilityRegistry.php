@@ -49,6 +49,13 @@ class TinyMashPluginCapabilityRegistry {
             ]
         );
         $this->registerCapabilityDefinition(
+            'content.shortcodes',
+            [
+                'label' => 'Content shortcodes',
+                'description' => 'The plugin registers Markdown content shortcodes.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
             'media.ingest',
             [
                 'label' => 'Media ingest',

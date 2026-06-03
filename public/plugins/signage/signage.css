@@ -1,0 +1,329 @@
+.tm-signage {
+    background: #101214;
+    color: #f5f6f7;
+    margin: 0;
+    overflow: hidden;
+}
+
+.tm-signage-mode-light {
+    background: #f6f4ef;
+    color: #16191d;
+}
+
+.tm-signage-player,
+.tm-signage-stage {
+    height: 100dvh;
+    min-height: 100vh;
+    position: relative;
+    width: 100vw;
+}
+
+.tm-signage-player {
+    --tm-signage-content-scale: 1;
+}
+
+.tm-signage-stage {
+    overflow: hidden;
+}
+
+.tm-signage-empty {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: .65rem;
+    height: 100%;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+}
+
+.tm-signage-empty-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.tm-signage-empty-detail {
+    color: color-mix(in srgb, currentColor 62%, transparent);
+    font-size: 1rem;
+}
+
+.tm-signage-not-found .container {
+    z-index: 1;
+}
+
+.tm-signage-not-found .lead {
+    color: color-mix(in srgb, currentColor 72%, transparent);
+}
+
+.tm-signage-frame {
+    align-items: stretch;
+    display: flex;
+    height: 100%;
+    inset: 0;
+    justify-content: stretch;
+    overflow: hidden;
+    position: absolute;
+    transition: opacity .52s ease, transform .55s ease;
+    width: 100%;
+}
+
+.tm-signage-background,
+.tm-signage-overlay {
+    inset: 0;
+    position: absolute;
+}
+
+.tm-signage-background img {
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.tm-signage-background.tm-signage-fit-cover img {
+    object-fit: cover;
+}
+
+.tm-signage-background.tm-signage-fit-contain img {
+    object-fit: contain;
+}
+
+.tm-signage-background.tm-signage-fit-stretch img {
+    object-fit: fill;
+}
+
+.tm-signage-background.tm-signage-fit-center img {
+    object-fit: none;
+}
+
+.tm-signage-background.tm-signage-fit-tile,
+.tm-signage-image-slide.tm-signage-fit-tile {
+    background-position: left top;
+    background-repeat: repeat;
+    background-size: auto;
+}
+
+.tm-signage-background.tm-signage-fit-tile img,
+.tm-signage-image-slide.tm-signage-fit-tile img {
+    opacity: 0;
+}
+
+.tm-signage-overlay-dark {
+    --tm-signage-overlay-rgb: 0 0 0;
+    --tm-signage-overlay-opacity: .46;
+}
+
+.tm-signage-overlay-light {
+    --tm-signage-overlay-rgb: 255 255 255;
+    --tm-signage-overlay-opacity: .54;
+}
+
+.tm-signage-overlay {
+    background: rgb(var(--tm-signage-overlay-rgb, 0 0 0) / var(--tm-signage-overlay-opacity, .46));
+}
+
+.tm-signage-surface {
+    align-items: center;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    padding: clamp(1.5rem, 5vh, 4rem) clamp(1.5rem, 6vw, 6rem);
+    position: relative;
+    width: 100%;
+    z-index: 1;
+}
+
+.tm-signage-content {
+    font-size: clamp(1.05rem, 2.1vh, 1.55rem);
+    line-height: 1.5;
+    margin: 0 auto;
+    max-height: 100%;
+    max-width: min(68rem, 100%);
+    overflow: hidden;
+    width: 100%;
+    zoom: var(--tm-signage-content-scale);
+}
+
+.tm-signage-overlay-content .tm-signage-content {
+    background: rgb(var(--tm-signage-overlay-rgb, 0 0 0) / var(--tm-signage-overlay-opacity, .46));
+    border-radius: .5rem;
+    padding: clamp(1rem, 2.5vh, 2rem);
+}
+
+.tm-signage-overlay-content-panel {
+    background: rgb(var(--tm-signage-overlay-rgb, 0 0 0) / var(--tm-signage-overlay-opacity, .46));
+    border-radius: .5rem;
+}
+
+.tm-signage-title {
+    font-size: clamp(2rem, 5.5vh, 4.5rem);
+    font-weight: 600;
+    line-height: 1.1;
+    margin: 0 0 clamp(1rem, 2vh, 1.75rem);
+}
+
+.tm-signage-body > :last-child {
+    margin-bottom: 0;
+}
+
+.tm-signage-body h1,
+.tm-signage-body h2 {
+    font-size: clamp(1.7rem, 4.5vh, 3.7rem);
+    line-height: 1.15;
+    margin-bottom: clamp(.75rem, 2vh, 1.5rem);
+}
+
+.tm-signage-body img {
+    max-height: min(62dvh, 44rem);
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.tm-signage .tm-whats-up-timeline {
+    --tm-whats-up-timeline-date-width: 8.5em;
+    --tm-whats-up-timeline-rail-width: 1em;
+    --tm-whats-up-timeline-gap: 0.8em;
+}
+
+.tm-signage .tm-whats-up-timeline-event {
+    grid-template-columns: var(--tm-whats-up-timeline-date-width) var(--tm-whats-up-timeline-rail-width) minmax(5.5em, auto) minmax(0, 1fr);
+}
+
+.tm-signage .tm-whats-up-timeline-event > .tm-whats-up-event-time {
+    align-self: baseline;
+    font-size: 0.88em;
+}
+
+.tm-signage .tm-whats-up-timeline-event > .tm-whats-up-event-body {
+    align-self: baseline;
+}
+
+.tm-signage .tm-whats-up-timeline-event .tm-whats-up-source-label {
+    font-size: 0.72em;
+}
+
+.tm-signage-image-slide {
+    height: 100%;
+    margin: 0;
+    width: 100%;
+}
+
+.tm-signage-image-slide img {
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.tm-signage-image-slide.tm-signage-fit-cover img {
+    object-fit: cover;
+}
+
+.tm-signage-image-slide.tm-signage-fit-contain img {
+    object-fit: contain;
+}
+
+.tm-signage-image-slide.tm-signage-fit-stretch img {
+    object-fit: fill;
+}
+
+.tm-signage-image-slide.tm-signage-fit-center img {
+    object-fit: none;
+}
+
+.tm-signage-controls {
+    bottom: 1.25rem;
+    display: flex;
+    gap: .45rem;
+    left: 50%;
+    opacity: 0;
+    position: fixed;
+    transform: translateX(-50%) translateY(.5rem);
+    transition: opacity .18s ease, transform .18s ease;
+    visibility: hidden;
+    z-index: 5;
+}
+
+.tm-signage-player.tm-signage-controls-visible .tm-signage-controls,
+.tm-signage-controls:focus-within {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    visibility: visible;
+}
+
+.tm-signage-controls .btn {
+    align-items: center;
+    background: rgb(17 20 24 / .82);
+    border-color: rgb(255 255 255 / .28);
+    display: inline-flex;
+    height: 2.75rem;
+    justify-content: center;
+    width: 2.75rem;
+}
+
+.tm-signage-start {
+    align-items: center;
+    background: #101214;
+    display: flex;
+    inset: 0;
+    position: absolute;
+    z-index: 4;
+}
+
+.tm-signage-mode-light .tm-signage-start {
+    background: #f6f4ef;
+}
+
+.tm-signage-enter-fade {
+    opacity: 0;
+}
+
+.tm-signage-exit-fade {
+    opacity: 0;
+}
+
+.tm-signage-enter-slide-left {
+    transform: translateX(100%);
+}
+
+.tm-signage-exit-slide-left {
+    transform: translateX(-100%);
+}
+
+.tm-signage-enter-slide-right {
+    transform: translateX(-100%);
+}
+
+.tm-signage-exit-slide-right {
+    transform: translateX(100%);
+}
+
+.tm-signage-enter-slide-up {
+    transform: translateY(100%);
+}
+
+.tm-signage-exit-slide-up {
+    transform: translateY(-100%);
+}
+
+.tm-signage-enter-slide-down {
+    transform: translateY(-100%);
+}
+
+.tm-signage-exit-slide-down {
+    transform: translateY(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tm-signage-player:not([data-honor-reduced-motion="0"]) .tm-signage-frame {
+        transition-duration: .01ms !important;
+    }
+
+    .tm-signage-player:not([data-honor-reduced-motion="0"]) .tm-signage-controls {
+        transition: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .tm-signage-surface {
+        padding: 1.25rem;
+    }
+}

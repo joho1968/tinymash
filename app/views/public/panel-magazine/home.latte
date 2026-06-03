@@ -1,0 +1,66 @@
+{extends '../baseline/layout.latte'}
+
+{block content}
+    {var $magazine_layout_enabled = empty( $force_listing_results ) && (string) ($panel_magazine_list_layout ?? ($theme_settings['post_list_layout'] ?? 'magazine')) === 'magazine'}
+    {if ! empty( $landing_entry ) }
+        <article class="p-4 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+            {if ! empty( $landing_entry['content_heading_html'] )}
+                <header class="tm-baseline-entry-header mb-3">
+                    {$landing_entry['content_heading_html']|noescape}
+                </header>
+            {else}
+                <header class="tm-baseline-entry-header mb-3">
+                    <h1 class="mb-0">{$landing_entry['title_html']|noescape}</h1>
+                </header>
+            {/if}
+            <div class="tm-baseline-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+                {$landing_entry['content_body_html']|noescape}
+            </div>
+            {if ! empty( $landing_entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+                <section class="mt-4 pt-3 border-top">
+                    <h2 class="h5 mb-3">{$theme_child_pages_heading}</h2>
+                    <ul class="mb-0 list-unstyled d-grid gap-2">
+                        {foreach $landing_entry_child_pages as $child_page}
+                            <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                        {/foreach}
+                    </ul>
+                </section>
+            {/if}
+        </article>
+    {else}
+        <section class="tm-panel-magazine-listing d-grid gap-4">
+            {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
+                <header class="tm-panel-magazine-listing-context px-3 py-3">
+                    <h1 n:if="! empty( $listing_context_title )" class="h5 mb-2">{$listing_context_title}</h1>
+                    <p n:if="! empty( $listing_context_summary )" class="mb-0 text-secondary">{$listing_context_summary}</p>
+                </header>
+            {/if}
+            {if empty( $entries )}
+                <div class="tm-panel-magazine-empty p-3">
+                    <p class="mb-0 text-secondary">{$listing_empty_message ?? 'No published posts are currently aggregated to the front page.'}</p>
+                </div>
+            {elseif $magazine_layout_enabled && ! empty( $panel_magazine_lead_entry )}
+                <section class="tm-panel-magazine-feature-stories d-grid gap-4" aria-label="Featured stories">
+                    {include './partials/story.latte', entry: $panel_magazine_lead_entry, story_variant: 'lead'}
+                    <div n:if="! empty( $panel_magazine_secondary_entries )" class="tm-panel-magazine-secondary-stories d-grid gap-3">
+                        {foreach $panel_magazine_secondary_entries as $entry}
+                            {include './partials/story.latte', entry: $entry, story_variant: 'secondary'}
+                        {/foreach}
+                    </div>
+                </section>
+                <section n:if="! empty( $panel_magazine_stream_entries )" class="tm-panel-magazine-story-stream d-grid gap-3" aria-label="More stories">
+                    {foreach $panel_magazine_stream_entries as $entry}
+                        {include './partials/story.latte', entry: $entry, story_variant: 'compact'}
+                    {/foreach}
+                </section>
+            {else}
+                <section class="tm-panel-magazine-story-stream tm-panel-magazine-story-stream-full d-grid gap-3" aria-label="Stories">
+                    {foreach $entries as $entry}
+                        {include './partials/story.latte', entry: $entry, story_variant: 'stream'}
+                    {/foreach}
+                </section>
+            {/if}
+            {include '../baseline/partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+        </section>
+    {/if}
+{/block}

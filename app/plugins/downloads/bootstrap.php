@@ -247,6 +247,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $html .= '<div class="col-6 col-xl-2"><button class="btn btn-outline-primary w-100" type="submit" data-tm-downloads-upload-submit>Upload file</button></div>';
         $html .= '</div>';
         $html .= '<div class="form-text">Allowed formats include archives, documents, images, video files, and plain data files. Maximum size: 200 MB per file. When several files are uploaded together, each file uses its filename as the title.</div>';
+        $html .= '<div class="alert alert-danger d-none mt-3 mb-0" role="alert" data-tm-downloads-upload-error></div>';
         $html .= '</form>';
         return( $html );
     };
@@ -323,9 +324,17 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             const files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
             const maxBytes = Number.parseInt(form.getAttribute('data-tm-downloads-max-file-bytes') || '0', 10) || 0;
             const tooLarge = maxBytes > 0 ? files.find(function(file) { return file && file.size > maxBytes; }) : null;
+            const uploadError = form.querySelector('[data-tm-downloads-upload-error]');
+            if (uploadError) {
+                uploadError.classList.add('d-none');
+                uploadError.textContent = '';
+            }
             if (tooLarge) {
                 event.preventDefault();
-                window.alert('"' + (tooLarge.name || 'Selected file') + '" is larger than the 200 MB download file limit.');
+                if (uploadError) {
+                    uploadError.textContent = '"' + (tooLarge.name || 'Selected file') + '" is larger than the 200 MB download file limit.';
+                    uploadError.classList.remove('d-none');
+                }
                 return;
             }
             if (files.length > 0) {

@@ -655,7 +655,7 @@ class TinyMashFediverseService {
         $status_text = trim( (string) ( $preview['status_text'] ?? '' ) );
 
         if ( ! empty( $preview['will_truncate'] ) ) {
-            $warnings[] = 'This Fediverse post is longer than the configured character limit and will be shortened before delivery.';
+            $warnings[] = 'The generated Fediverse post exceeded the configured character limit. This outbound preview has already been shortened.';
         }
 
         if ( $summary === '' && $status_text !== '' ) {
@@ -728,12 +728,10 @@ class TinyMashFediverseService {
 
         if ( $this->markdown_renderer instanceof TinyMashMarkdownRenderer ) {
             $html = $this->markdown_renderer->render( $markdown, [ 'classic_smileys_enabled' => true ] );
-            $text = $this->normalizeStatusFragmentText( $html, true );
-            return( mb_substr( $text, 0, 260 ) );
+            return( $this->normalizeStatusFragmentText( $html, true ) );
         }
 
-        $text = $this->normalizeStatusFragmentText( $markdown );
-        return( mb_substr( $text, 0, 260 ) );
+        return( $this->normalizeStatusFragmentText( $markdown ) );
     }
 
     protected function normalizeStatusFragmentText( string $text, bool $is_rendered_html = false ) : string {
@@ -743,15 +741,110 @@ class TinyMashFediverseService {
         }
 
         if ( $is_rendered_html ) {
-            $text = $this->flattenHtmlLinks( $text );
-            $text = trim( preg_replace( '/\s+/u', ' ', strip_tags( $text ) ) ?? '' );
-            return( $text );
+            return( $this->convertRenderedHtmlToStatusText( $text ) );
         }
 
         $text = $this->flattenMarkdownLinks( $text );
         $text = $this->flattenHtmlLinks( $text );
-        $text = trim( preg_replace( '/\s+/u', ' ', strip_tags( $text ) ) ?? '' );
+        $text = html_entity_decode( strip_tags( $text ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        return( $this->normalizeStatusPlainText( $text ) );
+    }
+
+    protected function convertRenderedHtmlToStatusText( string $html ) : string {
+        $html = $this->flattenHtmlLinks( $html );
+        if ( ! class_exists( '\DOMDocument' ) ) {
+            $html = preg_replace( '/<\s*br\s*\/?\s*>/iu', "\n", $html ) ?? $html;
+            $html = preg_replace( '/<\s*li\b[^>]*>/iu', '- ', $html ) ?? $html;
+            $html = preg_replace( '/<\s*\/\s*(?:p|li|h[1-6]|blockquote|pre|div|ul|ol)\s*>/iu', "\n", $html ) ?? $html;
+            return( $this->normalizeStatusPlainText( html_entity_decode( strip_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+        }
+
+        $document = new \DOMDocument( '1.0', 'UTF-8' );
+        $previous_errors = libxml_use_internal_errors( true );
+        $loaded = $document->loadHTML(
+            '<?xml encoding="UTF-8"><div id="tm-fediverse-status-root">' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors( $previous_errors );
+        if ( ! $loaded ) {
+            return( $this->normalizeStatusPlainText( html_entity_decode( strip_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+        }
+
+        $root = $document->getElementById( 'tm-fediverse-status-root' );
+        if ( ! $root instanceof \DOMElement ) {
+            return( $this->normalizeStatusPlainText( html_entity_decode( strip_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+        }
+
+        $text = '';
+        foreach ( $root->childNodes as $child_node ) {
+            $text .= $this->renderStatusTextNode( $child_node );
+        }
+
+        return( $this->normalizeStatusPlainText( $text ) );
+    }
+
+    protected function renderStatusTextNode( \DOMNode $node ) : string {
+        if ( $node instanceof \DOMText ) {
+            $text = $node->nodeValue ?? '';
+            if ( trim( $text ) === '' && str_contains( $text, "\n" ) ) {
+                return( '' );
+            }
+            return( $text );
+        }
+        if ( ! $node instanceof \DOMElement ) {
+            return( '' );
+        }
+
+        $tag = strtolower( $node->tagName );
+        if ( in_array( $tag, [ 'script', 'style' ], true ) ) {
+            return( '' );
+        }
+        if ( $tag === 'br' ) {
+            return( "\n" );
+        }
+
+        $text = '';
+        foreach ( $node->childNodes as $child_node ) {
+            $text .= $this->renderStatusTextNode( $child_node );
+        }
+
+        if ( $tag === 'li' ) {
+            $marker = $node->parentNode instanceof \DOMElement && strtolower( $node->parentNode->tagName ) === 'ol'
+                ? $this->getOrderedListItemNumber( $node ) . '. '
+                : '- ';
+            return( $marker . trim( $text ) . "\n" );
+        }
+        if ( in_array( $tag, [ 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'div', 'tr' ], true ) ) {
+            return( trim( $text ) . "\n\n" );
+        }
+        if ( in_array( $tag, [ 'ul', 'ol' ], true ) ) {
+            return( rtrim( $text ) . "\n\n" );
+        }
+        if ( in_array( $tag, [ 'td', 'th' ], true ) ) {
+            return( trim( $text ) . "\t" );
+        }
+
         return( $text );
+    }
+
+    protected function getOrderedListItemNumber( \DOMElement $list_item ) : int {
+        $number = 1;
+        for ( $sibling = $list_item->previousSibling; $sibling !== null; $sibling = $sibling->previousSibling ) {
+            if ( $sibling instanceof \DOMElement && strtolower( $sibling->tagName ) === 'li' ) {
+                $number++;
+            }
+        }
+
+        return( $number );
+    }
+
+    protected function normalizeStatusPlainText( string $text ) : string {
+        $text = str_replace( [ "\r\n", "\r" ], "\n", $text );
+        $text = preg_replace( '/[^\S\n]+/u', ' ', $text ) ?? '';
+        $text = preg_replace( '/ *\n */u', "\n", $text ) ?? '';
+        $text = preg_replace( "/\n{3,}/u", "\n\n", $text ) ?? '';
+        return( trim( $text ) );
     }
 
     protected function flattenMarkdownLinks( string $text ) : string {

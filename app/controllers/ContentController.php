@@ -69,6 +69,7 @@ class ContentController extends BaseController {
             array_merge(
                 $this->theme->getBaseViewData( 'Home', null, null ),
                 $this->buildBlocksListingViewData( $rendered_entries ),
+                $this->buildPanelMagazineListingViewData( $rendered_entries ),
                 [
                     'entries' => $rendered_entries,
                     'listing_pagination' => $pagination,
@@ -281,6 +282,7 @@ class ContentController extends BaseController {
         $view_data = array_merge(
             $this->theme->getBaseViewData( $author_display_name !== '' ? $author_display_name : ucfirst( $author_slug ), null, $author_slug ),
             $this->buildBlocksListingViewData( $rendered_posts, $author_slug ),
+            $this->buildPanelMagazineListingViewData( $rendered_posts, $author_slug ),
             [
                 'author_slug' => $author_slug,
                 'author_display_name' => $author_display_name,
@@ -658,6 +660,19 @@ class ContentController extends BaseController {
         );
     }
 
+    protected function buildPanelMagazineListingViewData( array $entries, string $author_slug = '' ) : array {
+        if ( $this->theme->getThemeKey() !== 'panel-magazine' ) {
+            return( [] );
+        }
+
+        return(
+            $this->theme->getPanelMagazineListingViewData(
+                $entries,
+                $this->theme->getThemeSettingsForAuthorContext( $author_slug )
+            )
+        );
+    }
+
     public function media( string $owner_username, string $year, string $month, string $filename ) : void {
         $media_service = $this->app->has( 'media.service' ) ? $this->app->get( 'media.service' ) : null;
         if ( ! is_object( $media_service ) || ! method_exists( $media_service, 'resolveMediaPath' ) ) {
@@ -770,6 +785,7 @@ class ContentController extends BaseController {
         $this->applyPublicPageResponseHeaders();
         $public_page_cache = $this->getPublicPageCache();
         if ( ! $this->shouldUsePublicPageCache() || ! $public_page_cache instanceof TinyMashPublicPageCache ) {
+            $this->resetShortcodeRequestState();
             $render_started_at = microtime( true );
             $this->render( $view_name, $data );
             $this->recordServerTiming( 'view', $render_started_at );
@@ -779,6 +795,7 @@ class ContentController extends BaseController {
 
         ob_start();
         try {
+            $this->resetShortcodeRequestState();
             $render_started_at = microtime( true );
             $this->render( $view_name, $data );
             $html = (string) ob_get_clean();
@@ -788,9 +805,11 @@ class ContentController extends BaseController {
             throw $e;
         }
 
-        $cache_write_started_at = microtime( true );
-        $public_page_cache->write( $this->getCurrentRequestUriForPublicCache(), $this->theme->getThemeKey(), $html );
-        $this->recordServerTiming( 'cache_write', $cache_write_started_at );
+        if ( ! $this->hasDynamicShortcodeRenderForRequest() ) {
+            $cache_write_started_at = microtime( true );
+            $public_page_cache->write( $this->getCurrentRequestUriForPublicCache(), $this->theme->getThemeKey(), $html );
+            $this->recordServerTiming( 'cache_write', $cache_write_started_at );
+        }
         $this->emitServerTimingHeader();
         echo $html;
     }
@@ -882,6 +901,12 @@ class ContentController extends BaseController {
         if ( strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) !== 'GET' ) {
             return( false );
         }
+        if ( $this->app->has( 'plugins' ) ) {
+            $plugins = $this->app->get( 'plugins' );
+            if ( is_object( $plugins ) && method_exists( $plugins, 'hasDynamicPublicSlotRenderer' ) && $plugins->hasDynamicPublicSlotRenderer() ) {
+                return( false );
+            }
+        }
 
         return( ! $this->isAuthenticatedPublicVisitor() );
     }
@@ -897,6 +922,26 @@ class ContentController extends BaseController {
 
         $public_page_cache = $this->app->get( 'public.page_cache' );
         return( $public_page_cache instanceof TinyMashPublicPageCache ? $public_page_cache : null );
+    }
+
+    protected function resetShortcodeRequestState() : void {
+        if ( ! $this->app->has( 'shortcode.registry' ) ) {
+            return;
+        }
+
+        $shortcode_registry = $this->app->get( 'shortcode.registry' );
+        if ( $shortcode_registry instanceof \app\classes\TinyMashShortcodeRegistry ) {
+            $shortcode_registry->resetRequestState();
+        }
+    }
+
+    protected function hasDynamicShortcodeRenderForRequest() : bool {
+        if ( ! $this->app->has( 'shortcode.registry' ) ) {
+            return( false );
+        }
+
+        $shortcode_registry = $this->app->get( 'shortcode.registry' );
+        return( $shortcode_registry instanceof \app\classes\TinyMashShortcodeRegistry && $shortcode_registry->hasDynamicRenderForRequest() );
     }
 
     protected function applyPublicPageResponseHeaders() : void {

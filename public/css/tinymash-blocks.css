@@ -22,6 +22,12 @@ body.tm-theme-blocks {
     background-size: auto, 2.5rem 2.5rem, 2.5rem 2.5rem;
 }
 
+.tm-theme-blocks.tm-titles-serif .tm-blocks-entry-header h1,
+.tm-theme-blocks.tm-titles-serif .tm-blocks-context h2,
+.tm-theme-blocks.tm-titles-serif .tm-blocks-card-cover-title {
+    font-family: var(--tm-font-serif);
+}
+
 .tm-blocks-panel,
 .tm-theme-blocks .tm-baseline-panel {
     border-radius: 0;

@@ -1,0 +1,21 @@
+{
+    "key": "whats-up",
+    "name": "What's Up",
+    "version": "0.91.0",
+    "description": "Displays cached calendar events from configured iCalendar sources.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.admin",
+        "admin.navigation",
+        "content.shortcodes",
+        "theme.slots",
+        "storage.private",
+        "housekeeping"
+    ],
+    "default_active": true,
+    "stage": "early"
+}

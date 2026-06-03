@@ -56,6 +56,42 @@ class TinyMashContentRenderer {
         return( $rendered_entry );
     }
 
+    public function renderIsolatedEntryContent( array $entry, TinyMashTheme $theme, string $surface = 'isolated' ) : array {
+        $surface = preg_replace( '/[^a-z0-9_-]+/', '', strtolower( trim( $surface ) ) ) ?? 'isolated';
+        if ( $surface === '' ) {
+            $surface = 'isolated';
+        }
+        $classic_smileys_enabled = $this->isClassicSmileysEnabledForEntry( $entry );
+        $content_payload = $this->getRenderedContentPayload( $entry, $classic_smileys_enabled, $surface );
+        $content_body_html = $this->filterPluginContentHtml( (string) ( $content_payload['content_body_html'] ?? '' ), $entry, $theme );
+
+        return(
+            [
+                'title_html' => $this->renderInlineTitleHtml( (string) ( $entry['title'] ?? '' ), $classic_smileys_enabled ),
+                'content_heading_html' => (string) ( $content_payload['content_heading_html'] ?? '' ),
+                'content_body_html' => $content_body_html,
+                'content_html' => (string) ( $content_payload['content_heading_html'] ?? '' ) . $content_body_html,
+            ]
+        );
+    }
+
+    public function renderIsolatedMarkdown( string $title, string $markdown, TinyMashTheme $theme, string $surface = 'isolated' ) : array {
+        return(
+            $this->renderIsolatedEntryContent(
+                [
+                    'id' => '',
+                    'type' => 'page',
+                    'title' => $title,
+                    'content' => $markdown,
+                    'scope' => 'root',
+                    'status' => 'published',
+                ],
+                $theme,
+                $surface
+            )
+        );
+    }
+
     public function renderEntrySummary( array $entry, TinyMashTheme $theme ) : array {
         $rendered_entry = $entry;
         $classic_smileys_enabled = $this->isClassicSmileysEnabledForEntry( $entry );
@@ -492,15 +528,22 @@ class TinyMashContentRenderer {
         return( $filename );
     }
 
-    protected function getRenderedContentPayload( array $entry, bool $classic_smileys_enabled ) : array {
+    protected function getRenderedContentPayload( array $entry, bool $classic_smileys_enabled, string $surface = 'content' ) : array {
+        $content_markdown = (string) ( $entry['content'] ?? '' );
+        $content_uses_shortcodes = $this->sourceMayContainShortcodes( $content_markdown );
         $cache_key = $this->buildRenderedContentCacheKey( $entry, $classic_smileys_enabled );
         $cache_filename = $this->buildRenderCacheFilename( (string) ( $entry['id'] ?? '' ), 'content' );
-        $cached_payload = $this->readRenderCachePayload( $cache_filename, $cache_key );
-        if ( is_array( $cached_payload ) ) {
-            return( $cached_payload );
+        if ( ! $content_uses_shortcodes ) {
+            $cached_payload = $this->readRenderCachePayload( $cache_filename, $cache_key );
+            if ( is_array( $cached_payload ) ) {
+                return( $cached_payload );
+            }
         }
 
-        $content_html = $this->markdown_renderer->render( (string) ( $entry['content'] ?? '' ), [ 'classic_smileys_enabled' => $classic_smileys_enabled ] );
+        if ( $content_uses_shortcodes ) {
+            $content_markdown = $this->renderShortcodes( $content_markdown, [ 'entry' => $entry, 'surface' => $surface ] );
+        }
+        $content_html = $this->markdown_renderer->render( $content_markdown, [ 'classic_smileys_enabled' => $classic_smileys_enabled ] );
         [ $content_heading_html, $content_body_html ] = $this->splitLeadingHeading( $content_html );
         $payload = [
             'content_html' => $content_html,
@@ -508,19 +551,26 @@ class TinyMashContentRenderer {
             'content_body_html' => $content_body_html,
             'content_starts_with_h1' => preg_match( '/^\s*<h1\b/i', $content_html ) === 1,
         ];
-        $this->writeRenderCachePayload( $cache_filename, $cache_key, $payload );
+        if ( ! $content_uses_shortcodes ) {
+            $this->writeRenderCachePayload( $cache_filename, $cache_key, $payload );
+        }
         return( $payload );
     }
 
     protected function getRenderedSummaryHtml( array $entry, string $summary_markdown, bool $classic_smileys_enabled ) : string {
         $cache_read_started_at = microtime( true );
+        $summary_uses_shortcodes = $this->sourceMayContainShortcodes( $summary_markdown );
         $cache_key = $this->buildRenderedSummaryCacheKey( $entry, $summary_markdown, $classic_smileys_enabled );
         $cache_filename = $this->buildRenderCacheFilename( (string) ( $entry['id'] ?? '' ), 'summary' );
-        $cached_payload = $this->readRenderCachePayload( $cache_filename, $cache_key );
-        $this->recordProfilingMetric( 'summary_cache_read', $cache_read_started_at );
-        if ( is_array( $cached_payload ) && array_key_exists( 'summary_html', $cached_payload ) ) {
-            $this->recordProfilingMetric( 'summary_cache_hit', $cache_read_started_at );
-            return( (string) $cached_payload['summary_html'] );
+        if ( ! $summary_uses_shortcodes ) {
+            $cached_payload = $this->readRenderCachePayload( $cache_filename, $cache_key );
+            $this->recordProfilingMetric( 'summary_cache_read', $cache_read_started_at );
+            if ( is_array( $cached_payload ) && array_key_exists( 'summary_html', $cached_payload ) ) {
+                $this->recordProfilingMetric( 'summary_cache_hit', $cache_read_started_at );
+                return( (string) $cached_payload['summary_html'] );
+            }
+        } else {
+            $summary_markdown = $this->renderShortcodes( $summary_markdown, [ 'entry' => $entry, 'surface' => 'summary' ] );
         }
 
         if ( ! $this->summaryNeedsMarkdownRender( $summary_markdown, $classic_smileys_enabled ) ) {
@@ -532,10 +582,34 @@ class TinyMashContentRenderer {
             $summary_html = $this->markdown_renderer->render( $summary_markdown, [ 'classic_smileys_enabled' => $classic_smileys_enabled ] );
             $this->recordProfilingMetric( 'summary_markdown_render', $markdown_render_started_at );
         }
-        $cache_write_started_at = microtime( true );
-        $this->writeRenderCachePayload( $cache_filename, $cache_key, [ 'summary_html' => $summary_html ] );
-        $this->recordProfilingMetric( 'summary_cache_write', $cache_write_started_at );
+        if ( ! $summary_uses_shortcodes ) {
+            $cache_write_started_at = microtime( true );
+            $this->writeRenderCachePayload( $cache_filename, $cache_key, [ 'summary_html' => $summary_html ] );
+            $this->recordProfilingMetric( 'summary_cache_write', $cache_write_started_at );
+        }
         return( $summary_html );
+    }
+
+    protected function sourceMayContainShortcodes( string $source ) : bool {
+        if ( ! $this->plugins instanceof TinyMashPlugins || ! $this->plugins->hasService( 'shortcode.registry' ) ) {
+            return( false );
+        }
+
+        $shortcode_registry = $this->plugins->getService( 'shortcode.registry' );
+        return( $shortcode_registry instanceof TinyMashShortcodeRegistry && $shortcode_registry->sourceMayContainShortcodes( $source ) );
+    }
+
+    protected function renderShortcodes( string $source, array $context = [] ) : string {
+        if ( ! $this->plugins instanceof TinyMashPlugins || ! $this->plugins->hasService( 'shortcode.registry' ) ) {
+            return( $source );
+        }
+
+        $shortcode_registry = $this->plugins->getService( 'shortcode.registry' );
+        if ( ! $shortcode_registry instanceof TinyMashShortcodeRegistry ) {
+            return( $source );
+        }
+
+        return( $shortcode_registry->renderShortcodes( $source, $context ) );
     }
 
     protected function recordProfilingMetric( string $metric_name, float $started_at ) : void {

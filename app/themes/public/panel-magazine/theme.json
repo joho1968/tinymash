@@ -1,0 +1,262 @@
+{
+    "key": "panel-magazine",
+    "name": "Panel Magazine",
+    "description": "Magazine-style public theme with a fixed identity panel, banner masthead, and quiet secondary navigation.",
+    "version": "1.0.0",
+    "template_root": "public/baseline",
+    "views": {
+        "home": "public/panel-magazine/home.latte",
+        "author-home": "public/panel-magazine/author.home.latte",
+        "entry-post": "public/baseline/entry.latte",
+        "entry-page": "public/baseline/entry.latte",
+        "404": "public/baseline/404.latte"
+    },
+    "css_urls": [
+        "/ext/bs/css/bootstrap.min.css",
+        "/ext/bsi/bootstrap-icons.min.css",
+        "/css/tinymash.css",
+        "/css/tinymash-panel-magazine.css"
+    ],
+    "js_urls": [
+        "/ext/bs/js/bootstrap.bundle.min.js"
+    ],
+    "supports": {
+        "menus": true,
+        "primary_menu": true,
+        "sidebar_menu": true,
+        "breadcrumbs": true,
+        "page_sidebar": true,
+        "after_content_child_pages": true,
+        "footer_menu": true,
+        "public_background": true,
+        "syntax_highlighting": true
+    },
+    "settings_schema": [
+        {
+            "key": "panel_position",
+            "label": "Identity panel position",
+            "type": "select",
+            "default": "left",
+            "options": [
+                { "value": "left", "label": "Left" },
+                { "value": "right", "label": "Right" }
+            ],
+            "help": "Places the fixed identity and navigation panel on the left or right on wide screens."
+        },
+        {
+            "key": "compact_header",
+            "label": "Compact header",
+            "type": "select",
+            "default": "sticky",
+            "options": [
+                { "value": "sticky", "label": "Sticky" },
+                { "value": "static", "label": "Scroll with content" }
+            ],
+            "help": "Controls the compact header used on smaller screens; the wide-screen identity panel remains fixed."
+        },
+        {
+            "key": "secondary_sidebar",
+            "label": "Opposite sidebar",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Shows or hides content assigned to the opposite sidebar."
+        },
+        {
+            "key": "page_navigation_position",
+            "label": "Page list position",
+            "type": "select",
+            "default": "opposite_sidebar",
+            "options": [
+                { "value": "opposite_sidebar", "label": "Opposite sidebar" },
+                { "value": "identity_panel", "label": "Identity panel" }
+            ],
+            "help": "Places published page navigation in the fixed identity panel or the opposite sidebar on wide screens. Smaller screens use the Browse panel."
+        },
+        {
+            "key": "primary_menu_position",
+            "label": "Primary navigation",
+            "type": "select",
+            "default": "header",
+            "options": [
+                { "value": "header", "label": "Identity panel" },
+                { "value": "off", "label": "Off" }
+            ],
+            "help": "Controls whether the configured primary navigation appears in the identity panel."
+        },
+        {
+            "key": "footer_menu_position",
+            "label": "Footer menu position",
+            "type": "select",
+            "default": "footer",
+            "options": [
+                { "value": "footer", "label": "Footer" },
+                { "value": "off", "label": "Off" }
+            ],
+            "help": "Controls whether the configured footer menu is rendered by this theme."
+        },
+        {
+            "key": "root_landing_mode",
+            "label": "Root start page",
+            "type": "select",
+            "default": "blogroll",
+            "options": [
+                { "value": "blogroll", "label": "Blogroll" },
+                { "value": "page", "label": "Static page" }
+            ],
+            "help": "Controls whether the public root space starts on the aggregated post list or a published static page."
+        },
+        {
+            "key": "landing_page_path",
+            "label": "Root landing page path",
+            "type": "text",
+            "lookup": "published_pages",
+            "default": "",
+            "help": "Used when `Static page` is selected. Choose one of the published root pages."
+        },
+        {
+            "key": "content_width",
+            "label": "Content width",
+            "type": "select",
+            "author_override": true,
+            "default": "wide",
+            "options": [
+                { "value": "theme_default", "label": "Theme default" },
+                { "value": "small", "label": "Small (600)" },
+                { "value": "compact", "label": "Compact (720)" },
+                { "value": "reading", "label": "Reading (840)" },
+                { "value": "standard", "label": "Standard (960)" },
+                { "value": "wide", "label": "Wide (1140)" },
+                { "value": "full", "label": "Full" }
+            ],
+            "help": "Bounds the public content area using tinymash width presets."
+        },
+        {
+            "key": "post_list_layout",
+            "label": "Post list layout",
+            "type": "select",
+            "author_override": true,
+            "default": "magazine",
+            "options": [
+                { "value": "magazine", "label": "Magazine" },
+                { "value": "stream", "label": "Stream" }
+            ],
+            "help": "Controls whether blog post lists use a lead-story magazine composition or a simple chronological stream."
+        },
+        {
+            "key": "publication_title_style",
+            "label": "Publication title style",
+            "type": "select",
+            "default": "serif",
+            "options": [
+                { "value": "serif", "label": "Serif" },
+                { "value": "sans-serif", "label": "Sans-serif" }
+            ],
+            "help": "Controls the type style for site identity and publication titles. Body text, navigation and controls remain sans-serif."
+        },
+        {
+            "key": "show_search",
+            "label": "Public search",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether public search is shown when the Search plugin is active."
+        },
+        {
+            "key": "show_tags",
+            "label": "Show tags",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether entry tags are shown publicly when tags are enabled sitewide."
+        },
+        {
+            "key": "enable_syntax_highlighting",
+            "label": "Enable syntax highlighting",
+            "type": "select",
+            "requires_plugin": "syntax-highlighting",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+        },
+        {
+            "key": "page_sidebar_style",
+            "label": "Page list style",
+            "type": "select",
+            "default": "flat",
+            "options": [
+                { "value": "flat", "label": "Flat list" },
+                { "value": "cards", "label": "Card tree" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls how published page navigation is displayed in its selected location."
+        },
+        {
+            "key": "top_navigation_depth",
+            "label": "Fallback navigation depth",
+            "type": "select",
+            "default": "1",
+            "options": [
+                { "value": "disabled", "label": "Disabled" },
+                { "value": "1", "label": "1st level" },
+                { "value": "2", "label": "2nd level" },
+                { "value": "3", "label": "3rd level" }
+            ],
+            "help": "Used for fallback page navigation in the identity panel when no primary menu is configured."
+        },
+        {
+            "key": "page_breadcrumbs",
+            "label": "Page breadcrumbs",
+            "type": "select",
+            "default": "enabled",
+            "options": [
+                { "value": "enabled", "label": "Enabled" },
+                { "value": "disabled", "label": "Disabled" }
+            ],
+            "help": "Controls whether page breadcrumb trails are shown above page content."
+        },
+        {
+            "key": "page_children_after_content",
+            "label": "After-content child pages",
+            "type": "select",
+            "default": "more",
+            "options": [
+                { "value": "disabled", "label": "Disabled" },
+                { "value": "more", "label": "More" },
+                { "value": "subpages", "label": "Sub pages" }
+            ],
+            "help": "Controls whether published child pages are listed after page content."
+        },
+        {
+            "key": "post_summary_fallback",
+            "label": "Short summary format for posts",
+            "type": "select",
+            "default": "words",
+            "options": [
+                { "value": "words", "label": "Short summary" },
+                { "value": "full", "label": "Full post" },
+                { "value": "title", "label": "Only title" }
+            ],
+            "help": "Controls what post lists show when a post has no explicit summary."
+        },
+        {
+            "key": "post_summary_fallback_words",
+            "label": "Short summary words",
+            "type": "text",
+            "default": "40",
+            "help": "Used when `Short summary` is selected. Invalid values fall back to 40."
+        }
+    ]
+}

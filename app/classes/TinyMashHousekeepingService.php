@@ -11,9 +11,10 @@ class TinyMashHousekeepingService {
     protected ?TinyMashNotificationService $notification_service;
     protected ?TinyMashPasswordResetService $password_reset_service;
     protected ?TinyMashTheme $theme;
+    protected ?TinyMashContentRepository $content_repository;
     protected string $web_fallback_lock_filename;
 
-    public function __construct( TinyMashConfigIO $config_io, TinyMashDraftRepository $draft_repository, ?TinyMashMediaService $media_service = null, ?TinyMashPlugins $plugins = null, ?TinyMashNotificationService $notification_service = null, ?TinyMashPasswordResetService $password_reset_service = null, ?TinyMashTheme $theme = null, string $web_fallback_lock_filename = '', ?TinyMashMediaImportBridge $media_import_bridge = null ) {
+    public function __construct( TinyMashConfigIO $config_io, TinyMashDraftRepository $draft_repository, ?TinyMashMediaService $media_service = null, ?TinyMashPlugins $plugins = null, ?TinyMashNotificationService $notification_service = null, ?TinyMashPasswordResetService $password_reset_service = null, ?TinyMashTheme $theme = null, string $web_fallback_lock_filename = '', ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashContentRepository $content_repository = null ) {
         $this->config_io = $config_io;
         $this->draft_repository = $draft_repository;
         $this->media_service = $media_service;
@@ -22,6 +23,7 @@ class TinyMashHousekeepingService {
         $this->notification_service = $notification_service;
         $this->password_reset_service = $password_reset_service;
         $this->theme = $theme;
+        $this->content_repository = $content_repository;
         $this->web_fallback_lock_filename = trim( $web_fallback_lock_filename ) !== ''
             ? $web_fallback_lock_filename
             : dirname( $this->config_io->getConfigFilename(), 2 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'housekeeping-web.lock';
@@ -40,6 +42,13 @@ class TinyMashHousekeepingService {
             $context
         );
         $stale_drafts_removed = $this->draft_repository->deleteStaleDrafts( $stale_draft_retention_days );
+        $trash_retention_days = $this->config_io->getContentTrashRetentionDays();
+        $trashed_entries_purged = $this->content_repository instanceof TinyMashContentRepository
+            ? $this->content_repository->purgeTrashedEntriesOlderThan( $trash_retention_days )
+            : 0;
+        $revision_prune_result = $this->content_repository instanceof TinyMashContentRepository
+            ? $this->content_repository->pruneAllRevisionSnapshots()
+            : [ 'checked_entries' => 0, 'removed_revisions' => 0, 'retention_limit' => 0 ];
         $thumbnail_backfill_result = $this->media_service instanceof TinyMashMediaService
             ? $this->media_service->backfillMissingThumbnails()
             : [ 'generated' => 0, 'checked' => 0 ];
@@ -104,6 +113,25 @@ class TinyMashHousekeepingService {
                             ? ( 'Removed ' . $stale_drafts_removed . ' stale draft(s).' )
                             : 'Disabled by site policy.',
                     'deleted_count' => $stale_drafts_removed,
+                ],
+                [
+                    'key' => 'content_trash_cleanup',
+                    'label' => 'Content Trash cleanup',
+                    'status' => $trash_retention_days > 0 ? 'ran' : 'skipped',
+                    'message' => $trash_retention_days > 0
+                        ? ( 'Permanently deleted ' . $trashed_entries_purged . ' trashed content item(s).' )
+                        : 'Disabled by site policy.',
+                    'deleted_count' => $trashed_entries_purged,
+                    'retention_days' => $trash_retention_days,
+                ],
+                [
+                    'key' => 'content_revision_cleanup',
+                    'label' => 'Content revision cleanup',
+                    'status' => 'ran',
+                    'message' => 'Removed ' . (int) ( $revision_prune_result['removed_revisions'] ?? 0 ) . ' stale content revision(s) after checking ' . (int) ( $revision_prune_result['checked_entries'] ?? 0 ) . ' content item(s).',
+                    'checked_entries' => (int) ( $revision_prune_result['checked_entries'] ?? 0 ),
+                    'removed_revisions' => (int) ( $revision_prune_result['removed_revisions'] ?? 0 ),
+                    'retention_limit' => (int) ( $revision_prune_result['retention_limit'] ?? 0 ),
                 ],
                 [
                     'key' => 'thumbnail_backfill',

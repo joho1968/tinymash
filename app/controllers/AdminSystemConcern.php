@@ -724,6 +724,149 @@ trait AdminSystemConcern {
         $this->handleSystemModerationDecision( 'unpublished', 'Content review was rejected and the item is now unpublished.' );
     }
 
+    public function updateSystemMediaLibraryReview() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->app->redirect( $this->config->configGetLoginURL() );
+            return;
+        }
+
+        if ( ! $this->security->isSuperAdmin() ) {
+            $this->app->response()->status( 403 );
+            return;
+        }
+
+        $data = $this->getRequestDataArray();
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'Your session token is invalid. Please reload the page and try again.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        $media_id = trim( (string) ( $data['media_id'] ?? '' ) );
+        $review_status = strtolower( trim( (string) ( $data['review_status'] ?? '' ) ) );
+        $review_store = $this->app->has( 'media.review_store' ) ? $this->app->get( 'media.review_store' ) : null;
+        $media_service = $this->app->has( 'media.service' ) ? $this->app->get( 'media.service' ) : null;
+        if (
+            ! is_object( $review_store )
+            || ! method_exists( $review_store, 'setReviewStatus' )
+            || ! method_exists( $review_store, 'clearReview' )
+            || ! is_object( $media_service )
+            || ! method_exists( $media_service, 'getAttachmentMetadataByMediaId' )
+        ) {
+            $this->setSystemNoticeFlash( 'danger', 'Media review state is not available.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        $metadata = $media_service->getAttachmentMetadataByMediaId( $media_id, [] );
+        if ( ! is_array( $metadata ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'That media item could not be found.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        try {
+            if ( $review_status === 'unreviewed' ) {
+                $review_store->clearReview( $media_id );
+                $this->setSystemNoticeFlash( 'success', 'Media review status cleared.' );
+            } elseif ( in_array( $review_status, [ 'keep', 'cleanup_candidate' ], true ) ) {
+                $review = $review_store->setReviewStatus( $media_id, $review_status, (string) ( $this->security->getCurrentUsername() ?? '' ) );
+                $label = is_array( $review ) ? (string) ( $review['status_label'] ?? 'Review status' ) : 'Review status';
+                $this->setSystemNoticeFlash( 'success', $label . ' saved.' );
+            } else {
+                throw new \InvalidArgumentException( 'review_status' );
+            }
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to update media review status (' . $e->getMessage() . ')' );
+            $this->setSystemNoticeFlash( 'danger', 'Media review status could not be saved.' );
+        }
+
+        $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+    }
+
+    public function deleteSystemMediaLibraryItem() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->app->redirect( $this->config->configGetLoginURL() );
+            return;
+        }
+
+        if ( ! $this->security->isSuperAdmin() ) {
+            $this->app->response()->status( 403 );
+            return;
+        }
+
+        $data = $this->getRequestDataArray();
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'Your session token is invalid. Please reload the page and try again.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+        if ( (string) ( $data['confirm_permanent_delete'] ?? '' ) !== 'permanent' ) {
+            $this->setSystemNoticeFlash( 'danger', 'Permanent media deletion was not confirmed.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        $media_id = trim( (string) ( $data['media_id'] ?? '' ) );
+        $review_store = $this->app->has( 'media.review_store' ) ? $this->app->get( 'media.review_store' ) : null;
+        $media_service = $this->app->has( 'media.service' ) ? $this->app->get( 'media.service' ) : null;
+        if (
+            ! is_object( $review_store )
+            || ! method_exists( $review_store, 'getReview' )
+            || ! method_exists( $review_store, 'clearReview' )
+            || ! is_object( $media_service )
+            || ! method_exists( $media_service, 'getAttachmentMetadataByMediaId' )
+            || ! method_exists( $media_service, 'deleteAttachmentByMediaId' )
+        ) {
+            $this->setSystemNoticeFlash( 'danger', 'Media deletion is not available.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        $metadata = $media_service->getAttachmentMetadataByMediaId( $media_id, [] );
+        if ( ! is_array( $metadata ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'That media item could not be found.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        $review = $review_store->getReview( $media_id );
+        if ( (string) ( $review['status'] ?? 'unreviewed' ) !== 'cleanup_candidate' ) {
+            $this->setSystemNoticeFlash( 'danger', 'Only media marked as a cleanup candidate can be deleted permanently.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        $usage_report = $this->buildSystemMediaLibraryUsageReport( [ $metadata ], 'all' );
+        $usage_records_by_id = is_array( $usage_report['records_by_id'] ?? null ) ? $usage_report['records_by_id'] : [];
+        $usage_status = (string) ( $usage_records_by_id[$media_id]['status'] ?? 'unknown' );
+        if ( $usage_status !== 'unreferenced' ) {
+            $usage_label = $this->getSystemMediaLibraryUsageStatusLabel( $usage_status );
+            $this->setSystemNoticeFlash( 'danger', 'Media was not deleted because its current usage state is ' . $usage_label . '.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+            return;
+        }
+
+        try {
+            $result = $media_service->deleteAttachmentByMediaId( $media_id, [] );
+            if ( empty( $result['deleted'] ) ) {
+                throw new \RuntimeException( 'Media item was not found during deletion.' );
+            }
+            $review_store->clearReview( $media_id );
+            error_log(
+                'Media permanently deleted: media_id=' . $media_id
+                . ' actor=' . (string) ( $this->security->getCurrentUsername() ?? '' )
+                . ' removed_files=' . (int) ( $result['removed_files'] ?? 0 )
+            );
+            $this->setSystemNoticeFlash( 'success', 'Media deleted permanently.' );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to delete media item (' . $e->getMessage() . ')' );
+            $this->setSystemNoticeFlash( 'danger', 'Media could not be deleted permanently.' );
+        }
+
+        $this->app->redirect( $this->getSystemSectionUrl( 'media-library' ) );
+    }
+
     protected function setSystemNoticeFlash( string $type, string $message ) : void {
         $this->security->setFlash(
             'system.notice',
@@ -768,8 +911,8 @@ trait AdminSystemConcern {
             'system_timezone_options' => timezone_identifiers_list(),
             'system_content_image_mime_options' => $this->getContentImageMimeOptions(),
             'system_media_metadata_group_options' => $this->getMediaMetadataGroupOptions(),
-            'system_media_library' => $system_section === 'media-library' ? $this->getSystemMediaLibraryViewData() : [],
-            'system_site_image_picker_records' => $system_section === 'site' ? $this->getSystemSiteImagePickerRecords() : [],
+                'system_media_library' => $system_section === 'media-library' ? $this->getSystemMediaLibraryViewData() : [],
+                'system_site_image_picker_records' => $system_section === 'site' ? $this->getSystemSiteImagePickerRecords() : [],
             'system_runtime_info' => $this->getSystemRuntimeInfo(),
             'system_settings_url' => $this->app->get( 'admin.url' ) . '/system/settings',
             'system_theme_select_url' => $this->app->get( 'admin.url' ) . '/system/themes/select',
@@ -779,6 +922,8 @@ trait AdminSystemConcern {
             'system_plugin_settings_urls' => $this->getSystemPluginSettingsUrls(),
             'system_smtp_test_url' => $this->app->get( 'admin.url' ) . '/system/smtp/test',
             'system_media_library_fragment_url' => $this->app->get( 'admin.url' ) . '/fragment/system-media-library',
+            'system_media_library_review_url' => $this->app->get( 'admin.url' ) . '/system/media-library/review',
+            'system_media_library_delete_url' => $this->app->get( 'admin.url' ) . '/system/media-library/delete',
             'system_notice' => $this->getSystemNotice( $system_section ),
             'system_theme_key' => $this->theme !== null ? $this->theme->getThemeKey() : 'baseline',
             'system_theme_name' => $this->theme !== null ? $this->theme->getThemeName() : 'Baseline',
@@ -798,6 +943,7 @@ trait AdminSystemConcern {
             'system_admin_theme_description' => (string) ( $admin_theme_info['description'] ?? '' ),
             'system_admin_theme_version' => (string) ( $admin_theme_info['version'] ?? '' ),
             'system_registered_plugins' => $this->getSystemRegisteredPlugins(),
+            'system_registered_shortcodes' => $this->getSystemRegisteredShortcodes(),
             'system_registered_plugin_capabilities' => $this->getSystemRegisteredPluginCapabilities(),
             'system_plugin_settings_sections' => $this->getSystemPluginSettingsSections(),
             'system_plugin_settings_section' => $system_plugin_settings_section,
@@ -837,12 +983,29 @@ trait AdminSystemConcern {
         );
     }
 
+    protected function getSystemRegisteredShortcodes() : array {
+        if ( ! $this->app->has( 'shortcode.registry' ) ) {
+            return( [] );
+        }
+
+        $shortcode_registry = $this->app->get( 'shortcode.registry' );
+        if ( ! is_object( $shortcode_registry ) || ! method_exists( $shortcode_registry, 'getRegisteredShortcodes' ) ) {
+            return( [] );
+        }
+
+        $shortcodes = $shortcode_registry->getRegisteredShortcodes();
+        return( is_array( $shortcodes ) ? $shortcodes : [] );
+    }
+
     protected function buildSystemMediaLibraryFragmentViewData() : array {
         return(
             [
                 'system_media_library' => $this->getSystemMediaLibraryViewData(),
                 'system_section_urls' => $this->getSystemSectionUrls(),
                 'system_media_library_fragment_url' => $this->app->get( 'admin.url' ) . '/fragment/system-media-library',
+                'system_media_library_review_url' => $this->app->get( 'admin.url' ) . '/system/media-library/review',
+                'system_media_library_delete_url' => $this->app->get( 'admin.url' ) . '/system/media-library/delete',
+                'csrf_token' => $this->security->getCsrfToken(),
             ]
         );
     }
@@ -912,13 +1075,29 @@ trait AdminSystemConcern {
     protected function getSystemMediaLibraryViewData() : array {
         $query = $this->app->request()->query->getData();
         $query = is_array( $query ) ? $query : [];
-        $owner_filter = strtolower( trim( (string) ( $query['owner'] ?? 'all' ) ) );
-        $type_filter = strtolower( trim( (string) ( $query['type'] ?? 'all' ) ) );
-        $attachment_filter = strtolower( trim( (string) ( $query['attachment'] ?? 'all' ) ) );
-        $search_query = $this->normalizeSystemMediaLibrarySearchQuery( (string) ( $query['q'] ?? '' ) );
+        $reset_filters = strtolower( trim( (string) ( $query['media_library_filters'] ?? '' ) ) ) === 'reset';
+        if ( $reset_filters ) {
+            $this->clearSystemMediaLibraryStickyFilters();
+        }
+
+        $sticky_filters = $reset_filters ? [] : $this->getSystemMediaLibraryStickyFilters();
+        $has_filter_input = false;
+        foreach ( [ 'owner', 'type', 'attachment', 'usage', 'review', 'q', 'per_page' ] as $filter_key ) {
+            if ( array_key_exists( $filter_key, $query ) ) {
+                $has_filter_input = true;
+                break;
+            }
+        }
+        $filter_source = $has_filter_input ? $query : $sticky_filters;
+        $owner_filter = strtolower( trim( (string) ( $filter_source['owner'] ?? 'all' ) ) );
+        $type_filter = strtolower( trim( (string) ( $filter_source['type'] ?? 'all' ) ) );
+        $attachment_filter = strtolower( trim( (string) ( $filter_source['attachment'] ?? 'all' ) ) );
+        $usage_filter = strtolower( trim( (string) ( $filter_source['usage'] ?? 'all' ) ) );
+        $review_filter = strtolower( trim( (string) ( $filter_source['review'] ?? 'all' ) ) );
+        $search_query = $this->normalizeSystemMediaLibrarySearchQuery( (string) ( $filter_source['q'] ?? '' ) );
         $page = max( 1, (int) ( $query['page'] ?? 1 ) );
         $allowed_per_page = [ 12, 24, 48, 96 ];
-        $per_page = (int) ( $query['per_page'] ?? 24 );
+        $per_page = (int) ( $filter_source['per_page'] ?? 24 );
         if ( ! in_array( $per_page, $allowed_per_page, true ) ) {
             $per_page = 24;
         }
@@ -928,6 +1107,12 @@ trait AdminSystemConcern {
         if ( ! in_array( $attachment_filter, [ 'all', 'attached', 'unattached' ], true ) ) {
             $attachment_filter = 'all';
         }
+        if ( ! in_array( $usage_filter, [ 'all', 'used', 'unreferenced', 'direct_marker_only' ], true ) ) {
+            $usage_filter = 'all';
+        }
+        if ( ! in_array( $review_filter, [ 'all', 'unreviewed', 'keep', 'cleanup_candidate' ], true ) ) {
+            $review_filter = 'all';
+        }
 
         $media_service = $this->app->has( 'media.service' ) ? $this->app->get( 'media.service' ) : null;
         if ( ! is_object( $media_service ) || ! method_exists( $media_service, 'listAttachments' ) ) {
@@ -935,9 +1120,9 @@ trait AdminSystemConcern {
                 [
                     'records' => [],
                     'owners' => [],
-                    'filters' => [ 'owner' => 'all', 'type' => $type_filter, 'attachment' => $attachment_filter, 'q' => $search_query, 'per_page' => $per_page ],
-                    'pagination' => $this->buildSystemMediaLibraryPagination( 0, 1, $per_page, 'all', $type_filter, $attachment_filter, $search_query ),
-                    'summary' => [ 'total' => 0, 'shown' => 0, 'images' => 0, 'other' => 0, 'display_derivatives' => 0 ],
+                    'filters' => [ 'owner' => 'all', 'type' => $type_filter, 'attachment' => $attachment_filter, 'usage' => $usage_filter, 'review' => $review_filter, 'q' => $search_query, 'per_page' => $per_page ],
+                    'reset_url' => $this->getSystemSectionUrl( 'media-library', [ 'media_library_filters' => 'reset' ] ),
+                    'pagination' => $this->buildSystemMediaLibraryPagination( 0, 1, $per_page, 'all', $type_filter, $attachment_filter, $usage_filter, $review_filter, $search_query ),
                 ]
             );
         }
@@ -954,21 +1139,10 @@ trait AdminSystemConcern {
         }
 
         $owners = [];
-        $summary = [ 'total' => count( $all_metadata ), 'shown' => 0, 'images' => 0, 'other' => 0, 'display_derivatives' => 0 ];
         foreach ( $all_metadata as $metadata ) {
             $owner = strtolower( trim( (string) ( $metadata['owner_username'] ?? '' ) ) );
             if ( $owner !== '' ) {
                 $owners[$owner] = $owner;
-            }
-            $mime = strtolower( trim( (string) ( $metadata['mime'] ?? '' ) ) );
-            if ( str_starts_with( $mime, 'image/' ) ) {
-                $summary['images']++;
-                $display = is_array( $metadata['display'] ?? null ) ? $metadata['display'] : [];
-                if ( trim( (string) ( $display['url'] ?? '' ) ) !== '' ) {
-                    $summary['display_derivatives']++;
-                }
-            } else {
-                $summary['other']++;
             }
         }
         ksort( $owners, SORT_NATURAL | SORT_FLAG_CASE );
@@ -976,11 +1150,41 @@ trait AdminSystemConcern {
         if ( $owner_filter !== 'all' && ! isset( $owners[$owner_filter] ) ) {
             $owner_filter = 'all';
         }
+        if ( ! $reset_filters ) {
+            $this->setSystemMediaLibraryStickyFilters(
+                [
+                    'owner' => $owner_filter,
+                    'type' => $type_filter,
+                    'attachment' => $attachment_filter,
+                    'usage' => $usage_filter,
+                    'review' => $review_filter,
+                    'q' => $search_query,
+                    'per_page' => $per_page,
+                ]
+            );
+        }
+
+        $usage_metadata = $owner_filter === 'all'
+            ? $all_metadata
+            : array_values(
+                array_filter(
+                    $all_metadata,
+                    static function( array $metadata ) use ( $owner_filter ) : bool {
+                        return( strtolower( trim( (string) ( $metadata['owner_username'] ?? '' ) ) ) === $owner_filter );
+                    }
+                )
+            );
+        $usage_report = $this->buildSystemMediaLibraryUsageReport( $usage_metadata, $owner_filter );
+        $usage_records_by_id = is_array( $usage_report['records_by_id'] ?? null ) ? $usage_report['records_by_id'] : [];
+        $review_store = $this->app->has( 'media.review_store' ) ? $this->app->get( 'media.review_store' ) : null;
+        $review_records_by_id = is_object( $review_store ) && method_exists( $review_store, 'getReviewsById' )
+            ? $review_store->getReviewsById()
+            : [];
 
         $filtered_metadata = array_values(
             array_filter(
                 $all_metadata,
-                function( array $metadata ) use ( $owner_filter, $type_filter, $attachment_filter, $search_query ) : bool {
+                function( array $metadata ) use ( $owner_filter, $type_filter, $attachment_filter, $usage_filter, $review_filter, $usage_records_by_id, $review_records_by_id, $search_query ) : bool {
                     $owner = strtolower( trim( (string) ( $metadata['owner_username'] ?? '' ) ) );
                     if ( $owner_filter !== 'all' && $owner !== $owner_filter ) {
                         return( false );
@@ -999,6 +1203,20 @@ trait AdminSystemConcern {
                     if ( $attachment_filter === 'unattached' && $has_direct_attachment ) {
                         return( false );
                     }
+                    if ( $usage_filter !== 'all' ) {
+                        $media_id = trim( (string) ( $metadata['media_id'] ?? '' ) );
+                        $usage_status = is_array( $usage_records_by_id[$media_id] ?? null ) ? (string) ( $usage_records_by_id[$media_id]['status'] ?? '' ) : '';
+                        if ( $usage_status !== $usage_filter ) {
+                            return( false );
+                        }
+                    }
+                    if ( $review_filter !== 'all' ) {
+                        $media_id = trim( (string) ( $metadata['media_id'] ?? '' ) );
+                        $review_status = is_array( $review_records_by_id[$media_id] ?? null ) ? (string) ( $review_records_by_id[$media_id]['status'] ?? 'unreviewed' ) : 'unreviewed';
+                        if ( $review_status !== $review_filter ) {
+                            return( false );
+                        }
+                    }
                     if ( $search_query !== '' && ! $this->systemMediaLibraryMetadataMatchesQuery( $metadata, $search_query ) ) {
                         return( false );
                     }
@@ -1007,12 +1225,14 @@ trait AdminSystemConcern {
                 }
             )
         );
-        $summary['shown'] = count( $filtered_metadata );
-        $pagination = $this->buildSystemMediaLibraryPagination( $summary['shown'], $page, $per_page, $owner_filter, $type_filter, $attachment_filter, $search_query );
+        $pagination = $this->buildSystemMediaLibraryPagination( count( $filtered_metadata ), $page, $per_page, $owner_filter, $type_filter, $attachment_filter, $usage_filter, $review_filter, $search_query );
         $paged_metadata = array_slice( $filtered_metadata, (int) $pagination['offset'], $per_page );
         $records = [];
         foreach ( $paged_metadata as $metadata ) {
-            $record = $this->buildSystemMediaLibraryRecord( $metadata );
+            $media_id = trim( (string) ( $metadata['media_id'] ?? '' ) );
+            $usage_record = is_array( $usage_records_by_id[$media_id] ?? null ) ? $usage_records_by_id[$media_id] : [];
+            $review_record = is_array( $review_records_by_id[$media_id] ?? null ) ? $review_records_by_id[$media_id] : [];
+            $record = $this->buildSystemMediaLibraryRecord( $metadata, $usage_record, $review_record );
             if ( ! empty( $record['media_id'] ) ) {
                 $records[] = $record;
             }
@@ -1022,14 +1242,57 @@ trait AdminSystemConcern {
             [
                 'records' => $records,
                 'owners' => array_values( $owners ),
-                'filters' => [ 'owner' => $owner_filter, 'type' => $type_filter, 'attachment' => $attachment_filter, 'q' => $search_query, 'per_page' => $per_page ],
+                'filters' => [ 'owner' => $owner_filter, 'type' => $type_filter, 'attachment' => $attachment_filter, 'usage' => $usage_filter, 'review' => $review_filter, 'q' => $search_query, 'per_page' => $per_page ],
+                'reset_url' => $this->getSystemSectionUrl( 'media-library', [ 'media_library_filters' => 'reset' ] ),
                 'pagination' => $pagination,
-                'summary' => $summary,
             ]
         );
     }
 
-    protected function buildSystemMediaLibraryPagination( int $total_items, int $page, int $per_page, string $owner_filter, string $type_filter, string $attachment_filter, string $search_query ) : array {
+    protected function getSystemMediaLibraryStickyFilters() : array {
+        if ( session_status() !== PHP_SESSION_ACTIVE ) {
+            return( [] );
+        }
+        $filters = is_array( $_SESSION['tinymash_system_media_library_filters'] ?? null )
+            ? $_SESSION['tinymash_system_media_library_filters']
+            : [];
+
+        return(
+            [
+                'owner' => strtolower( trim( (string) ( $filters['owner'] ?? 'all' ) ) ),
+                'type' => strtolower( trim( (string) ( $filters['type'] ?? 'all' ) ) ),
+                'attachment' => strtolower( trim( (string) ( $filters['attachment'] ?? 'all' ) ) ),
+                'usage' => strtolower( trim( (string) ( $filters['usage'] ?? 'all' ) ) ),
+                'review' => strtolower( trim( (string) ( $filters['review'] ?? 'all' ) ) ),
+                'q' => $this->normalizeSystemMediaLibrarySearchQuery( (string) ( $filters['q'] ?? '' ) ),
+                'per_page' => (int) ( $filters['per_page'] ?? 24 ),
+            ]
+        );
+    }
+
+    protected function setSystemMediaLibraryStickyFilters( array $filters ) : void {
+        if ( session_status() !== PHP_SESSION_ACTIVE ) {
+            return;
+        }
+        $_SESSION['tinymash_system_media_library_filters'] = [
+            'owner' => strtolower( trim( (string) ( $filters['owner'] ?? 'all' ) ) ),
+            'type' => strtolower( trim( (string) ( $filters['type'] ?? 'all' ) ) ),
+            'attachment' => strtolower( trim( (string) ( $filters['attachment'] ?? 'all' ) ) ),
+            'usage' => strtolower( trim( (string) ( $filters['usage'] ?? 'all' ) ) ),
+            'review' => strtolower( trim( (string) ( $filters['review'] ?? 'all' ) ) ),
+            'q' => $this->normalizeSystemMediaLibrarySearchQuery( (string) ( $filters['q'] ?? '' ) ),
+            'per_page' => (int) ( $filters['per_page'] ?? 24 ),
+        ];
+    }
+
+    protected function clearSystemMediaLibraryStickyFilters() : void {
+        if ( session_status() !== PHP_SESSION_ACTIVE ) {
+            return;
+        }
+        unset( $_SESSION['tinymash_system_media_library_filters'] );
+    }
+
+    protected function buildSystemMediaLibraryPagination( int $total_items, int $page, int $per_page, string $owner_filter, string $type_filter, string $attachment_filter, string $usage_filter, string $review_filter, string $search_query ) : array {
         $per_page = max( 1, $per_page );
         $total_pages = max( 1, (int) ceil( max( 0, $total_items ) / $per_page ) );
         $page = min( max( 1, $page ), $total_pages );
@@ -1038,6 +1301,8 @@ trait AdminSystemConcern {
             'owner' => $owner_filter !== 'all' ? $owner_filter : '',
             'type' => $type_filter !== 'all' ? $type_filter : '',
             'attachment' => $attachment_filter !== 'all' ? $attachment_filter : '',
+            'usage' => $usage_filter !== 'all' ? $usage_filter : '',
+            'review' => $review_filter !== 'all' ? $review_filter : '',
             'q' => $search_query !== '' ? $search_query : '',
             'per_page' => $per_page !== 24 ? $per_page : '',
         ];
@@ -1083,7 +1348,24 @@ trait AdminSystemConcern {
         return( $records );
     }
 
-    protected function buildSystemMediaLibraryRecord( array $metadata ) : array {
+    protected function buildSystemMediaLibraryUsageReport( array $metadata, string $owner_filter ) : array {
+        $reporter = $this->app->has( 'media.usage_reporter' ) ? $this->app->get( 'media.usage_reporter' ) : null;
+        if ( ! is_object( $reporter ) || ! method_exists( $reporter, 'buildReport' ) ) {
+            return(
+                [
+                    'summary' => [ 'checked' => 0, 'used' => 0, 'unreferenced' => 0, 'direct_marker_only' => 0, 'missing_references' => 0 ],
+                    'records' => [],
+                    'records_by_id' => [],
+                    'missing_references' => [],
+                ]
+            );
+        }
+
+        $report = $reporter->buildReport( $metadata, $owner_filter !== 'all' ? $owner_filter : '' );
+        return( is_array( $report ) ? $report : [] );
+    }
+
+    protected function buildSystemMediaLibraryRecord( array $metadata, array $usage_record = [], array $review_record = [] ) : array {
         $media_id = trim( (string) ( $metadata['media_id'] ?? '' ) );
         if ( $media_id === '' ) {
             return( [] );
@@ -1102,6 +1384,23 @@ trait AdminSystemConcern {
         $display_max_dimension = $this->getSystemMediaDisplayDerivativeMaxDimension();
         $display_derivative_expected = str_starts_with( $mime, 'image/' ) && ( $width > $display_max_dimension || $height > $display_max_dimension );
         $has_display_derivative = trim( (string) ( $display['url'] ?? '' ) ) !== '';
+        $usage_status = trim( (string) ( $usage_record['status'] ?? '' ) );
+        $usage_label = trim( (string) ( $usage_record['status_label'] ?? '' ) );
+        if ( $usage_status === '' ) {
+            $usage_status = 'unknown';
+        }
+        if ( $usage_label === '' ) {
+            $usage_label = $this->getSystemMediaLibraryUsageStatusLabel( $usage_status );
+        }
+        $review_status = trim( (string) ( $review_record['status'] ?? 'unreviewed' ) );
+        if ( ! in_array( $review_status, [ 'unreviewed', 'keep', 'cleanup_candidate' ], true ) ) {
+            $review_status = 'unreviewed';
+        }
+        $review_label = trim( (string) ( $review_record['status_label'] ?? '' ) );
+        if ( $review_label === '' ) {
+            $review_label = $this->getSystemMediaLibraryReviewStatusLabel( $review_status );
+        }
+        $reviewed_at_utc = trim( (string) ( $review_record['reviewed_at_utc'] ?? '' ) );
 
         return(
             [
@@ -1130,11 +1429,104 @@ trait AdminSystemConcern {
                 'attached_entry_id' => trim( (string) ( $metadata['attached_entry_id'] ?? '' ) ),
                 'attached_draft_id' => trim( (string) ( $metadata['attached_draft_id'] ?? '' ) ),
                 'attachment_session_id' => trim( (string) ( $metadata['attachment_session_id'] ?? '' ) ),
+                'usage_status' => $usage_status,
+                'usage_status_label' => $usage_label,
+                'usage_badge_class' => $this->getSystemMediaLibraryUsageBadgeClass( $usage_status ),
+                'usage_reference_count' => max( 0, (int) ( $usage_record['reference_count'] ?? 0 ) ),
+                'usage_reference_categories' => trim( (string) ( $usage_record['reference_categories'] ?? '-' ) ),
+                'usage_references' => $this->normalizeSystemMediaLibraryUsageReferences( is_array( $usage_record['references'] ?? null ) ? $usage_record['references'] : [] ),
+                'review_status' => $review_status,
+                'review_status_label' => $review_label,
+                'review_badge_class' => $this->getSystemMediaLibraryReviewBadgeClass( $review_status ),
+                'reviewed_at_utc' => $reviewed_at_utc,
+                'reviewed_at_display' => $this->formatUtcDateTime( $reviewed_at_utc ),
+                'reviewed_by' => trim( (string) ( $review_record['reviewed_by'] ?? '' ) ),
                 'metadata_rows' => $this->normalizeSystemMediaMetadataRows( is_array( $metadata['metadata_rows'] ?? null ) ? $metadata['metadata_rows'] : [] ),
                 'public_metadata_rows' => $this->normalizeSystemMediaMetadataRows( is_array( $metadata['public_metadata_rows'] ?? null ) ? $metadata['public_metadata_rows'] : [] ),
                 'embedded_metadata_stripped' => ! empty( $metadata['embedded_metadata_stripped'] ),
                 'embedded_metadata_strip_note' => trim( (string) ( $metadata['embedded_metadata_strip_note'] ?? '' ) ),
             ]
+        );
+    }
+
+    protected function getSystemMediaLibraryReviewStatusLabel( string $status ) : string {
+        return(
+            match ( $status ) {
+                'keep' => 'Reviewed: keep',
+                'cleanup_candidate' => 'Cleanup candidate',
+                default => 'Unreviewed',
+            }
+        );
+    }
+
+    protected function getSystemMediaLibraryReviewBadgeClass( string $status ) : string {
+        return(
+            match ( $status ) {
+                'keep' => 'text-bg-primary',
+                'cleanup_candidate' => 'text-bg-warning',
+                default => 'text-bg-secondary',
+            }
+        );
+    }
+
+    protected function getSystemMediaLibraryUsageStatusLabel( string $status ) : string {
+        return(
+            match ( $status ) {
+                'used' => 'In use',
+                'unreferenced' => 'Possibly unused',
+                'direct_marker_only' => 'Upload association only',
+                default => 'Unknown',
+            }
+        );
+    }
+
+    protected function getSystemMediaLibraryUsageBadgeClass( string $status ) : string {
+        return(
+            match ( $status ) {
+                'used' => 'text-bg-success',
+                'unreferenced' => 'text-bg-warning',
+                'direct_marker_only' => 'text-bg-info',
+                default => 'text-bg-secondary',
+            }
+        );
+    }
+
+    protected function normalizeSystemMediaLibraryUsageReferences( array $references ) : array {
+        $normalized_references = [];
+        foreach ( $references as $reference ) {
+            if ( ! is_array( $reference ) ) {
+                continue;
+            }
+            $category = trim( (string) ( $reference['category'] ?? '' ) );
+            $source = trim( (string) ( $reference['source'] ?? '' ) );
+            $label = trim( (string) ( $reference['label'] ?? '' ) );
+            if ( $category === '' && $source === '' && $label === '' ) {
+                continue;
+            }
+            $normalized_references[] = [
+                'category' => $category !== '' ? $category : 'reference',
+                'category_label' => $this->getSystemMediaLibraryReferenceCategoryLabel( $category ),
+                'source' => $source,
+                'label' => $label !== '' ? $label : ( $source !== '' ? $source : 'Reference' ),
+            ];
+        }
+
+        return( $normalized_references );
+    }
+
+    protected function getSystemMediaLibraryReferenceCategoryLabel( string $category ) : string {
+        return(
+            match ( $category ) {
+                'site' => 'Site',
+                'profile' => 'Profile',
+                'published_content' => 'Content',
+                'unpublished_content' => 'Unpublished content',
+                'draft' => 'Draft',
+                'system_plugin_settings' => 'Plugin',
+                'profile_plugin_settings' => 'Profile plugin',
+                'direct_attachment' => 'Upload association',
+                default => 'Reference',
+            }
         );
     }
 

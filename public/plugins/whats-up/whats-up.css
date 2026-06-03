@@ -1,0 +1,488 @@
+.tm-whats-up {
+    --tm-whats-up-rule: var(--bs-border-color);
+    --tm-whats-up-muted: var(--bs-secondary-color);
+    --tm-whats-up-now-color: var(--bs-primary);
+    --tm-whats-up-source-color: var(--bs-primary);
+    color: var(--bs-body-color);
+}
+
+.tm-whats-up-now-primary {
+    --tm-whats-up-now-color: var(--bs-primary);
+}
+
+.tm-whats-up-now-blue {
+    --tm-whats-up-now-color: #0072B2;
+}
+
+.tm-whats-up-now-orange {
+    --tm-whats-up-now-color: #E69F00;
+}
+
+.tm-whats-up-now-green {
+    --tm-whats-up-now-color: #009E73;
+}
+
+.tm-whats-up-now-vermillion {
+    --tm-whats-up-now-color: #D55E00;
+}
+
+.tm-whats-up-now-purple {
+    --tm-whats-up-now-color: #CC79A7;
+}
+
+.tm-whats-up-now-sky {
+    --tm-whats-up-now-color: #56B4E9;
+}
+
+.tm-whats-up-now-yellow {
+    --tm-whats-up-now-color: #F0E442;
+}
+
+.tm-whats-up-now-black {
+    --tm-whats-up-now-color: #000000;
+}
+
+.tm-whats-up-source-blue {
+    --tm-whats-up-source-color: #0072B2;
+}
+
+.tm-whats-up-source-orange {
+    --tm-whats-up-source-color: #E69F00;
+}
+
+.tm-whats-up-source-green {
+    --tm-whats-up-source-color: #009E73;
+}
+
+.tm-whats-up-source-vermillion {
+    --tm-whats-up-source-color: #D55E00;
+}
+
+.tm-whats-up-source-purple {
+    --tm-whats-up-source-color: #CC79A7;
+}
+
+.tm-whats-up-source-sky {
+    --tm-whats-up-source-color: #56B4E9;
+}
+
+.tm-whats-up-source-yellow {
+    --tm-whats-up-source-color: #F0E442;
+}
+
+.tm-whats-up-source-black {
+    --tm-whats-up-source-color: #000000;
+}
+
+.tm-whats-up-agenda {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tm-whats-up-date {
+    border-bottom: 1px solid var(--tm-whats-up-rule);
+    margin-top: 1rem;
+    padding-bottom: 0.35rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.tm-whats-up-date:first-child {
+    margin-top: 0;
+}
+
+.tm-whats-up-event {
+    display: grid;
+    grid-template-columns: minmax(4.8rem, auto) 1fr;
+    gap: 0.9rem;
+    border-bottom: 1px solid var(--tm-whats-up-rule);
+    padding: 0.75rem 0;
+}
+
+.tm-whats-up-event-time {
+    color: var(--tm-whats-up-muted);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.tm-whats-up-event-title {
+    display: flex;
+    align-items: center;
+    gap: 0.48rem;
+    font-weight: 600;
+}
+
+.tm-whats-up-source-label,
+.tm-whats-up-legend,
+.tm-whats-up-legend-item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.tm-whats-up-source-label {
+    gap: 0.38rem;
+    margin-top: 0.35rem;
+    border: 1px solid var(--tm-whats-up-rule);
+    border-radius: 0.25rem;
+    padding: 0.12rem 0.42rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.78rem;
+}
+
+.tm-whats-up-source-label-plain {
+    border: 0;
+    padding: 0;
+}
+
+.tm-whats-up-source-dot {
+    display: inline-block;
+    flex: 0 0 0.65rem;
+    width: 0.65rem;
+    height: 0.65rem;
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 50%;
+    background: var(--tm-whats-up-source-color);
+}
+
+.tm-whats-up-event-location,
+.tm-whats-up-event-description {
+    margin-top: 0.2rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.9rem;
+}
+
+.tm-whats-up-agenda-view .tm-whats-up-event-current {
+    box-shadow: inset 0.2rem 0 var(--tm-whats-up-now-color);
+    padding-left: 0.75rem;
+}
+
+.tm-whats-up-event-past {
+    opacity: 1;
+}
+
+.tm-whats-up-empty {
+    border: 1px solid var(--tm-whats-up-rule);
+    padding: 0.85rem 1rem;
+    color: var(--tm-whats-up-muted);
+}
+
+.tm-whats-up-compact {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tm-whats-up-compact-date {
+    margin-top: 0.55rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.tm-whats-up-compact-date:first-child {
+    margin-top: 0;
+}
+
+.tm-whats-up-compact-event {
+    padding: 0.38rem 0;
+}
+
+.tm-whats-up-compact-event .tm-whats-up-event-title {
+    position: relative;
+    display: block;
+    padding-left: calc(0.65rem + 0.48rem);
+}
+
+.tm-whats-up-compact-event .tm-whats-up-title-dot {
+    position: absolute;
+    top: calc(1lh / 2);
+    left: 0;
+    transform: translateY(-50%);
+}
+
+.tm-whats-up-compact-title-text {
+    min-width: 0;
+}
+
+.tm-whats-up-compact-event.tm-whats-up-event-current {
+    box-shadow: inset 0.2rem 0 var(--tm-whats-up-now-color);
+    padding-left: 0.55rem;
+}
+
+.tm-whats-up-compact-body .tm-whats-up-event-time {
+    margin-top: 0.12rem;
+}
+
+.tm-whats-up-timeline {
+    --tm-whats-up-timeline-date-width: 9.5rem;
+    --tm-whats-up-timeline-rail-width: 1rem;
+    --tm-whats-up-timeline-gap: 0.8rem;
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tm-whats-up-timeline-event {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--tm-whats-up-timeline-date-width) var(--tm-whats-up-timeline-rail-width) minmax(5.25rem, auto) minmax(0, 1fr);
+    gap: var(--tm-whats-up-timeline-gap);
+    padding: 0 0 1.15rem;
+}
+
+.tm-whats-up-timeline-event::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--tm-whats-up-timeline-date-width) + var(--tm-whats-up-timeline-gap) + (var(--tm-whats-up-timeline-rail-width) / 2));
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--tm-whats-up-rule);
+    content: "";
+}
+
+.tm-whats-up-timeline-event:first-child::before {
+    top: 0.72rem;
+}
+
+.tm-whats-up-timeline-event:last-child::before {
+    bottom: calc(100% - 0.72rem);
+}
+
+.tm-whats-up-timeline-event:only-child::before {
+    display: none;
+}
+
+.tm-whats-up-timeline-dot {
+    position: relative;
+    z-index: 1;
+    grid-column: 2;
+    justify-self: center;
+    margin-top: 0.3rem;
+    width: 0.8rem;
+    height: 0.8rem;
+    border: 2px solid var(--bs-body-bg);
+    border-radius: 50%;
+    background: var(--tm-whats-up-source-color);
+}
+
+.tm-whats-up-timeline-date {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    font-weight: 600;
+}
+
+.tm-whats-up-timeline-date-weekday {
+    color: var(--tm-whats-up-muted);
+    font-size: 0.78em;
+    font-weight: 500;
+}
+
+.tm-whats-up-timeline-date-current {
+    width: fit-content;
+    border: 1px solid var(--tm-whats-up-now-color);
+    padding: 0.38rem 0.62rem;
+    background: var(--bs-body-bg);
+    box-shadow: inset 0.18rem 0 var(--tm-whats-up-now-color);
+}
+
+.tm-whats-up-timeline-event > .tm-whats-up-event-time {
+    grid-column: 3;
+}
+
+.tm-whats-up-timeline-event > .tm-whats-up-event-body {
+    grid-column: 4;
+}
+
+.tm-whats-up-legend {
+    flex-wrap: wrap;
+    gap: 0.7rem 1rem;
+    margin-top: 0.85rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.85rem;
+}
+
+.tm-whats-up-legend-item {
+    gap: 0.42rem;
+}
+
+.tm-whats-up-calendar-view {
+    position: relative;
+    overflow-x: auto;
+}
+
+.tm-whats-up-calendar-tools {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 0.35rem;
+}
+
+.tm-whats-up-calendar-heading {
+    margin: 0 5.2rem 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.tm-whats-up-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(5.5rem, 1fr));
+    min-width: 42rem;
+    border-top: 1px solid var(--tm-whats-up-rule);
+    border-left: 1px solid var(--tm-whats-up-rule);
+}
+
+.tm-whats-up-calendar-weekday {
+    border-right: 1px solid var(--tm-whats-up-rule);
+    border-bottom: 1px solid var(--tm-whats-up-rule);
+    padding: 0.45rem 0.5rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.tm-whats-up-calendar-day {
+    min-height: 6.5rem;
+    border-right: 1px solid var(--tm-whats-up-rule);
+    border-bottom: 1px solid var(--tm-whats-up-rule);
+    padding: 0.36rem;
+}
+
+.tm-whats-up-calendar-day-empty {
+    background: var(--bs-tertiary-bg);
+}
+
+.tm-whats-up-calendar-today .tm-whats-up-calendar-number {
+    display: inline-flex;
+    min-width: 1.55rem;
+    min-height: 1.55rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--tm-whats-up-now-color);
+    color: var(--bs-white);
+}
+
+.tm-whats-up-calendar-number {
+    margin-bottom: 0.32rem;
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.tm-whats-up-calendar-event {
+    display: flex;
+    gap: 0.28rem;
+    align-items: start;
+    margin-bottom: 0.22rem;
+    min-width: 0;
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.tm-whats-up-calendar-event .tm-whats-up-source-dot {
+    flex-basis: 0.48rem;
+    width: 0.48rem;
+    height: 0.48rem;
+    margin-top: 0.2rem;
+}
+
+.tm-whats-up-calendar-more {
+    color: var(--tm-whats-up-muted);
+    font-size: 0.72rem;
+}
+
+.tm-whats-up-calendar-overflow {
+    margin-top: 0.16rem;
+}
+
+.tm-whats-up-calendar-overflow > summary {
+    cursor: pointer;
+}
+
+.tm-whats-up-calendar-overflow > summary:hover,
+.tm-whats-up-calendar-overflow > summary:focus-visible {
+    color: var(--bs-link-color);
+}
+
+.tm-whats-up-calendar-overflow-panel {
+    display: grid;
+    gap: 0.15rem;
+    margin-top: 0.3rem;
+    border-left: 2px solid var(--tm-whats-up-rule);
+    padding-left: 0.32rem;
+}
+
+.tm-whats-up-sidebar-heading {
+    margin-bottom: 0.7rem;
+    color: var(--tm-whats-up-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+@media (max-width: 420px) {
+    .tm-whats-up-event {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+    }
+
+    .tm-whats-up-timeline-event {
+        grid-template-columns: 1rem minmax(0, 1fr);
+        gap: 0.2rem 0.7rem;
+        padding-bottom: 0.9rem;
+    }
+
+    .tm-whats-up-timeline-event::before {
+        left: 0.5rem;
+    }
+
+    .tm-whats-up-timeline-date,
+    .tm-whats-up-timeline-event > .tm-whats-up-event-time,
+    .tm-whats-up-timeline-event > .tm-whats-up-event-body {
+        grid-column: 2;
+    }
+
+    .tm-whats-up-timeline-date {
+        grid-row: 1;
+    }
+
+    .tm-whats-up-timeline-event > .tm-whats-up-timeline-dot {
+        grid-column: 1;
+        grid-row: 1 / span 3;
+    }
+
+    .tm-whats-up-timeline-event > .tm-whats-up-event-time {
+        grid-row: 2;
+    }
+
+    .tm-whats-up-timeline-event > .tm-whats-up-event-body {
+        grid-row: 3;
+    }
+
+    .tm-whats-up-timeline-event-repeated > .tm-whats-up-timeline-date {
+        display: none;
+    }
+
+    .tm-whats-up-timeline-event-repeated > .tm-whats-up-event-time {
+        grid-row: 1;
+    }
+
+    .tm-whats-up-timeline-event-repeated > .tm-whats-up-event-body {
+        grid-row: 2;
+    }
+}

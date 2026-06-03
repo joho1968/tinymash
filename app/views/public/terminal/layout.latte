@@ -152,6 +152,7 @@
         {/if}
     </head>
     <body class="tm-terminal-shell tm-terminal-palette-{$theme_terminal_palette} {$theme_body_classes ?? ''}">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
         <script>
             (() => {
                 'use strict';
@@ -410,7 +411,7 @@
 
         <div n:class="'tm-terminal-main', $theme_content_width_class ?? 'tm-content-width-default'">
             <div n:class="$theme_sidebar_rendered ? 'tm-terminal-grid tm-terminal-grid-with-sidebar' : 'tm-terminal-grid'">
-                <main class="tm-terminal-content">
+                <main class="tm-terminal-content" id="tm-main-content" tabindex="-1">
                     {block content}{/block}
                 </main>
                 <aside n:if="$theme_sidebar_rendered" class="tm-terminal-sidebar tm-terminal-desktop-only">

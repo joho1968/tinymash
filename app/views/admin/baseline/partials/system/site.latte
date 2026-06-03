@@ -39,7 +39,7 @@
                             <input class="form-control font-monospace" id="tm-system-notifications-email" name="system_notifications_email" type="email" value="{$system_settings['system_notifications_email'] ?? ''}" placeholder="ops@example.com">
                         </div>
                         <div class="col-12">
-                            <div class="form-text mb-0">SMTP settings are configured in <a href="{$system_section_urls['smtp']}">System &gt; SMTP</a>.</div>
+                            <div class="form-text mb-0">SMTP settings are configured in <a class="text-decoration-underline" href="{$system_section_urls['smtp']}">System &gt; SMTP</a>.</div>
                         </div>
                     </div>
                 </div>
@@ -175,6 +175,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body d-grid gap-3">
+                        <label class="visually-hidden" for="tm-system-site-image-picker-filter">Search filename or label</label>
                         <input class="form-control" id="tm-system-site-image-picker-filter" type="search" placeholder="Search filename or label">
                         {if empty($site_image_picker_records)}
                             <div class="small text-body-secondary">No root-owned images are available yet.</div>

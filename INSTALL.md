@@ -2,7 +2,7 @@
 
 This document covers the normal way to install tinymash on a server.
 
-tinymash is a flat-file CMS and publishing platform for PHP 8.4+. It does not need a database server, but it does need a working PHP runtime, a web server pointed at `public/`, and writable runtime directories.
+tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It does not need a database server, but it does need a working PHP runtime, a web server pointed at `public/`, and writable runtime directories.
 
 The usual production path is:
 
@@ -15,7 +15,7 @@ The usual production path is:
 
 ## What you need
 
-- PHP `8.4` or newer
+- PHP `8.4.1` or newer
 - a web server such as Nginx or Apache
 - PHP-FPM or another supported PHP SAPI
 - local filesystem write access for runtime data
@@ -80,6 +80,10 @@ If you want explicit OPcache settings, use:
 
 - `samples/server/php-opcache-production.ini`
 - `samples/server/php-opcache-development.ini`
+
+For project-local log rotation, adapt:
+
+- `samples/server/tinymash.logrotate`
 
 ## 4. Set directory ownership and write permissions
 

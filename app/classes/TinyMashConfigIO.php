@@ -184,6 +184,15 @@ class TinyMashConfigIO {
         return( $this->normalizeRevisionRetentionLimit( $this->config['content']['revision_retention_limit'] ?? 20 ) );
     }
 
+    public function getContentTrashRetentionDays() : int {
+        if ( empty( $this->config ) ) {
+            $this->getConfig();
+        }
+
+        $this->applyDefaults();
+        return( $this->normalizeTrashRetentionDays( $this->config['content']['trash_retention_days'] ?? 30 ) );
+    }
+
     public function getHousekeepingDraftRetentionDays() : int {
         if ( empty( $this->config ) ) {
             $this->getConfig();
@@ -280,6 +289,7 @@ class TinyMashConfigIO {
                 'secret_link_default_expiry_days' => $this->normalizeSecretLinkExpiryDays( $this->config['site']['secret_link_default_expiry_days'] ?? 60 ),
                 'filesystem_umask' => $this->normalizeFilesystemUmask( $this->config['site']['filesystem_umask'] ?? '0007' ),
                 'rendered_content_cache_enabled' => $this->normalizeBoolean( $this->config['site']['rendered_content_cache_enabled'] ?? true ),
+                'unknown_shortcode_mode' => $this->normalizeUnknownShortcodeMode( $this->config['site']['unknown_shortcode_mode'] ?? 'code' ),
                 'forwarded_ip_mode' => $this->normalizeForwardedIpMode( $this->config['site']['forwarded_ip_mode'] ?? 'off' ),
                 'public_cache_warm_basic_auth_username' => trim( (string) ( $this->config['site']['public_cache_warm_basic_auth_username'] ?? '' ) ),
                 'public_cache_warm_basic_auth_password' => (string) ( $this->config['site']['public_cache_warm_basic_auth_password'] ?? '' ),
@@ -295,6 +305,7 @@ class TinyMashConfigIO {
                 'content_tags_enabled' => $this->normalizeBoolean( $this->config['content']['tags_enabled'] ?? true ),
                 'content_show_page_timestamps' => $this->normalizeBoolean( $this->config['content']['show_page_timestamps'] ?? false ),
                 'content_revision_retention_limit' => $this->normalizeRevisionRetentionLimit( $this->config['content']['revision_retention_limit'] ?? 20 ),
+                'content_trash_retention_days' => $this->normalizeTrashRetentionDays( $this->config['content']['trash_retention_days'] ?? 30 ),
                 'housekeeping_stale_draft_retention_days' => $this->normalizeHousekeepingDraftRetentionDays( $this->config['housekeeping']['stale_draft_retention_days'] ?? 0 ),
                 'housekeeping_last_run_utc' => trim( (string) ( $this->config['housekeeping']['last_run_utc'] ?? '' ) ),
                 'housekeeping_last_trigger' => $this->normalizeHousekeepingRunDescriptor( $this->config['housekeeping']['last_trigger'] ?? '' ),
@@ -375,8 +386,10 @@ class TinyMashConfigIO {
             $this->config['content']['tags_enabled'] = (bool) ( $settings['content_tags_enabled'] ?? true );
             $this->config['content']['show_page_timestamps'] = (bool) ( $settings['content_show_page_timestamps'] ?? false );
             $this->config['content']['revision_retention_limit'] = $this->normalizeRevisionRetentionLimit( $settings['content_revision_retention_limit'] ?? $this->config['content']['revision_retention_limit'] ?? 20 );
+            $this->config['content']['trash_retention_days'] = $this->normalizeTrashRetentionDays( $settings['content_trash_retention_days'] ?? $this->config['content']['trash_retention_days'] ?? 30 );
             $this->config['housekeeping']['stale_draft_retention_days'] = $this->normalizeHousekeepingDraftRetentionDays( $settings['housekeeping_stale_draft_retention_days'] ?? $this->config['housekeeping']['stale_draft_retention_days'] ?? 0 );
             $this->config['site']['rendered_content_cache_enabled'] = (bool) ( $settings['rendered_content_cache_enabled'] ?? true );
+            $this->config['site']['unknown_shortcode_mode'] = $this->normalizeUnknownShortcodeMode( $settings['unknown_shortcode_mode'] ?? $this->config['site']['unknown_shortcode_mode'] ?? 'code' );
             $this->config['editor']['autosave_enabled'] = (bool) ( $settings['editor_autosave_enabled'] ?? true );
             $this->config['editor']['autosave_interval_seconds'] = $this->normalizeAutosaveIntervalSeconds( $settings['editor_autosave_interval_seconds'] ?? $this->config['editor']['autosave_interval_seconds'] ?? 120 );
             $this->config['editor']['classic_smileys_enabled'] = (bool) ( $settings['editor_classic_smileys_enabled'] ?? true );
@@ -632,6 +645,7 @@ class TinyMashConfigIO {
         $this->config['content']['tags_enabled'] = $this->normalizeBoolean( $this->config['content']['tags_enabled'] ?? true );
         $this->config['content']['show_page_timestamps'] = $this->normalizeBoolean( $this->config['content']['show_page_timestamps'] ?? false );
         $this->config['content']['revision_retention_limit'] = $this->normalizeRevisionRetentionLimit( $this->config['content']['revision_retention_limit'] ?? 20 );
+        $this->config['content']['trash_retention_days'] = $this->normalizeTrashRetentionDays( $this->config['content']['trash_retention_days'] ?? 30 );
         $this->config['housekeeping']['stale_draft_retention_days'] = $this->normalizeHousekeepingDraftRetentionDays( $this->config['housekeeping']['stale_draft_retention_days'] ?? 0 );
         $this->config['housekeeping']['last_run_utc'] = trim( (string) ( $this->config['housekeeping']['last_run_utc'] ?? '' ) );
         $this->config['housekeeping']['last_trigger'] = $this->normalizeHousekeepingRunDescriptor( $this->config['housekeeping']['last_trigger'] ?? '' );
@@ -698,6 +712,18 @@ class TinyMashConfigIO {
         }
 
         return( $revision_limit );
+    }
+
+    protected function normalizeTrashRetentionDays( mixed $value ) : int {
+        $retention_days = (int) $value;
+        if ( $retention_days < 0 ) {
+            return( 30 );
+        }
+        if ( $retention_days > 90 ) {
+            return( 90 );
+        }
+
+        return( $retention_days );
     }
 
     protected function normalizeHousekeepingDraftRetentionDays( mixed $value ) : int {
@@ -949,6 +975,11 @@ class TinyMashConfigIO {
     protected function normalizePluginKey( string $plugin_key ) : string {
         $plugin_key = strtolower( trim( $plugin_key ) );
         return( preg_replace( '/[^a-z0-9_-]/', '', $plugin_key ) ?? '' );
+    }
+
+    protected function normalizeUnknownShortcodeMode( mixed $mode ) : string {
+        $mode = strtolower( trim( (string) $mode ) );
+        return( $mode === 'hide' ? 'hide' : 'code' );
     }
 
     protected function canonicalizePluginKey( string $plugin_key ) : string {

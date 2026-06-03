@@ -1,6 +1,6 @@
 # tinymash
 
-tinymash is a flat-file CMS and publishing platform for PHP 8.4+. It stores content on disk, does not require a database server, and ships with both a public site and an admin interface.
+tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It stores content on disk, does not require a database server, and ships with both a public site and an admin interface.
 
 It is built for self-hosted publishing: pages, posts, author spaces, themes, plugins, media, tags, feeds, maintenance tasks, and a CLI for day-to-day operations.
 
@@ -43,7 +43,7 @@ The full step-by-step version is in `INSTALL.md`.
 
 ## Runtime requirements
 
-- PHP `8.4` or newer
+- PHP `8.4.1` or newer
 - a web server such as Nginx or Apache
 - PHP-FPM or another supported PHP SAPI
 - writable `data/`, `users/`, and `tmp/` directories
@@ -66,6 +66,8 @@ Recommended PHP extensions for full feature coverage:
 - `intl`
 - `zip`
 
+For ordinary public and admin use, tinymash can run with a small PHP memory limit; `16M` is enough for many small sites. Larger batch jobs such as imports, backups/exports, media cleanup, and big upload/import runs may need more memory. The CLI import commands also accept explicit memory-limit options where that matters.
+
 ## First admin user
 
 Before you can use `/admin/login`, create at least one local admin user:
@@ -87,6 +89,7 @@ Public sample files live under `samples/`:
 - `samples/server/php-fpm.sample.conf`
 - `samples/server/php-opcache-production.ini`
 - `samples/server/php-opcache-development.ini`
+- `samples/server/tinymash.logrotate`
 - `samples/cron/tinymash.cron`
 - `samples/deploy/rsync-deploy.sh`
 

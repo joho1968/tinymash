@@ -245,6 +245,7 @@
         {/if}
     </head>
     <body class="d-flex flex-column min-vh-100 {$theme_body_classes ?? ''}">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
         <script>
             (() => {
                 'use strict';
@@ -409,13 +410,18 @@
                                     {if ! empty( $page['is_separator'] )}
                                         <div class="vr align-self-center opacity-50" aria-hidden="true"></div>
                                     {elseif ! empty( $page['children'] )}
-                                        <div class="dropdown">
-                                            <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                {$page['title']}
-                                            </button>
+                                        <div n:class="'dropdown tm-docsmatter-header-parent', ($page['url'] ?? '') !== '#' && trim((string) ($page['url'] ?? '')) !== '' ? 'btn-group'">
+                                            {if ($page['url'] ?? '') !== '#' && trim((string) ($page['url'] ?? '')) !== ''}
+                                                <a n:class="'btn btn-outline-secondary btn-sm', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" href="{$page['url']}" n:attr="target => !empty($page['target']) ? $page['target'] : null, rel => !empty($page['rel']) ? $page['rel'] : null">{$page['title']}</a>
+                                                <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Show submenu for {$page['title']}">
+                                                    <span class="visually-hidden">Show submenu for {$page['title']}</span>
+                                                </button>
+                                            {else}
+                                                <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    {$page['title']}
+                                                </button>
+                                            {/if}
                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a n:class="'dropdown-item fw-semibold', ! empty($page['is_current']) ? 'active'" href="{$page['url']}" n:attr="target => !empty($page['target']) ? $page['target'] : null, rel => !empty($page['rel']) ? $page['rel'] : null">{$page['title']}</a></li>
-                                                <li><hr class="dropdown-divider"></li>
                                                 {include './partials/navigation-menu-items.latte', items: $page['children'], level: 2}
                                             </ul>
                                         </div>
@@ -470,7 +476,9 @@
                     sidebar_footer_fragments: $theme_public_footer_fragments,
                     sidebar_site_name: $site_name,
                     sidebar_site_slogan: $site_slogan,
-                    sidebar_theme_name: $theme_name}
+                    sidebar_theme_name: $theme_name,
+                    sidebar_navigation_collapsible: true,
+                    sidebar_navigation_prefix: 'tm-docsmatter-mobile-menu'}
             </div>
         </div>
 
@@ -486,10 +494,11 @@
                             sidebar_footer_fragments: $theme_public_footer_fragments,
                             sidebar_site_name: $site_name,
                             sidebar_site_slogan: $site_slogan,
-                            sidebar_theme_name: $theme_name}
+                            sidebar_theme_name: $theme_name,
+                            sidebar_navigation_collapsible: false}
                     </div>
                 </aside>
-                <main n:class="$theme_has_sidebar_content ? 'col-12 col-lg-8 col-xl-9 tm-docsmatter-main-column content-area bg-body' : 'col-12 tm-docsmatter-main-column content-area bg-body'">
+                <main id="tm-main-content" tabindex="-1" n:class="$theme_has_sidebar_content ? 'col-12 col-lg-8 col-xl-9 tm-docsmatter-main-column content-area bg-body' : 'col-12 tm-docsmatter-main-column content-area bg-body'">
                     <div id="content-area-inner" n:class="$theme_content_width_class ?? 'tm-content-width-default', 'container-fluid', 'tm-docsmatter-main-inner', 'page-content'">
                         {block content}{/block}
                     </div>

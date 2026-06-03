@@ -115,6 +115,9 @@ class TinyMashConfig {
                 if ( ! isset( $this->config['site']['rendered_content_cache_enabled'] ) ) {
                     $this->config['site']['rendered_content_cache_enabled'] = true;
                 }
+                if ( ! isset( $this->config['site']['unknown_shortcode_mode'] ) ) {
+                    $this->config['site']['unknown_shortcode_mode'] = 'code';
+                }
                 if ( empty( $this->config['site']['forwarded_ip_mode'] ) ) {
                     $this->config['site']['forwarded_ip_mode'] = 'off';
                 }
@@ -232,6 +235,9 @@ class TinyMashConfig {
                 }
                 if ( ! isset( $this->config['content']['show_page_timestamps'] ) ) {
                     $this->config['content']['show_page_timestamps'] = false;
+                }
+                if ( ! isset( $this->config['content']['trash_retention_days'] ) ) {
+                    $this->config['content']['trash_retention_days'] = 30;
                 }
                 if ( empty( $this->config['housekeeping'] ) || ! is_array( $this->config['housekeeping'] ) ) {
                     $this->config['housekeeping'] = [];
@@ -375,6 +381,7 @@ class TinyMashConfig {
                 $this->config['editor']['autosave_interval_seconds'] = $this->normalizeAutosaveIntervalSeconds( $this->config['editor']['autosave_interval_seconds'] );
                 $this->config['editor']['classic_smileys_enabled'] = $this->normalizeBoolean( $this->config['editor']['classic_smileys_enabled'] );
                 $this->config['content']['revision_retention_limit'] = $this->normalizeRevisionRetentionLimit( $this->config['content']['revision_retention_limit'] );
+                $this->config['content']['trash_retention_days'] = $this->normalizeTrashRetentionDays( $this->config['content']['trash_retention_days'] );
                 $this->config['housekeeping']['stale_draft_retention_days'] = $this->normalizeHousekeepingDraftRetentionDays( $this->config['housekeeping']['stale_draft_retention_days'] );
                 $this->config['housekeeping']['last_run_utc'] = trim( (string) ( $this->config['housekeeping']['last_run_utc'] ?? '' ) );
                 $this->config['housekeeping']['last_trigger'] = $this->normalizeHousekeepingRunDescriptor( $this->config['housekeeping']['last_trigger'] ?? '' );
@@ -723,6 +730,15 @@ class TinyMashConfig {
         return( true );
     }
 
+    public function getUnknownShortcodeMode() : string {
+        if ( $this->config_read ) {
+            $mode = strtolower( trim( (string) ( $this->config['site']['unknown_shortcode_mode'] ?? 'code' ) ) );
+            return( $mode === 'hide' ? 'hide' : 'code' );
+        }
+
+        return( 'code' );
+    }
+
     public function getForwardedIpMode() : string {
         if ( $this->config_read ) {
             return( $this->normalizeForwardedIpMode( $this->config['site']['forwarded_ip_mode'] ?? 'off' ) );
@@ -794,6 +810,14 @@ class TinyMashConfig {
         }
 
         return( 20 );
+    }
+
+    public function getContentTrashRetentionDays() : int {
+        if ( $this->config_read && isset( $this->config['content']['trash_retention_days'] ) ) {
+            return( $this->normalizeTrashRetentionDays( $this->config['content']['trash_retention_days'] ) );
+        }
+
+        return( 30 );
     }
 
     public function areTagsEnabled() : bool {
@@ -1043,6 +1067,7 @@ class TinyMashConfig {
                 'content_tags_enabled' => $this->areTagsEnabled(),
                 'content_show_page_timestamps' => $this->showsPageTimestamps(),
                 'content_revision_retention_limit' => $this->getContentRevisionRetentionLimit(),
+                'content_trash_retention_days' => $this->getContentTrashRetentionDays(),
                 'housekeeping_stale_draft_retention_days' => $this->getHousekeepingDraftRetentionDays(),
                 'housekeeping_web_fallback_mode' => $this->getHousekeepingWebFallbackMode(),
                 'notification_retention_days' => $this->getNotificationRetentionDays(),
@@ -1179,6 +1204,18 @@ class TinyMashConfig {
         }
 
         return( $revision_limit );
+    }
+
+    protected function normalizeTrashRetentionDays( mixed $value ) : int {
+        $retention_days = (int) $value;
+        if ( $retention_days < 0 ) {
+            return( 30 );
+        }
+        if ( $retention_days > 90 ) {
+            return( 90 );
+        }
+
+        return( $retention_days );
     }
 
     protected function normalizeHousekeepingDraftRetentionDays( mixed $value ) : int {

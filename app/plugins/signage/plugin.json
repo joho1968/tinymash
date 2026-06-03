@@ -1,0 +1,19 @@
+{
+    "key": "signage",
+    "name": "Signage",
+    "version": "0.91.0",
+    "description": "Runs access-controlled looping presentations on display screens.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.public",
+        "routes.admin",
+        "admin.navigation",
+        "storage.private"
+    ],
+    "default_active": true,
+    "stage": "early"
+}

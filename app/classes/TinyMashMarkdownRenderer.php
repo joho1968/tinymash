@@ -110,9 +110,9 @@ class TinyMashMarkdownRenderer {
 
     protected const ALLOWED_HTML_TAGS = [
         'a', 'abbr', 'b', 'blockquote', 'br', 'code', 'dd', 'del', 'div', 'dl', 'dt', 'em',
-        'figcaption', 'figure', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'img', 'input', 'ins',
+        'details', 'figcaption', 'figure', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'img', 'input', 'ins',
         'kbd', 'li', 'mark', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong', 'sub', 'sup',
-        'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
+        'summary', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
     ];
     protected const STRIP_WITH_CONTENT_TAGS = [ 'script', 'style', 'iframe', 'object', 'embed', 'meta', 'link', 'base', 'svg', 'math', 'form', 'textarea', 'select', 'option', 'button' ];
     protected const GLOBAL_HTML_ATTRIBUTES = [ 'class', 'dir', 'id', 'lang', 'name', 'role', 'title' ];
@@ -179,7 +179,7 @@ class TinyMashMarkdownRenderer {
         $environment->addInlineParser( new UrlAutolinkParser( [ 'http', 'https', 'ftp' ], 'http' ) );
         $environment->addExtension( new TinyMashUnderlineExtension() );
         $this->converter = new MarkdownConverter( $environment );
-        $this->emoji_data_filename = is_string( $emoji_data_filename ) && $emoji_data_filename !== '' ? $emoji_data_filename : dirname( __DIR__, 2 ) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ext' . DIRECTORY_SEPARATOR . 'emoji-picker-data' . DIRECTORY_SEPARATOR . 'en' . DIRECTORY_SEPARATOR . 'github' . DIRECTORY_SEPARATOR . 'data.json';
+        $this->emoji_data_filename = is_string( $emoji_data_filename ) && $emoji_data_filename !== '' ? $emoji_data_filename : dirname( __DIR__, 2 ) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ext' . DIRECTORY_SEPARATOR . 'emoji-picker-data' . DIRECTORY_SEPARATOR . 'en' . DIRECTORY_SEPARATOR . 'github' . DIRECTORY_SEPARATOR . 'data';
         $this->loadEmojiMaps();
     }
 
@@ -777,8 +777,18 @@ class TinyMashMarkdownRenderer {
         $this->emoji_shortcode_map = [];
         $this->emoji_smiley_map = [];
 
-        if ( is_file( $this->emoji_data_filename ) && is_readable( $this->emoji_data_filename ) ) {
-            $json = file_get_contents( $this->emoji_data_filename );
+        $emoji_data_filename = $this->emoji_data_filename;
+        if ( ! is_file( $emoji_data_filename ) && ! str_ends_with( $emoji_data_filename, '.json' ) && is_file( $emoji_data_filename . '.json' ) ) {
+            $emoji_data_filename .= '.json';
+        } elseif ( ! is_file( $emoji_data_filename ) && str_ends_with( $emoji_data_filename, '.json' ) ) {
+            $extensionless_filename = substr( $emoji_data_filename, 0, -5 );
+            if ( is_file( $extensionless_filename ) ) {
+                $emoji_data_filename = $extensionless_filename;
+            }
+        }
+
+        if ( is_file( $emoji_data_filename ) && is_readable( $emoji_data_filename ) ) {
+            $json = file_get_contents( $emoji_data_filename );
             $data = is_string( $json ) && $json !== '' ? json_decode( $json, true ) : null;
             if ( is_array( $data ) ) {
                 foreach ( $data as $emoji_record ) {

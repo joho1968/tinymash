@@ -26,6 +26,13 @@ body {
         radial-gradient(circle at top right, rgba(25, 135, 84, 0.08), transparent 28%);
 }
 
+.tm-theme-timeline.tm-titles-serif .tm-timeline-entry-header h1,
+.tm-theme-timeline.tm-titles-serif .tm-timeline-context h2,
+.tm-theme-timeline.tm-titles-serif .tm-timeline-main h2,
+.tm-theme-timeline.tm-titles-serif .tm-timeline-main h4 {
+    font-family: var(--tm-font-serif);
+}
+
 .tm-timeline-panel {
     background: var(--tm-timeline-surface);
     border: 1px solid var(--tm-timeline-border);

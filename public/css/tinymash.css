@@ -1,3 +1,93 @@
+:root {
+    --tm-font-serif: Cambria, Georgia, "Times New Roman", Times, serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --tm-accessible-danger: #b02a37;
+    --tm-accessible-secondary: #495057;
+}
+
+[data-bs-theme="light"] {
+    --bs-primary-rgb: 10, 88, 202;
+    --bs-link-color: #0a58ca;
+    --bs-link-color-rgb: 10, 88, 202;
+    --bs-link-hover-color: #084298;
+    --bs-link-hover-color-rgb: 8, 66, 152;
+    --bs-code-color: #a61e5c;
+}
+
+[data-bs-theme="dark"] {
+    --tm-accessible-danger: #ff8a98;
+    --tm-accessible-secondary: #ced4da;
+    --bs-link-color: #8bb9fe;
+    --bs-link-color-rgb: 139, 185, 254;
+    --bs-link-hover-color: #aecbfa;
+    --bs-link-hover-color-rgb: 174, 203, 250;
+}
+
+.text-primary,
+.link-primary {
+    color: var(--bs-link-color) !important;
+}
+
+.link-secondary,
+.text-secondary {
+    color: var(--tm-accessible-secondary) !important;
+}
+
+.text-danger {
+    color: var(--tm-accessible-danger) !important;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--tm-accessible-secondary);
+    --bs-btn-border-color: var(--tm-accessible-secondary);
+    --bs-btn-hover-color: var(--bs-body-bg);
+    --bs-btn-hover-bg: var(--tm-accessible-secondary);
+    --bs-btn-hover-border-color: var(--tm-accessible-secondary);
+    --bs-btn-focus-shadow-rgb: var(--bs-secondary-rgb);
+    --bs-btn-active-color: var(--bs-body-bg);
+    --bs-btn-active-bg: var(--tm-accessible-secondary);
+    --bs-btn-active-border-color: var(--tm-accessible-secondary);
+}
+
+.btn-outline-danger {
+    --bs-btn-color: var(--tm-accessible-danger);
+    --bs-btn-border-color: var(--tm-accessible-danger);
+    --bs-btn-hover-color: var(--bs-body-bg);
+    --bs-btn-hover-bg: var(--tm-accessible-danger);
+    --bs-btn-hover-border-color: var(--tm-accessible-danger);
+    --bs-btn-focus-shadow-rgb: var(--bs-danger-rgb);
+    --bs-btn-active-color: var(--bs-body-bg);
+    --bs-btn-active-bg: var(--tm-accessible-danger);
+    --bs-btn-active-border-color: var(--tm-accessible-danger);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--bs-link-color);
+    --bs-btn-border-color: var(--bs-link-color);
+    --bs-btn-hover-color: var(--bs-body-bg);
+    --bs-btn-hover-bg: var(--bs-link-color);
+    --bs-btn-hover-border-color: var(--bs-link-color);
+    --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+    --bs-btn-active-color: var(--bs-body-bg);
+    --bs-btn-active-bg: var(--bs-link-color);
+    --bs-btn-active-border-color: var(--bs-link-color);
+}
+
+.tm-skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1100;
+    padding: 0.5rem 0.75rem;
+    color: var(--bs-body-color);
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    transform: translateY(-200%);
+}
+.tm-skip-link:focus {
+    transform: translateY(0);
+}
+
 .tm-sticky-divider th {
     /* A little fix for sticky table headings in Bootstrap ;) */
     position: sticky;
@@ -47,6 +137,11 @@ a {
 a:hover:not(.btn):not(.tm-downloads-file-link) {
     text-decoration: underline;
 }
+.tm-titles-serif .tm-baseline-header .me-auto > a:first-of-type span,
+.tm-theme-baseline.tm-titles-serif .tm-baseline-entry-header h1,
+.tm-theme-baseline.tm-titles-serif .tm-baseline-publication-title {
+    font-family: var(--tm-font-serif);
+}
 .tm-click-pointer:hover {
     cursor: pointer !important;
 }
@@ -58,6 +153,10 @@ a:hover:not(.btn):not(.tm-downloads-file-link) {
 }
 .tm-library-row[data-open-url] > td:first-child .form-check-input {
     cursor: pointer;
+}
+#tm-entry-tabs-content .tab-pane:focus {
+    outline: 0;
+    box-shadow: none;
 }
 /* Some stuff "missing" from more recent Bootstrap versions :) */
 .text-justify {
@@ -124,6 +223,27 @@ mark, .mark {
 }
 .tm-text-warning {
     color: var(--bs-orange) !important;
+}
+.tm-media-review-candidate-action {
+    --bs-btn-color: #765000;
+    --bs-btn-border-color: #956500;
+    --bs-btn-hover-color: #212529;
+    --bs-btn-hover-bg: #ffc107;
+    --bs-btn-hover-border-color: #b58105;
+    --bs-btn-focus-shadow-rgb: 149, 101, 0;
+    --bs-btn-active-color: #212529;
+    --bs-btn-active-bg: #ffc107;
+    --bs-btn-active-border-color: #b58105;
+}
+[data-bs-theme="dark"] .tm-media-review-candidate-action {
+    --bs-btn-color: #ffda6a;
+    --bs-btn-border-color: #ffda6a;
+    --bs-btn-hover-color: #212529;
+    --bs-btn-hover-bg: #ffda6a;
+    --bs-btn-hover-border-color: #ffda6a;
+    --bs-btn-focus-shadow-rgb: 255, 218, 106;
+    --bs-btn-active-bg: #ffda6a;
+    --bs-btn-active-border-color: #ffda6a;
 }
 .tm-content-pre {
     white-space: pre;
@@ -462,6 +582,38 @@ a.tm-downloads-file-link:hover {
 }
 .tm-baseline-header-nav .dropdown-menu {
     box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
+}
+.tm-baseline-header-nav .dropdown-menu .dropdown-item {
+    font-size: 0.875rem;
+}
+.tm-menu-tree-row {
+    min-width: 0;
+}
+.tm-menu-tree-row .tm-page-tree-link {
+    min-width: 0;
+}
+.tm-menu-tree-toggle {
+    flex: 0 0 auto;
+    line-height: 1;
+    padding: 0.25rem 0.4rem;
+    text-decoration: none !important;
+}
+.tm-menu-tree-toggle-label {
+    color: var(--bs-body-color);
+    flex: 1 1 auto;
+    justify-content: space-between;
+    padding: 0.15rem 0;
+}
+.tm-menu-tree-toggle-label:hover,
+.tm-menu-tree-toggle-label:focus {
+    color: var(--bs-primary-text-emphasis);
+}
+.tm-menu-tree-toggle .bi {
+    display: inline-block;
+    transition: transform 0.15s ease-in-out;
+}
+.tm-menu-tree-toggle[aria-expanded="true"] .bi {
+    transform: rotate(180deg);
 }
 .tm-search-picker {
     position: relative;

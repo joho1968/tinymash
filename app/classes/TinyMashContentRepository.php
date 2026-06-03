@@ -3,7 +3,7 @@ namespace app\classes;
 
 class TinyMashContentRepository {
 
-    protected const CONTENT_INDEX_VERSION = 8;
+    protected const CONTENT_INDEX_VERSION = 9;
     protected const SEARCH_INDEX_VERSION = 1;
 
     protected string $content_directory;
@@ -476,7 +476,7 @@ class TinyMashContentRepository {
 
             $matches_all_terms = true;
             foreach ( $search_terms as $term ) {
-                if ( $term === '' || strpos( $search_text, $term ) !== false ) {
+                if ( $this->searchEntryMatchesTerm( $entry, $search_text, $term ) ) {
                     continue;
                 }
                 $matches_all_terms = false;
@@ -720,6 +720,26 @@ class TinyMashContentRepository {
         return( null );
     }
 
+    public function getAccessibleTrashedEntryById( string $entry_id, ?string $language = null, ?string $author_slug = null, bool $allow_root = true ) : ?array {
+        $entry_id = trim( $entry_id );
+        if ( $entry_id === '' ) {
+            return( null );
+        }
+
+        foreach ( $this->getTrashedEntries() as $entry ) {
+            if ( $entry['id'] !== $entry_id ) {
+                continue;
+            }
+            if ( ! $this->entryMatchesEditorAccess( $entry, $author_slug, $allow_root ) ) {
+                continue;
+            }
+
+            return( $this->localizeEntry( $entry, $language ) );
+        }
+
+        return( null );
+    }
+
     public function getEditorEntryOptions( ?string $language = null, ?string $author_slug = null, bool $allow_root = true ) : array {
         $options = [];
         $single_author_scope = ! $allow_root && is_string( $author_slug ) && $this->normalizeEditorPathPart( $author_slug ) !== '';
@@ -738,6 +758,7 @@ class TinyMashContentRepository {
                 'type' => $localized_entry['type'],
                 'scope' => $localized_entry['scope'],
                 'author_slug' => $localized_entry['author_slug'],
+                'slug' => (string) ( $localized_entry['slug'] ?? '' ),
                 'path' => $localized_entry['path'],
                 'title' => $localized_entry['title'],
                 'status' => $localized_entry['status'],
@@ -783,6 +804,44 @@ class TinyMashContentRepository {
             function( array $left, array $right ) : int {
                 if ( $left['updated_at_utc'] !== $right['updated_at_utc'] ) {
                     return( strcmp( $right['updated_at_utc'], $left['updated_at_utc'] ) );
+                }
+
+                return( strcmp( $left['title'], $right['title'] ) );
+            }
+        );
+
+        return( $entries );
+    }
+
+    public function getTrashedEditorEntries( ?string $language = null, ?string $author_slug = null, bool $allow_root = true ) : array {
+        $entries = [];
+        foreach ( $this->getTrashedEntries() as $entry ) {
+            if ( ! $this->entryMatchesEditorAccess( $entry, $author_slug, $allow_root ) ) {
+                continue;
+            }
+            $localized_entry = $this->localizeEntry( $entry, $language );
+            $entries[] = [
+                'id' => $localized_entry['id'],
+                'title' => $localized_entry['title'],
+                'type' => $localized_entry['type'],
+                'scope' => $localized_entry['scope'],
+                'author_slug' => $localized_entry['author_slug'],
+                'path' => $localized_entry['path'],
+                'parent_slug' => (string) ( $localized_entry['parent_slug'] ?? '' ),
+                'sort_order' => (int) ( $localized_entry['sort_order'] ?? 0 ),
+                'status' => $localized_entry['status'],
+                'pre_trash_status' => (string) ( $localized_entry['pre_trash_status'] ?? '' ),
+                'trashed_at_utc' => (string) ( $localized_entry['trashed_at_utc'] ?? '' ),
+                'trashed_by' => (string) ( $localized_entry['trashed_by'] ?? '' ),
+                'updated_at_utc' => $localized_entry['updated_at_utc'],
+            ];
+        }
+
+        usort(
+            $entries,
+            function( array $left, array $right ) : int {
+                if ( $left['trashed_at_utc'] !== $right['trashed_at_utc'] ) {
+                    return( strcmp( $right['trashed_at_utc'], $left['trashed_at_utc'] ) );
                 }
 
                 return( strcmp( $left['title'], $right['title'] ) );
@@ -1481,6 +1540,9 @@ class TinyMashContentRepository {
                 if ( ! is_array( $raw_entry_metadata ) ) {
                     continue;
                 }
+                if ( $this->rawEntryIsTrashed( $raw_entry_metadata ) ) {
+                    continue;
+                }
 
                 $raw_entry_id = trim( (string) ( $raw_entry_metadata['id'] ?? '' ) );
                 if ( $loaded_entry_id !== '' && $raw_entry_id === $loaded_entry_id && empty( $existing_raw_entry ) ) {
@@ -1568,6 +1630,14 @@ class TinyMashContentRepository {
             $raw_entry['show_in_navigation'] = false;
         }
 
+        if (
+            ! empty( $existing_raw_entry ) &&
+            $updated_at_override === '' &&
+            ! $this->hasContentTimestampRawEntryChanges( $existing_raw_entry, $raw_entry )
+        ) {
+            $raw_entry['updated_at_utc'] = (string) ( $existing_raw_entry['updated_at_utc'] ?? $raw_entry['updated_at_utc'] );
+        }
+
         if ( ! empty( $existing_raw_entry ) && ! $this->hasMeaningfulRawEntryChanges( $existing_raw_entry, $raw_entry ) ) {
             $saved_entry = $this->normalizeEntry( $existing_raw_entry );
             if ( ! is_array( $saved_entry ) ) {
@@ -1603,6 +1673,19 @@ class TinyMashContentRepository {
 
     protected function hasMeaningfulRawEntryChanges( array $existing_raw_entry, array $candidate_raw_entry ) : bool {
         return( $this->buildComparableRawEntryState( $existing_raw_entry ) !== $this->buildComparableRawEntryState( $candidate_raw_entry ) );
+    }
+
+    protected function hasContentTimestampRawEntryChanges( array $existing_raw_entry, array $candidate_raw_entry ) : bool {
+        $existing_state = $this->buildComparableRawEntryState( $existing_raw_entry );
+        $candidate_state = $this->buildComparableRawEntryState( $candidate_raw_entry );
+        unset(
+            $existing_state['status'],
+            $existing_state['published_at_utc'],
+            $candidate_state['status'],
+            $candidate_state['published_at_utc']
+        );
+
+        return( $existing_state !== $candidate_state );
     }
 
     protected function buildComparableRawEntryState( array $raw_entry ) : array {
@@ -1642,7 +1725,7 @@ class TinyMashContentRepository {
                 'fallback_cover_color' => $normalized_entry['fallback_cover_color'],
                 'tags' => $normalized_entry['tags'],
                 'labels' => $normalized_entry['labels'],
-                'plugin_settings' => $normalized_entry['plugin_settings'],
+                'plugin_settings' => $this->normalizeComparablePluginSettings( $normalized_entry['plugin_settings'] ),
                 'title' => trim( (string) ( $translation['title'] ?? '' ) ),
                 'summary' => trim( (string) ( $translation['summary'] ?? '' ) ),
                 'content' => (string) ( $translation['content'] ?? '' ),
@@ -1671,7 +1754,6 @@ class TinyMashContentRepository {
             $normalized_status = $this->normalizeStatus( $status );
             $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
             $raw_entries[$existing_index]['status'] = $normalized_status;
-            $raw_entries[$existing_index]['updated_at_utc'] = $now_utc;
             if ( $normalized_status === 'published' && empty( $raw_entries[$existing_index]['published_at_utc'] ) ) {
                 $raw_entries[$existing_index]['published_at_utc'] = $now_utc;
             }
@@ -1729,7 +1811,6 @@ class TinyMashContentRepository {
                 }
 
                 $raw_entry['status'] = $normalized_status;
-                $raw_entry['updated_at_utc'] = $now_utc;
                 if ( $normalized_status === 'published' && empty( $raw_entry['published_at_utc'] ) ) {
                     $raw_entry['published_at_utc'] = $now_utc;
                 }
@@ -1842,6 +1923,226 @@ class TinyMashContentRepository {
         } ) );
     }
 
+    public function moveEntriesToTrashByIds( array $entry_ids, string $trashed_by = '', ?string $author_slug = null, bool $allow_root = true ) : int {
+        return( $this->withLockedContentStore( function() use ( $entry_ids, $trashed_by, $author_slug, $allow_root ) : int {
+            $normalized_ids = $this->normalizeEntryIdList( $entry_ids );
+            if ( empty( $normalized_ids ) ) {
+                return( 0 );
+            }
+
+            $target_ids = array_fill_keys( $normalized_ids, true );
+            $trashed_by = trim( $trashed_by );
+            $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
+            $changed_count = 0;
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $raw_entry = $this->readRawEntryFromStorage( $metadata_file );
+                if ( ! is_array( $raw_entry ) ) {
+                    continue;
+                }
+
+                $entry_id = trim( (string) ( $raw_entry['id'] ?? '' ) );
+                if ( $entry_id === '' || ! isset( $target_ids[$entry_id] ) ) {
+                    continue;
+                }
+                if ( ! $this->rawEntryMatchesEditorAccess( $raw_entry, $author_slug, $allow_root ) ) {
+                    continue;
+                }
+                if ( $this->rawEntryIsTrashed( $raw_entry ) ) {
+                    unset( $target_ids[$entry_id] );
+                    continue;
+                }
+
+                $pre_trash_status = $this->normalizePreTrashStatus( (string) ( $raw_entry['status'] ?? 'unpublished' ) );
+                $raw_entry['pre_trash_status'] = $pre_trash_status;
+                $raw_entry['status'] = 'trashed';
+                $raw_entry['trashed_at_utc'] = $now_utc;
+                $raw_entry['trashed_by'] = $trashed_by;
+                $this->writeRawEntryToStorage( $raw_entry, false, dirname( $metadata_file ) );
+                $changed_count++;
+                unset( $target_ids[$entry_id] );
+                if ( empty( $target_ids ) ) {
+                    break;
+                }
+            }
+
+            if ( $changed_count > 0 ) {
+                $this->clearDerivedCaches();
+            }
+
+            return( $changed_count );
+        } ) );
+    }
+
+    public function restoreTrashedEntriesByIds( array $entry_ids, ?string $author_slug = null, bool $allow_root = true ) : int {
+        return( $this->withLockedContentStore( function() use ( $entry_ids, $author_slug, $allow_root ) : int {
+            $normalized_ids = $this->normalizeEntryIdList( $entry_ids );
+            if ( empty( $normalized_ids ) ) {
+                return( 0 );
+            }
+
+            $raw_entries = $this->getRawEntries();
+            $target_ids = array_fill_keys( $normalized_ids, true );
+            $target_indexes = [];
+            foreach ( $raw_entries as $index => $raw_entry ) {
+                if ( ! is_array( $raw_entry ) ) {
+                    continue;
+                }
+                $entry_id = trim( (string) ( $raw_entry['id'] ?? '' ) );
+                if ( $entry_id === '' || ! isset( $target_ids[$entry_id] ) ) {
+                    continue;
+                }
+                if ( ! $this->rawEntryMatchesEditorAccess( $raw_entry, $author_slug, $allow_root ) ) {
+                    continue;
+                }
+                if ( ! $this->rawEntryIsTrashed( $raw_entry ) ) {
+                    continue;
+                }
+                $target_indexes[$index] = $entry_id;
+            }
+
+            if ( empty( $target_indexes ) ) {
+                return( 0 );
+            }
+
+            foreach ( $target_indexes as $index => $entry_id ) {
+                $raw_entry = $raw_entries[$index];
+                if ( ! is_array( $raw_entry ) ) {
+                    continue;
+                }
+                $this->assertTrashedEntryCanRestore( $raw_entry, $raw_entries, $entry_id, $target_ids );
+            }
+
+            $restored_count = 0;
+            foreach ( array_keys( $target_indexes ) as $index ) {
+                if ( ! is_array( $raw_entries[$index] ) ) {
+                    continue;
+                }
+                $raw_entries[$index]['status'] = 'unpublished';
+                unset( $raw_entries[$index]['trashed_at_utc'], $raw_entries[$index]['trashed_by'] );
+
+                $normalized_entry = $this->normalizeEntry( $raw_entries[$index] );
+                if ( ! is_array( $normalized_entry ) ) {
+                    throw new \RuntimeException( 'Restored entry could not be normalized.' );
+                }
+
+                $this->writeRawEntryToStorage( $raw_entries[$index], false, $this->getEntryDirectory( $normalized_entry ) );
+                $restored_count++;
+            }
+
+            if ( $restored_count > 0 ) {
+                $this->clearDerivedCaches();
+            }
+
+            return( $restored_count );
+        } ) );
+    }
+
+    public function permanentlyDeleteTrashedEntriesByIds( array $entry_ids, ?string $author_slug = null, bool $allow_root = true ) : int {
+        return( $this->withLockedContentStore( function() use ( $entry_ids, $author_slug, $allow_root ) : int {
+            $normalized_ids = $this->normalizeEntryIdList( $entry_ids );
+            if ( empty( $normalized_ids ) ) {
+                return( 0 );
+            }
+
+            $target_ids = array_fill_keys( $normalized_ids, true );
+            $deleted_count = 0;
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $raw_entry = $this->readRawEntryMetadataFromStorage( $metadata_file );
+                if ( ! is_array( $raw_entry ) ) {
+                    continue;
+                }
+
+                $entry_id = trim( (string) ( $raw_entry['id'] ?? '' ) );
+                if ( $entry_id === '' || ! isset( $target_ids[$entry_id] ) ) {
+                    continue;
+                }
+                if ( ! $this->rawEntryMatchesEditorAccess( $raw_entry, $author_slug, $allow_root ) || ! $this->rawEntryIsTrashed( $raw_entry ) ) {
+                    continue;
+                }
+
+                $entry_directory = dirname( $metadata_file );
+                if ( ! is_dir( $entry_directory ) ) {
+                    continue;
+                }
+
+                $this->deleteDirectoryRecursively( $entry_directory );
+                $this->cleanupEmptyParentDirectories( dirname( $entry_directory ) );
+                unset( $target_ids[$entry_id] );
+                $deleted_count++;
+                if ( empty( $target_ids ) ) {
+                    break;
+                }
+            }
+
+            if ( $deleted_count > 0 ) {
+                $this->clearDerivedCaches();
+            }
+
+            return( $deleted_count );
+        } ) );
+    }
+
+    public function purgeTrashedEntriesOlderThan( int $retention_days ) : int {
+        $retention_days = max( 0, min( 90, $retention_days ) );
+        if ( $retention_days < 1 ) {
+            return( 0 );
+        }
+
+        return( $this->withLockedContentStore( function() use ( $retention_days ) : int {
+            $cutoff_timestamp = time() - ( $retention_days * 86400 );
+            $deleted_count = 0;
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $raw_entry = $this->readRawEntryMetadataFromStorage( $metadata_file );
+                if ( ! is_array( $raw_entry ) || ! $this->rawEntryIsTrashed( $raw_entry ) ) {
+                    continue;
+                }
+
+                $trashed_at = strtotime( (string) ( $raw_entry['trashed_at_utc'] ?? '' ) );
+                if ( $trashed_at === false || $trashed_at > $cutoff_timestamp ) {
+                    continue;
+                }
+
+                $entry_directory = dirname( $metadata_file );
+                if ( ! is_dir( $entry_directory ) ) {
+                    continue;
+                }
+                $this->deleteDirectoryRecursively( $entry_directory );
+                $this->cleanupEmptyParentDirectories( dirname( $entry_directory ) );
+                $deleted_count++;
+            }
+
+            if ( $deleted_count > 0 ) {
+                $this->clearDerivedCaches();
+            }
+
+            return( $deleted_count );
+        } ) );
+    }
+
+    public function pruneAllRevisionSnapshots() : array {
+        return( $this->withLockedContentStore( function() : array {
+            $checked_entries = 0;
+            $removed_revisions = 0;
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $entry_directory = dirname( $metadata_file );
+                if ( ! is_dir( $entry_directory ) ) {
+                    continue;
+                }
+
+                $checked_entries++;
+                $removed_revisions += $this->pruneRevisionSnapshots( $entry_directory );
+            }
+
+            return(
+                [
+                    'checked_entries' => $checked_entries,
+                    'removed_revisions' => $removed_revisions,
+                    'retention_limit' => $this->revision_retention_limit,
+                ]
+            );
+        } ) );
+    }
+
     protected function getPublishedEntries() : array {
         if ( is_array( $this->published_entries ) ) {
             return( $this->published_entries );
@@ -1850,6 +2151,11 @@ class TinyMashContentRepository {
         $index = $this->getPersistentContentIndex();
         $this->published_entries = is_array( $index['published_entries'] ?? null ) ? $index['published_entries'] : [];
         return( $this->published_entries );
+    }
+
+    protected function getTrashedEntries() : array {
+        $index = $this->getPersistentContentIndex();
+        return( is_array( $index['trashed_entries'] ?? null ) ? $index['trashed_entries'] : [] );
     }
 
     protected function getRawEntries() : array {
@@ -1971,6 +2277,9 @@ class TinyMashContentRepository {
                 'translations' => $translations,
                 'published_at_utc' => (string) ( $raw_entry['published_at_utc'] ?? '' ),
                 'updated_at_utc' => (string) ( $raw_entry['updated_at_utc'] ?? '' ),
+                'trashed_at_utc' => (string) ( $raw_entry['trashed_at_utc'] ?? '' ),
+                'trashed_by' => trim( (string) ( $raw_entry['trashed_by'] ?? '' ) ),
+                'pre_trash_status' => $this->normalizePreTrashStatus( (string) ( $raw_entry['pre_trash_status'] ?? $raw_entry['status'] ?? 'unpublished' ) ),
                 'aggregate_to_root' => ! empty( $raw_entry['aggregate_to_root'] ),
                 'sticky' => ! empty( $raw_entry['sticky'] ),
                 'featured' => ! empty( $raw_entry['featured'] ),
@@ -1983,7 +2292,7 @@ class TinyMashContentRepository {
                 'seo_canonical_url' => trim( (string) ( $raw_entry['seo_canonical_url'] ?? '' ) ),
                 'seo_robots' => $this->normalizeSeoRobots( (string) ( $raw_entry['seo_robots'] ?? '' ) ),
                 'seo_exclude_from_sitemap' => ! empty( $raw_entry['seo_exclude_from_sitemap'] ),
-                'parent_slug' => $this->normalizePathPart( (string) ( $raw_entry['parent_slug'] ?? '' ) ),
+                'parent_slug' => $this->normalizeParentSlug( (string) ( $raw_entry['parent_slug'] ?? '' ) ),
                 'sort_order' => (int) ( $raw_entry['sort_order'] ?? 0 ),
                 'show_in_navigation' => array_key_exists( 'show_in_navigation', $raw_entry ) ? ! empty( $raw_entry['show_in_navigation'] ) : ( $entry_type === 'page' ),
                 'tags' => $this->normalizeStringList( $raw_entry['tags'] ?? [] ),
@@ -2021,7 +2330,7 @@ class TinyMashContentRepository {
                 'seo_robots' => $this->normalizeSeoRobots( (string) ( $editor_entry['seo_robots'] ?? '' ) ),
                 'seo_exclude_from_sitemap' => ! empty( $editor_entry['seo_exclude_from_sitemap'] ),
                 'content' => (string) ( $editor_entry['content'] ?? '' ),
-                'parent_slug' => $entry_type === 'page' ? $this->normalizePath( (string) ( $editor_entry['parent_slug'] ?? '' ) ) : '',
+                'parent_slug' => $entry_type === 'page' ? $this->normalizeParentSlug( (string) ( $editor_entry['parent_slug'] ?? '' ) ) : '',
                 'sort_order' => $entry_type === 'page' ? (int) ( $editor_entry['sort_order'] ?? 0 ) : 0,
                 'aggregate_to_root' => $entry_type === 'post' ? ! empty( $editor_entry['aggregate_to_root'] ) : false,
                 'sticky' => ! empty( $editor_entry['sticky'] ),
@@ -2148,6 +2457,81 @@ class TinyMashContentRepository {
         return( null );
     }
 
+    protected function normalizeEntryIdList( array $entry_ids ) : array {
+        return(
+            array_values(
+                array_unique(
+                    array_filter(
+                        array_map(
+                            static fn( mixed $value ) : string => trim( (string) $value ),
+                            $entry_ids
+                        ),
+                        static fn( string $value ) : bool => $value !== ''
+                    )
+                )
+            )
+        );
+    }
+
+    protected function assertTrashedEntryCanRestore( array $raw_entry, array $raw_entries, string $entry_id, array $selected_entry_ids = [] ) : void {
+        $scope = (string) ( $raw_entry['scope'] ?? 'root' ) === 'author' ? 'author' : 'root';
+        $author_slug = $scope === 'author' ? $this->normalizeEditorPathPart( (string) ( $raw_entry['author_slug'] ?? '' ) ) : '';
+        $entry_type = (string) ( $raw_entry['type'] ?? '' );
+        $slug = $this->normalizeEditorPathPart( (string) ( $raw_entry['slug'] ?? '' ) );
+
+        foreach ( $raw_entries as $candidate_entry ) {
+            if ( ! is_array( $candidate_entry ) || $this->rawEntryIsTrashed( $candidate_entry ) ) {
+                continue;
+            }
+            if ( trim( (string) ( $candidate_entry['id'] ?? '' ) ) === $entry_id ) {
+                continue;
+            }
+
+            $candidate_scope = (string) ( $candidate_entry['scope'] ?? 'root' ) === 'author' ? 'author' : 'root';
+            $candidate_author_slug = $candidate_scope === 'author' ? $this->normalizeEditorPathPart( (string) ( $candidate_entry['author_slug'] ?? '' ) ) : '';
+            if (
+                (string) ( $candidate_entry['type'] ?? '' ) === $entry_type &&
+                $candidate_scope === $scope &&
+                $candidate_author_slug === $author_slug &&
+                $this->normalizeEditorPathPart( (string) ( $candidate_entry['slug'] ?? '' ) ) === $slug
+            ) {
+                throw new \InvalidArgumentException( 'trash_restore_slug_conflict' );
+            }
+        }
+
+        if ( $entry_type !== 'page' ) {
+            return;
+        }
+
+        $parent_slug = $this->normalizeParentSlug( (string) ( $raw_entry['parent_slug'] ?? '' ) );
+        if ( $parent_slug === '' ) {
+            return;
+        }
+
+        foreach ( $raw_entries as $candidate_entry ) {
+            if ( ! is_array( $candidate_entry ) ) {
+                continue;
+            }
+            $candidate_entry_id = trim( (string) ( $candidate_entry['id'] ?? '' ) );
+            if ( $this->rawEntryIsTrashed( $candidate_entry ) && empty( $selected_entry_ids[$candidate_entry_id] ) ) {
+                continue;
+            }
+
+            $candidate_scope = (string) ( $candidate_entry['scope'] ?? 'root' ) === 'author' ? 'author' : 'root';
+            $candidate_author_slug = $candidate_scope === 'author' ? $this->normalizeEditorPathPart( (string) ( $candidate_entry['author_slug'] ?? '' ) ) : '';
+            if (
+                (string) ( $candidate_entry['type'] ?? '' ) === 'page' &&
+                $candidate_scope === $scope &&
+                $candidate_author_slug === $author_slug &&
+                $this->normalizeEditorPathPart( (string) ( $candidate_entry['slug'] ?? '' ) ) === $parent_slug
+            ) {
+                return;
+            }
+        }
+
+        throw new \InvalidArgumentException( 'trash_restore_parent_unavailable' );
+    }
+
     protected function entryMatchesEditorAccess( array $entry, ?string $author_slug = null, bool $allow_root = true ) : bool {
         $author_slug = $author_slug !== null ? $this->normalizeEditorPathPart( $author_slug ) : null;
         if ( $author_slug === null || $author_slug === '' ) {
@@ -2169,13 +2553,24 @@ class TinyMashContentRepository {
         return( trim( $value, '-' ) );
     }
 
+    protected function normalizeParentSlug( string $value ) : string {
+        $segments = preg_split( '@/+@', trim( $value, " \t\n\r\0\x0B/" ) ) ?: [];
+        $last_segment = ! empty( $segments ) ? (string) end( $segments ) : '';
+        return( $this->normalizeEditorPathPart( $last_segment ) );
+    }
+
     protected function normalizeStatus( string $status ) : string {
         $status = strtolower( trim( $status ) );
-        if ( in_array( $status, [ 'draft', 'published', 'unpublished', 'pending_review' ], true ) ) {
+        if ( in_array( $status, [ 'draft', 'published', 'unpublished', 'pending_review', 'trashed' ], true ) ) {
             return( $status );
         }
 
         return( 'unpublished' );
+    }
+
+    protected function normalizePreTrashStatus( string $status ) : string {
+        $status = $this->normalizeStatus( $status );
+        return( $status === 'trashed' ? 'unpublished' : $status );
     }
 
     protected function normalizeSeoRobots( string $value ) : string {
@@ -2417,6 +2812,18 @@ class TinyMashContentRepository {
             }
         }
 
+        $trashed_entries = array_values(
+            array_filter(
+                $normalized_entries,
+                static fn( array $entry ) : bool => ( $entry['status'] ?? '' ) === 'trashed'
+            )
+        );
+        $normalized_entries = array_values(
+            array_filter(
+                $normalized_entries,
+                static fn( array $entry ) : bool => ( $entry['status'] ?? '' ) !== 'trashed'
+            )
+        );
         $published_entries = array_values(
             array_filter(
                 $normalized_entries,
@@ -2449,6 +2856,13 @@ class TinyMashContentRepository {
             }
 
             $published_entries[$index]['path'] = $this->buildEntryPathFromPageLookup( $entry, $published_page_entries );
+        }
+        foreach ( $trashed_entries as $index => $entry ) {
+            if ( ! is_array( $entry ) ) {
+                continue;
+            }
+
+            $trashed_entries[$index]['path'] = $this->buildEntryPathFromPageLookup( $entry, $published_page_entries );
         }
 
         $published_entry_lookup = [];
@@ -2556,6 +2970,7 @@ class TinyMashContentRepository {
                 'version' => self::CONTENT_INDEX_VERSION,
                 'generated_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
                 'entries' => $normalized_entries,
+                'trashed_entries' => $trashed_entries,
                 'published_entries' => $published_entries,
                 'published_entry_lookup' => $published_entry_lookup,
                 'published_search_texts' => $published_search_texts,
@@ -2942,14 +3357,120 @@ class TinyMashContentRepository {
         $normalized_terms = [];
         foreach ( $terms as $term ) {
             $term = function_exists( 'mb_trim' ) ? mb_trim( $term ) : trim( $term );
+            $term = preg_replace( '/^[^\p{L}\p{N}#]+|[^\p{L}\p{N}]+$/u', '', $term ) ?? $term;
             if ( mb_strlen( $term ) < 2 ) {
                 continue;
             }
+            $hash_prefixed = str_starts_with( $term, '#' );
+            $term = ltrim( $term, '#' );
+            $term = preg_replace( '/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $term ) ?? $term;
+            if ( $term === '' ) {
+                continue;
+            }
             $term = function_exists( 'mb_strtolower' ) ? mb_strtolower( $term ) : strtolower( $term );
-            $normalized_terms[] = $term;
+            $normalized_terms[] = [
+                'term' => $term,
+                'hash_prefixed' => $hash_prefixed,
+            ];
         }
 
-        return( array_values( array_unique( $normalized_terms ) ) );
+        $unique_terms = [];
+        foreach ( $normalized_terms as $normalized_term ) {
+            $key = ( ! empty( $normalized_term['hash_prefixed'] ) ? '#' : '' ) . (string) ( $normalized_term['term'] ?? '' );
+            $unique_terms[$key] = $normalized_term;
+        }
+
+        return( array_values( $unique_terms ) );
+    }
+
+    protected function searchEntryMatchesTerm( array $entry, string $search_text, array $term_data ) : bool {
+        $term = (string) ( $term_data['term'] ?? '' );
+        if ( ! empty( $term_data['hash_prefixed'] ) ) {
+            return( $this->searchEntryMatchesHashPrefixedTerm( $entry, $term ) );
+        }
+
+        return( $this->searchTextMatchesTerm( $search_text, $term ) );
+    }
+
+    protected function searchTextMatchesTerm( string $search_text, string $term ) : bool {
+        if ( $term === '' ) {
+            return( true );
+        }
+        if ( preg_match( '/^\d+$/', $term ) === 1 ) {
+            return( preg_match( '/(?<![\p{L}\p{N}.])' . preg_quote( $term, '/' ) . '(?![\p{L}\p{N}.])/u', $search_text ) === 1 );
+        }
+
+        return( strpos( $search_text, $term ) !== false );
+    }
+
+    protected function searchEntryMatchesHashPrefixedTerm( array $entry, string $term ) : bool {
+        if ( $term === '' ) {
+            return( true );
+        }
+
+        $parts = [];
+        $default_language = strtolower( trim( (string) ( $entry['default_language'] ?? 'en' ) ) );
+        $translations = is_array( $entry['translations'] ?? null ) ? $entry['translations'] : [];
+        $translation = is_array( $translations[$default_language] ?? null ) ? $translations[$default_language] : reset( $translations );
+        if ( is_array( $translation ) ) {
+            $parts[] = (string) ( $translation['title'] ?? '' );
+            $parts[] = (string) ( $translation['summary'] ?? '' );
+            $parts[] = (string) ( $translation['content'] ?? '' );
+        }
+
+        $raw_text = implode( ' ', $parts );
+        $raw_text = function_exists( 'mb_strtolower' ) ? mb_strtolower( $raw_text ) : strtolower( $raw_text );
+
+        return( preg_match( '/(?<![\p{L}\p{N}])#' . preg_quote( $term, '/' ) . '(?![\p{L}\p{N}])/u', $raw_text ) === 1 );
+    }
+
+    protected function normalizeComparablePluginSettings( array $plugin_settings ) : array {
+        $normalized = $this->normalizePluginSettings( $plugin_settings );
+
+        if ( $this->pluginSettingsMatchDefaults(
+            is_array( $normalized['photos'] ?? null ) ? $normalized['photos'] : [],
+            [
+                'photo_post_enabled' => '0',
+                'gallery_enabled' => '0',
+                'gallery_download_enabled' => '0',
+                'gallery_slideshow_enabled' => '0',
+                'gallery_slideshow_delay_seconds' => '5',
+                'gallery_position' => 'after_content',
+                'gallery_media_ids' => '',
+                'gallery_image_overrides' => '{}',
+            ]
+        ) ) {
+            unset( $normalized['photos'] );
+        }
+
+        if ( $this->pluginSettingsMatchDefaults(
+            is_array( $normalized['fediverse'] ?? null ) ? $normalized['fediverse'] : [],
+            [
+                'post_enabled' => '0',
+                'include_link_back' => '1',
+            ]
+        ) ) {
+            unset( $normalized['fediverse'] );
+        }
+
+        return( $normalized );
+    }
+
+    protected function pluginSettingsMatchDefaults( array $settings, array $defaults ) : bool {
+        if ( empty( $settings ) ) {
+            return( true );
+        }
+
+        foreach ( $settings as $key => $value ) {
+            if ( ! array_key_exists( $key, $defaults ) ) {
+                return( false );
+            }
+            if ( trim( (string) $value ) !== (string) $defaults[$key] ) {
+                return( false );
+            }
+        }
+
+        return( true );
     }
 
     protected function buildPublishedEntrySearchText( array $entry ) : string {
@@ -3188,6 +3709,10 @@ class TinyMashContentRepository {
         return( $normalized_author_slug === $this->normalizeEditorPathPart( $author_slug ) );
     }
 
+    protected function rawEntryIsTrashed( array $raw_entry ) : bool {
+        return( $this->normalizeStatus( (string) ( $raw_entry['status'] ?? '' ) ) === 'trashed' );
+    }
+
     protected function readRawRevisionFromStorage( string $metadata_file ) : ?array {
         if ( ! is_file( $metadata_file ) || ! is_readable( $metadata_file ) ) {
             return( null );
@@ -3269,6 +3794,9 @@ class TinyMashContentRepository {
             'default_language' => $normalized_entry['default_language'],
             'published_at_utc' => $normalized_entry['published_at_utc'],
             'updated_at_utc' => $normalized_entry['updated_at_utc'],
+            'trashed_at_utc' => $normalized_entry['trashed_at_utc'],
+            'trashed_by' => $normalized_entry['trashed_by'],
+            'pre_trash_status' => $normalized_entry['pre_trash_status'],
             'aggregate_to_root' => $normalized_entry['aggregate_to_root'],
             'sticky' => $normalized_entry['sticky'],
             'featured' => $normalized_entry['featured'],
@@ -3490,23 +4018,22 @@ class TinyMashContentRepository {
         rmdir( $directory );
     }
 
-    protected function pruneRevisionSnapshots( string $entry_directory ) : void {
-        if ( $this->revision_retention_limit < 1 ) {
-            return;
-        }
-
+    protected function pruneRevisionSnapshots( string $entry_directory ) : int {
         $revision_root = $entry_directory . DIRECTORY_SEPARATOR . 'revisions';
         $revision_directories = glob( $revision_root . DIRECTORY_SEPARATOR . 'revision_*', GLOB_ONLYDIR );
         if ( ! is_array( $revision_directories ) || count( $revision_directories ) <= $this->revision_retention_limit ) {
-            return;
+            return( 0 );
         }
 
         rsort( $revision_directories, SORT_STRING );
-        foreach ( array_slice( $revision_directories, $this->revision_retention_limit ) as $revision_directory ) {
+        $stale_revision_directories = array_slice( $revision_directories, $this->revision_retention_limit );
+        foreach ( $stale_revision_directories as $revision_directory ) {
             if ( is_string( $revision_directory ) && is_dir( $revision_directory ) ) {
                 $this->deleteDirectoryRecursively( $revision_directory );
             }
         }
+
+        return( count( $stale_revision_directories ) );
     }
 
     protected function cleanupEmptyParentDirectories( string $directory ) : void {

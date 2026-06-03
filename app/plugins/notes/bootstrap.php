@@ -25,10 +25,6 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         static function() use ( $config, $notes_repository ) : string {
             $revision_limit = $config->getContentRevisionRetentionLimit();
-            if ( $revision_limit <= 0 ) {
-                return( 'note revision pruning is disabled' );
-            }
-
             $result = $notes_repository->pruneAllRevisions( $revision_limit );
             return(
                 'removed '

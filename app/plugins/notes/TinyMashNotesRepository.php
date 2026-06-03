@@ -196,15 +196,7 @@ class TinyMashNotesRepository {
     }
 
     public function pruneAllRevisions( int $revision_limit ) : array {
-        if ( $revision_limit <= 0 ) {
-            return(
-                [
-                    'users' => 0,
-                    'removed' => 0,
-                    'limit' => 0,
-                ]
-            );
-        }
+        $revision_limit = max( 0, $revision_limit );
 
         if ( ! is_dir( $this->storage_root ) ) {
             return(
@@ -432,9 +424,7 @@ class TinyMashNotesRepository {
     }
 
     protected function pruneRevisions( string $username, int $revision_limit ) : int {
-        if ( $revision_limit <= 0 ) {
-            return( 0 );
-        }
+        $revision_limit = max( 0, $revision_limit );
 
         $revision_root = $this->getNoteDirectory( $username ) . DIRECTORY_SEPARATOR . 'revisions';
         if ( ! is_dir( $revision_root ) ) {

@@ -18,13 +18,17 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentRep
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentTargetPickerService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashDraftRepository.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMarkdownRenderer.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMarkdownEditorComponent.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashDateFormatter.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentRenderer.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashShortcodeRegistry.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMenuService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaAttachmentMetadataStore.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaImportMapStore.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaImportBridge.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaUsageReporter.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaReviewStore.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaCapabilityRegistry.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaDerivativeRegistry.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashLockedJsonFile.php' );
@@ -129,6 +133,17 @@ $media_import_bridge = new app\classes\TinyMashMediaImportBridge(
     $media_service,
     $media_import_map_store
 );
+$media_review_store = new app\classes\TinyMashMediaReviewStore(
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'media' . DIRECTORY_SEPARATOR . 'review.json'
+);
+$media_usage_reporter = new app\classes\TinyMashMediaUsageReporter(
+    $content_repository,
+    $draft_repository,
+    $user_repository,
+    $config,
+    $media_service,
+    $plugins
+);
 $import_lock_service = new app\classes\TinyMashImportLockService(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'import-locks.json'
 );
@@ -144,6 +159,7 @@ $content_renderer = new app\classes\TinyMashContentRenderer(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'rendered-content',
     $plugins
 );
+$shortcode_registry = new app\classes\TinyMashShortcodeRegistry( $config->getUnknownShortcodeMode() );
 $menu_service = new app\classes\TinyMashMenuService( $config, $content_repository );
 $theme_registry = new app\classes\TinyMashThemeRegistry(
     [
@@ -197,11 +213,14 @@ $app->set( 'user.repository', $user_repository );
 $app->set( 'markdown.renderer', $markdown_renderer );
 $app->set( 'date.formatter', $date_formatter );
 $app->set( 'content.renderer', $content_renderer );
+$app->set( 'shortcode.registry', $shortcode_registry );
 $app->set( 'menu.service', $menu_service );
 $app->set( 'media.metadata_store', $media_metadata_store );
 $app->set( 'media.import_map_store', $media_import_map_store );
 $app->set( 'media.service', $media_service );
 $app->set( 'media.import_bridge', $media_import_bridge );
+$app->set( 'media.usage_reporter', $media_usage_reporter );
+$app->set( 'media.review_store', $media_review_store );
 $app->set( 'import.lock_service', $import_lock_service );
 $app->set( 'public.page_cache', $public_page_cache );
 $app->set( 'media.capability_registry', $media_capability_registry );
@@ -251,7 +270,7 @@ try {
 
 if ( PHP_SAPI !== 'cli' ) {
     register_shutdown_function(
-        static function() use ( $draft_repository, $media_service, $media_import_bridge, $plugins, $notification_service, $password_reset_service, $theme ) : void {
+        static function() use ( $content_repository, $draft_repository, $media_service, $media_import_bridge, $plugins, $notification_service, $password_reset_service, $theme ) : void {
             try {
                 $config_io = new \app\classes\TinyMashConfigIO();
                 if ( ! $config_io->getConfig() ) {
@@ -267,7 +286,8 @@ if ( PHP_SAPI !== 'cli' ) {
                     $password_reset_service,
                     $theme,
                     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'housekeeping-web.lock',
-                    $media_import_bridge
+                    $media_import_bridge,
+                    $content_repository
                 );
                 $housekeeping_service->runWebFallbackIfDue();
             } catch( \Throwable $e ) {

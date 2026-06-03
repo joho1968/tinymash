@@ -251,6 +251,24 @@ class TinyMashMediaAttachmentMetadataStore {
         return( $this->storeMetadata( $metadata ) );
     }
 
+    public function deleteMetadata( array $metadata ) : bool {
+        $owner_username = $this->normalizeOwnerUsername( (string) ( $metadata['owner_username'] ?? '' ) );
+        $year = $this->normalizeDateSegment( (string) ( $metadata['year'] ?? '' ), 4 );
+        $month = $this->normalizeDateSegment( (string) ( $metadata['month'] ?? '' ), 2 );
+        $filename = $this->normalizeFilename( (string) ( $metadata['filename'] ?? '' ) );
+        if ( $owner_username === '' || $year === '' || $month === '' || $filename === '' ) {
+            throw new \InvalidArgumentException( 'Invalid media metadata location.' );
+        }
+
+        $metadata_path = $this->buildMetadataPath( $owner_username, $year, $month, $filename );
+        if ( is_file( $metadata_path ) && ! @ unlink( $metadata_path ) ) {
+            throw new \RuntimeException( 'Unable to delete media metadata.' );
+        }
+
+        $this->invalidatePersistentCache();
+        return( true );
+    }
+
     public function adoptSessionMetadataToDraft( array $owner_usernames, string $attachment_session_id, string $draft_id, string $entry_id = '' ) : int {
         $attachment_session_id = $this->normalizeAttachmentSessionId( $attachment_session_id );
         $draft_id = trim( $draft_id );

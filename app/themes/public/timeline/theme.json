@@ -92,6 +92,17 @@
             "help": "Bounds the main public content area using tinymash width presets instead of free-form pixel values."
         },
         {
+            "key": "publication_title_style",
+            "label": "Publication title style",
+            "type": "select",
+            "default": "sans-serif",
+            "options": [
+                { "value": "serif", "label": "Serif" },
+                { "value": "sans-serif", "label": "Sans-serif" }
+            ],
+            "help": "Controls the type style for site identity and publication titles. Body text, navigation and controls remain sans-serif."
+        },
+        {
             "key": "show_search",
             "label": "Public search",
             "type": "select",

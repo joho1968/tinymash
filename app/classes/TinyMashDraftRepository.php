@@ -404,7 +404,7 @@ class TinyMashDraftRepository {
                 'seo_robots' => $this->normalizeSeoRobots( (string) ( $draft_data['seo_robots'] ?? '' ) ),
                 'seo_exclude_from_sitemap' => $this->toBool( $draft_data['seo_exclude_from_sitemap'] ?? false ),
                 'content' => (string) ( $draft_data['content'] ?? '' ),
-                'parent_slug' => $entry_type === 'page' ? $this->normalizePathPart( (string) ( $draft_data['parent_slug'] ?? '' ) ) : '',
+                'parent_slug' => $entry_type === 'page' ? $this->normalizePathPart( basename( str_replace( '\\', '/', (string) ( $draft_data['parent_slug'] ?? '' ) ) ) ) : '',
                 'sort_order' => (int) ( $draft_data['sort_order'] ?? 0 ),
                 'aggregate_to_root' => $entry_type === 'post' ? $this->toBool( $draft_data['aggregate_to_root'] ?? true ) : false,
                 'sticky' => $this->toBool( $draft_data['sticky'] ?? false ),

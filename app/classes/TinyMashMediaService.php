@@ -791,6 +791,57 @@ class TinyMashMediaService {
         return( $this->metadata_store->assignMetadataToContent( $media_id, $owner_usernames, $entry_id, $draft_id, $attachment_session_id ) );
     }
 
+    public function deleteAttachmentByMediaId( string $media_id, array $owner_usernames = [] ) : array {
+        if ( ! $this->metadata_store instanceof TinyMashMediaAttachmentMetadataStore ) {
+            throw new \RuntimeException( 'Media metadata storage is not available.' );
+        }
+
+        $metadata = $this->metadata_store->getMetadataByMediaId( trim( $media_id ), $owner_usernames );
+        if ( ! is_array( $metadata ) ) {
+            return( [ 'deleted' => false, 'reason' => 'not_found', 'removed_files' => 0 ] );
+        }
+
+        $asset_filenames = [ (string) ( $metadata['filename'] ?? '' ) ];
+        foreach ( [ 'thumbnail', 'display' ] as $derivative_key ) {
+            $derivative = is_array( $metadata[$derivative_key] ?? null ) ? $metadata[$derivative_key] : [];
+            if ( ! empty( $derivative['filename'] ) ) {
+                $asset_filenames[] = (string) $derivative['filename'];
+            }
+        }
+
+        $asset_paths = [];
+        foreach ( array_unique( $asset_filenames ) as $asset_filename ) {
+            $asset_path = $this->buildStoredAssetPathFromMetadata( $metadata, $asset_filename );
+            if ( $asset_path !== '' ) {
+                $asset_paths[] = $asset_path;
+            }
+        }
+        if ( empty( $asset_paths ) ) {
+            throw new \RuntimeException( 'Media asset paths could not be resolved safely.' );
+        }
+
+        $removed_files = 0;
+        foreach ( $asset_paths as $asset_path ) {
+            if ( is_file( $asset_path ) ) {
+                if ( ! @ unlink( $asset_path ) ) {
+                    throw new \RuntimeException( 'Unable to delete stored media file.' );
+                }
+                $removed_files++;
+            }
+        }
+
+        $this->metadata_store->deleteMetadata( $metadata );
+        return(
+            [
+                'deleted' => true,
+                'reason' => '',
+                'removed_files' => $removed_files,
+                'media_id' => (string) ( $metadata['media_id'] ?? '' ),
+                'url' => (string) ( $metadata['url'] ?? '' ),
+            ]
+        );
+    }
+
     public function adoptSessionAttachmentsToDraft( array $owner_usernames, string $attachment_session_id, string $draft_id, string $entry_id = '' ) : int {
         if ( ! $this->metadata_store instanceof TinyMashMediaAttachmentMetadataStore ) {
             return( 0 );
@@ -813,6 +864,32 @@ class TinyMashMediaService {
         }
 
         return( $metadata );
+    }
+
+    protected function buildStoredAssetPathFromMetadata( array $metadata, string $filename ) : string {
+        $owner_username = $this->normalizeOwnerUsername( (string) ( $metadata['owner_username'] ?? '' ) );
+        $year = trim( (string) ( $metadata['year'] ?? '' ) );
+        $month = trim( (string) ( $metadata['month'] ?? '' ) );
+        $filename = trim( $filename );
+        if (
+            $owner_username === ''
+            || preg_match( '/^\d{4}$/', $year ) !== 1
+            || preg_match( '/^\d{2}$/', $month ) !== 1
+            || $filename === ''
+            || basename( $filename ) !== $filename
+            || str_contains( $filename, '\\' )
+            || in_array( $filename, [ '.', '..' ], true )
+        ) {
+            return( '' );
+        }
+
+        return(
+            $this->media_root
+            . DIRECTORY_SEPARATOR . $owner_username
+            . DIRECTORY_SEPARATOR . $year
+            . DIRECTORY_SEPARATOR . $month
+            . DIRECTORY_SEPARATOR . $filename
+        );
     }
 
     protected function ensureAttachmentThumbnail( array $metadata ) : array {

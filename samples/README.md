@@ -5,7 +5,7 @@ This directory holds public sample files that are safe to ship with deploy build
 ## Included
 
 - `server/`
-  Web-server and PHP-FPM examples
+  Web-server, PHP-FPM, OPcache, and logrotate examples
 - `cron/`
   Scheduler examples
 - `deploy/`

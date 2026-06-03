@@ -151,6 +151,7 @@
         {/if}
     </head>
     <body class="d-flex flex-column min-vh-100 {$theme_body_classes ?? ''}">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
         <script>
             (() => {
                 'use strict';
@@ -277,8 +278,14 @@
 
         {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
         {var $theme_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_sidebar_enabled )}
-        {var $theme_sidebar_rendered = $theme_sidebar_visible && ( ! empty( $theme_page_structure ) || ! empty( $theme_sidebar_menu ) )}
-        {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || ! empty( $theme_page_structure ) )}
+        {var $theme_page_navigation_enabled = ($theme_settings['page_sidebar_style'] ?? 'flat') !== 'disabled'}
+        {var $theme_page_navigation_position = ($theme_settings['page_navigation_position'] ?? 'opposite_sidebar') === 'identity_panel' ? 'identity_panel' : 'opposite_sidebar'}
+        {var $theme_has_page_navigation = $theme_page_navigation_enabled && ! empty( $theme_page_structure )}
+        {var $theme_identity_page_navigation = $theme_page_navigation_position === 'identity_panel' && $theme_has_page_navigation}
+        {var $theme_sidebar_page_navigation = $theme_page_navigation_position !== 'identity_panel' && $theme_has_page_navigation}
+        {var $theme_plugin_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_public_sidebar_fragments ) && ($theme_settings['secondary_sidebar'] ?? 'enabled') !== 'disabled'}
+        {var $theme_sidebar_rendered = ( $theme_sidebar_visible && ( $theme_sidebar_page_navigation || ! empty( $theme_sidebar_menu ) ) ) || $theme_plugin_sidebar_visible}
+        {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || $theme_has_page_navigation || $theme_plugin_sidebar_visible )}
         {var $theme_author_space_slug = ''}
         {if ! empty( $author_slug )}
             {var $theme_author_space_slug = (string) $author_slug}
@@ -357,19 +364,24 @@
                             </div>
                         </div>
                     </div>
-                    {if ! empty( $theme_navigation_menu )}
-                        <nav class="d-none d-xl-flex flex-wrap gap-2 tm-baseline-header-nav" aria-label="Primary">
+                    <div n:if="! empty( $theme_navigation_menu ) || $theme_identity_page_navigation" class="d-none d-xl-grid gap-3 tm-baseline-header-navigation">
+                        <nav n:if="! empty( $theme_navigation_menu )" class="d-flex flex-wrap gap-2 tm-baseline-header-nav" aria-label="Primary">
                             {foreach $theme_navigation_menu as $page}
                                 {if ! empty( $page['is_separator'] )}
                                     <div class="vr align-self-center opacity-50" aria-hidden="true"></div>
                                 {elseif ! empty( $page['children'] )}
-                                    <div class="dropdown">
-                                        <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                            {$page['title']}
-                                        </button>
+                                    <div n:class="'dropdown tm-header-nav-parent', ($page['url'] ?? '') !== '#' && trim((string) ($page['url'] ?? '')) !== '' ? 'btn-group'">
+                                        {if ($page['url'] ?? '') !== '#' && trim((string) ($page['url'] ?? '')) !== ''}
+                                            <a n:class="'btn btn-outline-secondary btn-sm', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" href="{$page['url']}" n:attr="target => !empty($page['target']) ? $page['target'] : null, rel => !empty($page['rel']) ? $page['rel'] : null, aria-current => ! empty($page['is_current']) ? 'page' : null">{$page['title']}</a>
+                                            <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Show submenu for {$page['title']}">
+                                                <span class="visually-hidden">Show submenu for {$page['title']}</span>
+                                            </button>
+                                        {else}
+                                            <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                {$page['title']}
+                                            </button>
+                                        {/if}
                                         <ul class="dropdown-menu">
-                                            <li><a n:class="'dropdown-item fw-semibold', ! empty($page['is_current']) ? 'active'" href="{$page['url']}" n:attr="target => !empty($page['target']) ? $page['target'] : null, rel => !empty($page['rel']) ? $page['rel'] : null, aria-current => ! empty($page['is_current']) ? 'page' : null">{$page['title']}</a></li>
-                                            <li><hr class="dropdown-divider"></li>
                                             {include './partials/navigation-menu-items.latte', items: $page['children'], level: 2}
                                         </ul>
                                     </div>
@@ -378,7 +390,11 @@
                                 {/if}
                             {/foreach}
                         </nav>
-                    {/if}
+                        <nav n:if="$theme_identity_page_navigation" class="d-grid gap-2 tm-panel-page-navigation" aria-label="Pages">
+                            <div class="small text-uppercase text-body-secondary">Pages</div>
+                            {include './partials/page-tree.latte', pages: $theme_page_structure, tree_style: 'flat'}
+                        </nav>
+                    </div>
                 </div>
             </div>
         </header>
@@ -409,31 +425,41 @@
                 {/if}
                 <section n:if="! empty( $theme_navigation_menu )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                     <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
-                    {include './partials/menu-tree.latte', items: $theme_navigation_menu}
+                    {include './partials/menu-tree.latte', items: $theme_navigation_menu, menu_tree_collapsible: true, menu_tree_prefix: 'tm-mobile-primary'}
                 </section>
                 <section n:if="! empty( $theme_sidebar_menu )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                     <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
-                    {include './partials/menu-tree.latte', items: $theme_sidebar_menu}
+                    {include './partials/menu-tree.latte', items: $theme_sidebar_menu, menu_tree_collapsible: true, menu_tree_prefix: 'tm-mobile-sidebar'}
                 </section>
-                <section n:if="! empty( $theme_page_structure )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                <section n:if="$theme_has_page_navigation" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                     {include './partials/page-tree.latte', pages: $theme_page_structure, tree_style: $theme_settings['page_sidebar_style'] ?? 'flat'}
+                </section>
+                <section n:if="$theme_plugin_sidebar_visible" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                    {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
+                        <div n:if="! empty( $theme_public_sidebar_fragment['html'] )">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                    {/foreach}
                 </section>
             </div>
         </div>
 
         <div n:class="$theme_content_container_class ?? 'container-fluid', $theme_content_width_class ?? 'tm-content-width-default', 'py-4', 'flex-grow-1'">
             <div class="row g-4">
-                <main n:class="$theme_sidebar_rendered ? 'col-12 col-xl-8' : 'col-12'">
+                <main id="tm-main-content" tabindex="-1" n:class="$theme_sidebar_rendered ? 'col-12 col-xl-8' : 'col-12'">
                     {block content}{/block}
                 </main>
-                <aside n:if="$theme_sidebar_rendered" class="d-none d-xl-block col-xl-4">
-                    <div class="d-grid gap-4">
+                <aside n:if="$theme_sidebar_rendered" class="d-none d-xl-block col-xl-4 tm-baseline-sidebar">
+                    <div class="d-grid gap-4 tm-baseline-sidebar-content">
                         <section n:if="! empty( $theme_sidebar_menu )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                             <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
                             {include './partials/menu-tree.latte', items: $theme_sidebar_menu}
                         </section>
-                        <section n:if="! empty( $theme_page_structure )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                        <section n:if="$theme_sidebar_page_navigation" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                             {include './partials/page-tree.latte', pages: $theme_page_structure, tree_style: $theme_settings['page_sidebar_style'] ?? 'flat'}
+                        </section>
+                        <section n:if="$theme_plugin_sidebar_visible" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                            {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
+                                <div n:if="! empty( $theme_public_sidebar_fragment['html'] )">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                            {/foreach}
                         </section>
                     </div>
                 </aside>

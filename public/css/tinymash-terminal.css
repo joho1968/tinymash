@@ -4,6 +4,21 @@ body {
     padding: 0;
 }
 
+.tm-skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 1100;
+    padding: 0.5rem 0.75rem;
+    color: var(--tm-link);
+    background: var(--tm-panel-strong);
+    border: 1px solid var(--tm-border);
+    transform: translateY(-200%);
+}
+.tm-skip-link:focus {
+    transform: translateY(0);
+}
+
 body.tm-terminal-shell {
     --tm-font: var(--bs-font-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
     --tm-bg: #08110c;

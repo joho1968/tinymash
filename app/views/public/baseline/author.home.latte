@@ -4,7 +4,7 @@
     <section class="d-grid gap-4">
         <div n:if="! empty( $listing_context_title ) || ! empty( $listing_context_summary )">
             {if ! empty( $listing_context_title ) }
-                <h3 class="h5 mb-0">{$listing_context_title}</h3>
+                <h3 class="h5 mb-0 tm-baseline-publication-title">{$listing_context_title}</h3>
             {/if}
             {if ! empty( $listing_context_summary ) }
                 <p class="small text-secondary mb-0 mt-2">{$listing_context_summary}</p>
@@ -18,7 +18,7 @@
             {foreach $posts as $entry}
                 <article class="p-4 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                        <h4 class="h6 mb-0"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h4>
+                        <h4 class="h6 mb-0 tm-baseline-publication-title"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h4>
                         {if ! empty( $entry['sticky'] )}
                             <span class="badge text-bg-warning">Sticky</span>
                         {/if}
