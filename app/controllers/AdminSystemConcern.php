@@ -943,6 +943,7 @@ trait AdminSystemConcern {
             'system_admin_theme_description' => (string) ( $admin_theme_info['description'] ?? '' ),
             'system_admin_theme_version' => (string) ( $admin_theme_info['version'] ?? '' ),
             'system_registered_plugins' => $this->getSystemRegisteredPlugins(),
+            'system_plugin_diagnostics' => $this->getSystemPluginDiagnostics(),
             'system_registered_shortcodes' => $this->getSystemRegisteredShortcodes(),
             'system_registered_plugin_capabilities' => $this->getSystemRegisteredPluginCapabilities(),
             'system_plugin_settings_sections' => $this->getSystemPluginSettingsSections(),

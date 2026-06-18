@@ -173,7 +173,7 @@ $theme_registry = new app\classes\TinyMashThemeRegistry(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'public'
 );
 $theme = new app\classes\TinyMashTheme( $app, $content_repository, $config, $theme_registry, $theme_support_registry, $user_repository, $menu_service );
-$admin_theme = new app\classes\TinyMashAdminTheme( 'baseline', $theme_registry );
+$admin_theme = new app\classes\TinyMashAdminTheme( 'baseline', $theme_registry, $config );
 $help_catalog = new app\classes\TinyMashHelpCatalog(
     dirname( __FILE__, 2 ) . DIRECTORY_SEPARATOR . 'help',
     'en'

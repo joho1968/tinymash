@@ -139,6 +139,22 @@ $app->map('notFound', function () use ( $router, $app ) {
     $app->view()->render('404.latte', ['title' => 'Page not found']);
 });
 
+$router->get('/favicon.ico', function() use ( $app, $config ) {
+    $favicon = is_object( $config ) && method_exists( $config, 'getSiteFaviconIcoImage' )
+        ? (array) $config->getSiteFaviconIcoImage()
+        : [];
+    $favicon_url = trim( (string) ( $favicon['url'] ?? '' ) );
+    if ( $favicon_url === '' ) {
+        $favicon_url = '/assets/tinymash/identity/favicon_ico.ico';
+    }
+    if ( ! str_starts_with( $favicon_url, '/' ) ) {
+        $favicon_url = '/assets/tinymash/identity/favicon_ico.ico';
+    }
+
+    $app->response()->status( 302 );
+    header( 'Location: ' . $favicon_url, true, 302 );
+});
+
 // login
 $router->post( $config->configGetLoginURL(), function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config );

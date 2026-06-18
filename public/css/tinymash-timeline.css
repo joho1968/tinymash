@@ -245,6 +245,14 @@ body {
     text-align: center;
 }
 
+.tm-timeline-footer-fragment .tm-social-section-label {
+    text-align: center;
+}
+
+.tm-timeline-footer-fragment .tm-social-links-icons .tm-social-links-list {
+    justify-content: center;
+}
+
 .tm-timeline-footer-fragment > :last-child,
 .tm-timeline-footer-fragment p:last-child {
     margin-bottom: 0;

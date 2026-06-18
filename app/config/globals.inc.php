@@ -1,7 +1,7 @@
 <?php
 
 const APP_NAME          = 'tinymash';
-const APP_VERSION       = '0.91.0';
+const APP_VERSION       = '0.92.0';
 const APP_TITLE_SEP     = ' - ';
 const APP_ROOT_PATH     = __DIR__ . '/..';
 const APP_VIEWS_PATH    = APP_ROOT_PATH . '/views';

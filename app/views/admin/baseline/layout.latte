@@ -6,7 +6,7 @@
 {var $entries_url = (string) ($entries_url ?? (($admin_url ?? '/admin') . '/content'))}
 {var $admin_theme_name = (string) ($admin_theme_name ?? 'Baseline Admin')}
 {var $admin_theme_css_urls = is_array($admin_theme_css_urls ?? null) ? $admin_theme_css_urls : ['/ext/bs/css/bootstrap.min.css', '/ext/bsi/bootstrap-icons.min.css', '/css/tinymash.css']}
-{var $admin_theme_js_urls = is_array($admin_theme_js_urls ?? null) ? $admin_theme_js_urls : ['/ext/bs/js/bootstrap.bundle.min.js']}
+{var $admin_theme_js_urls = is_array($admin_theme_js_urls ?? null) ? $admin_theme_js_urls : ['/ext/bs/js/bootstrap.bundle.min.js', '/ext/sortablejs/sortable.min.js']}
 {var $admin_theme_slot_head_extra = (string) ($admin_theme_slot_head_extra ?? '')}
 {var $admin_theme_slot_topbar_actions = (string) ($admin_theme_slot_topbar_actions ?? '')}
 {var $screen_mode_cookie_name = (string) ($screen_mode_cookie_name ?? 'tinymashScreen')}

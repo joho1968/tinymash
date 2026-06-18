@@ -1,7 +1,7 @@
 {
     "key": "downloads",
     "name": "Downloads",
-    "version": "0.90.0",
+    "version": "0.92.0",
     "description": "Creates managed download folders with routed file downloads.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

@@ -121,8 +121,9 @@ class TinyMashSearchService {
 
         $items = is_array( $search_results['items'] ?? null ) ? $search_results['items'] : [];
         $results['items'] = $items;
-        $results['rendered_items'] = $this->decorateRenderedEntriesWithTagLinks(
-            $this->content_renderer->renderEntrySummaries( $items, $this->theme )
+        $results['rendered_items'] = $this->decorateRenderedEntriesForSearch(
+            $this->content_renderer->renderEntrySummaries( $items, $this->theme ),
+            $query
         );
         $results['pagination'] = $this->buildPagination(
             is_array( $search_results['pagination'] ?? null ) ? $search_results['pagination'] : [],
@@ -178,6 +179,61 @@ class TinyMashSearchService {
         return( strlen( $query ) );
     }
 
+    public function highlightHtmlForQuery( string $html, string $query ) : string {
+        $terms = $this->normalizeHighlightTerms( $query );
+        if ( $html === '' || $terms === [] ) {
+            return( $html );
+        }
+
+        $patterns = [];
+        foreach ( $terms as $term_data ) {
+            $term = (string) ( $term_data['term'] ?? '' );
+            if ( $term === '' ) {
+                continue;
+            }
+
+            if ( ! empty( $term_data['hash_prefixed'] ) ) {
+                $patterns[] = '(?<![\p{L}\p{N}])#' . preg_quote( $term, '/' ) . '(?![\p{L}\p{N}])';
+                continue;
+            }
+
+            if ( preg_match( '/^\d+$/', $term ) === 1 ) {
+                $patterns[] = '(?<![\p{L}\p{N}.])' . preg_quote( $term, '/' ) . '(?![\p{L}\p{N}.])';
+                continue;
+            }
+
+            $patterns[] = preg_quote( $term, '/' );
+        }
+
+        if ( $patterns === [] ) {
+            return( $html );
+        }
+
+        $pattern = '/(?:' . implode( '|', $patterns ) . ')/iu';
+        $parts = preg_split( '/(<[^>]+>)/u', $html, -1, PREG_SPLIT_DELIM_CAPTURE );
+        if ( ! is_array( $parts ) ) {
+            return( $html );
+        }
+
+        $highlighted = '';
+        $skip_stack = [];
+        foreach ( $parts as $part ) {
+            if ( $part === '' ) {
+                continue;
+            }
+
+            if ( str_starts_with( $part, '<' ) && str_ends_with( $part, '>' ) ) {
+                $this->updateHighlightSkipStack( $part, $skip_stack );
+                $highlighted .= $part;
+                continue;
+            }
+
+            $highlighted .= $skip_stack === [] ? $this->highlightTextSegment( $part, $pattern ) : $part;
+        }
+
+        return( $highlighted );
+    }
+
     protected function buildPagination( array $pagination, string $query, string $author_slug = '' ) : array {
         $current_page = max( 1, (int) ( $pagination['current_page'] ?? 1 ) );
         $total_pages = max( 1, (int) ( $pagination['total_pages'] ?? 1 ) );
@@ -210,7 +266,7 @@ class TinyMashSearchService {
         );
     }
 
-    protected function decorateRenderedEntriesWithTagLinks( array $entries ) : array {
+    protected function decorateRenderedEntriesForSearch( array $entries, string $query ) : array {
         $decorated_entries = [];
         foreach ( $entries as $entry ) {
             if ( ! is_array( $entry ) ) {
@@ -237,10 +293,109 @@ class TinyMashSearchService {
             }
 
             $entry['tag_links'] = $tag_links;
+            $entry['title_html'] = $this->highlightHtmlForQuery( (string) ( $entry['title_html'] ?? '' ), $query );
+            $entry['summary_html'] = $this->highlightHtmlForQuery( (string) ( $entry['summary_html'] ?? '' ), $query );
             $decorated_entries[] = $entry;
         }
 
         return( $decorated_entries );
+    }
+
+    protected function normalizeHighlightTerms( string $query ) : array {
+        $query = $this->resolveQuery( [ 'q' => $query ] );
+        $query = function_exists( 'mb_strtolower' ) ? mb_strtolower( $query, 'UTF-8' ) : strtolower( $query );
+        $terms = preg_split( '/\s+/u', $query, -1, PREG_SPLIT_NO_EMPTY );
+        if ( ! is_array( $terms ) ) {
+            return( [] );
+        }
+
+        $normalized_terms = [];
+        foreach ( $terms as $term ) {
+            $term = function_exists( 'mb_trim' ) ? mb_trim( $term ) : trim( $term );
+            $term = preg_replace( '/^[^\p{L}\p{N}#]+|[^\p{L}\p{N}]+$/u', '', $term ) ?? $term;
+            if ( $this->getQueryLength( $term ) < self::MIN_QUERY_LENGTH ) {
+                continue;
+            }
+
+            $hash_prefixed = str_starts_with( $term, '#' );
+            $term = ltrim( $term, '#' );
+            $term = preg_replace( '/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $term ) ?? $term;
+            if ( $term === '' ) {
+                continue;
+            }
+
+            $term = function_exists( 'mb_strtolower' ) ? mb_strtolower( $term, 'UTF-8' ) : strtolower( $term );
+            $normalized_terms[( ! empty( $hash_prefixed ) ? '#' : '' ) . $term] = [
+                'term' => $term,
+                'hash_prefixed' => $hash_prefixed,
+            ];
+        }
+
+        uasort(
+            $normalized_terms,
+            static function( array $left, array $right ) : int {
+                $left_term = (string) ( $left['term'] ?? '' );
+                $right_term = (string) ( $right['term'] ?? '' );
+                return( strlen( $right_term ) <=> strlen( $left_term ) );
+            }
+        );
+
+        return( array_values( $normalized_terms ) );
+    }
+
+    protected function updateHighlightSkipStack( string $tag, array &$skip_stack ) : void {
+        if ( preg_match( '/^<\s*\/\s*([a-z0-9:-]+)/i', $tag, $matches ) === 1 ) {
+            $tag_name = strtolower( (string) ( $matches[1] ?? '' ) );
+            for ( $index = count( $skip_stack ) - 1; $index >= 0; $index-- ) {
+                if ( $skip_stack[$index] === $tag_name ) {
+                    array_splice( $skip_stack, $index, 1 );
+                    break;
+                }
+            }
+            return;
+        }
+
+        if ( preg_match( '/^<\s*([a-z0-9:-]+)/i', $tag, $matches ) !== 1 ) {
+            return;
+        }
+
+        if ( str_ends_with( trim( $tag ), '/>' ) ) {
+            return;
+        }
+
+        $tag_name = strtolower( (string) ( $matches[1] ?? '' ) );
+        if ( in_array( $tag_name, [ 'a', 'code', 'kbd', 'pre', 'samp', 'script', 'style' ], true ) ) {
+            $skip_stack[] = $tag_name;
+        }
+    }
+
+    protected function highlightTextSegment( string $text, string $pattern ) : string {
+        $parts = preg_split( '/(&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);)/iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE );
+        if ( ! is_array( $parts ) ) {
+            return( $text );
+        }
+
+        $highlighted = '';
+        foreach ( $parts as $part ) {
+            if ( $part === '' ) {
+                continue;
+            }
+
+            if ( preg_match( '/^&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);$/iu', $part ) === 1 ) {
+                $highlighted .= $part;
+                continue;
+            }
+
+            $highlighted .= preg_replace_callback(
+                $pattern,
+                static function( array $matches ) : string {
+                    return( '<mark class="tm-search-highlight">' . htmlspecialchars( (string) ( $matches[0] ?? '' ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</mark>' );
+                },
+                $part
+            ) ?? $part;
+        }
+
+        return( $highlighted );
     }
 
     protected function buildTagUrl( string $tag, string $scope = 'root', string $author_slug = '' ) : string {

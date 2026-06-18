@@ -292,6 +292,186 @@
                     field.dispatchEvent(new Event('change', { bubbles: true }));
                     field.focus();
                 }
+                function setupReorderList(list) {
+                    if (!(list instanceof HTMLElement) || list.getAttribute('data-tm-reorder-initialized') === '1') {
+                        return;
+                    }
+                    list.setAttribute('data-tm-reorder-initialized', '1');
+                    const itemSelector = '[data-tm-reorder-item]';
+                    const fieldSelector = '[data-tm-reorder-field]';
+                    let activeDrag = null;
+                    const items = () => Array.from(list.querySelectorAll(itemSelector))
+                        .filter((item) => item instanceof HTMLElement && item.closest('[data-tm-reorder-list]') === list);
+                    const itemForTarget = (target) => target instanceof Element ? target.closest(itemSelector) : null;
+                    const pointFromEvent = (event) => {
+                        const point = event && event.touches && event.touches.length > 0 ? event.touches[0] : event;
+                        if (!point || typeof point.clientX !== 'number' || typeof point.clientY !== 'number') {
+                            return null;
+                        }
+                        return { x: point.clientX, y: point.clientY };
+                    };
+                    const sortableThreshold = () => {
+                        const value = Number.parseFloat(list.getAttribute('data-tm-reorder-swap-threshold') || '0.65');
+                        if (!Number.isFinite(value) || value <= 0 || value > 1) {
+                            return 0.65;
+                        }
+                        return value;
+                    };
+                    const sortableInvertedThreshold = () => {
+                        const value = Number.parseFloat(list.getAttribute('data-tm-reorder-inverted-swap-threshold') || '1');
+                        if (!Number.isFinite(value) || value <= 0 || value > 1) {
+                            return 1;
+                        }
+                        return value;
+                    };
+                    const sortableDirection = (event, target, dragElement) => {
+                        if (!(target instanceof HTMLElement) || !(dragElement instanceof HTMLElement)) {
+                            return 'vertical';
+                        }
+                        const targetRect = target.getBoundingClientRect();
+                        const dragRect = dragElement.getBoundingClientRect();
+                        const targetCenterY = targetRect.top + targetRect.height / 2;
+                        const dragCenterY = dragRect.top + dragRect.height / 2;
+                        const sameRowTolerance = Math.min(targetRect.height, dragRect.height) * 0.6;
+                        return Math.abs(targetCenterY - dragCenterY) <= sameRowTolerance ? 'horizontal' : 'vertical';
+                    };
+                    const sortableMove = (event) => {
+                        const target = event && event.related instanceof HTMLElement ? event.related : null;
+                        const dragElement = event && event.dragged instanceof HTMLElement ? event.dragged : null;
+                        if (!(target instanceof HTMLElement) || !(dragElement instanceof HTMLElement)) {
+                            return true;
+                        }
+                        if (sortableDirection(event.originalEvent || event, target, dragElement) !== 'horizontal') {
+                            return true;
+                        }
+                        const currentItems = items();
+                        const from = currentItems.indexOf(dragElement);
+                        const to = currentItems.indexOf(target);
+                        if (from === -1 || to === -1 || from === to) {
+                            return true;
+                        }
+                        return from > to ? -1 : 1;
+                    };
+                    const sameRowPointerAssist = (event) => {
+                        if (!(activeDrag instanceof HTMLElement)) {
+                            return;
+                        }
+                        const point = pointFromEvent(event);
+                        if (!point) {
+                            return;
+                        }
+                        const stack = typeof document.elementsFromPoint === 'function' ? document.elementsFromPoint(point.x, point.y) : [];
+                        const target = stack
+                            .map((element) => itemForTarget(element))
+                            .find((item) => item instanceof HTMLElement && item !== activeDrag && item.closest('[data-tm-reorder-list]') === list);
+                        if (!(target instanceof HTMLElement) || sortableDirection(event, target, activeDrag) !== 'horizontal') {
+                            return;
+                        }
+                        const currentItems = items();
+                        const from = currentItems.indexOf(activeDrag);
+                        const to = currentItems.indexOf(target);
+                        if (from === -1 || to === -1 || from === to) {
+                            return;
+                        }
+                        const targetRect = target.getBoundingClientRect();
+                        if (from > to && point.x < targetRect.right) {
+                            list.insertBefore(activeDrag, target);
+                            update();
+                        } else if (from < to && point.x > targetRect.left) {
+                            list.insertBefore(activeDrag, target.nextElementSibling);
+                            update();
+                        }
+                    };
+                    const bindPointerAssist = () => {
+                        document.addEventListener('mousemove', sameRowPointerAssist);
+                        document.addEventListener('pointermove', sameRowPointerAssist);
+                        document.addEventListener('touchmove', sameRowPointerAssist, { passive: true });
+                    };
+                    const unbindPointerAssist = () => {
+                        document.removeEventListener('mousemove', sameRowPointerAssist);
+                        document.removeEventListener('pointermove', sameRowPointerAssist);
+                        document.removeEventListener('touchmove', sameRowPointerAssist);
+                    };
+                    const update = () => {
+                        const base = list.getAttribute('data-tm-reorder-name') || '';
+                        const idPrefix = list.getAttribute('data-tm-reorder-id-prefix') || 'tm-reorder-item';
+                        const currentItems = items();
+                        currentItems.forEach((item, index) => {
+                            item.querySelectorAll(fieldSelector).forEach((field) => {
+                                if (!(field instanceof HTMLElement)) {
+                                    return;
+                                }
+                                const name = field.getAttribute('data-tm-reorder-field') || '';
+                                if (base !== '' && name !== '') {
+                                    field.setAttribute('name', base + '[' + index + '][' + name + ']');
+                                    field.id = idPrefix + '-' + name + '-' + index;
+                                    const label = field.closest('.col-12,.col-sm-4,.col-sm-8,.mb-3,.form-check')?.querySelector('label');
+                                    if (label instanceof HTMLLabelElement) {
+                                        label.htmlFor = field.id;
+                                    }
+                                }
+                            });
+                            item.querySelectorAll('[data-tm-reorder-move]').forEach((button) => {
+                                if (!(button instanceof HTMLButtonElement)) {
+                                    return;
+                                }
+                                const direction = button.getAttribute('data-tm-reorder-move') || '';
+                                button.disabled = (direction === 'up' && index === 0) || (direction === 'down' && index === currentItems.length - 1);
+                            });
+                        });
+                    };
+                    const move = (item, direction) => {
+                        if (!(item instanceof HTMLElement)) {
+                            return;
+                        }
+                        if (direction === 'up' && item.previousElementSibling) {
+                            list.insertBefore(item, item.previousElementSibling);
+                        } else if (direction === 'down' && item.nextElementSibling) {
+                            list.insertBefore(item.nextElementSibling, item);
+                        }
+                        update();
+                    };
+
+                    list.addEventListener('click', (event) => {
+                        const button = event.target instanceof Element ? event.target.closest('[data-tm-reorder-move]') : null;
+                        if (!(button instanceof HTMLButtonElement)) {
+                            return;
+                        }
+                        move(itemForTarget(button), button.getAttribute('data-tm-reorder-move') || '');
+                    });
+                    if (typeof window.Sortable === 'function') {
+                        window.Sortable.create(list, {
+                            animation: 150,
+                            draggable: itemSelector,
+                            handle: '[data-tm-reorder-handle]',
+                            ghostClass: 'opacity-50',
+                            chosenClass: 'tm-reorder-chosen',
+                            dragClass: 'tm-reorder-drag',
+                            swapThreshold: sortableThreshold(),
+                            invertedSwapThreshold: sortableInvertedThreshold(),
+                            invertSwap: true,
+                            direction: sortableDirection,
+                            forceFallback: true,
+                            fallbackOnBody: true,
+                            fallbackTolerance: 3,
+                            onMove: sortableMove,
+                            onStart: (event) => {
+                                activeDrag = event && event.item instanceof HTMLElement ? event.item : null;
+                                bindPointerAssist();
+                            },
+                            onEnd: () => {
+                                unbindPointerAssist();
+                                activeDrag = null;
+                                update();
+                            },
+                            onSort: update,
+                        });
+                        list.setAttribute('data-tm-reorder-engine', 'sortablejs');
+                    } else {
+                        list.setAttribute('data-tm-reorder-engine', 'buttons');
+                    }
+                    update();
+                }
                 function escapeCssAttributeValue(value) {
                     if (window.CSS && typeof window.CSS.escape === 'function') {
                         return window.CSS.escape(value);
@@ -406,6 +586,9 @@
                         }
                         button.setAttribute('data-tm-reset-input-initialized', '1');
                         button.addEventListener('click', resetInputValue);
+                    });
+                    searchRoot.querySelectorAll('[data-tm-reorder-list]').forEach((list) => {
+                        setupReorderList(list);
                     });
                 }
                 function initializePersistentSectionNavs(root = document) {

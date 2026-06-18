@@ -968,7 +968,7 @@ class TinyMashWhatsUpService {
                 CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
                 CURLOPT_CONNECTTIMEOUT => 5,
                 CURLOPT_TIMEOUT => 15,
-                CURLOPT_USERAGENT => 'tinymash-whats-up/0.91.0',
+                CURLOPT_USERAGENT => 'tinymash-whats-up/' . APP_VERSION,
                 CURLOPT_HTTPHEADER => [ 'Accept: text/calendar, text/plain;q=0.8' ],
                 CURLOPT_RESOLVE => [ $host . ':443:' . $ip ],
                 CURLOPT_WRITEFUNCTION => static function( mixed $handle, string $chunk ) use ( &$body, &$too_large ) : int {

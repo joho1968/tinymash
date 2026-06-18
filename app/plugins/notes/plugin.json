@@ -1,7 +1,7 @@
 {
     "key": "notes",
     "name": "Notes",
-    "version": "0.90.0",
+    "version": "0.92.0",
     "description": "Adds a private per-user notebook in the admin area, with revision snapshots.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

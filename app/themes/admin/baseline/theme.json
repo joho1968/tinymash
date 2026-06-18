@@ -10,7 +10,8 @@
         "/css/tinymash.css"
     ],
     "js_urls": [
-        "/ext/bs/js/bootstrap.bundle.min.js"
+        "/ext/bs/js/bootstrap.bundle.min.js",
+        "/ext/sortablejs/sortable.min.js"
     ],
     "slots": {
         "head_extra": "slots/head-extra.latte",

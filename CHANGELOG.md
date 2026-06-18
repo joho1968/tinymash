@@ -2,6 +2,28 @@
 
 Notable changes in tinymash
 
+## 0.92.0 - 2026-06-18
+
+This should still be considered a beta version, albeit a reasonably stable beta version.
+
+### Changed
+
+- Composer save actions now use a split Save button with Save draft, Save and return, and Save and new options.
+- Plugin administration and CLI diagnostics now show plugin boot health and errors.
+- Plugin and theme manifests now report lightweight validation warnings in administration and plugin diagnostics.
+
+### Added
+
+- Font manager for local WOFF2/WOFF uploads, font families, generated `@font-face` CSS, and supported-theme role assignments.
+- Social site/profile link management with local icons and `[social]` shortcodes.
+- Weather plugin for cached Open-Meteo, MET Norway, and National Weather Service  current conditions and forecasts from named coordinate-based locations.
+
+### Fixed
+
+- Fediverse previews refresh when the Fediverse composer tab is selected, use Metadata Summary when present, and show clearer readiness badges.
+- Search results now highlight matched terms in titles and summaries.
+- What's Up remote calendar requests now identify with the current platform version instead of a stale plugin-specific version.
+
 ## 0.91.0 - 2026-06-03
 
 This should still be considered a beta version, albeit a reasonably stable beta version.

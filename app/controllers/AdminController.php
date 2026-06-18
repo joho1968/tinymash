@@ -607,6 +607,29 @@ class AdminController extends BaseController {
         return( is_array( $registered_capabilities ) ? $registered_capabilities : [] );
     }
 
+    protected function getSystemPluginDiagnostics() : array {
+        $plugins = $this->getPluginsService();
+        if ( $plugins === null || ! method_exists( $plugins, 'getPluginDiagnostics' ) ) {
+            return(
+                [
+                    'summary' => [
+                        'total' => 0,
+                        'active' => 0,
+                        'inactive' => 0,
+                        'booted' => 0,
+                        'ready' => 0,
+                        'error' => 0,
+                    ],
+                    'plugins' => [],
+                    'errors' => [],
+                ]
+            );
+        }
+
+        $diagnostics = $plugins->getPluginDiagnostics();
+        return( is_array( $diagnostics ) ? $diagnostics : [] );
+    }
+
     protected function normalizeSystemSettingsGroup( string $group ) : string {
         $group = strtolower( trim( $group ) );
         return( in_array( $group, [ 'site', 'security', 'content_media', 'media', 'locale', 'menus', 'themes', 'plugins', 'moderation', 'smtp', 'notifications' ], true ) ? $group : 'site' );

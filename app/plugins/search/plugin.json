@@ -1,7 +1,7 @@
 {
     "key": "search",
     "name": "Search",
-    "version": "0.90.0",
+    "version": "0.92.0",
     "description": "Adds public content search for root and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

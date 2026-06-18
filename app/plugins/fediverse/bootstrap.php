@@ -440,14 +440,23 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $message = trim( (string) ( $eligibility['message'] ?? 'Only published posts can be sent to the Fediverse.' ) );
                 $entry_type = strtolower( trim( (string) ( $draft['type'] ?? $draft['entry_type'] ?? 'post' ) ) );
                 $entry_status = strtolower( trim( (string) ( $draft['status'] ?? 'unpublished' ) ) );
-                $readiness_badge_class = match ( (string) ( $eligibility['state'] ?? 'blocked' ) ) {
-                    'ready' => 'text-bg-success',
-                    'warning' => 'text-bg-warning',
+                $readiness_state = (string) ( $eligibility['state'] ?? 'blocked' );
+                $readiness_reason = (string) ( $eligibility['reason'] ?? '' );
+                $readiness_badge_class = match ( true ) {
+                    $readiness_state === 'ready' => 'text-bg-success',
+                    $readiness_state === 'warning' => 'text-bg-warning',
+                    $readiness_reason === 'disabled' => 'text-bg-info',
+                    in_array( $readiness_reason, [ 'credentials', 'visibility' ], true ) => 'text-bg-danger',
                     default => 'text-bg-secondary',
                 };
-                $readiness_badge_text = match ( (string) ( $eligibility['state'] ?? 'blocked' ) ) {
-                    'ready' => 'Ready',
-                    'warning' => 'Ready with warnings',
+                $readiness_badge_text = match ( true ) {
+                    $readiness_state === 'ready' => 'Ready',
+                    $readiness_state === 'warning' => 'Ready with warnings',
+                    $readiness_reason === 'disabled' => 'Posting off',
+                    $readiness_reason === 'status' => 'Unpublished',
+                    $readiness_reason === 'entry_type' => 'Not a post',
+                    $readiness_reason === 'credentials' => 'Account missing',
+                    $readiness_reason === 'visibility' => 'Not public',
                     default => 'Will not post',
                 };
 
@@ -549,13 +558,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     . 'const csrfToken=editorRoot?String(editorRoot.dataset.csrfToken||""):"";'
                     . 'if(!editorRoot||!titleField||!summaryField||!markdownField||!entryTypeField||!statusField||!scopeField||!slugField||!postEnabledField||!linkBackField||!statusAlert||!statusText||!statusUrlWrap||!statusUrl||!readinessBadge||!previewField||!warningsList||!readinessMessage||!characterCount||!characterLimit||!linkBackState||!truncationState){return;}'
                     . 'let timer=null;let controller=null;'
-                    . 'function badge(state){if(state==="ready"){return["text-bg-success","Ready"];}if(state==="warning"){return["text-bg-warning","Ready with warnings"];}return["text-bg-secondary","Will not post"];}'
-                    . 'function render(payload){const preview=payload&&payload.preview&&typeof payload.preview==="object"?payload.preview:{};const warnings=Array.isArray(payload&&payload.warnings)?payload.warnings:[];const badgeState=badge(String(payload&&payload.state||"blocked"));const instanceUrl=String(payload&&payload.account_settings&&payload.account_settings.instance_url||"");const message=String(payload&&payload.message||"");const rawCount=Number.parseInt(preview.raw_character_count||0,10)||0;readinessBadge.className="badge "+badgeState[0];readinessBadge.textContent=badgeState[1];previewField.textContent=String(preview.status_text||"");characterCount.textContent=String(Number.parseInt(preview.character_count||0,10)||0)+" / "+String(Number.parseInt(preview.character_limit||500,10)||500);characterLimit.textContent=String(Number.parseInt(preview.character_limit||500,10)||500);linkBackState.textContent=preview.include_link_back?"Included":"Off";truncationState.textContent=preview.will_truncate?"Yes, from "+String(rawCount)+" characters":"No";readinessMessage.textContent=message;statusText.textContent=message;statusAlert.className="alert mb-0 "+(payload&&payload.eligible?"alert-success":"alert-secondary");statusUrl.textContent=instanceUrl;statusUrlWrap.classList.toggle("d-none",instanceUrl==="");if(warnings.length===0){warningsList.innerHTML="<li>No current rendering warnings.</li>";return;}warningsList.innerHTML=warnings.map((warning)=>"<li>"+String(warning).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+"</li>").join("");}'
+                    . 'function badge(state,reason){if(state==="ready"){return["text-bg-success","Ready"];}if(state==="warning"){return["text-bg-warning","Ready with warnings"];}if(reason==="disabled"){return["text-bg-info","Posting off"];}if(reason==="status"){return["text-bg-secondary","Unpublished"];}if(reason==="entry_type"){return["text-bg-secondary","Not a post"];}if(reason==="credentials"){return["text-bg-danger","Account missing"];}if(reason==="visibility"){return["text-bg-danger","Not public"];}return["text-bg-secondary","Will not post"];}'
+                    . 'function render(payload){const preview=payload&&payload.preview&&typeof payload.preview==="object"?payload.preview:{};const warnings=Array.isArray(payload&&payload.warnings)?payload.warnings:[];const badgeState=badge(String(payload&&payload.state||"blocked"),String(payload&&payload.reason||""));const instanceUrl=String(payload&&payload.account_settings&&payload.account_settings.instance_url||"");const message=String(payload&&payload.message||"");const rawCount=Number.parseInt(preview.raw_character_count||0,10)||0;readinessBadge.className="badge "+badgeState[0];readinessBadge.textContent=badgeState[1];previewField.textContent=String(preview.status_text||"");characterCount.textContent=String(Number.parseInt(preview.character_count||0,10)||0)+" / "+String(Number.parseInt(preview.character_limit||500,10)||500);characterLimit.textContent=String(Number.parseInt(preview.character_limit||500,10)||500);linkBackState.textContent=preview.include_link_back?"Included":"Off";truncationState.textContent=preview.will_truncate?"Yes, from "+String(rawCount)+" characters":"No";readinessMessage.textContent=message;statusText.textContent=message;statusAlert.className="alert mb-0 "+(payload&&payload.eligible?"alert-success":"alert-secondary");statusUrl.textContent=instanceUrl;statusUrlWrap.classList.toggle("d-none",instanceUrl==="");if(warnings.length===0){warningsList.innerHTML="<li>No current rendering warnings.</li>";return;}warningsList.innerHTML=warnings.map((warning)=>"<li>"+String(warning).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+"</li>").join("");}'
                     . 'function collect(){return{tinymash_csrf:csrfToken,title:String(titleField.value||""),summary:String(summaryField.value||""),content:String(markdownField.value||""),entry_type:String(entryTypeField.value||"post"),status:String(statusField.value||"unpublished"),scope:String(scopeField.value||"root"),author_slug:authorSlugField?String(authorSlugField.value||""):"",slug:String(slugField.value||""),tags:String(tagsField?tagsField.value||"":""),
 plugin_settings:{fediverse:{post_enabled:postEnabledField.checked?"1":"0",include_link_back:linkBackField.checked?"1":"0"}}};}'
                     . 'function schedule(){if(timer){window.clearTimeout(timer);}timer=window.setTimeout(refresh,250);}'
                     . 'async function refresh(){if(controller){controller.abort();}controller=new AbortController();try{const response=await fetch(String(root.dataset.readinessUrl||""),{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json","X-Requested-With":"XMLHttpRequest"},credentials:"same-origin",body:JSON.stringify(collect()),signal:controller.signal});const payload=await response.json().catch(()=>({}));if(!response.ok){throw new Error(String(payload&&payload.error||"Fediverse readiness check failed."));}render(payload);}catch(error){if(error&&error.name==="AbortError"){return;}readinessMessage.textContent=error&&error.message?error.message:"Fediverse readiness check failed.";}}'
                     . '[titleField,summaryField,markdownField,entryTypeField,statusField,scopeField,authorSlugField,slugField,tagsField,postEnabledField,linkBackField].forEach((field)=>{if(!field){return;}field.addEventListener("input",schedule);field.addEventListener("change",schedule);});'
+                    . 'document.addEventListener("tinymash:editor-plugin-pane-selected",(event)=>{const detail=event&&event.detail?event.detail:{};if(detail.plugin==="fediverse"||detail.plugin==="mastodon"||detail.mode==="plugin-fediverse"||detail.mode==="plugin-mastodon"||detail.pane&&detail.pane.contains(root)){refresh();}});'
                     . '})();</script>';
                 return( $html );
             },

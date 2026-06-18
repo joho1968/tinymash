@@ -274,6 +274,14 @@ html[data-bs-theme="dark"] .tm-blocks-card-cover-title {
     text-align: center;
 }
 
+.tm-blocks-footer-fragment .tm-social-section-label {
+    text-align: center;
+}
+
+.tm-blocks-footer-fragment .tm-social-links-icons .tm-social-links-list {
+    justify-content: center;
+}
+
 .tm-blocks-footer-fragment > :last-child,
 .tm-blocks-footer-fragment p:last-child {
     margin-bottom: 0;

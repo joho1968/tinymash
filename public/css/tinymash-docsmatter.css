@@ -140,6 +140,14 @@ body.tm-theme-docsmatter {
     text-align: center;
 }
 
+.tm-docsmatter-sidebar-footer-fragments .tm-social-section-label {
+    text-align: center;
+}
+
+.tm-docsmatter-sidebar-footer-fragments .tm-social-links-icons .tm-social-links-list {
+    justify-content: center;
+}
+
 .tm-docsmatter-sidebar-footer-fragments .plugin h2,
 .tm-docsmatter-sidebar-footer-fragments .plugin .h2,
 .tm-docsmatter-sidebar-footer-fragments .plugin .h3,

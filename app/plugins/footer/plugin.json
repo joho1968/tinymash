@@ -1,7 +1,7 @@
 {
     "key": "footer",
     "name": "Footer",
-    "version": "0.90.0",
+    "version": "0.92.0",
     "description": "Renders configurable footer text in public theme footer slots.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

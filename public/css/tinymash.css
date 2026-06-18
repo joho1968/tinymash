@@ -221,6 +221,10 @@ mark, .mark {
     color: #212529 !important;
     background-color: #fff3cd !important;
 }
+.tm-search-highlight {
+    border-radius: 0.15rem;
+    padding: 0 0.08em;
+}
 .tm-text-warning {
     color: var(--bs-orange) !important;
 }
@@ -878,6 +882,12 @@ a.tm-downloads-file-link:hover {
 }
 .tm-baseline-footer-fragment-lines > :only-child {
     text-align: center;
+}
+.tm-baseline-footer-fragment .tm-social-section-label {
+    text-align: center;
+}
+.tm-baseline-footer-fragment .tm-social-links-icons .tm-social-links-list {
+    justify-content: center;
 }
 .tm-baseline-footer-fragment > :last-child,
 .tm-baseline-footer-fragment p:last-child {

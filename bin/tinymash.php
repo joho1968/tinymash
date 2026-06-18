@@ -203,7 +203,7 @@ function commandIsReadOnlyForRootGuard(array $arguments): bool {
 
     $action = (string) ($arguments[1] ?? '');
     if ($command === 'system') {
-        return $action === 'status';
+        return in_array($action, ['status', 'plugins'], true);
     }
     if ($command === 'maintenance') {
         return $action === 'status';
@@ -309,6 +309,9 @@ Runtime
 
   system status
       show a small runtime summary
+
+  system plugins
+      show plugin boot diagnostics
 
   maintenance status
       show current maintenance mode
@@ -490,6 +493,63 @@ function printSystemStatus(): void {
         'Insecure TLS' => !empty($system_settings['public_cache_warm_insecure_tls']) ? 'on' : 'off',
         'Public URL check' => $public_url_check,
     ]);
+}
+
+function printSystemPluginDiagnostics(): void {
+    $runtime = buildCliRuntime(true);
+    $plugins = $runtime['plugins'] ?? null;
+    if (!$plugins instanceof TinyMashPlugins || !method_exists($plugins, 'getPluginDiagnostics')) {
+        fail('plugin runtime is unavailable');
+    }
+
+    $diagnostics = $plugins->getPluginDiagnostics();
+    $summary = is_array($diagnostics['summary'] ?? null) ? $diagnostics['summary'] : [];
+    $registered_plugins = is_array($diagnostics['plugins'] ?? null) ? $diagnostics['plugins'] : [];
+
+    printCliTitle('tinymash plugin diagnostics');
+    printCliSection('Summary');
+    printCliRows([
+        'Installed' => (int) ($summary['total'] ?? 0),
+        'Active' => (int) ($summary['active'] ?? 0),
+        'Inactive' => (int) ($summary['inactive'] ?? 0),
+        'Booted' => (int) ($summary['booted'] ?? 0),
+        'Ready' => (int) ($summary['ready'] ?? 0),
+        'Errors' => (int) ($summary['error'] ?? 0),
+        'Warnings' => (int) ($summary['warnings'] ?? 0),
+    ]);
+
+    printCliSection('Plugins');
+    if ($registered_plugins === []) {
+        fwrite(STDOUT, '  None' . PHP_EOL);
+        return;
+    }
+
+    foreach ($registered_plugins as $plugin) {
+        if (!is_array($plugin)) {
+            continue;
+        }
+        $key = (string) ($plugin['key'] ?? '');
+        $name = (string) ($plugin['name'] ?? $key);
+        $status = (string) ($plugin['boot_status_cli'] ?? $plugin['boot_status'] ?? 'unknown');
+        $stage = (string) ($plugin['stage'] ?? 'early');
+        $booted_stage = trim((string) ($plugin['booted_stage'] ?? ''));
+        $message = trim((string) ($plugin['boot_error'] ?? ''));
+        $warnings = is_array($plugin['manifest_warnings'] ?? null) ? $plugin['manifest_warnings'] : [];
+        $line = '  ' . $status . '  ' . $key . '  ' . $name . '  stage=' . $stage;
+        if ($booted_stage !== '') {
+            $line .= ' booted=' . $booted_stage;
+        }
+        if ($message !== '') {
+            $line .= '  error=' . $message;
+        }
+        if ($warnings !== []) {
+            $line .= '  warnings=' . count($warnings);
+        }
+        fwrite(STDOUT, $line . PHP_EOL);
+        foreach ($warnings as $warning) {
+            fwrite(STDOUT, '    warning: ' . trim((string) $warning) . PHP_EOL);
+        }
+    }
 }
 
 function printMaintenanceStatus(): void {
@@ -2152,11 +2212,15 @@ $command = array_shift($args);
 
 switch ($command) {
     case 'system':
-        if (($args[0] ?? '') !== 'status') {
-            fail('usage: tinymash system status');
+        if (($args[0] ?? '') === 'status') {
+            printSystemStatus();
+            exit(0);
         }
-        printSystemStatus();
-        exit(0);
+        if (($args[0] ?? '') === 'plugins') {
+            printSystemPluginDiagnostics();
+            exit(0);
+        }
+        fail('usage: tinymash system <status|plugins>');
 
     case 'maintenance':
         $action = $args[0] ?? '';

@@ -1,7 +1,7 @@
 {
     "key": "wordpress-import",
     "name": "WordPress Import",
-    "version": "0.90.0",
+    "version": "0.92.0",
     "description": "Imports posts and pages from a WordPress WXR export into an author space.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

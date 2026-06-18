@@ -18,15 +18,7 @@
 
         <section class="p-3 bg-body border rounded-3 shadow-sm">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <span class="badge {if ($selected_plugin['boot_status'] ?? '') === 'error'}text-bg-danger{elseif ! empty( $selected_plugin['active'] )}text-bg-success{else}text-bg-secondary{/if}">
-                    {if ($selected_plugin['boot_status'] ?? '') === 'error'}
-                        Error
-                    {elseif ! empty( $selected_plugin['active'] )}
-                        Active
-                    {else}
-                        Inactive
-                    {/if}
-                </span>
+                <span class="badge {$selected_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$selected_plugin['boot_status_label'] ?? 'Unknown'}</span>
                 <span class="small text-body-secondary font-monospace">{$selected_plugin_settings['plugin_key']}</span>
                 {if ! empty( $selected_plugin['version'] )}
                     <span class="small text-body-secondary">{$selected_plugin['version']}</span>
@@ -35,6 +27,9 @@
 
             <div class="small text-body-secondary d-flex flex-wrap gap-3 justify-content-between">
                 <div>Stage: <span class="text-body">{$selected_plugin['stage'] ?? 'early'}</span></div>
+                {if ! empty( $selected_plugin['booted_stage'] )}
+                    <div>Booted: <span class="text-body">{$selected_plugin['booted_stage']}</span></div>
+                {/if}
                 {if ! empty( $selected_plugin['author_name'] )}
                     <div>Author: <span class="text-body">{$selected_plugin['author_name']}</span></div>
                 {/if}
@@ -49,6 +44,16 @@
             {if ! empty( $selected_plugin['boot_error'] )}
                 <div class="alert alert-danger py-2 px-3 small mt-3 mb-0" role="alert">
                     {$selected_plugin['boot_error']}
+                </div>
+            {/if}
+            {if ! empty( $selected_plugin['manifest_warnings'] )}
+                <div class="alert alert-warning py-2 px-3 small mt-3 mb-0" role="alert">
+                    <div class="fw-semibold mb-1">Manifest warnings</div>
+                    <ul class="mb-0 ps-3">
+                        {foreach $selected_plugin['manifest_warnings'] as $plugin_manifest_warning}
+                            <li>{$plugin_manifest_warning}</li>
+                        {/foreach}
+                    </ul>
                 </div>
             {/if}
         </section>
@@ -128,21 +133,13 @@
         </form>
     {else}
         <div class="p-3 bg-body border rounded-3 shadow-sm">
-            {var $active_plugin_count = 0}
-            {var $inactive_plugin_count = 0}
-            {var $error_plugin_count = 0}
-            {foreach $system_registered_plugins as $registered_plugin_count_item}
-                {if is_array( $registered_plugin_count_item )}
-                    {if ($registered_plugin_count_item['boot_status'] ?? '') === 'error'}
-                        {var $error_plugin_count = $error_plugin_count + 1}
-                    {/if}
-                    {if ! empty( $registered_plugin_count_item['active'] )}
-                        {var $active_plugin_count = $active_plugin_count + 1}
-                    {else}
-                        {var $inactive_plugin_count = $inactive_plugin_count + 1}
-                    {/if}
-                {/if}
-            {/foreach}
+            {var $plugin_diagnostics_summary = $system_plugin_diagnostics['summary'] ?? []}
+            {var $plugin_diagnostics_errors = $system_plugin_diagnostics['errors'] ?? []}
+            {var $plugin_diagnostics_warnings = $system_plugin_diagnostics['warnings'] ?? []}
+            {var $active_plugin_count = (int) ($plugin_diagnostics_summary['active'] ?? 0)}
+            {var $inactive_plugin_count = (int) ($plugin_diagnostics_summary['inactive'] ?? 0)}
+            {var $error_plugin_count = (int) ($plugin_diagnostics_summary['error'] ?? 0)}
+            {var $manifest_warning_count = (int) ($plugin_diagnostics_summary['warnings'] ?? 0)}
             <div class="small text-uppercase text-body-secondary mb-2">Plugins</div>
             <h2 class="h5 mb-1">
                 Installed plugins
@@ -162,8 +159,45 @@
                 {if $error_plugin_count > 0}
                     <span><span class="fw-semibold text-danger">{$error_plugin_count}</span> with errors</span>
                 {/if}
+                {if $manifest_warning_count > 0}
+                    <span><span class="fw-semibold text-warning">{$manifest_warning_count}</span> manifest warnings</span>
+                {/if}
             </div>
         </div>
+
+        {if $error_plugin_count > 0}
+            <section class="alert alert-danger mb-0" role="alert" aria-labelledby="tm-plugin-boot-errors-heading">
+                <h3 class="h6" id="tm-plugin-boot-errors-heading">Plugin boot errors</h3>
+                <p class="small mb-2">Affected plugins were skipped during boot. Deactivate the plugin or fix its files, then reload this page.</p>
+                <div class="d-grid gap-2">
+                    {foreach $plugin_diagnostics_errors as $plugin_diagnostics_error}
+                        <div class="small">
+                            <span class="fw-semibold">{$plugin_diagnostics_error['name'] ?? $plugin_diagnostics_error['key'] ?? 'Plugin'}</span>
+                            <span class="font-monospace">{$plugin_diagnostics_error['key'] ?? ''}</span>:
+                            {$plugin_diagnostics_error['boot_error'] ?? 'Boot failed.'}
+                        </div>
+                    {/foreach}
+                </div>
+            </section>
+        {/if}
+
+        {if $manifest_warning_count > 0}
+            <section class="alert alert-warning mb-0" role="alert" aria-labelledby="tm-plugin-manifest-warnings-heading">
+                <h3 class="h6" id="tm-plugin-manifest-warnings-heading">Plugin manifest warnings</h3>
+                <p class="small mb-2">These warnings do not stop plugins from running, but they should be fixed before packaging or release.</p>
+                <div class="d-grid gap-2">
+                    {foreach $plugin_diagnostics_warnings as $plugin_diagnostics_warning}
+                        <div class="small">
+                            <span class="fw-semibold">{$plugin_diagnostics_warning['name'] ?? $plugin_diagnostics_warning['key'] ?? 'Plugin'}</span>
+                            <span class="font-monospace">{$plugin_diagnostics_warning['key'] ?? ''}</span>:
+                            {foreach ($plugin_diagnostics_warning['manifest_warnings'] ?? []) as $plugin_manifest_warning}
+                                <span>{$plugin_manifest_warning}</span>{sep} {/sep}
+                            {/foreach}
+                        </div>
+                    {/foreach}
+                </div>
+            </section>
+        {/if}
 
         <section class="d-grid gap-3">
             {if empty( $system_registered_plugins )}
@@ -181,11 +215,7 @@
                                     <div>
                                         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                                             <h3 class="h6 mb-0">{$registered_plugin['name']}</h3>
-                                            {if ($registered_plugin['boot_status'] ?? '') === 'error'}
-                                                <span class="badge text-bg-danger">Error</span>
-                                            {else}
-                                                <span class="badge text-bg-success">Active</span>
-                                            {/if}
+                                            <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
                                             <span class="small text-body-secondary font-monospace">{$registered_plugin['key']}</span>
                                             {if ! empty( $registered_plugin['version'] )}
                                                 <span class="small text-body-secondary">{$registered_plugin['version']}</span>
@@ -197,6 +227,9 @@
                                     </div>
                                     <div class="small text-body-secondary d-flex flex-wrap gap-3">
                                         <span>Stage: <span class="text-body">{$registered_plugin['stage'] ?? 'early'}</span></span>
+                                        {if ! empty( $registered_plugin['booted_stage'] )}
+                                            <span>Booted: <span class="text-body">{$registered_plugin['booted_stage']}</span></span>
+                                        {/if}
                                         {if ! empty( $registered_plugin['author_name'] )}
                                             <span>Author: <span class="text-body">{$registered_plugin['author_name']}</span></span>
                                         {/if}
@@ -210,6 +243,16 @@
                                     {if ! empty( $registered_plugin['boot_error'] )}
                                         <div class="alert alert-danger py-2 px-3 small mb-0" role="alert">
                                             {$registered_plugin['boot_error']}
+                                        </div>
+                                    {/if}
+                                    {if ! empty( $registered_plugin['manifest_warnings'] )}
+                                        <div class="alert alert-warning py-2 px-3 small mb-0" role="alert">
+                                            <div class="fw-semibold mb-1">Manifest warnings</div>
+                                            <ul class="mb-0 ps-3">
+                                                {foreach $registered_plugin['manifest_warnings'] as $plugin_manifest_warning}
+                                                    <li>{$plugin_manifest_warning}</li>
+                                                {/foreach}
+                                            </ul>
                                         </div>
                                     {/if}
                                     <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions tm-system-plugin-card-actions mt-auto">
@@ -242,11 +285,7 @@
                                     <div>
                                         <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                                             <h3 class="h6 mb-0">{$registered_plugin['name']}</h3>
-                                            {if ($registered_plugin['boot_status'] ?? '') === 'error'}
-                                                <span class="badge text-bg-danger">Error</span>
-                                            {else}
-                                                <span class="badge text-bg-secondary">Inactive</span>
-                                            {/if}
+                                            <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
                                             <span class="small text-body-secondary font-monospace">{$registered_plugin['key']}</span>
                                             {if ! empty( $registered_plugin['version'] )}
                                                 <span class="small text-body-secondary">{$registered_plugin['version']}</span>
@@ -271,6 +310,16 @@
                                     {if ! empty( $registered_plugin['boot_error'] )}
                                         <div class="alert alert-danger py-2 px-3 small mb-0" role="alert">
                                             {$registered_plugin['boot_error']}
+                                        </div>
+                                    {/if}
+                                    {if ! empty( $registered_plugin['manifest_warnings'] )}
+                                        <div class="alert alert-warning py-2 px-3 small mb-0" role="alert">
+                                            <div class="fw-semibold mb-1">Manifest warnings</div>
+                                            <ul class="mb-0 ps-3">
+                                                {foreach $registered_plugin['manifest_warnings'] as $plugin_manifest_warning}
+                                                    <li>{$plugin_manifest_warning}</li>
+                                                {/foreach}
+                                            </ul>
                                         </div>
                                     {/if}
                                     <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions tm-system-plugin-card-actions mt-auto">

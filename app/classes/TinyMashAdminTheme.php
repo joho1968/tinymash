@@ -5,10 +5,12 @@ class TinyMashAdminTheme {
 
     protected string $theme_key;
     protected ?TinyMashThemeRegistry $theme_registry;
+    protected ?TinyMashConfig $config;
 
-    public function __construct( string $theme_key = 'baseline', ?TinyMashThemeRegistry $theme_registry = null ) {
+    public function __construct( string $theme_key = 'baseline', ?TinyMashThemeRegistry $theme_registry = null, ?TinyMashConfig $config = null ) {
         $this->theme_key = $this->normalizeThemeKey( $theme_key );
         $this->theme_registry = $theme_registry;
+        $this->config = $config;
     }
 
     public function getThemeKey() : string {
@@ -55,6 +57,8 @@ class TinyMashAdminTheme {
                 'admin_theme_slot_head_extra' => (string) ( $slots['head_extra'] ?? 'slots/head-extra.latte' ),
                 'admin_theme_slot_topbar_actions' => (string) ( $slots['topbar_actions'] ?? '../slots/topbar-actions.latte' ),
                 'admin_theme_slot_section_tools' => (string) ( $slots['section_tools'] ?? '../slots/section-tools.latte' ),
+                'site_favicon_png_image' => $this->getSiteFaviconPngImage(),
+                'site_favicon_ico_image' => $this->getSiteFaviconIcoImage(),
             ]
         );
     }
@@ -94,6 +98,7 @@ class TinyMashAdminTheme {
                 ],
                 'js_urls' => [
                     '/ext/bs/js/bootstrap.bundle.min.js',
+                    '/ext/sortablejs/sortable.min.js',
                 ],
                 'slots' => [
                     'head_extra' => 'slots/head-extra.latte',
@@ -102,6 +107,22 @@ class TinyMashAdminTheme {
                 ],
             ]
         );
+    }
+
+    protected function getSiteFaviconPngImage() : array {
+        if ( $this->config instanceof TinyMashConfig ) {
+            return( (array) $this->config->getSiteFaviconPngImage() );
+        }
+
+        return( [] );
+    }
+
+    protected function getSiteFaviconIcoImage() : array {
+        if ( $this->config instanceof TinyMashConfig ) {
+            return( (array) $this->config->getSiteFaviconIcoImage() );
+        }
+
+        return( [] );
     }
 
 }// TinyMashAdminTheme

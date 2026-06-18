@@ -134,8 +134,64 @@ class TinyMashThemeRegistry {
                 'theme_directory' => dirname( $manifest_filename ),
                 'manifest_filename' => $manifest_filename,
                 'first_party' => $first_party,
+                'manifest_warnings' => $this->validateThemeManifestWarnings( $type, $manifest, $key, dirname( $manifest_filename ) ),
             ]
         );
+    }
+
+    protected function validateThemeManifestWarnings( string $type, array $manifest, string $theme_key, string $theme_directory ) : array {
+        $warnings = [];
+
+        foreach ( [ 'name', 'version', 'description' ] as $field ) {
+            if ( trim( (string) ( $manifest[$field] ?? '' ) ) === '' ) {
+                $warnings[] = 'Missing recommended manifest field: ' . $field . '.';
+            }
+        }
+
+        $template_root = trim( (string) ( $manifest['template_root'] ?? '' ) );
+        if ( $template_root === '' ) {
+            $warnings[] = 'Missing template_root; using the default ' . $type . '/' . $theme_key . '.';
+        }
+
+        if ( array_key_exists( 'views', $manifest ) && ! is_array( $manifest['views'] ) ) {
+            $warnings[] = 'Views should be an object of view keys and template paths.';
+        }
+        if ( array_key_exists( 'slots', $manifest ) && ! is_array( $manifest['slots'] ) ) {
+            $warnings[] = 'Slots should be an object of slot keys and template paths.';
+        }
+        if ( array_key_exists( 'supports', $manifest ) && ! is_array( $manifest['supports'] ) ) {
+            $warnings[] = 'Supports should be an object of feature flags.';
+        }
+        if ( array_key_exists( 'settings_schema', $manifest ) && ! is_array( $manifest['settings_schema'] ) ) {
+            $warnings[] = 'Settings schema should be an array.';
+        }
+
+        foreach ( [ 'css_urls', 'js_urls' ] as $field ) {
+            if ( array_key_exists( $field, $manifest ) && ! is_array( $manifest[$field] ) ) {
+                $warnings[] = $field . ' should be an array of local URLs.';
+                continue;
+            }
+            foreach ( (array) ( $manifest[$field] ?? [] ) as $asset_url ) {
+                if ( ! is_string( $asset_url ) || trim( $asset_url ) === '' ) {
+                    $warnings[] = $field . ' contains an empty or non-string URL.';
+                    break;
+                }
+                $asset_url = trim( $asset_url );
+                if ( preg_match( '#^https?://#i', $asset_url ) === 1 || str_starts_with( $asset_url, '//' ) ) {
+                    $warnings[] = $field . ' must use local assets only: ' . $asset_url;
+                    break;
+                }
+            }
+        }
+
+        foreach ( (array) ( $manifest['settings_schema'] ?? [] ) as $setting_definition ) {
+            if ( ! is_array( $setting_definition ) || trim( (string) ( $setting_definition['key'] ?? '' ) ) === '' ) {
+                $warnings[] = 'Settings schema contains an item without a key.';
+                break;
+            }
+        }
+
+        return( array_values( array_unique( $warnings ) ) );
     }
 
     protected function normalizeRootDirectories( string|array $root_directories ) : array {
@@ -259,6 +315,7 @@ class TinyMashThemeRegistry {
                     ],
                     'supports' => [],
                     'settings_schema' => [],
+                    'manifest_warnings' => [],
                 ]
             );
         }
@@ -296,6 +353,7 @@ class TinyMashThemeRegistry {
                     'public_background' => true,
                 ],
                 'settings_schema' => [],
+                'manifest_warnings' => [],
             ]
         );
     }

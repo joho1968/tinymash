@@ -72,6 +72,9 @@
             const navigationFieldWrapper = navigationField ? navigationField.closest('.form-check') : null;
             const saveButton = document.getElementById('tm-editor-save');
             const saveEntryButton = document.getElementById('tm-editor-save-entry');
+            const saveReturnButton = document.getElementById('tm-editor-save-return');
+            const saveNewButton = document.getElementById('tm-editor-save-new');
+            const saveActionButtons = Array.from(document.querySelectorAll('[data-tm-editor-save-action]'));
             const duplicateButton = document.getElementById('tm-editor-duplicate');
             const cancelButton = document.getElementById('tm-editor-cancel');
             const statusField = document.getElementById('tm-editor-status-field');
@@ -667,6 +670,19 @@
                 return cancelUrl || editorUrl || '/admin';
             }
 
+            function getEditorNewUrl() {
+                return (editorUrl || '/admin/editor') + '?new=1';
+            }
+
+            function setSaveEntryControlsDisabled(disabled) {
+                if (saveEntryButton) {
+                    saveEntryButton.disabled = disabled;
+                }
+                saveActionButtons.forEach((button) => {
+                    button.disabled = disabled;
+                });
+            }
+
             function updateDeleteDraftVisibility() {
                 if (!currentDraftDeleteButton) {
                     return;
@@ -847,6 +863,13 @@
                 } else if (isSeo && seoTitleField) {
                     seoTitleField.focus();
                 } else if (isPlugin && activePluginPane) {
+                    document.dispatchEvent(new CustomEvent('tinymash:editor-plugin-pane-selected', {
+                        detail: {
+                            mode,
+                            pane: activePluginPane,
+                            plugin: mode.replace(/^plugin-/, '')
+                        }
+                    }));
                     const firstField = activePluginPane.querySelector('input, select, textarea, button');
                     if (firstField && typeof firstField.focus === 'function') {
                         firstField.focus();
@@ -1792,7 +1815,7 @@
                 markDirty();
             }
 
-            async function saveEntry() {
+            async function saveEntry(afterSave = 'stay') {
                 if (!saveEntryUrl) {
                     return;
                 }
@@ -1820,7 +1843,7 @@
                 clearAutosaveTimer();
                 setTransientStatus('Saving content...');
                 saveButton.disabled = true;
-                saveEntryButton.disabled = true;
+                setSaveEntryControlsDisabled(true);
 
                 try {
                     const response = await fetch(saveEntryUrl, {
@@ -1908,6 +1931,11 @@
                     } else if (publishedLink) {
                         publishedLink.classList.add('d-none');
                     }
+                    if (afterSave === 'return') {
+                        window.location.href = getEditorExitUrl();
+                    } else if (afterSave === 'new') {
+                        window.location.href = getEditorNewUrl();
+                    }
                 } catch (error) {
                     setTransientStatus(error.message || 'Save failed', 'text-danger');
                     if (publishedLink) {
@@ -1917,7 +1945,7 @@
                 } finally {
                     saveEntryInFlight = false;
                     saveButton.disabled = false;
-                    saveEntryButton.disabled = false;
+                    setSaveEntryControlsDisabled(false);
                 }
             }
 
@@ -2407,7 +2435,19 @@
                 });
             }
             if (saveEntryButton) {
-                saveEntryButton.addEventListener('click', saveEntry);
+                saveEntryButton.addEventListener('click', () => {
+                    saveEntry('stay');
+                });
+            }
+            if (saveReturnButton) {
+                saveReturnButton.addEventListener('click', () => {
+                    saveEntry('return');
+                });
+            }
+            if (saveNewButton) {
+                saveNewButton.addEventListener('click', () => {
+                    saveEntry('new');
+                });
             }
             if (duplicateButton) {
                 duplicateButton.addEventListener('click', duplicateEntry);

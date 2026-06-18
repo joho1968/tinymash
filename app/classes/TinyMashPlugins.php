@@ -147,7 +147,12 @@ class TinyMashPlugins {
     }
 
     public function getRegisteredPlugins() : array {
-        $plugins = array_values( $this->registered_plugins );
+        $plugins = array_map(
+            function( array $plugin ) : array {
+                return( $this->decoratePluginDiagnostics( $plugin ) );
+            },
+            array_values( $this->registered_plugins )
+        );
         usort(
             $plugins,
             static function( array $left, array $right ) : int {
@@ -163,7 +168,53 @@ class TinyMashPlugins {
             return( null );
         }
 
-        return( $this->registered_plugins[$plugin_key] );
+        return( $this->decoratePluginDiagnostics( $this->registered_plugins[$plugin_key] ) );
+    }
+
+    public function getPluginDiagnostics() : array {
+        $plugins = $this->getRegisteredPlugins();
+        $summary = [
+            'total' => 0,
+            'active' => 0,
+            'inactive' => 0,
+            'booted' => 0,
+            'ready' => 0,
+            'error' => 0,
+            'warnings' => 0,
+        ];
+        $errors = [];
+        $warnings = [];
+
+        foreach ( $plugins as $plugin ) {
+            $summary['total']++;
+            if ( ! empty( $plugin['active'] ) ) {
+                $summary['active']++;
+            } else {
+                $summary['inactive']++;
+            }
+
+            $status = (string) ( $plugin['boot_status'] ?? '' );
+            if ( in_array( $status, [ 'booted', 'ready', 'error' ], true ) ) {
+                $summary[$status]++;
+            }
+            if ( $status === 'error' ) {
+                $errors[] = $plugin;
+            }
+            $plugin_warnings = is_array( $plugin['manifest_warnings'] ?? null ) ? $plugin['manifest_warnings'] : [];
+            if ( ! empty( $plugin_warnings ) ) {
+                $summary['warnings'] += count( $plugin_warnings );
+                $warnings[] = $plugin;
+            }
+        }
+
+        return(
+            [
+                'summary' => $summary,
+                'plugins' => $plugins,
+                'errors' => $errors,
+                'warnings' => $warnings,
+            ]
+        );
     }
 
     public function registerCapabilityDefinition( string $capability_key, array $definition ) : void {
@@ -1347,6 +1398,38 @@ class TinyMashPlugins {
         error_log( basename( __FILE__ ) . ': Plugin "' . $plugin_key . '" failed to boot (' . trim( $message ) . ')' );
     }
 
+    protected function decoratePluginDiagnostics( array $plugin ) : array {
+        $status = strtolower( trim( (string) ( $plugin['boot_status'] ?? '' ) ) );
+        if ( $status === '' ) {
+            $status = ! empty( $plugin['active'] ) ? 'ready' : 'inactive';
+        }
+
+        $plugin['boot_status'] = $status;
+        $plugin['boot_status_label'] = match ( $status ) {
+            'booted' => 'Booted',
+            'ready' => 'Ready',
+            'error' => 'Error',
+            'inactive' => 'Inactive',
+            default => 'Unknown',
+        };
+        $plugin['boot_status_badge_class'] = match ( $status ) {
+            'booted' => 'text-bg-success',
+            'ready' => 'text-bg-info',
+            'error' => 'text-bg-danger',
+            'inactive' => 'text-bg-secondary',
+            default => 'text-bg-warning',
+        };
+        $plugin['boot_status_cli'] = match ( $status ) {
+            'booted' => 'booted',
+            'ready' => 'ready',
+            'error' => 'error',
+            'inactive' => 'inactive',
+            default => 'unknown',
+        };
+
+        return( $plugin );
+    }
+
     protected function canRegisterForCurrentPlugin( string $plugin_key ) : bool {
         $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         return( $plugin_key !== '' && $plugin_key === $this->booting_plugin_key );
@@ -1417,8 +1500,51 @@ class TinyMashPlugins {
                 'manifest_filename' => $manifest_filename,
                 'first_party' => str_contains( str_replace( '\\', '/', $plugin_directory ), '/app/plugins/' ),
                 'bootstrap_path' => $bootstrap_path,
+                'manifest_warnings' => $this->validatePluginManifestWarnings( $manifest, $plugin_key, $bootstrap_path, str_contains( str_replace( '\\', '/', $plugin_directory ), '/app/plugins/' ) ),
             ]
         );
+    }
+
+    protected function validatePluginManifestWarnings( array $manifest, string $plugin_key, string $bootstrap_path, bool $first_party ) : array {
+        $warnings = [];
+
+        foreach ( [ 'name', 'version', 'description', 'license' ] as $field ) {
+            if ( trim( (string) ( $manifest[$field] ?? '' ) ) === '' ) {
+                $warnings[] = 'Missing recommended manifest field: ' . $field . '.';
+            }
+        }
+
+        if ( ! is_file( $bootstrap_path ) || ! is_readable( $bootstrap_path ) ) {
+            $warnings[] = 'Bootstrap file is missing or not readable.';
+        }
+
+        if ( array_key_exists( 'capabilities', $manifest ) && ! is_array( $manifest['capabilities'] ) ) {
+            $warnings[] = 'Capabilities should be an array of strings.';
+        }
+        if ( array_key_exists( 'dependencies', $manifest ) && ! is_array( $manifest['dependencies'] ) ) {
+            $warnings[] = 'Dependencies should be an array of plugin keys.';
+        }
+
+        foreach ( [ 'capabilities', 'dependencies' ] as $field ) {
+            foreach ( (array) ( $manifest[$field] ?? [] ) as $value ) {
+                if ( ! is_string( $value ) || trim( $value ) === '' ) {
+                    $warnings[] = ucfirst( $field ) . ' contains an empty or non-string value.';
+                    break;
+                }
+            }
+        }
+
+        $stage = strtolower( trim( (string) ( $manifest['stage'] ?? 'early' ) ) );
+        if ( $stage !== '' && ! in_array( $stage, self::BOOT_STAGES, true ) ) {
+            $warnings[] = 'Unknown boot stage "' . $stage . '"; using early.';
+        }
+
+        $license = trim( (string) ( $manifest['license'] ?? '' ) );
+        if ( $first_party && $license !== 'AGPL-3.0-or-later' ) {
+            $warnings[] = 'First-party plugins should declare AGPL-3.0-or-later.';
+        }
+
+        return( array_values( array_unique( $warnings ) ) );
     }
 
     protected function normalizePluginStringList( array $values ) : array {

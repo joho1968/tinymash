@@ -56,9 +56,9 @@
             'dev_requirement' => false,
         ),
         'flightphp/core' => array(
-            'pretty_version' => 'v3.18.1',
-            'version' => '3.18.1.0',
-            'reference' => 'b8dd23aaa828cb289fa3c84e75b2a3717cab50b0',
+            'pretty_version' => 'v3.18.2',
+            'version' => '3.18.2.0',
+            'reference' => '49b750c329de0d6797a616342d4d2c3ec201d4f5',
             'type' => 'library',
             'install_path' => __DIR__ . '/../flightphp/core',
             'aliases' => array(),

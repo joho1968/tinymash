@@ -1356,6 +1356,41 @@ html[data-bs-theme="light"] .tm-terminal-rendered .table-striped tbody tr:nth-ch
     text-align: center;
 }
 
+.tm-terminal-footer-fragments .tm-social-section-label {
+    text-align: center;
+}
+
+.tm-terminal-footer-fragments .tm-social-links-icons .tm-social-links-list {
+    justify-content: center;
+}
+
+.tm-terminal-footer-fragments .tm-social-links-list {
+    gap: 0.85rem;
+}
+
+.tm-terminal-footer-fragments .tm-social-link {
+    width: 1.45rem;
+    height: 1.45rem;
+    color: var(--tm-link, currentColor);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+}
+
+.tm-terminal-footer-fragments .tm-social-link:hover,
+.tm-terminal-footer-fragments .tm-social-link:focus-visible {
+    color: var(--tm-link-hover, currentColor);
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    text-decoration: none;
+}
+
+.tm-terminal-footer-fragments .tm-social-icon {
+    width: 1rem;
+    height: 1rem;
+}
+
 .tm-terminal-footer-fragments .tm-terminal-stack > * + * {
     margin-top: 0.25rem;
 }
