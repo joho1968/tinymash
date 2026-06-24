@@ -1,0 +1,140 @@
+{var $notification_summary = is_array($system_notifications_view['summary'] ?? null) ? $system_notifications_view['summary'] : []}
+{var $notification_active = is_array($system_notifications_view['active'] ?? null) ? $system_notifications_view['active'] : []}
+{var $notification_dismissed = is_array($system_notifications_view['dismissed'] ?? null) ? $system_notifications_view['dismissed'] : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Notifications</div>
+    <div class="fw-semibold mb-1">Queue, delivery, and retention</div>
+
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="notifications">
+        <div class="row g-3">
+            <div class="col-12 col-xl-5">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Policy</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-notification-retention-days">Retention (days)</label>
+                            <input class="form-control font-monospace" id="tm-system-notification-retention-days" name="notification_retention_days" type="number" min="7" max="60" step="1" value="{$system_settings['notification_retention_days'] ?? 30}">
+                            <div class="form-text">Notifications stay in the in-app history even when e-mail delivery is disabled for that event type.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-7">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">E-mail delivery</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-notification-email-moderation" name="notification_email_events[moderation_required]" type="checkbox" n:attr="checked => !empty($system_settings['notification_email_events']['moderation_required'])">
+                                <label class="form-check-label" for="tm-notification-email-moderation">Content requires moderation</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-notification-email-profile-email" name="notification_email_events[profile_email_changed]" type="checkbox" n:attr="checked => !empty($system_settings['notification_email_events']['profile_email_changed'])">
+                                <label class="form-check-label" for="tm-notification-email-profile-email">User changed e-mail address</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-notification-email-lockout" name="notification_email_events[user_lockout]" type="checkbox" n:attr="checked => !empty($system_settings['notification_email_events']['user_lockout'])">
+                                <label class="form-check-label" for="tm-notification-email-lockout">User was locked out</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-notification-email-components" name="notification_email_events[component_updates]" type="checkbox" n:attr="checked => !empty($system_settings['notification_email_events']['component_updates'])">
+                                <label class="form-check-label" for="tm-notification-email-components">Component updates available</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-text mt-3">SMTP delivery must be enabled in <a class="link-offset-2" href="{$system_section_urls['smtp']}">System &gt; SMTP</a> before e-mail notices can be sent.</div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save notification settings</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="border-top mt-4 pt-4 d-grid gap-3">
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Unread</div>
+                    <div class="display-6 mb-0">{$notification_summary['unread'] ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Active</div>
+                    <div class="display-6 mb-0">{($notification_summary['total'] ?? 0) - ($notification_summary['dismissed'] ?? 0)}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Dismissed</div>
+                    <div class="display-6 mb-0">{$notification_summary['dismissed'] ?? 0}</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="fw-semibold mb-1">Active notifications</div>
+            {if empty($notification_active)}
+                <div class="small text-body-secondary">There are no active notifications right now.</div>
+            {else}
+                <div class="d-grid gap-3">
+                    {foreach $notification_active as $notification}
+                        <div class="border rounded-3 p-3 bg-body-tertiary">
+                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                        <span class="badge text-bg-{$notification['severity'] ?? 'secondary'}">{$notification['type_label'] ?? ($notification['type'] ?? 'Notification')}</span>
+                                        {if ! empty($notification['class_label'])}
+                                            <span class="badge text-bg-{$notification['class_severity'] ?? 'secondary'}">{$notification['class_label']}</span>
+                                        {/if}
+                                        <span class="small text-body-secondary">{$notification['created_at_display'] ?? '—'}</span>
+                                    </div>
+                                    <div class="fw-semibold mb-1">{$notification['title'] ?? 'Notification'}</div>
+                                    <div class="small text-body-secondary">{$notification['message'] ?? ''}</div>
+                                </div>
+                                <form method="post" action="{$system_notification_dismiss_url}">
+                                    <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                    <input type="hidden" name="notification_id" value="{$notification['id'] ?? ''}">
+                                    <button class="btn btn-outline-secondary btn-sm" type="submit">Dismiss</button>
+                                </form>
+                            </div>
+                        </div>
+                    {/foreach}
+                </div>
+            {/if}
+        </div>
+
+        <div>
+            <div class="fw-semibold mb-1">Dismissed history</div>
+            {if empty($notification_dismissed)}
+                <div class="small text-body-secondary">No notifications have been dismissed yet.</div>
+            {else}
+                <div class="d-grid gap-2">
+                    {foreach $notification_dismissed as $notification}
+                        <div class="border rounded-3 p-3 bg-body-tertiary">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <span class="badge text-bg-secondary">{$notification['type_label'] ?? ($notification['type'] ?? 'Notification')}</span>
+                                {if ! empty($notification['class_label'])}
+                                    <span class="badge text-bg-{$notification['class_severity'] ?? 'secondary'}">{$notification['class_label']}</span>
+                                {/if}
+                                <span class="small text-body-secondary">Created {$notification['created_at_display'] ?? '—'} | Dismissed {$notification['dismissed_at_display'] ?? '—'}</span>
+                            </div>
+                            <div class="fw-semibold mb-1">{$notification['title'] ?? 'Notification'}</div>
+                            <div class="small text-body-secondary">{$notification['message'] ?? ''}</div>
+                        </div>
+                    {/foreach}
+                </div>
+            {/if}
+        </div>
+    </div>
+</section>

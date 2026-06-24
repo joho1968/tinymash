@@ -1,0 +1,313 @@
+<ul class="nav nav-tabs mb-3" id="tinymash-editor-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tm-tab-write" type="button" role="tab" aria-controls="tm-editor-write-pane" aria-selected="true" data-mode="write">Write</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tm-tab-preview" type="button" role="tab" aria-controls="tm-editor-preview-pane" aria-selected="false" data-mode="preview">Preview</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tm-tab-metadata" type="button" role="tab" aria-controls="tm-editor-metadata-pane" aria-selected="false" data-mode="metadata">Metadata</button>
+    </li>
+    <li n:if="! empty( $editor_seo_enabled )" class="nav-item" role="presentation">
+        <button class="nav-link" id="tm-tab-seo" type="button" role="tab" aria-controls="tm-editor-seo-pane" aria-selected="false" data-mode="seo">SEO</button>
+    </li>
+    <li n:foreach="$editor_plugin_tabs as $editor_plugin_tab" class="nav-item" role="presentation">
+        <button class="nav-link" id="tm-tab-plugin-{$editor_plugin_tab['key']}" type="button" role="tab" aria-controls="tm-editor-plugin-pane-{$editor_plugin_tab['key']}" aria-selected="false" data-mode="plugin-{$editor_plugin_tab['key']}">{$editor_plugin_tab['label']}</button>
+    </li>
+</ul>
+
+<div id="tm-editor-write-pane" role="tabpanel" aria-labelledby="tm-tab-write" tabindex="0">
+    {$editor_markdown_component_html|noescape}
+</div>
+
+<div id="tm-editor-preview-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-preview" aria-live="polite" aria-hidden="true" tabindex="0">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="small text-body-secondary">Rendered preview</div>
+        <div id="tm-editor-status" class="small text-body-secondary">Ready</div>
+    </div>
+    <div id="tm-editor-preview" class="border rounded-3 bg-body-tertiary p-3" style="min-height: 30rem;"></div>
+</div>
+
+<div id="tm-editor-metadata-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-metadata" aria-hidden="true" tabindex="0">
+    <div class="row g-3">
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-title">Title</label>
+            <input class="form-control" id="tm-editor-title" type="text" value="{$editor_draft['title']}">
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="tm-editor-entry-type">Type</label>
+            <select class="form-select" id="tm-editor-entry-type">
+                <option value="post" n:attr="selected => $editor_draft['entry_type'] === 'post'">Post</option>
+                <option value="page" n:attr="selected => $editor_draft['entry_type'] === 'page'">Page</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="tm-editor-status-field">Status</label>
+            <select class="form-select" id="tm-editor-status-field">
+                <option value="unpublished" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'unpublished'">Unpublished</option>
+                <option value="published" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'published'">Published</option>
+            </select>
+            <div class="form-text">
+                {if ! empty( $content_moderation_required ) && empty( $is_superadmin )}
+                    Published content will be submitted for review instead of going live immediately.
+                {else}
+                    Save decides whether the content stays unpublished or goes live.
+                {/if}
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="tm-editor-published-at-local">Publish date/time</label>
+            <input class="form-control font-monospace" id="tm-editor-published-at-local" type="datetime-local" value="{$editor_draft['published_at_local'] ?? ''}">
+            <div class="form-text">Leave blank to use the current time the first time published.</div>
+        </div>
+        {if ! empty( $is_superadmin )}
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1" for="tm-editor-scope">Scope</label>
+                <select class="form-select" id="tm-editor-scope">
+                    <option value="root" n:attr="selected => $editor_draft['scope'] === 'root'">root</option>
+                    <option value="author" n:attr="selected => $editor_draft['scope'] === 'author'">Username/Author</option>
+                </select>
+            </div>
+        {else}
+            <input id="tm-editor-scope" type="hidden" value="author">
+        {/if}
+        <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-6' : null">
+            <label class="form-label small mb-1" for="tm-editor-slug">Slug</label>
+            <input class="form-control font-monospace" id="tm-editor-slug" type="text" value="{$editor_draft['slug']}">
+            <div class="form-text" id="tm-editor-slug-status">Slug will update from the title while creating new content.</div>
+        </div>
+        {if ! empty( $is_superadmin )}
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1" for="tm-editor-author-slug">Username/Author</label>
+                <input class="form-control font-monospace" id="tm-editor-author-slug" list="tm-editor-author-options" type="text" value="{$editor_draft['author_slug']}">
+                <datalist id="tm-editor-author-options">
+                    {foreach $editor_author_options as $author_option}
+                        <option value="{$author_option['author_slug']}">{$author_option['username']}</option>
+                    {/foreach}
+                </datalist>
+                <div class="form-text">Type to search an existing Username/Author. Username/Author-scoped publish requires a real non-deleted user.</div>
+            </div>
+        {else}
+            <input id="tm-editor-author-slug" type="hidden" value="{$current_author_slug}">
+        {/if}
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-parent-slug">Parent page</label>
+            <select class="form-select font-monospace" id="tm-editor-parent-slug">
+                <option value="">/ (root)</option>
+                {foreach $editor_parent_page_options as $parent_page_option}
+                    {var $parent_page_depth = max(0, (int) ($parent_page_option['depth'] ?? 0))}
+                    {var $parent_page_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $parent_page_depth)}
+                    <option
+                        value="{$parent_page_option['slug']}"
+                        data-entry-id="{$parent_page_option['id']}"
+                        data-scope="{$parent_page_option['scope']}"
+                        data-author-slug="{$parent_page_option['author_slug']}"
+                        data-parent-slug="{$parent_page_option['parent_slug']}"
+                        data-sort-order="{$parent_page_option['sort_order']}"
+                        data-depth="{$parent_page_depth}"
+                        n:attr="selected => $editor_draft['parent_slug'] === $parent_page_option['slug'] && $editor_draft['scope'] === $parent_page_option['scope'] && ( $editor_draft['scope'] !== 'author' || $editor_draft['author_slug'] === $parent_page_option['author_slug'] )"
+                    >{$parent_page_indent|noescape}{$parent_page_option['title']} · {$parent_page_option['display_path']}</option>
+                {/foreach}
+            </select>
+            <div class="form-text">Pages only. Choose `/ (root)` to keep this page at the top level.</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-summary">Summary</label>
+            <textarea class="form-control" id="tm-editor-summary" rows="4">{$editor_draft['summary']}</textarea>
+        </div>
+        <div class="col-12" n:if="$editor_tags_enabled">
+            <label class="form-label small mb-1" for="tm-editor-tags">Tags</label>
+            <div class="position-relative">
+                <input class="form-control font-monospace" id="tm-editor-tags" type="text" autocomplete="off" value="{=implode(', ', is_array($editor_draft['tags'] ?? null) ? $editor_draft['tags'] : [])}">
+                <div class="list-group shadow-sm d-none position-absolute start-0 end-0 mt-1 z-3" id="tm-editor-tags-autocomplete" role="listbox" aria-label="Tag suggestions"></div>
+            </div>
+            <div class="form-text">Optional. Use comma or space-separated `#tags`. They are normalized and shown publicly.</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-featured-image">Featured image</label>
+            {var $current_featured_image = is_array($editor_current_featured_image ?? null) ? $editor_current_featured_image : []}
+            {var $current_featured_image_url = trim((string) ($current_featured_image['url'] ?? ''))}
+            {var $current_featured_image_thumbnail_url = trim((string) ($current_featured_image['thumbnail_url'] ?? ''))}
+            {var $current_featured_image_label = trim((string) ($current_featured_image['label'] ?? ''))}
+            {var $current_featured_image_dimensions = !empty($current_featured_image['width']) && !empty($current_featured_image['height']) ? ((string) $current_featured_image['width'] . 'x' . (string) $current_featured_image['height']) : ''}
+            {var $current_featured_image_mime = trim((string) ($current_featured_image['mime'] ?? ''))}
+            {var $current_featured_image_meta_line = $current_featured_image_dimensions !== '' && $current_featured_image_mime !== '' ? ($current_featured_image_dimensions . ' | ' . $current_featured_image_mime) : ($current_featured_image_dimensions !== '' ? $current_featured_image_dimensions : $current_featured_image_mime)}
+            {if ! empty( $editor_featured_image['enabled'] )}
+                <input id="tm-editor-featured-image" type="hidden" value="{$editor_draft['featured_image_media_id'] ?? ''}" data-current-media-id="{$editor_draft['featured_image_media_id'] ?? ''}">
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-secondary" id="tm-editor-open-featured-image-picker" type="button">Choose featured image</button>
+                    <button class="btn btn-outline-secondary" id="tm-editor-clear-featured-image" type="button">Clear</button>
+                </div>
+                <div class="form-text">{$editor_featured_image['message'] ?? 'Optional. Themes can use the selected image in lists and entry views.'}</div>
+                <div class="small text-body-secondary mt-2" id="tm-editor-featured-image-summary">{$current_featured_image_url !== '' ? ($current_featured_image_label !== '' ? $current_featured_image_label : 'Featured image selected.') : 'No featured image selected.'}</div>
+                <div class="border rounded-3 bg-body-tertiary p-3 mt-2{$current_featured_image_url === '' ? ' d-none' : ''}" id="tm-editor-featured-image-preview">
+                    {if $current_featured_image_url !== ''}
+                        <div class="row g-3 align-items-start">
+                            <div class="col-12 col-md-4">
+                                <img class="img-fluid rounded border" src="{$current_featured_image_url}" alt="{$current_featured_image['alt_text'] ?? ''}">
+                            </div>
+                            <div class="col-12 col-md-8">
+                                <div class="fw-semibold">{$current_featured_image['alt_text'] ?? $current_featured_image['filename'] ?? $current_featured_image['media_id'] ?? 'Featured image'}</div>
+                                {if $current_featured_image_meta_line !== ''}
+                                    <div class="small text-body-secondary mt-1">{$current_featured_image_meta_line}</div>
+                                {/if}
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+                <div class="mt-3">
+                    <div class="small text-uppercase text-body-secondary mb-2">Attached images</div>
+                    <div class="small text-body-secondary mb-2">Images uploaded for this content appear here first and can be promoted to featured image.</div>
+                    <div class="row g-2" id="tm-editor-attached-images"></div>
+                </div>
+            {else}
+                <div class="form-control bg-body-tertiary text-body-secondary">{$editor_featured_image['message'] ?? 'Featured image is disabled.'}</div>
+                <input id="tm-editor-featured-image-disabled-value" type="hidden" value="{$editor_draft['featured_image_media_id'] ?? ''}">
+                {if ! empty( $editor_draft['featured_image']['url'] )}
+                    <div class="border rounded-3 bg-body-tertiary p-3 mt-2">
+                        <img class="img-fluid rounded border" src="{$editor_draft['featured_image']['url']}" alt="{$editor_draft['featured_image']['alt_text'] ?? ''}" decoding="async"{if ! empty( $editor_draft['featured_image']['width'] )} width="{$editor_draft['featured_image']['width']}"{/if}{if ! empty( $editor_draft['featured_image']['height'] )} height="{$editor_draft['featured_image']['height']}"{/if}>
+                    </div>
+                {/if}
+            {/if}
+        </div>
+        {var $editor_fallback_cover_color = strtolower(trim((string) ($editor_draft['fallback_cover_color'] ?? '')))}
+        {var $editor_fallback_cover_color_is_custom = preg_match('/^#[0-9a-f]{6}$/', $editor_fallback_cover_color) === 1}
+        <div class="col-12 col-md-4">
+            <label class="form-label small mb-1" for="tm-editor-fallback-cover-color">Fallback cover color</label>
+            <select class="form-select" id="tm-editor-fallback-cover-color">
+                <option value="" n:attr="selected => $editor_fallback_cover_color === ''">Use theme default</option>
+                <option value="slate" n:attr="selected => $editor_fallback_cover_color === 'slate'">Slate</option>
+                <option value="blue" n:attr="selected => $editor_fallback_cover_color === 'blue'">Blue</option>
+                <option value="green" n:attr="selected => $editor_fallback_cover_color === 'green'">Green</option>
+                <option value="amber" n:attr="selected => $editor_fallback_cover_color === 'amber'">Amber</option>
+                <option value="berry" n:attr="selected => $editor_fallback_cover_color === 'berry'">Berry</option>
+                <option value="custom" n:attr="selected => $editor_fallback_cover_color_is_custom">Custom</option>
+            </select>
+            <div class="form-text">Optional. Used by Blocks when this post has no featured image.</div>
+            <div class="mt-2" id="tm-editor-fallback-cover-color-custom-wrap">
+                <label class="form-label small mb-1" for="tm-editor-fallback-cover-color-custom">Custom color</label>
+                <input class="form-control form-control-color" id="tm-editor-fallback-cover-color-custom" type="color" value="{$editor_fallback_cover_color_is_custom ? $editor_fallback_cover_color : '#6c757d'}" title="Choose a custom fallback cover color">
+                <div class="small text-body-secondary mt-2">Recent colors</div>
+                <div class="d-flex flex-wrap gap-2 mt-2" id="tm-editor-fallback-cover-color-recent"></div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <label class="form-label small mb-1" for="tm-editor-sort-order">Sort order</label>
+            <input class="form-control" id="tm-editor-sort-order" type="number" value="{$editor_draft['sort_order']}">
+            <div class="form-text" id="tm-editor-sort-order-hint">Pages with the same parent are sorted by this number first.</div>
+        </div>
+        <div class="col-12 col-md-8">
+            <div class="small text-uppercase text-body-secondary mb-2">Flags</div>
+            <div class="d-flex flex-wrap gap-3">
+                <div class="form-check">
+                    <input class="form-check-input" id="tm-editor-aggregate" type="checkbox" n:attr="checked => $editor_draft['aggregate_to_root']">
+                    <label class="form-check-label" for="tm-editor-aggregate">Aggregate to root</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" id="tm-editor-sticky" type="checkbox" n:attr="checked => $editor_draft['sticky']">
+                    <label class="form-check-label" for="tm-editor-sticky">Sticky</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" id="tm-editor-featured" type="checkbox" n:attr="checked => $editor_draft['featured']">
+                    <label class="form-check-label" for="tm-editor-featured">Featured</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" id="tm-editor-nav" type="checkbox" n:attr="checked => $editor_draft['show_in_navigation']">
+                    <label class="form-check-label" for="tm-editor-nav">Show in navigation</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div n:if="! empty( $editor_seo_enabled )" id="tm-editor-seo-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-seo" aria-hidden="true" tabindex="0">
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="small text-uppercase text-body-secondary mb-2">Search</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-seo-title">SEO title</label>
+            <input class="form-control" id="tm-editor-seo-title" type="text" value="{$editor_draft['seo_title'] ?? ''}">
+            <div class="form-text">Optional. Leave blank to use the normal title.</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-seo-description">SEO description</label>
+            <textarea class="form-control" id="tm-editor-seo-description" rows="3">{$editor_draft['seo_description'] ?? ''}</textarea>
+            <div class="form-text">Optional. Leave blank to derive it from the summary or content.</div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <label class="form-label small mb-1" for="tm-editor-seo-canonical-url">Canonical URL</label>
+            <input class="form-control" id="tm-editor-seo-canonical-url" type="url" placeholder="https://example.com/original" value="{$editor_draft['seo_canonical_url'] ?? ''}">
+            <div class="form-text">Optional. Must be an absolute `http` or `https` URL.</div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <label class="form-label small mb-1" for="tm-editor-seo-robots">Robots directive</label>
+            <select class="form-select" id="tm-editor-seo-robots">
+                <option value="" n:attr="selected => ($editor_draft['seo_robots'] ?? '') === ''">Use default policy</option>
+                <option value="index, follow" n:attr="selected => ($editor_draft['seo_robots'] ?? '') === 'index, follow'">index, follow</option>
+                <option value="index, nofollow" n:attr="selected => ($editor_draft['seo_robots'] ?? '') === 'index, nofollow'">index, nofollow</option>
+                <option value="noindex, follow" n:attr="selected => ($editor_draft['seo_robots'] ?? '') === 'noindex, follow'">noindex, follow</option>
+                <option value="noindex, nofollow" n:attr="selected => ($editor_draft['seo_robots'] ?? '') === 'noindex, nofollow'">noindex, nofollow</option>
+            </select>
+        </div>
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" id="tm-editor-seo-exclude-from-sitemap" type="checkbox" n:attr="checked => !empty($editor_draft['seo_exclude_from_sitemap'])">
+                <label class="form-check-label" for="tm-editor-seo-exclude-from-sitemap">Exclude this content from sitemap.xml</label>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="small text-uppercase text-body-secondary mb-2">Social cards</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-seo-social-title">Social title</label>
+            <input class="form-control" id="tm-editor-seo-social-title" type="text" value="{$editor_draft['seo_social_title'] ?? ''}">
+            <div class="form-text">Optional. Leave blank to reuse the SEO title or normal title for Open Graph and Twitter cards.</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-seo-social-description">Social description</label>
+            <textarea class="form-control" id="tm-editor-seo-social-description" rows="3">{$editor_draft['seo_social_description'] ?? ''}</textarea>
+            <div class="form-text">Optional. Leave blank to reuse the SEO description or normal description for Open Graph and Twitter cards.</div>
+        </div>
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-seo-social-image">Social image</label>
+            {var $current_social_image = is_array($editor_current_social_image ?? null) ? $editor_current_social_image : []}
+            {var $current_social_image_url = trim((string) ($current_social_image['url'] ?? ''))}
+            {var $current_social_image_label = trim((string) ($current_social_image['label'] ?? ''))}
+            {var $current_social_image_dimensions = !empty($current_social_image['width']) && !empty($current_social_image['height']) ? ((string) $current_social_image['width'] . 'x' . (string) $current_social_image['height']) : ''}
+            {var $current_social_image_mime = trim((string) ($current_social_image['mime'] ?? ''))}
+            {var $current_social_image_meta_line = $current_social_image_dimensions !== '' && $current_social_image_mime !== '' ? ($current_social_image_dimensions . ' | ' . $current_social_image_mime) : ($current_social_image_dimensions !== '' ? $current_social_image_dimensions : $current_social_image_mime)}
+            {if ! empty( $editor_featured_image['enabled'] )}
+                <input id="tm-editor-seo-social-image" type="hidden" value="{$editor_draft['seo_social_image_media_id'] ?? ''}" data-current-media-id="{$editor_draft['seo_social_image_media_id'] ?? ''}">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <button class="btn btn-outline-secondary" id="tm-editor-open-seo-social-image-picker" type="button">Choose social image</button>
+                    <button class="btn btn-outline-secondary" id="tm-editor-clear-seo-social-image" type="button">Clear</button>
+                </div>
+                <div class="form-text">Optional. Leave blank to reuse the featured image or site default image for Open Graph and Twitter cards.</div>
+                <div class="small text-body-secondary mt-2" id="tm-editor-seo-social-image-summary">{$current_social_image_url !== '' ? ($current_social_image_label !== '' ? $current_social_image_label : 'Social image selected.') : 'No social image selected.'}</div>
+                <div class="border rounded-3 bg-body-tertiary p-3 mt-2{$current_social_image_url === '' ? ' d-none' : ''}" id="tm-editor-seo-social-image-preview">
+                    {if $current_social_image_url !== ''}
+                        <div class="row g-3 align-items-start">
+                            <div class="col-12 col-md-4">
+                                <img class="img-fluid rounded border" src="{$current_social_image_url}" alt="{$current_social_image['alt_text'] ?? ''}">
+                            </div>
+                            <div class="col-12 col-md-8">
+                                <div class="fw-semibold">{$current_social_image['alt_text'] ?? $current_social_image['filename'] ?? $current_social_image['media_id'] ?? 'Social image'}</div>
+                                {if $current_social_image_meta_line !== ''}
+                                    <div class="small text-body-secondary mt-1">{$current_social_image_meta_line}</div>
+                                {/if}
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            {else}
+                <div class="form-control bg-body-tertiary text-body-secondary">{$editor_featured_image['message'] ?? 'Social image is disabled.'}</div>
+                <input id="tm-editor-seo-social-image-disabled-value" type="hidden" value="{$editor_draft['seo_social_image_media_id'] ?? ''}">
+            {/if}
+        </div>
+    </div>
+</div>
+
+<div n:foreach="$editor_plugin_tabs as $editor_plugin_tab" id="tm-editor-plugin-pane-{$editor_plugin_tab['key']}" class="d-none" data-editor-plugin-pane="plugin-{$editor_plugin_tab['key']}" role="tabpanel" aria-labelledby="tm-tab-plugin-{$editor_plugin_tab['key']}" aria-hidden="true" tabindex="0">
+    {$editor_plugin_tab['html']|noescape}
+</div>

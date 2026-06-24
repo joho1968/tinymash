@@ -1,0 +1,57 @@
+{
+  "group": "Reference",
+  "roles": ["author", "admin"],
+  "order": 70,
+  "title": "Markdown reference",
+  "summary": "Reference for the Markdown syntax and extensions supported by tinymash.",
+  "sections": [
+    {
+      "title": "Supported baseline",
+      "markdown": "tinymash renders CommonMark with the GitHub-flavored features already in use in the composer. That includes tables, task lists, strikethrough, fenced code blocks, and inline code."
+    },
+    {
+      "title": "Headings",
+      "markdown": "Use `#` through `######` for `H1` through `H6`.\n\n```md\n# H1\n## H2\n### H3\n```"
+    },
+    {
+      "title": "Text styles",
+      "markdown": "- Bold: `**bold**`\n- Italic: `*italic*`\n- Underline: `++underlined++`\n- Strikethrough: `~~strikethrough~~`\n- Highlight: `==highlight==`\n- Inline code: `` `inline code` ``\n\nUnderline renders as semantic `<ins>`, not as bold. Only the exact `++text++` delimiter pair is treated as underline."
+    },
+    {
+      "title": "Quotes and callouts",
+      "markdown": "```md\n> A normal quote\n\n> [!INFO]\n> An info alert\n\n> [!SUCCESS]\n> A success alert\n\n> [!WARNING]\n> A warning alert\n\n> [!WARNING|Important]\n> A warning alert with a custom visible label\n\n> [!DANGER]\n> A danger alert\n```\n\nThe editor alert menu inserts Bootstrap-style alert markers. Supported variants are `PRIMARY`, `SECONDARY`, `SUCCESS`, `DANGER`, `WARNING`, `INFO`, `LIGHT`, and `DARK`.\n\nYou can also override the visible label with `|Custom label`, for example `> [!WARNING|Important]`.\n\nLegacy aliases still work: `NOTE` = `INFO`, `TIP` = `SUCCESS`, `IMPORTANT` = `PRIMARY`, and `CAUTION` = `DANGER`."
+    },
+    {
+      "title": "Lists and tasks",
+      "markdown": "```md\n- One\n- Two\n\n1. First\n2. Second\n\n- [ ] Review\n- [x] Publish\n```"
+    },
+    {
+      "title": "Blank lines",
+      "markdown": "A normal blank line separates blocks. Extra blank lines between blocks are preserved as visible vertical spacing in public rendering. Blank lines inside fenced code blocks stay part of the code block."
+    },
+    {
+      "title": "Tables",
+      "markdown": "Tables need a header row and a separator row.\n\n```md\n| Name | Value |\n| --- | --- |\n| SPF | pass |\n| DKIM | pass |\n```"
+    },
+    {
+      "title": "Code blocks",
+      "markdown": "Use fenced code blocks, ideally with a language when you want syntax highlighting.\n\n~~~md\n```php\n<?php echo 'Hello';\n```\n~~~\n\nTilde fences such as `~~~php` also work."
+    },
+    {
+      "title": "Links",
+      "markdown": "```md\n[Open tinymash](/)\n```"
+    },
+    {
+      "title": "Emoji shortcodes",
+      "markdown": "tinymash understands GitHub-style emoji shortcodes, including common values such as:\n\n```md\n:blush: :smile: :grin: :wink: :heart:\n:thumbsup: :thumbsdown: :rocket:\n:fire: :sparkles: :warning:\n:white_check_mark: :x: :memo: :bulb:\n```\n\nThe composer can autocomplete shortcodes while you type after `:`."
+    },
+    {
+      "title": "Traditional smileys",
+      "markdown": "tinymash can also convert classic smileys during rendering outside code blocks, for example:\n\n```md\n:) :-) :( :-( ;) ;-) :D :-D :P :-P :/ :-/ :\\ :-\\ 8) 8-) :| :-| <3\n```\n\nThis behavior follows the site default and can also be overridden per profile."
+    },
+    {
+      "title": "What does not get converted",
+      "markdown": "Emoji shortcodes and smileys are intentionally left alone inside inline code and fenced code blocks so examples stay literal."
+    }
+  ]
+}

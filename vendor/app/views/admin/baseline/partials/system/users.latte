@@ -1,0 +1,78 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Users</div>
+    <div class="small text-body-secondary mb-3">Account lock and content lock are separate. Deleting a user moves their content into an orphan bucket for later reassignment or deletion.</div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-primary btn-sm" href="{$system_section_urls['users_edit']}">Create user</a>
+    </div>
+    {if empty( $system_users )}
+        <div class="small text-body-secondary">No users found.</div>
+    {else}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col" class="ps-2">Username/Author</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Account</th>
+                        <th scope="col">Content</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="table-group-divider">
+                    {foreach $system_users as $system_user}
+                        <tr>
+                            <td>
+                                <div class="ps-1 fw-semibold">{if ! empty($system_user['display_name'])}{$system_user['display_name']}{else}{$system_user['username']}{/if}</div>
+                                <div class="ps-1 small text-body-secondary font-monospace">{$system_user['username']}</div>
+                                <div class="ps-1 small text-body-secondary">{if $system_user['email'] !== ''}{$system_user['email']}{else}No e-mail set{/if}</div>
+                            </td>
+                            <td><span class="badge text-bg-secondary text-uppercase">{$system_user['role_label'] ?? $system_user['role']}</span></td>
+                            <td>
+                                <span class="badge {if $system_user['active']}text-bg-success{else}text-bg-danger{/if}">
+                                    {if $system_user['active']}Enabled{else}Locked{/if}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {if $system_user['content_active']}text-bg-success{else}text-bg-warning{/if}">
+                                    {if $system_user['content_active']}Public{else}Locked{/if}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center" href="{$system_section_urls['users_edit']}?user={$system_user['username']}" title="Edit user" aria-label="Edit user">
+                                        <span class="bi bi-pencil-square" aria-hidden="true"></span>
+                                    </a>
+                                    <form method="post" action="{$system_user_toggle_url}">
+                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                        <input type="hidden" name="username" value="{$system_user['username']}">
+                                        <input type="hidden" name="field" value="active">
+                                        <input type="hidden" name="value" value="{if $system_user['active']}0{else}1{/if}">
+                                        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center" type="submit" title="{if $system_user['active']}Lock account{else}Unlock account{/if}" aria-label="{if $system_user['active']}Lock account{else}Unlock account{/if}">
+                                            <span class="bi {if $system_user['active']}bi-person-lock{else}bi-person-check{/if}" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{$system_user_toggle_url}">
+                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                        <input type="hidden" name="username" value="{$system_user['username']}">
+                                        <input type="hidden" name="field" value="content_active">
+                                        <input type="hidden" name="value" value="{if $system_user['content_active']}0{else}1{/if}">
+                                        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center justify-content-center" type="submit" title="{if $system_user['content_active']}Lock content{else}Unlock content{/if}" aria-label="{if $system_user['content_active']}Lock content{else}Unlock content{/if}">
+                                            <span class="bi {if $system_user['content_active']}bi-eye-slash{else}bi-eye{/if}" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{$system_user_delete_url}" onsubmit="return window.confirm('Delete this user and move their content into orphan storage?');">
+                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                        <input type="hidden" name="username" value="{$system_user['username']}">
+                                        <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center justify-content-center" type="submit" title="Delete user" aria-label="Delete user">
+                                            <span class="bi bi-trash" aria-hidden="true"></span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {/foreach}
+                </tbody>
+            </table>
+        </div>
+    {/if}
+</section>

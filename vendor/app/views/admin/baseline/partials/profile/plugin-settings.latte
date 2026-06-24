@@ -1,0 +1,61 @@
+{if ! empty( $profile_plugin_settings_sections )}
+    <div class="rounded-3 p-3 bg-body-secondary d-grid gap-3">
+        {foreach $profile_plugin_settings_sections as $plugin_settings_section}
+            <div>
+                <div class="fw-semibold mb-1">{$plugin_settings_section['title']}</div>
+                {if ! empty( $plugin_settings_section['summary'] )}
+                    <div class="small text-body-secondary mb-3">{$plugin_settings_section['summary']}</div>
+                {/if}
+                <div class="row g-3">
+                    {foreach $plugin_settings_section['fields'] as $plugin_settings_field}
+                        {var $plugin_field_name = 'plugin_settings[' . $plugin_settings_section['plugin_key'] . '][' . $plugin_settings_field['key'] . ']'}
+                        {if $plugin_settings_field['type'] === 'checkbox'}
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input type="hidden" name="{$plugin_field_name}" value="0">
+                                    <input class="form-check-input" id="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}" type="checkbox" value="1" n:attr="checked => ! empty( $plugin_settings_section['values'][$plugin_settings_field['key']] )">
+                                    <label class="form-check-label" for="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                </div>
+                                {if ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {elseif $plugin_settings_field['type'] === 'select'}
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                <select class="form-select" id="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}">
+                                    {foreach $plugin_settings_field['options'] as $plugin_settings_option}
+                                        <option value="{$plugin_settings_option['value']}" n:attr="selected => ($plugin_settings_section['values'][$plugin_settings_field['key']] ?? $plugin_settings_field['default']) === $plugin_settings_option['value']">{$plugin_settings_option['label']}</option>
+                                    {/foreach}
+                                </select>
+                                {if ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {elseif $plugin_settings_field['type'] === 'password'}
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                <input class="form-control" id="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}" type="password" value="" autocomplete="off" n:attr="placeholder => ! empty( $plugin_settings_section['values'][$plugin_settings_field['key']] ) ? 'Stored value unchanged' : ''">
+                                {if ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {else}
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                <input class="form-control" id="tm-profile-plugin-{$plugin_settings_section['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}" type="text" value="{$plugin_settings_section['values'][$plugin_settings_field['key']] ?? $plugin_settings_field['default'] ?? ''}">
+                                {if ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {/if}
+                    {/foreach}
+                </div>
+            </div>
+        {/foreach}
+    </div>
+{else}
+    <div class="rounded-3 p-3 bg-body-secondary">
+        <div class="small text-body-secondary">No plugin settings are available for this section.</div>
+    </div>
+{/if}

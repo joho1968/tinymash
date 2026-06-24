@@ -1,0 +1,135 @@
+{
+    "site": {
+        "name": "tinymash",
+        "slogan": "",
+        "contact": "",
+        "base_url": "",
+        "login_url": "/admin/login",
+        "admin_url": "/admin",
+        "security_min_password": 8,
+        "default_language": "en",
+        "allow_registrations": false,
+        "is_public": true,
+        "maintenance": false,
+        "admin_email": "",
+        "week_starts_on": "monday",
+        "allow_username_change": false,
+        "allow_email_change": true,
+        "login_message": "",
+        "images": {
+            "banner": [],
+            "favicon_png": [],
+            "favicon_ico": [],
+            "og": [],
+            "background": []
+        },
+        "background_render_mode": "scaled",
+        "system_notifications_email": "",
+        "allow_secret_links": true,
+        "secret_link_default_expiry_days": 60,
+        "filesystem_umask": "0007",
+        "rendered_content_cache_enabled": true,
+        "discourage_search_indexing": false,
+        "allow_admin_password_resets": false,
+        "allow_author_password_resets": true,
+        "password_reset_throttle_window_minutes": 60,
+        "password_reset_max_ip_requests": 5,
+        "password_reset_max_identifier_requests": 3
+    },
+    "locale": {
+        "time": "H:i (T)",
+        "date": "d-M-Y",
+        "timezone": "UTC"
+    },
+    "content": {
+        "require_moderation": false,
+        "revision_retention_limit": 20
+    },
+    "editor": {
+        "autosave_enabled": true,
+        "autosave_interval_seconds": 120,
+        "classic_smileys_enabled": true
+    },
+    "media": {
+        "content_images_mode": "authenticated",
+        "image_driver": "auto",
+        "image_max_width": 1920,
+        "image_max_height": 1920,
+        "generate_thumbnails": true,
+        "thumbnail_max_width": 320,
+        "thumbnail_max_height": 320,
+        "image_max_upload_mb": 10,
+        "allowed_image_mimes": [
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "image/avif"
+        ]
+    },
+    "smtp": {
+        "enabled": false,
+        "host": "",
+        "port": 587,
+        "username": "",
+        "password": "",
+        "encryption": "tls",
+        "from_email": "",
+        "from_name": "",
+        "reply_to_email": ""
+    },
+    "themes": {
+        "public": {
+            "current": "baseline",
+            "settings": {
+                "baseline": [],
+                "blocks": [],
+                "docsmatter": [],
+                "panel-magazine": [],
+                "terminal": [],
+                "timeline": []
+            }
+        }
+    },
+    "plugins": {
+        "states": {
+            "backup": true,
+            "blogger-import": true,
+            "bludit-import": true,
+            "fediverse": true,
+            "feeds": true,
+            "footer": true,
+            "notes": true,
+            "redirects": true,
+            "search": true,
+            "seo": true,
+            "statistics": true,
+            "syntax-highlighting": true,
+            "tiny-links": true,
+            "wordpress-import": false
+        },
+        "settings": []
+    },
+    "housekeeping": {
+        "stale_draft_retention_days": 7,
+        "last_run_utc": "",
+        "last_trigger": "",
+        "last_mode": "",
+        "web_fallback_mode": "auto"
+    },
+    "notifications": {
+        "retention_days": 30,
+        "email_events": {
+            "moderation_required": false,
+            "profile_email_changed": false,
+            "user_lockout": true,
+            "component_updates": true
+        }
+    },
+    "menus": {
+        "locations": {
+            "primary": [],
+            "footer": []
+        }
+    }
+}

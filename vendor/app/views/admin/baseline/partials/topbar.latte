@@ -1,0 +1,37 @@
+<div class="container-fluid px-0 py-2 m-0 bg-body border-bottom shadow-sm sticky-top">
+    <div class="container">
+        <div class="d-flex align-items-center gap-2 gap-sm-3">
+            {if ! $layout_hide_admin_menu && ! $layout_is_maintenance}
+            <div class="p-0 pt-1 align-self-center">
+                <button class="btn text-body p-0 m-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvas" aria-controls="offcanvas" aria-label="Open navigation menu" aria-expanded="false">
+                    <span class="bi bi-list fs-3" aria-hidden="true"></span>
+                </button>
+            </div>
+            {/if}
+            <div class="me-auto py-1 text-truncate align-self-center">
+                <span title="tinymash admin" class="font-monospace fs-6 text-body-emphasis">tinymash/<span class="text-primary">{$current_location}</span></span>
+            </div>
+            <div class="align-self-center">
+                <span class="badge text-bg-primary font-monospace" id="tm-current-breakpoint" title="Current Bootstrap breakpoint">XS</span>
+            </div>
+            {if isset( $current_role_label )}
+            <div class="align-self-center">
+                <span class="badge border bg-body-tertiary text-body-secondary font-monospace text-uppercase" title="Current tinymash role">{$current_role_label}</span>
+            </div>
+            {/if}
+            <div class="ms-auto"></div>
+            {if ! $layout_hide_admin_menu}
+                <div class="align-self-center">
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#tm-help-modal" title="Open help" aria-label="Open help">
+                        <span class="bi bi-question-circle" aria-hidden="true"></span>
+                    </button>
+                </div>
+                {if ! empty( $admin_theme_slot_topbar_actions ) }
+                <div class="align-self-center">
+                    {include $admin_theme_slot_topbar_actions}
+                </div>
+                {/if}
+            {/if}
+        </div>
+    </div>
+</div>

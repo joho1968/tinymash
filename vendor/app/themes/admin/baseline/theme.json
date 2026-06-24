@@ -1,0 +1,21 @@
+{
+    "key": "baseline",
+    "name": "Baseline Admin",
+    "description": "Default admin theme",
+    "version": "1.0.0",
+    "template_root": "admin/baseline",
+    "css_urls": [
+        "/ext/bs/css/bootstrap.min.css",
+        "/ext/bsi/bootstrap-icons.min.css",
+        "/css/tinymash.css"
+    ],
+    "js_urls": [
+        "/ext/bs/js/bootstrap.bundle.min.js",
+        "/ext/sortablejs/sortable.min.js"
+    ],
+    "slots": {
+        "head_extra": "slots/head-extra.latte",
+        "topbar_actions": "../slots/topbar-actions.latte",
+        "section_tools": "../slots/section-tools.latte"
+    }
+}

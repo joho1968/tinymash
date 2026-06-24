@@ -1,0 +1,19 @@
+{extends '../baseline/layout.latte'}
+
+{block public_footer_desktop_fragments}
+    <div n:if="! empty( $theme_public_footer_fragments )" class="d-grid gap-3">
+        {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
+            <section class="tm-timeline-footer-fragment small text-body-secondary">
+                {if ! empty( $theme_public_footer_fragment['lines'] ) }
+                    <div class="tm-timeline-footer-fragment-lines">
+                        {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
+                            <div>{$theme_public_footer_line|noescape}</div>
+                        {/foreach}
+                    </div>
+                {elseif ! empty( $theme_public_footer_fragment['html'] ) }
+                    <div class="text-body-secondary">{$theme_public_footer_fragment['html']|noescape}</div>
+                {/if}
+            </section>
+        {/foreach}
+    </div>
+{/block}

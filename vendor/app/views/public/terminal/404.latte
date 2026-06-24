@@ -1,0 +1,20 @@
+{extends './layout.latte'}
+
+{block content}
+    {var $message = trim((string) ($message ?? ''))}
+    {var $login_url = trim((string) ($login_url ?? ''))}
+    <section class="tm-terminal-panel tm-terminal-error-panel">
+        <div class="tm-terminal-panel-title">/errors/404</div>
+        <h1 class="tm-terminal-page-title">404</h1>
+        <p>
+            {if $message !== ''}
+                {$message}
+            {else}
+                We can't seem to find what you're looking for.
+            {/if}
+        </p>
+        {if $login_url !== ''}
+            <p class="tm-terminal-entry-link"><a href="{$login_url}">log in -></a></p>
+        {/if}
+    </section>
+{/block}

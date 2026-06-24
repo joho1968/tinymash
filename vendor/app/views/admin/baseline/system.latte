@@ -1,0 +1,75 @@
+{extends 'layout.latte'}
+
+{block content}
+    <div class="row g-3">
+        {if ! empty( $system_notice ) }
+            <div class="col-12">
+                <div class="alert alert-{$system_notice['type']}" role="alert">
+                    {$system_notice['message']}
+                </div>
+            </div>
+        {/if}
+
+        <div class="col-12 d-lg-none">
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="tm-system-sections" role="dialog" aria-labelledby="tm-system-sections-title">
+                <div class="offcanvas-header">
+                    <h2 class="offcanvas-title h5 mb-0" id="tm-system-sections-title">System sections</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body">
+                    {include './partials/system/sections-nav.latte', system_nav_id_prefix: 'tm-system-sections-nav-mobile'}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="row g-3 align-items-start">
+                <div class="col-lg-3 d-none d-lg-block">
+                    <div class="p-3 bg-body border rounded-3 shadow-sm position-sticky top-0">
+                        {include './partials/system/sections-nav.latte', system_nav_id_prefix: 'tm-system-sections-nav-desktop'}
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-9">
+                    {if $system_section === 'site'}
+                        {include './partials/system/site.latte'}
+                    {elseif $system_section === 'security'}
+                        {include './partials/system/security.latte'}
+                    {elseif $system_section === 'content-media'}
+                        {include './partials/system/content-media.latte'}
+                    {elseif $system_section === 'media'}
+                        {include './partials/system/media.latte'}
+                    {elseif $system_section === 'media-library'}
+                        {include './partials/system/media-library.latte'}
+                    {elseif $system_section === 'locale'}
+                        {include './partials/system/locale.latte'}
+                    {elseif $system_section === 'menus'}
+                        {include './partials/system/menus.latte'}
+                    {elseif $system_section === 'notifications'}
+                        {include './partials/system/notifications.latte'}
+                    {elseif $system_section === 'information'}
+                        {include './partials/system/information.latte'}
+                    {elseif $system_section === 'themes'}
+                        {include './partials/system/themes.latte'}
+                    {elseif $system_section === 'themes-settings'}
+                        {include './partials/system/themes-settings.latte'}
+                    {elseif $system_section === 'plugins'}
+                        {include './partials/system/plugins.latte'}
+                    {elseif $system_section === 'moderation'}
+                        {include './partials/system/moderation.latte'}
+                    {elseif $system_section === 'users'}
+                        {include './partials/system/users.latte'}
+                    {elseif $system_section === 'users-edit'}
+                        {include './partials/system/users-edit.latte'}
+                    {elseif $system_section === 'smtp'}
+                        {include './partials/system/smtp.latte'}
+                    {elseif $system_section === 'orphans'}
+                        {include './partials/system/orphans.latte'}
+                    {elseif $system_section === 'components'}
+                        {include './partials/system/components.latte'}
+                    {/if}
+                </div>
+            </div>
+        </div>
+    </div>
+{/block}

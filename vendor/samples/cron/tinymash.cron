@@ -1,0 +1,2 @@
+*/15 * * * * cd /var/www/tinymash && /usr/bin/php8.4 bin/tinymash.php housekeeping run >/dev/null 2>&1
+*/5 * * * * cd /var/www/tinymash && /usr/bin/php8.4 bin/tinymash.php fediverse run-queue >/dev/null 2>&1

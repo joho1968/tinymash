@@ -1,0 +1,21 @@
+{
+  "group": "Getting started",
+  "roles": ["author", "admin"],
+  "order": 10,
+  "title": "Admin basics",
+  "summary": "Reference for the main admin areas.",
+  "sections": [
+    {
+      "title": "Areas",
+      "markdown": "- **Dashboard**: overview and status\n- **Content**: saved items, drafts, and moderation\n- **Composer**: writing and editing\n- **Profile**: account, editor, and publishing preferences\n- **System settings**: sitewide configuration\n- **About**: version and platform information"
+    },
+    {
+      "title": "Theme mode",
+      "markdown": "Theme mode is set from the account menu. A browser override takes precedence over the saved user default."
+    },
+    {
+      "title": "Layout checks",
+      "markdown": "Use the breakpoint badge in the top bar when reporting layout issues."
+    }
+  ]
+}

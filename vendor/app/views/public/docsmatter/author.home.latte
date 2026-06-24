@@ -1,0 +1,96 @@
+{extends './layout.latte'}
+
+{block content}
+    {var $docs_pages = ! empty($theme_page_structure) ? $theme_page_structure : []}
+    {var $landing_entry = is_array($docs_landing_entry ?? null) ? $docs_landing_entry : null}
+    {var $search_query = trim((string) ($theme_search['query'] ?? ''))}
+    {var $show_listing_results = ! empty( $force_listing_results ) || $search_query !== ''}
+
+    {if $show_listing_results}
+        <section class="d-grid gap-4">
+            <div>
+                <h2 class="h4 mb-0">{$listing_heading ?? 'Search results'}</h2>
+                {if ! empty( $listing_context_summary ) }
+                    <p class="small text-body-secondary mb-0 mt-2">{$listing_context_summary}</p>
+                {/if}
+            </div>
+            {if empty( $posts )}
+                <div class="tm-docsmatter-panel p-4">
+                    <p class="mb-0 text-body-secondary">{$listing_empty_message ?? 'No matching content was found.'}</p>
+                </div>
+            {else}
+                {foreach $posts as $entry}
+                    <article class="tm-docsmatter-panel p-4">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <h3 class="h5 mb-0"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h3>
+                            {if ! empty( $entry['sticky'] )}
+                                <span class="badge text-bg-warning">Sticky</span>
+                            {/if}
+                        </div>
+                        {if ! empty( $entry['published_at_display'] )}
+                            <p class="small text-body-secondary mb-3">{$entry['published_at_display']}</p>
+                        {/if}
+                        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+                            <div class="tm-docsmatter-tags d-flex flex-wrap gap-2 mb-3">
+                                {foreach $entry['tag_links'] as $tag_link}
+                                    <a class="tm-docsmatter-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                                {/foreach}
+                            </div>
+                        {/if}
+                        {if ! empty( $entry['featured_image']['url'] )}
+                            <p class="mb-3 tm-docsmatter-featured-image tm-docsmatter-featured-image-summary">
+                                <a class="d-block" href="{$entry['url']}" aria-label="Read {$entry['title'] ?? 'entry'}">
+                                    <img class="img-fluid rounded" src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                                </a>
+                            </p>
+                        {/if}
+                        {if ! empty( $entry['summary_html'] )}
+                            <div class="tm-docsmatter-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                        {/if}
+                        <div class="mt-3">
+                            <a class="btn btn-outline-secondary btn-sm text-decoration-none" href="{$entry['url']}" aria-label="Read {$entry['title'] ?? 'entry'}">Read</a>
+                        </div>
+                    </article>
+                {/foreach}
+                {include './partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+            {/if}
+        </section>
+    {else}
+        <section class="tm-docsmatter-home-panel pt-0 pb-4 pb-lg-5">
+            <header class="mb-4">
+                {if is_array( $landing_entry ) && ! empty( $landing_entry['content_heading_html'] )}
+                    {$landing_entry['content_heading_html']|noescape}
+                {else}
+                    <h1 class="mb-2">{if is_array($landing_entry)}{$landing_entry['title_html']|noescape}{else}{$author_display_name ?? $author_slug ?? $site_name}{/if}</h1>
+                {/if}
+                {if ! empty( $listing_context_summary ) }
+                    <p class="text-body-secondary mb-0">{$listing_context_summary}</p>
+                {/if}
+            </header>
+            {if is_array( $landing_entry ) && ! empty( $landing_entry['content_body_html'] )}
+                <div class="tm-docsmatter-content mb-4" id="tm-docsmatter-content-body" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+                    {$landing_entry['content_body_html']|noescape}
+                </div>
+            {/if}
+            {if ! empty( $docs_pages )}
+                <div class="tm-docsmatter-content mb-4">
+                    <p class="mb-0">This space is using DocsMatter, so published pages are available in the sidebar and section list below.</p>
+                </div>
+                <div class="d-grid gap-3 tm-docsmatter-section-grid" id="tm-docsmatter-sections">
+                    {foreach $docs_pages as $page}
+                        <article class="tm-docsmatter-section-card">
+                            <h2 class="h5 mb-1"><a class="text-decoration-none" href="{$page['url']}">{$page['title']}</a></h2>
+                            {if ! empty( $page['children'] )}
+                                <p class="small text-body-secondary mb-0">{count($page['children'])} sub page{if count($page['children']) !== 1}s{/if}</p>
+                            {/if}
+                        </article>
+                    {/foreach}
+                </div>
+            {else}
+                <div class="tm-docsmatter-content">
+                    <p class="mb-0 text-body-secondary">No published pages are available yet in this author space.</p>
+                </div>
+            {/if}
+        </section>
+    {/if}
+{/block}

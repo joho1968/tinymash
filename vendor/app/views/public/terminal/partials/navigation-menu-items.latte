@@ -1,0 +1,14 @@
+{foreach $items as $item}
+    {if ! empty( $item['is_separator'] )}
+        <li class="tm-terminal-nav-separator" aria-hidden="true">---</li>
+    {else}
+        <li n:class="'tm-terminal-nav-item', ! empty( $item['is_current'] ) ? 'is-current', ! empty( $item['is_ancestor'] ) ? 'is-ancestor'">
+            <a href="{$item['url']}" n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null, aria-current => ! empty($item['is_current']) ? 'page' : null">{$item['title']}</a>
+            {if ! empty( $item['children'] )}
+                <ul class="tm-terminal-nav-list tm-terminal-nav-list-child">
+                    {include './navigation-menu-items.latte', items: $item['children'], level: ($level ?? 1) + 1}
+                </ul>
+            {/if}
+        </li>
+    {/if}
+{/foreach}

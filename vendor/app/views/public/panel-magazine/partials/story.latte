@@ -1,0 +1,33 @@
+{var $story_variant = (string) ($story_variant ?? 'stream')}
+{var $story_image_source = $story_variant === 'lead' ? ($entry['featured_image']['url'] ?? '') : ($entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url'] ?? '')}
+{var $story_image_width = $story_variant === 'lead' ? ($entry['featured_image']['width'] ?? null) : ($entry['featured_image']['thumbnail_width'] ?? $entry['featured_image']['width'] ?? null)}
+{var $story_image_height = $story_variant === 'lead' ? ($entry['featured_image']['height'] ?? null) : ($entry['featured_image']['thumbnail_height'] ?? $entry['featured_image']['height'] ?? null)}
+<article n:class="'tm-panel-magazine-story', 'tm-panel-magazine-story-' . $story_variant, in_array( $story_variant, [ 'compact', 'stream' ], true ) ? 'flex-md-row', ! empty( $entry['featured_image']['url'] ) ? 'tm-panel-magazine-story-has-image'">
+    {if ! empty( $entry['featured_image']['url'] )}
+        <a class="tm-panel-magazine-story-image" href="{$entry['url']}">
+            <img src="{$story_image_source}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $story_image_width )} width="{$story_image_width}"{/if}{if ! empty( $story_image_height )} height="{$story_image_height}"{/if}>
+        </a>
+    {/if}
+    <div n:class="'tm-panel-magazine-story-body', $story_variant === 'lead' ? 'p-4' : 'p-3'">
+        <div n:if="$story_variant === 'lead'" class="tm-panel-magazine-story-kicker">Featured</div>
+        <h2 n:class="'tm-panel-magazine-story-title', $story_variant === 'secondary' ? 'text-truncate w-100'"><a href="{$entry['url']}" n:attr="title => $story_variant === 'secondary' ? ($entry['title'] ?? null) : null">{$entry['title_html']|noescape}</a></h2>
+        <p n:if="! empty( $entry['published_at_display'] ) || ($entry['scope'] ?? '') === 'author'" class="tm-panel-magazine-story-meta">
+            {if ($entry['scope'] ?? '') === 'author'}
+                by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
+                {if ! empty( $entry['published_at_display'] )}<span class="mx-1">|</span>{/if}
+            {/if}
+            {$entry['published_at_display'] ?? ''}
+        </p>
+        {if $story_variant !== 'secondary' && ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+            <div class="tm-baseline-tags d-flex flex-wrap gap-2 mb-3">
+                {foreach $entry['tag_links'] as $tag_link}
+                    <a class="tm-baseline-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                {/foreach}
+            </div>
+        {/if}
+        {if in_array( $story_variant, [ 'lead', 'stream' ], true ) && ! empty( $entry['summary_html'] )}
+            <div class="tm-panel-magazine-story-summary tm-baseline-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+        {/if}
+        <a class="tm-panel-magazine-story-read" href="{$entry['url']}">Read</a>
+    </div>
+</article>

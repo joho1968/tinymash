@@ -1,0 +1,99 @@
+{extends './layout.latte'}
+
+{block content}
+    <article class="tm-blocks-panel tm-blocks-entry p-4 p-lg-5{if ! empty( $entry['is_photo_post'] )} tm-entry-photo-post tm-blocks-photo-post{/if}{if ! empty( $entry['has_photo_gallery'] )} tm-entry-has-photo-gallery tm-blocks-has-photo-gallery{/if}">
+        {if ! empty( $entry_breadcrumbs ) && ! empty( $theme_breadcrumbs_enabled ) }
+            <nav aria-label="Breadcrumb" class="mb-4">
+                <ol class="breadcrumb small mb-0">
+                    <li class="breadcrumb-item"><a href="{$home_url}">Home</a></li>
+                    {foreach $entry_breadcrumbs as $breadcrumb}
+                        <li class="breadcrumb-item"{if ! empty( $iterator->last )} aria-current="page"{/if}>
+                            {if ! empty( $iterator->last )}
+                                <span>{$breadcrumb['title']}</span>
+                            {else}
+                                <a href="{$breadcrumb['url']}">{$breadcrumb['title']}</a>
+                            {/if}
+                        </li>
+                    {/foreach}
+                </ol>
+            </nav>
+        {/if}
+
+        {if ! empty( $entry['content_heading_html'] )}
+            <header class="tm-blocks-entry-header mb-3">
+                {$entry['content_heading_html']|noescape}
+            </header>
+        {else}
+            <header class="tm-blocks-entry-header mb-3">
+                <h1 class="h3 mb-0">{$entry['title_html']|noescape}</h1>
+            </header>
+        {/if}
+
+        <div class="tm-blocks-entry-meta">
+            {if $entry['scope'] === 'author' && ! empty( $entry['author_slug'] )}
+                <span>By <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a></span>
+            {/if}
+            {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['published_at_display'] )}
+                <span>{$entry['published_at_display']}</span>
+            {/if}
+            {if ! empty( $entry['sticky'] )}
+                <span>Sticky</span>
+            {/if}
+            {if ! empty( $entry['featured'] )}
+                <span>Featured</span>
+            {/if}
+        </div>
+
+        {if ! empty( $entry_navigation ) || ! empty( $entry_can_edit ) }
+            <section class="tm-blocks-section mb-4">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        {if ! empty( $entry_navigation['back_url'] )}
+                            <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['back_url']}">{$entry_navigation['back_label'] ?? 'Back'}</a>
+                        {/if}
+                        {if ! empty( $entry_can_edit ) && ! empty( $entry_edit_url ) }
+                            <a class="btn btn-outline-primary btn-sm" href="{$entry_edit_url}">Edit</a>
+                        {/if}
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                        {if ! empty( $entry_navigation['previous'] )}
+                            <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['previous']['url']}" title="Previous" aria-label="Previous">
+                                <span class="bi bi-arrow-left" aria-hidden="true"></span>
+                                <span class="visually-hidden">Previous</span>
+                            </a>
+                        {/if}
+                        {if ! empty( $entry_navigation['next'] )}
+                            <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['next']['url']}" title="Next" aria-label="Next">
+                                <span class="bi bi-arrow-right" aria-hidden="true"></span>
+                                <span class="visually-hidden">Next</span>
+                            </a>
+                        {/if}
+                    </div>
+                </div>
+            </section>
+        {/if}
+
+        <div class="tm-blocks-content" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+            {$entry['content_body_html']|noescape}
+        </div>
+
+        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+            <div class="tm-blocks-tags mt-4">
+                {foreach $entry['tag_links'] as $tag_link}
+                    <a class="tm-blocks-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                {/foreach}
+            </div>
+        {/if}
+
+        {if ! empty( $entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+            <section class="tm-blocks-section mt-4">
+                <h3 class="h5 mb-3">{$theme_child_pages_heading}</h3>
+                <ul class="list-unstyled d-grid gap-2 mb-0">
+                    {foreach $entry_child_pages as $child_page}
+                        <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                    {/foreach}
+                </ul>
+            </section>
+        {/if}
+    </article>
+{/block}

@@ -1,0 +1,26 @@
+{extends 'generic.layout.latte'}
+
+{block content}
+    {var $message = trim((string) ($message ?? ''))}
+    {var $login_url = trim((string) ($login_url ?? ''))}
+    <div class="mt-5 mx-2 text-center">
+        <div class="h2 font-monospace d-inline-block">
+            <span class="text-bg-danger px-1 pt-1 rounded-2">404</span> {$title}
+        </div>
+        <div class="mt-3 font-monospace">
+            {if $message !== ''}
+                {$message}
+            {else}
+                We can't seem to find what you're looking for.
+                <div class="d-block d-md-inline-block">
+                    Sorry about that.
+                </div>
+            {/if}
+        </div>
+        {if $login_url !== ''}
+            <div class="mt-3">
+                <a class="btn btn-outline-secondary btn-sm" href="{$login_url}">Log in</a>
+            </div>
+        {/if}
+    </div>
+{/block}

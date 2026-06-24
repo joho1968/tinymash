@@ -1,0 +1,2772 @@
+{extends 'layout.latte'}
+
+{block content}
+    {var $editor_plugin_tabs = is_array($editor_plugin_tabs ?? null) ? $editor_plugin_tabs : []}
+    {var $editor_json_flags = \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT}
+    <div id="tm-editor-root" data-editor-url="{$editor_url}" data-preview-url="{$preview_url}" data-draft-url="{$draft_url}" data-draft-delete-url="{$draft_delete_url}" data-save-entry-url="{$publish_url}" data-cancel-url="{$editor_cancel_url}" data-slug-check-url="{$editor_slug_check_url}" data-content-search-url="{$editor_content_search_url}" data-media-picker-url="{$editor_media_picker_url}" data-image-upload-url="{$editor_image_upload['upload_url'] ?? ''}" data-images-enabled="{if ! empty( $editor_image_upload['enabled'] )}1{else}0{/if}" data-csrf-token="{$csrf_token}" data-current-author-slug="{$current_author_slug ?? ''}" data-loaded-entry-id="{$editor_loaded_entry_id}" data-loaded-entry-type="{$editor_draft['entry_type'] ?? ''}" data-loaded-entry-scope="{$editor_draft['scope'] ?? ''}" data-loaded-entry-author-slug="{$editor_draft['author_slug'] ?? ''}" data-loaded-draft-id="{$editor_loaded_draft_id}" data-loaded-revision-id="{$editor_loaded_revision_id}" data-attachment-session-id="{$editor_attachment_session_id ?? ''}" data-autosave-enabled="{if ! empty( $editor_autosave['enabled'] )}1{else}0{/if}" data-autosave-interval-seconds="{$editor_autosave['interval_seconds'] ?? 120}" data-emoji-data-url="/ext/emoji-picker-data/en/github/data" data-revisions-json='{json_encode($editor_revisions ?? [], $editor_json_flags)}' data-linkable-entries-json='{json_encode($editor_linkable_entries ?? [], $editor_json_flags)}' data-tag-suggestions-json='{json_encode($editor_tag_suggestions ?? [], $editor_json_flags)}' data-current-featured-image-json='{json_encode($editor_current_featured_image ?? [], $editor_json_flags)}' data-current-social-image-json='{json_encode($editor_current_social_image ?? [], $editor_json_flags)}'>
+        {if ! empty( $editor_notice )}
+            <div class="alert alert-{$editor_notice['type']} mb-3" role="alert">
+                <div>{$editor_notice['message']}</div>
+                {if ! empty( $editor_notice['actions'] )}
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        {foreach $editor_notice['actions'] as $notice_action}
+                            <a class="{$notice_action['class'] ?? 'btn btn-sm btn-outline-secondary'}" href="{$notice_action['url']}">{$notice_action['label']}</a>
+                        {/foreach}
+                    </div>
+                {/if}
+            </div>
+        {/if}
+        <div class="row g-3">
+            <div class="col-12 col-lg-5 col-xl-4 order-1 order-lg-1">
+                {include './partials/editor/sidebar.latte'}
+            </div>
+
+            <div class="col-12 col-lg-7 col-xl-8 order-2 order-lg-2">
+                {include './partials/editor/shell.latte'}
+            </div>
+        </div>
+    </div>
+
+    {include './partials/editor/modals.latte'}
+
+    <script type="module" src="/ext/emoji-picker-element/index.js"></script>
+
+    <script n:syntax="double">
+        (() => {
+            'use strict';
+
+            const editorRoot = document.getElementById('tm-editor-root');
+            const markdownField = document.getElementById('tm-editor-markdown');
+            const titleField = document.getElementById('tm-editor-title');
+            const loadFilterField = document.getElementById('tm-editor-load-filter');
+            const loadEntryField = document.getElementById('tm-editor-load-entry');
+            const entryTypeField = document.getElementById('tm-editor-entry-type');
+            const scopeField = document.getElementById('tm-editor-scope');
+            const slugField = document.getElementById('tm-editor-slug');
+            const authorSlugField = document.getElementById('tm-editor-author-slug');
+            const parentSlugField = document.getElementById('tm-editor-parent-slug');
+            const parentSlugFieldContainer = parentSlugField ? parentSlugField.closest('.col-12') : null;
+            const summaryField = document.getElementById('tm-editor-summary');
+            const tagsField = document.getElementById('tm-editor-tags');
+            const seoTitleField = document.getElementById('tm-editor-seo-title');
+            const seoDescriptionField = document.getElementById('tm-editor-seo-description');
+            const seoSocialTitleField = document.getElementById('tm-editor-seo-social-title');
+            const seoSocialDescriptionField = document.getElementById('tm-editor-seo-social-description');
+            const seoCanonicalUrlField = document.getElementById('tm-editor-seo-canonical-url');
+            const seoRobotsField = document.getElementById('tm-editor-seo-robots');
+            const seoExcludeFromSitemapField = document.getElementById('tm-editor-seo-exclude-from-sitemap');
+            const sortOrderField = document.getElementById('tm-editor-sort-order');
+            const sortOrderFieldContainer = sortOrderField ? sortOrderField.closest('.col-12') : null;
+            const sortOrderHint = document.getElementById('tm-editor-sort-order-hint');
+            const aggregateField = document.getElementById('tm-editor-aggregate');
+            const aggregateFieldWrapper = aggregateField ? aggregateField.closest('.form-check') : null;
+            const stickyField = document.getElementById('tm-editor-sticky');
+            const featuredField = document.getElementById('tm-editor-featured');
+            const featuredFieldWrapper = featuredField ? featuredField.closest('.form-check') : null;
+            const fallbackCoverColorField = document.getElementById('tm-editor-fallback-cover-color');
+            const fallbackCoverColorFieldContainer = fallbackCoverColorField ? fallbackCoverColorField.closest('.col-12') : null;
+            const fallbackCoverColorCustomWrap = document.getElementById('tm-editor-fallback-cover-color-custom-wrap');
+            const fallbackCoverColorCustomField = document.getElementById('tm-editor-fallback-cover-color-custom');
+            const fallbackCoverColorRecentContainer = document.getElementById('tm-editor-fallback-cover-color-recent');
+            const navigationField = document.getElementById('tm-editor-nav');
+            const navigationFieldWrapper = navigationField ? navigationField.closest('.form-check') : null;
+            const saveButton = document.getElementById('tm-editor-save');
+            const saveEntryButton = document.getElementById('tm-editor-save-entry');
+            const saveReturnButton = document.getElementById('tm-editor-save-return');
+            const saveNewButton = document.getElementById('tm-editor-save-new');
+            const saveActionButtons = Array.from(document.querySelectorAll('[data-tm-editor-save-action]'));
+            const duplicateButton = document.getElementById('tm-editor-duplicate');
+            const cancelButton = document.getElementById('tm-editor-cancel');
+            const statusField = document.getElementById('tm-editor-status-field');
+            const publishedAtLocalField = document.getElementById('tm-editor-published-at-local');
+            const saveStatus = document.getElementById('tm-editor-save-status');
+            const publishedLink = document.getElementById('tm-editor-published-link');
+            const previewPane = document.getElementById('tm-editor-preview-pane');
+            const metadataPane = document.getElementById('tm-editor-metadata-pane');
+            const seoPane = document.getElementById('tm-editor-seo-pane');
+            const pluginPanes = Array.from(document.querySelectorAll('[data-editor-plugin-pane]'));
+            const writePane = document.getElementById('tm-editor-write-pane');
+            const previewTarget = document.getElementById('tm-editor-preview');
+            const previewStatus = document.getElementById('tm-editor-status');
+            const tabButtons = document.querySelectorAll('#tinymash-editor-tabs [data-mode]');
+
+            const previewUrl = editorRoot ? (editorRoot.dataset.previewUrl || '') : '';
+            const editorUrl = editorRoot ? (editorRoot.dataset.editorUrl || '') : '';
+            const draftUrl = editorRoot ? (editorRoot.dataset.draftUrl || '') : '';
+            const draftDeleteUrl = editorRoot ? (editorRoot.dataset.draftDeleteUrl || '') : '';
+            const saveEntryUrl = editorRoot ? (editorRoot.dataset.saveEntryUrl || '') : '';
+            const cancelUrl = editorRoot ? (editorRoot.dataset.cancelUrl || '') : '';
+            const slugCheckUrl = editorRoot ? (editorRoot.dataset.slugCheckUrl || '') : '';
+            const contentSearchUrl = editorRoot ? (editorRoot.dataset.contentSearchUrl || '') : '';
+            const mediaPickerUrl = editorRoot ? (editorRoot.dataset.mediaPickerUrl || '') : '';
+            const imageUploadUrl = editorRoot ? (editorRoot.dataset.imageUploadUrl || '') : '';
+            const imagesEnabled = editorRoot ? (editorRoot.dataset.imagesEnabled === '1') : false;
+            const csrfToken = editorRoot ? (editorRoot.dataset.csrfToken || '') : '';
+            const initialDraftId = editorRoot ? (editorRoot.dataset.loadedDraftId || '') : '';
+            const initialRevisionId = editorRoot ? (editorRoot.dataset.loadedRevisionId || '') : '';
+            const loadedEntryType = editorRoot ? (editorRoot.dataset.loadedEntryType || '') : '';
+            const loadedEntryScope = editorRoot ? (editorRoot.dataset.loadedEntryScope || '') : '';
+            const loadedEntryAuthorSlug = editorRoot ? (editorRoot.dataset.loadedEntryAuthorSlug || '') : '';
+            const currentAuthorSlug = editorRoot ? (editorRoot.dataset.currentAuthorSlug || '') : '';
+            const attachmentSessionId = editorRoot
+                ? (editorRoot.dataset.attachmentSessionId || ('session_' + Math.random().toString(36).slice(2, 12)))
+                : ('session_' + Math.random().toString(36).slice(2, 12));
+            const autosaveEnabled = editorRoot ? (editorRoot.dataset.autosaveEnabled === '1') : false;
+            const autosaveIntervalSeconds = editorRoot ? Math.min(180, Math.max(30, Number.parseInt(editorRoot.dataset.autosaveIntervalSeconds || '120', 10) || 120)) : 120;
+            const emojiDataUrl = editorRoot ? (editorRoot.dataset.emojiDataUrl || '/ext/emoji-picker-data/en/github/data') : '/ext/emoji-picker-data/en/github/data';
+            function parseEditorDatasetJson(key, fallback = []) {
+                if (!editorRoot || !editorRoot.dataset || !Object.prototype.hasOwnProperty.call(editorRoot.dataset, key)) {
+                    return fallback;
+                }
+
+                const rawValue = editorRoot.dataset[key] || '';
+                if (rawValue === '') {
+                    return fallback;
+                }
+
+                try {
+                    return JSON.parse(rawValue);
+                } catch (error) {
+                    console.error('[tinymash] editor data JSON parse failed for ' + key, error);
+                    return fallback;
+                }
+            }
+
+            function parseEditorDatasetJsonArray(key) {
+                const parsedValue = parseEditorDatasetJson(key, []);
+                return Array.isArray(parsedValue) ? parsedValue : [];
+            }
+
+            const editorRevisions = parseEditorDatasetJsonArray('revisionsJson');
+            const editorLinkableEntries = parseEditorDatasetJsonArray('linkableEntriesJson');
+            const editorTagSuggestions = parseEditorDatasetJsonArray('tagSuggestionsJson');
+            const editorCurrentFeaturedImage = parseEditorDatasetJson('currentFeaturedImageJson', []);
+            const editorCurrentSocialImage = parseEditorDatasetJson('currentSocialImageJson', []);
+            const slugStatus = document.getElementById('tm-editor-slug-status');
+            const stateSummary = document.getElementById('tm-editor-state-summary');
+            const currentDraftDeleteButton = document.getElementById('tm-editor-delete-current-draft');
+            const draftsList = document.getElementById('tm-editor-drafts-list');
+            const recentEntriesList = document.getElementById('tm-editor-recent-entries-list');
+            const revisionsList = document.getElementById('tm-editor-revisions-list');
+            const contentSearchStatus = document.getElementById('tm-editor-content-search-status');
+            const contentSearchResults = document.getElementById('tm-editor-content-search-results');
+            const loadSelectFallback = document.getElementById('tm-editor-load-select-fallback');
+            const loadSelectActions = document.getElementById('tm-editor-load-select-actions');
+            const deleteDraftModalElement = document.getElementById('tm-editor-delete-draft-modal');
+            const deleteDraftName = document.getElementById('tm-editor-delete-draft-name');
+            const confirmDeleteDraftButton = document.getElementById('tm-editor-confirm-delete-draft');
+            const cancelModalElement = document.getElementById('tm-editor-cancel-modal');
+            const cancelModalSummary = document.getElementById('tm-editor-cancel-modal-summary');
+            const cancelModalDetail = document.getElementById('tm-editor-cancel-modal-detail');
+            const cancelKeepButton = document.getElementById('tm-editor-cancel-keep');
+            const cancelDiscardButton = document.getElementById('tm-editor-cancel-discard');
+            const emojiPickerButton = document.getElementById('tm-editor-open-emoji-picker');
+            const imageUploadButton = document.getElementById('tm-editor-open-image-upload');
+            const imageInput = document.getElementById('tm-editor-image-input');
+            const externalLinkButton = document.getElementById('tm-editor-open-external-link');
+            const externalLinkModalElement = document.getElementById('tm-editor-external-link-modal');
+            const externalLinkUrlField = document.getElementById('tm-editor-external-link-url');
+            const externalLinkTextField = document.getElementById('tm-editor-external-link-text');
+            const externalLinkNewTabField = document.getElementById('tm-editor-external-link-new-tab');
+            const externalLinkInsertButton = document.getElementById('tm-editor-external-link-insert');
+            const internalLinkButton = document.getElementById('tm-editor-open-internal-link');
+            const internalLinkModalElement = document.getElementById('tm-editor-internal-link-modal');
+            const internalLinkFilterField = document.getElementById('tm-editor-internal-link-filter');
+            const internalLinkTargetField = document.getElementById('tm-editor-internal-link-target');
+            const internalLinkTextField = document.getElementById('tm-editor-internal-link-text');
+            const internalLinkNewTabField = document.getElementById('tm-editor-internal-link-new-tab');
+            const internalLinkInsertButton = document.getElementById('tm-editor-internal-link-insert');
+            const featuredImageField = document.getElementById('tm-editor-featured-image');
+            const featuredImageOpenButton = document.getElementById('tm-editor-open-featured-image-picker');
+            const featuredImageClearButton = document.getElementById('tm-editor-clear-featured-image');
+            const featuredImageSummary = document.getElementById('tm-editor-featured-image-summary');
+            const featuredImageDisabledValueField = document.getElementById('tm-editor-featured-image-disabled-value');
+            const featuredImagePreview = document.getElementById('tm-editor-featured-image-preview');
+            const seoSocialImageField = document.getElementById('tm-editor-seo-social-image');
+            const seoSocialImageOpenButton = document.getElementById('tm-editor-open-seo-social-image-picker');
+            const seoSocialImageClearButton = document.getElementById('tm-editor-clear-seo-social-image');
+            const seoSocialImageSummary = document.getElementById('tm-editor-seo-social-image-summary');
+            const seoSocialImageDisabledValueField = document.getElementById('tm-editor-seo-social-image-disabled-value');
+            const seoSocialImagePreview = document.getElementById('tm-editor-seo-social-image-preview');
+            const attachedImagesContainer = document.getElementById('tm-editor-attached-images');
+            const featuredImageModalElement = document.getElementById('tm-editor-featured-image-modal');
+            const featuredImageModalLabel = document.getElementById('tm-editor-featured-image-modal-label');
+            const featuredImageFilterField = document.getElementById('tm-editor-featured-image-filter');
+            const featuredImagePickerGrid = document.getElementById('tm-editor-featured-image-picker-grid');
+            const featuredImageRemoveButton = document.getElementById('tm-editor-featured-image-remove');
+            const imagePickerUploadButton = document.getElementById('tm-editor-image-picker-upload');
+            const imagePickerInsertSelectedButton = document.getElementById('tm-editor-image-picker-insert-selected');
+            const featuredImageSourceButtons = document.querySelectorAll('#tm-editor-featured-image-modal [data-source]');
+            const emojiAutocomplete = document.getElementById('tm-editor-emoji-autocomplete');
+            const tagsAutocomplete = document.getElementById('tm-editor-tags-autocomplete');
+            const emojiPickerModalElement = document.getElementById('tm-editor-emoji-modal');
+            const emojiPickerElement = document.getElementById('tm-editor-emoji-picker');
+            const externalLinkNewTabStorageKey = 'tinymash.editor.externalLinkNewTab';
+            const internalLinkNewTabStorageKey = 'tinymash.editor.internalLinkNewTab';
+            const fallbackCoverColorStorageKey = 'tinymash.editor.blocksRecentCoverColors';
+
+            let lastPreviewSource = null;
+            let loadedEntryId = editorRoot ? (editorRoot.dataset.loadedEntryId || '') : '';
+            let loadedDraftId = initialDraftId;
+            let loadedRevisionId = initialRevisionId;
+            let slugTouched = loadedEntryId !== '';
+            let lastAutoSlug = slugField ? slugField.value.trim() : '';
+            let slugCheckTimer = null;
+            let slugCheckSequence = 0;
+            let autosaveTimer = null;
+            let hasUnsavedChanges = false;
+            let draftSaveInFlight = false;
+            let saveEntryInFlight = false;
+            let draftSavePromise = null;
+            let draftSaveController = null;
+            let draftSaveReason = '';
+            let pendingDeleteDraftId = '';
+            let pendingDeleteDraftTitle = '';
+            let pendingDeleteIsCurrent = false;
+            let emojiAutocompleteEntries = [];
+            let emojiAutocompletePromise = null;
+            let emojiAutocompleteMatches = [];
+            let emojiAutocompleteIndex = -1;
+            let emojiAutocompleteTokenStart = -1;
+            let emojiAutocompleteTokenEnd = -1;
+            let emojiAutocompleteRequestId = 0;
+            let tagAutocompleteMatches = [];
+            let tagAutocompleteIndex = -1;
+            let internalLinkFilterTouched = false;
+            let loadEntryOptionRecords = [];
+            let contentSearchTimer = null;
+            let contentSearchController = null;
+            let featuredImageSource = 'attached';
+            let imagePickerTarget = 'featured';
+            let lastSuggestedSortOrder = null;
+            let sortOrderTouched = Boolean(initialDraftId || initialRevisionId || loadedEntryId);
+            let attachedImageRecords = [];
+            let featuredImageRecords = [];
+            let libraryImageRecords = [];
+            const mediaPickerSourceLoaded = {
+                attached: false,
+                recent: false,
+                library: false
+            };
+            const mediaPickerSourceLoading = {
+                attached: false,
+                recent: false,
+                library: false
+            };
+            const initialSelectedImageRecords = [editorCurrentFeaturedImage, editorCurrentSocialImage]
+                .map((record) => normalizeFeaturedImageRecord(record))
+                .filter((record) => record);
+
+            function isCustomFallbackCoverColor(value) {
+                return /^#[0-9a-f]{6}$/i.test(String(value || '').trim());
+            }
+
+            function normalizeFallbackCoverColor(value) {
+                const normalized = String(value || '').trim().toLowerCase();
+                if (['', 'slate', 'blue', 'green', 'amber', 'berry'].includes(normalized)) {
+                    return normalized;
+                }
+
+                return isCustomFallbackCoverColor(normalized) ? normalized : '';
+            }
+
+            function loadRecentFallbackCoverColors() {
+                if (!window.localStorage) {
+                    return [];
+                }
+
+                try {
+                    const stored = JSON.parse(window.localStorage.getItem(fallbackCoverColorStorageKey) || '[]');
+                    if (!Array.isArray(stored)) {
+                        return [];
+                    }
+
+                    return stored.map((value) => normalizeFallbackCoverColor(value)).filter((value) => isCustomFallbackCoverColor(value));
+                } catch (error) {
+                    return [];
+                }
+            }
+
+            function saveRecentFallbackCoverColors(colors) {
+                if (!window.localStorage) {
+                    return;
+                }
+
+                try {
+                    window.localStorage.setItem(fallbackCoverColorStorageKey, JSON.stringify(colors));
+                } catch (error) {
+                    // Ignore storage failures.
+                }
+            }
+
+            function rememberFallbackCoverColor(value) {
+                const normalized = normalizeFallbackCoverColor(value);
+                if (!isCustomFallbackCoverColor(normalized)) {
+                    return;
+                }
+
+                const recentColors = loadRecentFallbackCoverColors().filter((color) => color !== normalized);
+                recentColors.unshift(normalized);
+                saveRecentFallbackCoverColors(recentColors.slice(0, 8));
+            }
+
+            function renderRecentFallbackCoverColors() {
+                if (!fallbackCoverColorRecentContainer) {
+                    return;
+                }
+
+                const recentColors = loadRecentFallbackCoverColors();
+                fallbackCoverColorRecentContainer.innerHTML = '';
+                fallbackCoverColorRecentContainer.classList.toggle('d-none', recentColors.length === 0);
+                recentColors.forEach((color) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2';
+                    button.dataset.color = color;
+                    button.title = color;
+                    button.innerHTML = '<span class="border rounded-1 d-inline-block" style="width: 1rem; height: 1rem; background-color: ' + escapeHtml(color) + ';"></span><span class="font-monospace small">' + escapeHtml(color) + '</span>';
+                    fallbackCoverColorRecentContainer.appendChild(button);
+                });
+            }
+
+            function getFallbackCoverColorValue() {
+                if (!fallbackCoverColorField) {
+                    return '';
+                }
+
+                if (fallbackCoverColorField.value === 'custom') {
+                    return normalizeFallbackCoverColor(fallbackCoverColorCustomField ? fallbackCoverColorCustomField.value : '');
+                }
+
+                return normalizeFallbackCoverColor(fallbackCoverColorField.value);
+            }
+
+            function updateFallbackCoverColorUi() {
+                const showCustom = fallbackCoverColorField && fallbackCoverColorField.value === 'custom';
+                if (fallbackCoverColorCustomWrap) {
+                    fallbackCoverColorCustomWrap.classList.toggle('d-none', !showCustom);
+                }
+                if (fallbackCoverColorCustomField) {
+                    fallbackCoverColorCustomField.disabled = !showCustom;
+                }
+                renderRecentFallbackCoverColors();
+            }
+
+            function applyFallbackCoverColorValue(value) {
+                const normalized = normalizeFallbackCoverColor(value);
+                if (!fallbackCoverColorField) {
+                    return;
+                }
+
+                if (isCustomFallbackCoverColor(normalized)) {
+                    fallbackCoverColorField.value = 'custom';
+                    if (fallbackCoverColorCustomField) {
+                        fallbackCoverColorCustomField.value = normalized;
+                    }
+                    rememberFallbackCoverColor(normalized);
+                } else {
+                    fallbackCoverColorField.value = normalized;
+                }
+
+                updateFallbackCoverColorUi();
+            }
+
+            function getBootstrapModal(modalElement) {
+                if (!modalElement || !window.bootstrap || !window.bootstrap.Modal) {
+                    return null;
+                }
+
+                return window.bootstrap.Modal.getOrCreateInstance(modalElement);
+            }
+
+            function getLoadEntryOptionRecordsFromDom() {
+                if (!loadEntryField) {
+                    return [];
+                }
+
+                return Array.from(loadEntryField.options).slice(1).map((option) => ({
+                    id: option.value || '',
+                    label: option.textContent || 'Untitled content',
+                    filterText: option.dataset.filterText || option.textContent || '',
+                })).filter((option) => option.id !== '');
+            }
+
+            function renderLoadEntryOptions(entryOptions, selectedId = '') {
+                if (!loadEntryField) {
+                    return;
+                }
+
+                const normalizedSelectedId = String(selectedId || '');
+                const optionMarkup = ['<option value="">Keep current composer state</option>'];
+                (entryOptions || []).forEach((entryOption) => {
+                    const optionId = String(entryOption.id || '');
+                    if (optionId === '') {
+                        return;
+                    }
+
+                    const selected = normalizedSelectedId !== '' && normalizedSelectedId === optionId ? ' selected' : '';
+                    const label = entryOption.label || 'Untitled content';
+                    const filterText = entryOption.filterText || label;
+                    optionMarkup.push(
+                        '<option value="' + escapeHtml(optionId) + '" data-filter-text="' + escapeHtml(filterText) + '"' + selected + '>' + escapeHtml(label) + '</option>'
+                    );
+                });
+                loadEntryField.innerHTML = optionMarkup.join('');
+            }
+
+            function setContentSearchStatus(message, className = 'form-text') {
+                if (!contentSearchStatus) {
+                    return;
+                }
+
+                contentSearchStatus.className = className;
+                contentSearchStatus.textContent = message;
+            }
+
+            function clearContentSearchResults() {
+                if (contentSearchResults) {
+                    contentSearchResults.innerHTML = '';
+                    contentSearchResults.classList.add('d-none');
+                }
+            }
+
+            function renderContentSearchResults(results) {
+                if (!contentSearchResults) {
+                    return;
+                }
+
+                if (!Array.isArray(results) || results.length === 0) {
+                    clearContentSearchResults();
+                    return;
+                }
+
+                contentSearchResults.innerHTML = results.map((result) => {
+                    const title = result.title || result.label || 'Untitled content';
+                    const meta = [result.type || '', result.scope_label || result.scope || '', result.status || '']
+                        .filter((value) => String(value || '').trim() !== '')
+                        .join(' · ');
+                    const path = result.path || '';
+                    return '<a class="btn btn-outline-secondary btn-sm text-start" href="' + escapeHtml(result.url || (editorUrl + '?entry=' + encodeURIComponent(result.id || ''))) + '">'
+                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
+                        + '<span class="d-block small text-body-secondary">' + escapeHtml(meta) + (path !== '' ? ' · ' + escapeHtml(path) : '') + '</span>'
+                        + '</a>';
+                }).join('');
+                contentSearchResults.classList.remove('d-none');
+            }
+
+            function searchEditorContentNow() {
+                if (!loadFilterField || !contentSearchUrl || !csrfToken) {
+                    return;
+                }
+
+                const query = loadFilterField.value.trim();
+                if (query.length < 2) {
+                    if (contentSearchController) {
+                        contentSearchController.abort();
+                        contentSearchController = null;
+                    }
+                    clearContentSearchResults();
+                    setContentSearchStatus(query === '' ? '' : 'Type one more character.');
+                    return;
+                }
+
+                if (contentSearchController) {
+                    contentSearchController.abort();
+                }
+                contentSearchController = new AbortController();
+                setContentSearchStatus('Searching...');
+
+                const body = new URLSearchParams();
+                body.set('tinymash_csrf', csrfToken);
+                body.set('q', query);
+                body.set('limit', '12');
+
+                fetch(contentSearchUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: body.toString(),
+                    signal: contentSearchController.signal
+                })
+                    .then((response) => response.json().then((payload) => ({ response, payload })))
+                    .then(({ response, payload }) => {
+                        if (!response.ok) {
+                            throw new Error(payload && payload.error ? payload.error : 'Content search failed.');
+                        }
+                        const results = Array.isArray(payload.results) ? payload.results : [];
+                        renderContentSearchResults(results);
+                        if (results.length === 0) {
+                            setContentSearchStatus(payload.message || 'No matching content found.', 'form-text text-body-secondary');
+                            return;
+                        }
+                        setContentSearchStatus(results.length + ' matching item' + (results.length === 1 ? '' : 's') + '.', 'form-text text-body-secondary');
+                    })
+                    .catch((error) => {
+                        if (error && error.name === 'AbortError') {
+                            return;
+                        }
+                        clearContentSearchResults();
+                        setContentSearchStatus(error && error.message ? error.message : 'Content search failed.', 'form-text text-danger');
+                    });
+            }
+
+            function queueContentSearch() {
+                if (contentSearchTimer) {
+                    window.clearTimeout(contentSearchTimer);
+                }
+                contentSearchTimer = window.setTimeout(searchEditorContentNow, 250);
+            }
+
+            function initializeContentSearch() {
+                if (!loadFilterField || !contentSearchUrl || !contentSearchResults) {
+                    return;
+                }
+
+                if (loadSelectFallback) {
+                    loadSelectFallback.classList.add('d-none');
+                }
+                if (loadSelectActions) {
+                    loadSelectActions.classList.add('d-none');
+                }
+                loadFilterField.addEventListener('input', queueContentSearch);
+                loadFilterField.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                    }
+                });
+                setContentSearchStatus('');
+            }
+
+            function filterLoadOptions() {
+                if (!loadFilterField || !loadEntryField) {
+                    return;
+                }
+
+                if (loadEntryOptionRecords.length === 0) {
+                    loadEntryOptionRecords = getLoadEntryOptionRecordsFromDom();
+                }
+
+                const needle = loadFilterField.value.trim().toLowerCase();
+                const selectedId = loadEntryField.value || '';
+                const matchingOptions = needle === ''
+                    ? loadEntryOptionRecords
+                    : loadEntryOptionRecords.filter((option) => String(option.filterText || option.label || '').toLowerCase().includes(needle));
+                const selectedStillVisible = selectedId !== '' && matchingOptions.some((option) => String(option.id || '') === selectedId);
+                renderLoadEntryOptions(matchingOptions, selectedStillVisible ? selectedId : '');
+            }
+
+            function getTagAutocompleteContext() {
+                if (!tagsField) {
+                    return null;
+                }
+
+                const value = tagsField.value || '';
+                const selectionStart = Number.isInteger(tagsField.selectionStart) ? tagsField.selectionStart : value.length;
+                const prefix = value.slice(0, selectionStart);
+                const tokenStart = Math.max(prefix.lastIndexOf(','), prefix.lastIndexOf(' ')) + 1;
+                const token = prefix.slice(tokenStart).trim().replace(/^#/, '').toLowerCase();
+                return {
+                    value,
+                    selectionStart,
+                    tokenStart,
+                    token,
+                };
+            }
+
+            function hideTagAutocomplete() {
+                if (!tagsAutocomplete) {
+                    return;
+                }
+                tagsAutocomplete.classList.add('d-none');
+                tagsAutocomplete.innerHTML = '';
+                tagAutocompleteMatches = [];
+                tagAutocompleteIndex = -1;
+            }
+
+            function renderTagAutocomplete() {
+                if (!tagsAutocomplete) {
+                    return;
+                }
+
+                if (!Array.isArray(tagAutocompleteMatches) || tagAutocompleteMatches.length === 0) {
+                    hideTagAutocomplete();
+                    return;
+                }
+
+                tagsAutocomplete.innerHTML = tagAutocompleteMatches.map((tag, index) => {
+                    const activeClass = index === tagAutocompleteIndex ? ' active' : '';
+                    return '<button class="list-group-item list-group-item-action' + activeClass + '" type="button" data-tag-index="' + index + '">#' + escapeHtml(tag) + '</button>';
+                }).join('');
+                tagsAutocomplete.classList.remove('d-none');
+            }
+
+            function applyTagSuggestion(tag) {
+                if (!tagsField || !tag) {
+                    return;
+                }
+
+                const context = getTagAutocompleteContext();
+                if (!context) {
+                    return;
+                }
+
+                const before = context.value.slice(0, context.tokenStart).replace(/\s+$/, '');
+                const after = context.value.slice(context.selectionStart).replace(/^\s+/, '');
+                const replacement = (before !== '' ? before + ' ' : '') + '#' + tag + ', ' + after;
+                tagsField.value = replacement.replace(/\s+,/g, ',').trimStart();
+                const caretPosition = ((before !== '' ? before + ' ' : '') + '#' + tag + ', ').length;
+                tagsField.focus();
+                tagsField.setSelectionRange(caretPosition, caretPosition);
+                hideTagAutocomplete();
+            }
+
+            function updateTagAutocomplete() {
+                if (!tagsField || !tagsAutocomplete) {
+                    return;
+                }
+
+                const context = getTagAutocompleteContext();
+                if (!context || context.token.length < 1) {
+                    hideTagAutocomplete();
+                    return;
+                }
+
+                const existingTokens = String(tagsField.value || '')
+                    .split(/[\s,]+/u)
+                    .map((token) => token.trim().replace(/^#/, '').toLowerCase())
+                    .filter((token) => token !== '');
+
+                tagAutocompleteMatches = editorTagSuggestions
+                    .filter((tag) => typeof tag === 'string' && tag.toLowerCase().includes(context.token))
+                    .filter((tag) => tag.toLowerCase() === context.token || !existingTokens.includes(tag.toLowerCase()))
+                    .slice(0, 8);
+                tagAutocompleteIndex = tagAutocompleteMatches.length > 0 ? 0 : -1;
+                renderTagAutocomplete();
+            }
+
+            function escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function getDraftUrl(draftId) {
+                return editorUrl + '?draft=' + encodeURIComponent(draftId);
+            }
+
+            function getEntryUrl(entryId) {
+                return editorUrl + '?entry=' + encodeURIComponent(entryId);
+            }
+            {{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/editor/media.js.latte')|noescape}}
+
+            function getEditorExitUrl() {
+                return cancelUrl || editorUrl || '/admin';
+            }
+
+            function getEditorNewUrl() {
+                return (editorUrl || '/admin/editor') + '?new=1';
+            }
+
+            function setSaveEntryControlsDisabled(disabled) {
+                if (saveEntryButton) {
+                    saveEntryButton.disabled = disabled;
+                }
+                saveActionButtons.forEach((button) => {
+                    button.disabled = disabled;
+                });
+            }
+
+            function updateDeleteDraftVisibility() {
+                if (!currentDraftDeleteButton) {
+                    return;
+                }
+                currentDraftDeleteButton.classList.toggle('d-none', !loadedDraftId);
+            }
+
+            function updateStateSummary(text) {
+                if (stateSummary) {
+                    stateSummary.textContent = text;
+                }
+            }
+
+            function updateLoadEntryOptions(entryOptions) {
+                if (!loadEntryField) {
+                    return;
+                }
+
+                const selectedId = loadedEntryId;
+                loadEntryOptionRecords = (entryOptions || []).map((entryOption) => ({
+                    id: String(entryOption.id || ''),
+                    label: entryOption.label || 'Untitled content',
+                    filterText: (entryOption.label || '') + ' ' + (entryOption.path || '') + ' ' + (entryOption.type || '') + ' ' + (entryOption.scope || '') + ' ' + (entryOption.author_slug || ''),
+                })).filter((entryOption) => entryOption.id !== '');
+                renderLoadEntryOptions(loadEntryOptionRecords, selectedId);
+                filterLoadOptions();
+            }
+
+            function updateDraftList(drafts) {
+                if (!draftsList) {
+                    return;
+                }
+
+                if (!drafts || drafts.length === 0) {
+                    draftsList.innerHTML = '<div class="small text-body-secondary">No drafts yet.</div>';
+                    return;
+                }
+
+                draftsList.innerHTML = drafts.map((draft) => {
+                    const draftId = String(draft.draft_id || '');
+                    const title = String(draft.display_title || draft.title || 'Untitled draft');
+                    const scopeLabel = draft.scope === 'author' ? String(draft.author_slug || '') : 'root';
+                    const slugLabel = String(draft.slug || '') !== '' ? String(draft.slug || '') : 'no slug yet';
+                    return '<div class="d-flex gap-2 align-items-start">'
+                        + '<a class="btn btn-outline-secondary btn-sm text-start flex-grow-1" href="' + escapeHtml(getDraftUrl(draftId)) + '">'
+                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
+                        + '<span class="d-block small text-body-secondary">' + escapeHtml(String(draft.entry_type || 'post') + ' draft | ' + scopeLabel + ' | ' + slugLabel) + '</span>'
+                        + '</a>'
+                        + '<button class="btn btn-outline-danger btn-sm tm-editor-delete-draft" type="button" data-draft-id="' + escapeHtml(draftId) + '" data-draft-title="' + escapeHtml(title) + '" title="Delete draft" aria-label="Delete draft">'
+                        + '<span class="bi bi-trash" aria-hidden="true"></span>'
+                        + '</button>'
+                        + '</div>';
+                }).join('');
+            }
+
+            function updateRecentEntries(entries) {
+                if (!recentEntriesList) {
+                    return;
+                }
+
+                if (!entries || entries.length === 0) {
+                    recentEntriesList.innerHTML = '<div class="small text-body-secondary">No saved content yet.</div>';
+                    return;
+                }
+
+                recentEntriesList.innerHTML = entries.map((entry) => {
+                    const title = String(entry.title || 'Untitled content');
+                    const scopeLabel = entry.scope === 'author' ? String(entry.author_slug || '') : 'root';
+                    return '<a class="btn btn-outline-secondary btn-sm text-start" href="' + escapeHtml(getEntryUrl(entry.id || '')) + '">'
+                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
+                        + '<span class="d-block small text-body-secondary">' + escapeHtml(String(entry.type || 'post') + ' | ' + scopeLabel + ' | ' + String(entry.path || '')) + '</span>'
+                        + '</a>';
+                }).join('');
+            }
+
+            function updateRevisionList(revisions) {
+                if (!revisionsList) {
+                    return;
+                }
+
+                if (!loadedEntryId) {
+                    revisionsList.innerHTML = '<div class="small text-body-secondary">Load saved content to browse its revisions.</div>';
+                    return;
+                }
+
+                if (!revisions || revisions.length === 0) {
+                    revisionsList.innerHTML = '<div class="small text-body-secondary">No saved revisions yet for this content item.</div>';
+                    return;
+                }
+
+                revisionsList.innerHTML = revisions.map((revision) => {
+                    const title = String(revision.title || 'Untitled revision');
+                    const savedAt = String(revision.saved_at_display || revision.saved_at_utc || '');
+                    const status = String(revision.status || 'unpublished');
+                    return '<a class="btn btn-outline-secondary btn-sm text-start" href="' + escapeHtml(String(revision.open_url || '#')) + '">'
+                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
+                        + '<span class="d-block small text-body-secondary">' + escapeHtml(status + ' | saved ' + savedAt) + '</span>'
+                        + '</a>';
+                }).join('');
+            }
+
+            function refreshCollections(collections) {
+                if (!collections) {
+                    return;
+                }
+                if (Object.prototype.hasOwnProperty.call(collections, 'entry_options')) {
+                    updateLoadEntryOptions(collections.entry_options || []);
+                }
+                if (Object.prototype.hasOwnProperty.call(collections, 'drafts')) {
+                    updateDraftList(collections.drafts || []);
+                }
+                if (Object.prototype.hasOwnProperty.call(collections, 'recent_entries')) {
+                    updateRecentEntries(collections.recent_entries || []);
+                }
+                if (Object.prototype.hasOwnProperty.call(collections, 'revisions')) {
+                    updateRevisionList(collections.revisions || []);
+                }
+            }
+
+            function markDirty() {
+                hasUnsavedChanges = true;
+                setTransientStatus('Unsaved changes');
+                if (publishedLink) {
+                    publishedLink.classList.add('d-none');
+                }
+                lastPreviewSource = null;
+                scheduleAutosave();
+            }
+
+            function clearAutosaveTimer() {
+                if (autosaveTimer) {
+                    window.clearTimeout(autosaveTimer);
+                    autosaveTimer = null;
+                }
+            }
+
+            function scheduleAutosave() {
+                clearAutosaveTimer();
+                if (!autosaveEnabled || !hasUnsavedChanges) {
+                    return;
+                }
+
+                autosaveTimer = window.setTimeout(() => {
+                    saveDraft(true);
+                }, autosaveIntervalSeconds * 1000);
+            }
+
+            function setMode(mode) {
+                const isPreview = mode === 'preview';
+                const isMetadata = mode === 'metadata';
+                const isSeo = mode === 'seo';
+                const activePluginPane = pluginPanes.find((pane) => pane.dataset.editorPluginPane === mode) || null;
+                const isPlugin = !!activePluginPane;
+                const isWrite = !isPreview && !isMetadata && !isSeo && !isPlugin;
+                writePane.classList.toggle('d-none', !isWrite);
+                writePane.setAttribute('aria-hidden', isWrite ? 'false' : 'true');
+                previewPane.classList.toggle('d-none', !isPreview);
+                previewPane.setAttribute('aria-hidden', isPreview ? 'false' : 'true');
+                metadataPane.classList.toggle('d-none', !isMetadata);
+                metadataPane.setAttribute('aria-hidden', isMetadata ? 'false' : 'true');
+                if (seoPane) {
+                    seoPane.classList.toggle('d-none', !isSeo);
+                    seoPane.setAttribute('aria-hidden', isSeo ? 'false' : 'true');
+                }
+                pluginPanes.forEach((pane) => {
+                    const active = pane === activePluginPane;
+                    pane.classList.toggle('d-none', !active);
+                    pane.setAttribute('aria-hidden', active ? 'false' : 'true');
+                });
+                tabButtons.forEach((button) => {
+                    const active = button.getAttribute('data-mode') === mode;
+                    button.classList.toggle('active', active);
+                    button.setAttribute('aria-selected', active ? 'true' : 'false');
+                    button.setAttribute('tabindex', active ? '0' : '-1');
+                });
+                if (isPreview) {
+                    renderPreview();
+                } else if (isSeo && seoTitleField) {
+                    seoTitleField.focus();
+                } else if (isPlugin && activePluginPane) {
+                    document.dispatchEvent(new CustomEvent('tinymash:editor-plugin-pane-selected', {
+                        detail: {
+                            mode,
+                            pane: activePluginPane,
+                            plugin: mode.replace(/^plugin-/, '')
+                        }
+                    }));
+                    const firstField = activePluginPane.querySelector('input, select, textarea, button');
+                    if (firstField && typeof firstField.focus === 'function') {
+                        firstField.focus();
+                    }
+                } else if (!isMetadata) {
+                    markdownField.focus();
+                }
+            }
+
+            function collectEditorPluginSettingsPayload() {
+                const pluginSettings = {};
+                const pluginFields = document.querySelectorAll('[data-editor-plugin-key][data-editor-plugin-field]');
+                pluginFields.forEach((field) => {
+                    const pluginKey = String(field.getAttribute('data-editor-plugin-key') || '').trim();
+                    const settingKey = String(field.getAttribute('data-editor-plugin-field') || '').trim();
+                    if (!pluginKey || !settingKey) {
+                        return;
+                    }
+
+                    if (!pluginSettings[pluginKey]) {
+                        pluginSettings[pluginKey] = {};
+                    }
+
+                    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+                        pluginSettings[pluginKey][settingKey] = field.checked ? '1' : '0';
+                        return;
+                    }
+
+                    if ('value' in field) {
+                        pluginSettings[pluginKey][settingKey] = String(field.value || '');
+                    }
+                });
+
+                return pluginSettings;
+            }
+
+            function hydrateEditorPluginSettings(pluginSettings) {
+                const normalizedSettings = pluginSettings && typeof pluginSettings === 'object' ? pluginSettings : {};
+                const pluginFields = document.querySelectorAll('[data-editor-plugin-key][data-editor-plugin-field]');
+                pluginFields.forEach((field) => {
+                    const pluginKey = String(field.getAttribute('data-editor-plugin-key') || '').trim();
+                    const settingKey = String(field.getAttribute('data-editor-plugin-field') || '').trim();
+                    if (!pluginKey || !settingKey) {
+                        return;
+                    }
+
+                    const fieldValue = normalizedSettings[pluginKey] && Object.prototype.hasOwnProperty.call(normalizedSettings[pluginKey], settingKey)
+                        ? normalizedSettings[pluginKey][settingKey]
+                        : '';
+                    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+                        field.checked = !!fieldValue && String(fieldValue) !== '0';
+                        return;
+                    }
+
+                    if ('value' in field) {
+                        field.value = String(fieldValue || '');
+                    }
+                });
+            }
+
+            function insertText(text) {
+                const start = markdownField.selectionStart;
+                const end = markdownField.selectionEnd;
+                markdownField.setRangeText(text, start, end, 'end');
+                markdownField.focus();
+                markDirty();
+            }
+
+
+            {{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/editor/links.js.latte')|noescape}}
+
+            function setTransientStatus(text, tone) {
+                if (!saveStatus) {
+                    return;
+                }
+
+                saveStatus.textContent = text;
+                saveStatus.classList.remove('text-body-secondary', 'text-success', 'text-danger', 'text-warning');
+                saveStatus.classList.add(tone || 'text-body-secondary');
+            }
+
+            let imageUploadProgressModalElement = null;
+            let imageUploadProgressModalTitle = null;
+            let imageUploadProgressModalMessage = null;
+            let imageUploadProgressModalBar = null;
+            let imageUploadProgressModalCount = null;
+
+            function getImageUploadProgressModal() {
+                if (!imageUploadProgressModalElement) {
+                    imageUploadProgressModalElement = document.createElement('div');
+                    imageUploadProgressModalElement.className = 'modal fade';
+                    imageUploadProgressModalElement.tabIndex = -1;
+                    imageUploadProgressModalElement.setAttribute('data-bs-backdrop', 'static');
+                    imageUploadProgressModalElement.setAttribute('data-bs-keyboard', 'false');
+                    imageUploadProgressModalElement.setAttribute('aria-hidden', 'true');
+
+                    const dialog = document.createElement('div');
+                    dialog.className = 'modal-dialog modal-dialog-centered';
+
+                    const content = document.createElement('div');
+                    content.className = 'modal-content';
+
+                    const body = document.createElement('div');
+                    body.className = 'modal-body p-4';
+
+                    const header = document.createElement('div');
+                    header.className = 'd-flex align-items-center gap-3 mb-3';
+
+                    const spinner = document.createElement('div');
+                    spinner.className = 'spinner-border text-primary flex-shrink-0';
+                    spinner.setAttribute('role', 'status');
+                    spinner.innerHTML = '<span class="visually-hidden">Uploading images</span>';
+
+                    imageUploadProgressModalTitle = document.createElement('div');
+                    imageUploadProgressModalTitle.className = 'fw-semibold';
+                    imageUploadProgressModalTitle.textContent = 'Uploading images';
+
+                    imageUploadProgressModalMessage = document.createElement('div');
+                    imageUploadProgressModalMessage.className = 'small text-body-secondary';
+
+                    const titleWrap = document.createElement('div');
+                    titleWrap.append(imageUploadProgressModalTitle, imageUploadProgressModalMessage);
+                    header.append(spinner, titleWrap);
+
+                    const progress = document.createElement('div');
+                    progress.className = 'progress';
+                    progress.setAttribute('role', 'progressbar');
+                    progress.setAttribute('aria-valuemin', '0');
+                    progress.setAttribute('aria-valuemax', '100');
+
+                    imageUploadProgressModalBar = document.createElement('div');
+                    imageUploadProgressModalBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+                    imageUploadProgressModalBar.style.width = '0%';
+                    progress.appendChild(imageUploadProgressModalBar);
+
+                    imageUploadProgressModalCount = document.createElement('div');
+                    imageUploadProgressModalCount.className = 'small text-body-secondary mt-2 text-end';
+
+                    body.append(header, progress, imageUploadProgressModalCount);
+                    content.appendChild(body);
+                    dialog.appendChild(content);
+                    imageUploadProgressModalElement.appendChild(dialog);
+                    document.body.appendChild(imageUploadProgressModalElement);
+                }
+
+                return getBootstrapModal(imageUploadProgressModalElement);
+            }
+
+            function updateImageUploadProgressModal(completed, total, message) {
+                const safeTotal = Math.max(1, Number.parseInt(total || '1', 10) || 1);
+                const safeCompleted = Math.max(0, Math.min(safeTotal, Number.parseInt(completed || '0', 10) || 0));
+                const percent = Math.max(0, Math.min(100, Math.round((safeCompleted / safeTotal) * 100)));
+                if (imageUploadProgressModalMessage) {
+                    imageUploadProgressModalMessage.textContent = message || 'Uploading and processing images...';
+                }
+                if (imageUploadProgressModalBar) {
+                    imageUploadProgressModalBar.style.width = percent + '%';
+                    imageUploadProgressModalBar.setAttribute('aria-valuenow', String(percent));
+                }
+                if (imageUploadProgressModalCount) {
+                    imageUploadProgressModalCount.textContent = safeCompleted + ' / ' + safeTotal;
+                }
+            }
+
+            function showImageUploadProgressModal(total) {
+                if (total < 2) {
+                    return null;
+                }
+
+                const modal = getImageUploadProgressModal();
+                updateImageUploadProgressModal(0, total, 'Preparing images...');
+                if (modal) {
+                    modal.show();
+                }
+                return modal;
+            }
+
+            function hideImageUploadProgressModal(modal) {
+                if (!modal) {
+                    return;
+                }
+                window.setTimeout(() => {
+                    modal.hide();
+                }, 250);
+            }
+
+            async function uploadImageFile(file) {
+                if (!imagesEnabled || !imageUploadUrl || !file) {
+                    return null;
+                }
+
+                const formData = new FormData();
+                formData.append('image', file, file.name || 'image');
+                formData.append('tinymash_csrf', csrfToken);
+                if (scopeField) {
+                    formData.append('scope', scopeField.value || 'root');
+                }
+                if (authorSlugField) {
+                    formData.append('author_slug', authorSlugField.value || '');
+                }
+                formData.append('loaded_entry_id', loadedEntryId || '');
+                formData.append('draft_id', loadedDraftId || '');
+                formData.append('attachment_session_id', attachmentSessionId);
+                setTransientStatus('Uploading image...', 'text-warning');
+
+                const response = await fetch(imageUploadUrl, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload || payload.uploaded !== true) {
+                    throw new Error(payload && payload.error ? String(payload.error) : 'Image upload failed.');
+                }
+
+                upsertFeaturedImageRecord(payload);
+                upsertAttachedImageRecord(payload);
+                upsertLibraryImageRecord(payload);
+                rebuildFeaturedImageOptions();
+                setTransientStatus('Image uploaded', 'text-success');
+                return payload;
+            }
+
+            async function uploadImageFiles(fileList) {
+                if (!fileList || fileList.length === 0) {
+                    return [];
+                }
+
+                const imageFiles = Array.from(fileList).filter((file) => file && String(file.type || '').startsWith('image/'));
+                const progressModal = showImageUploadProgressModal(imageFiles.length);
+                const uploadedPayloads = [];
+                try {
+                    for (const file of imageFiles) {
+                        updateImageUploadProgressModal(uploadedPayloads.length, imageFiles.length, 'Uploading and processing ' + (uploadedPayloads.length + 1) + ' of ' + imageFiles.length + '...');
+                        const payload = await uploadImageFile(file);
+                        if (payload) {
+                            uploadedPayloads.push(payload);
+                        }
+                        updateImageUploadProgressModal(uploadedPayloads.length, imageFiles.length, 'Uploading and processing images...');
+                    }
+                } finally {
+                    hideImageUploadProgressModal(progressModal);
+                }
+
+                return uploadedPayloads;
+            }
+
+            async function ensureEmojiAutocompleteEntries() {
+                if (emojiAutocompleteEntries.length > 0) {
+                    return emojiAutocompleteEntries;
+                }
+                if (emojiAutocompletePromise) {
+                    return emojiAutocompletePromise;
+                }
+
+                emojiAutocompletePromise = fetch(emojiDataUrl)
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error('Emoji data could not be loaded.');
+                        }
+                        return response.json();
+                    })
+                    .then((payload) => {
+                        const entries = [];
+                        const seen = new Set();
+                        if (Array.isArray(payload)) {
+                            payload.forEach((emojiRecord) => {
+                                if (!emojiRecord || typeof emojiRecord !== 'object' || typeof emojiRecord.emoji !== 'string') {
+                                    return;
+                                }
+
+                                const annotation = typeof emojiRecord.annotation === 'string' ? emojiRecord.annotation : '';
+                                const tags = Array.isArray(emojiRecord.tags) ? emojiRecord.tags.filter((tag) => typeof tag === 'string') : [];
+                                const shortcodes = Array.isArray(emojiRecord.shortcodes) ? emojiRecord.shortcodes.filter((shortcode) => typeof shortcode === 'string' && shortcode !== '') : [];
+                                const normalizedShortcodes = shortcodes.map((shortcode) => shortcode.toLowerCase()).filter((shortcode, index, values) => shortcode !== '' && values.indexOf(shortcode) === index);
+                                shortcodes.forEach((shortcode, index) => {
+                                    const normalizedShortcode = shortcode.toLowerCase();
+                                    if (seen.has(normalizedShortcode)) {
+                                        return;
+                                    }
+
+                                    seen.add(normalizedShortcode);
+                                    entries.push({
+                                        emoji: emojiRecord.emoji,
+                                        shortcode: normalizedShortcode,
+                                        annotation: annotation,
+                                        searchText: normalizedShortcodes.concat([ annotation ]).concat(tags).join(' ').toLowerCase(),
+                                        aliases: normalizedShortcodes,
+                                        primary: index === 0
+                                    });
+                                });
+                            });
+                        }
+
+                        emojiAutocompleteEntries = entries.sort((left, right) => {
+                            if (left.primary !== right.primary) {
+                                return left.primary ? -1 : 1;
+                            }
+                            return left.shortcode.localeCompare(right.shortcode);
+                        });
+
+                        return emojiAutocompleteEntries;
+                    })
+                    .catch((error) => {
+                        emojiAutocompletePromise = null;
+                        throw error;
+                    });
+
+                return emojiAutocompletePromise;
+            }
+
+            function hideEmojiAutocomplete() {
+                emojiAutocompleteMatches = [];
+                emojiAutocompleteIndex = -1;
+                emojiAutocompleteTokenStart = -1;
+                emojiAutocompleteTokenEnd = -1;
+                if (emojiAutocomplete) {
+                    emojiAutocomplete.classList.add('d-none');
+                    emojiAutocomplete.innerHTML = '';
+                }
+            }
+
+            function syncEmojiPickerTheme() {
+                if (!emojiPickerElement) {
+                    return;
+                }
+
+                const theme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+                emojiPickerElement.classList.toggle('dark', theme === 'dark');
+                emojiPickerElement.classList.toggle('light', theme !== 'dark');
+            }
+
+            function renderEmojiAutocomplete() {
+                if (!emojiAutocomplete) {
+                    return;
+                }
+                if (emojiAutocompleteMatches.length === 0) {
+                    hideEmojiAutocomplete();
+                    return;
+                }
+
+                emojiAutocomplete.innerHTML = emojiAutocompleteMatches.map((entry, index) => {
+                    const active = index === emojiAutocompleteIndex;
+                    return ''
+                        + '<button class="list-group-item list-group-item-action d-flex align-items-center gap-2'
+                        + (active ? ' active' : '')
+                        + '" type="button" data-emoji-index="' + index + '" role="option" aria-selected="' + (active ? 'true' : 'false') + '">'
+                        + '<span class="tm-emoji fs-5" aria-hidden="true">' + escapeHtml(entry.emoji) + '</span>'
+                        + '<span class="d-flex flex-column align-items-start text-start">'
+                        + '<span class="font-monospace">:' + escapeHtml(entry.shortcode) + ':</span>'
+                        + '<span class="small opacity-75">' + escapeHtml(entry.annotation || '') + '</span>'
+                        + '</span>'
+                        + '</button>';
+                }).join('');
+                positionEmojiAutocomplete();
+                emojiAutocomplete.classList.remove('d-none');
+            }
+
+            function positionEmojiAutocomplete() {
+                if (!emojiAutocomplete || !markdownField || emojiAutocompleteMatches.length === 0) {
+                    return;
+                }
+
+                const viewportGap = 12;
+                const fieldRect = markdownField.getBoundingClientRect();
+                const anchorElement = emojiAutocomplete.offsetParent instanceof HTMLElement ? emojiAutocomplete.offsetParent : markdownField.parentElement;
+                const anchorRect = anchorElement instanceof HTMLElement ? anchorElement.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth };
+                const popupWidth = Math.max(220, Math.min(fieldRect.width - 24, 420, anchorRect.width - (viewportGap * 2), window.innerWidth - (viewportGap * 2)));
+                const maxHeight = Math.max(160, Math.min(288, window.innerHeight - (viewportGap * 2)));
+                const popupHeight = Math.min(emojiAutocomplete.scrollHeight || maxHeight, maxHeight);
+                const fieldLeft = markdownField.offsetLeft || Math.max(0, fieldRect.left - anchorRect.left);
+                const fieldTop = markdownField.offsetTop || Math.max(0, fieldRect.top - anchorRect.top);
+                const fieldBottom = fieldTop + (markdownField.offsetHeight || fieldRect.height);
+                const left = Math.max(0, Math.min(fieldLeft + 12, anchorRect.width - popupWidth));
+                let top = fieldBottom + 8;
+                if (fieldRect.bottom + 8 + popupHeight + viewportGap > window.innerHeight) {
+                    if (fieldRect.top - popupHeight - 8 >= viewportGap) {
+                        top = Math.max(0, fieldTop - popupHeight - 8);
+                    } else {
+                        top = Math.max(fieldTop + 8, Math.max(viewportGap, Math.min(fieldRect.top + 8, window.innerHeight - popupHeight - viewportGap)) - anchorRect.top);
+                    }
+                }
+
+                emojiAutocomplete.style.left = left + 'px';
+                emojiAutocomplete.style.top = top + 'px';
+                emojiAutocomplete.style.width = popupWidth + 'px';
+                emojiAutocomplete.style.maxHeight = maxHeight + 'px';
+            }
+
+            function getEmojiShortcodeQuery() {
+                if (!markdownField) {
+                    return null;
+                }
+
+                const selectionStart = markdownField.selectionStart;
+                const selectionEnd = markdownField.selectionEnd;
+                if (selectionStart !== selectionEnd) {
+                    return null;
+                }
+
+                const textBeforeCursor = markdownField.value.slice(0, selectionStart);
+                const shortcodePattern = new RegExp('(^|[\\s([>{])(:[a-z0-9_+-]{1,40})$', 'i');
+                const match = textBeforeCursor.match(shortcodePattern);
+                if (!match) {
+                    return null;
+                }
+
+                return {
+                    query: match[2].slice(1).toLowerCase(),
+                    start: selectionStart - match[2].length,
+                    end: selectionStart
+                };
+            }
+
+            function applyEmojiShortcode(entry) {
+                if (!markdownField || emojiAutocompleteTokenStart < 0 || emojiAutocompleteTokenEnd < emojiAutocompleteTokenStart) {
+                    return;
+                }
+
+                const nextCharacter = markdownField.value.charAt(emojiAutocompleteTokenEnd);
+                const suffix = nextCharacter === '' || /\s/.test(nextCharacter) ? ' ' : '';
+                markdownField.setRangeText(':' + entry.shortcode + ':' + suffix, emojiAutocompleteTokenStart, emojiAutocompleteTokenEnd, 'end');
+                markdownField.focus();
+                hideEmojiAutocomplete();
+                markDirty();
+            }
+
+            async function updateEmojiAutocomplete() {
+                const requestId = ++emojiAutocompleteRequestId;
+                const shortcodeQuery = getEmojiShortcodeQuery();
+                if (!shortcodeQuery) {
+                    hideEmojiAutocomplete();
+                    return;
+                }
+
+                try {
+                    const entries = await ensureEmojiAutocompleteEntries();
+                    if (requestId !== emojiAutocompleteRequestId) {
+                        return;
+                    }
+
+                    const latestShortcodeQuery = getEmojiShortcodeQuery();
+                    if (
+                        !latestShortcodeQuery
+                        || latestShortcodeQuery.query !== shortcodeQuery.query
+                        || latestShortcodeQuery.start !== shortcodeQuery.start
+                        || latestShortcodeQuery.end !== shortcodeQuery.end
+                    ) {
+                        return;
+                    }
+
+                    const query = shortcodeQuery.query;
+                    emojiAutocompleteTokenStart = shortcodeQuery.start;
+                    emojiAutocompleteTokenEnd = shortcodeQuery.end;
+                    emojiAutocompleteMatches = entries
+                        .filter((entry) => {
+                            return entry.shortcode.startsWith(query)
+                                || String(entry.searchText || '').includes(query)
+                                || (Array.isArray(entry.aliases) && entry.aliases.some((alias) => alias.startsWith(query)));
+                        })
+                        .sort((left, right) => {
+                            const leftPrefix = left.shortcode.startsWith(query) ? 1 : 0;
+                            const rightPrefix = right.shortcode.startsWith(query) ? 1 : 0;
+                            if (leftPrefix !== rightPrefix) {
+                                return rightPrefix - leftPrefix;
+                            }
+                            if (left.primary !== right.primary) {
+                                return left.primary ? -1 : 1;
+                            }
+                            return left.shortcode.localeCompare(right.shortcode);
+                        })
+                        .slice(0, 8);
+                    emojiAutocompleteIndex = emojiAutocompleteMatches.length > 0 ? 0 : -1;
+                    renderEmojiAutocomplete();
+                } catch (error) {
+                    hideEmojiAutocomplete();
+                    console.error('[tinymash] emoji autocomplete error', error);
+                }
+            }
+
+            function updateFieldVisibility() {
+                const isPage = entryTypeField && entryTypeField.value === 'page';
+                const isAuthorScope = scopeField && scopeField.value === 'author';
+
+                if (isAuthorScope && authorSlugField && String(authorSlugField.value || '').trim() === '' && currentAuthorSlug !== '') {
+                    authorSlugField.value = currentAuthorSlug;
+                }
+
+                if (parentSlugField) {
+                    parentSlugField.disabled = !isPage;
+                }
+                if (parentSlugFieldContainer) {
+                    parentSlugFieldContainer.classList.toggle('d-none', !isPage);
+                }
+                if (navigationField) {
+                    navigationField.disabled = !isPage;
+                }
+                if (navigationFieldWrapper) {
+                    navigationFieldWrapper.classList.toggle('d-none', !isPage);
+                }
+                if (aggregateField) {
+                    aggregateField.disabled = isPage;
+                }
+                if (aggregateFieldWrapper) {
+                    aggregateFieldWrapper.classList.toggle('d-none', isPage);
+                }
+                if (featuredField) {
+                    featuredField.disabled = isPage;
+                }
+                if (featuredFieldWrapper) {
+                    featuredFieldWrapper.classList.toggle('d-none', isPage);
+                }
+                if (fallbackCoverColorField) {
+                    fallbackCoverColorField.disabled = isPage;
+                }
+                if (fallbackCoverColorCustomField) {
+                    fallbackCoverColorCustomField.disabled = isPage || !fallbackCoverColorField || fallbackCoverColorField.value !== 'custom';
+                }
+                if (fallbackCoverColorFieldContainer) {
+                    fallbackCoverColorFieldContainer.classList.toggle('d-none', isPage);
+                }
+                if (sortOrderField) {
+                    sortOrderField.disabled = !isPage;
+                }
+                if (sortOrderFieldContainer) {
+                    sortOrderFieldContainer.classList.toggle('d-none', !isPage);
+                }
+                if (authorSlugField) {
+                    authorSlugField.disabled = !isAuthorScope;
+                }
+
+                updateParentPageOptions();
+                updateSuggestedSortOrder();
+                rebuildFeaturedImageOptions();
+            }
+
+            function updateParentPageOptions() {
+                if (!parentSlugField) {
+                    return;
+                }
+
+                const currentValue = parentSlugField.value;
+                const currentScope = scopeField ? scopeField.value : 'root';
+                const currentAuthorSlug = authorSlugField ? String(authorSlugField.value || '').trim() : '';
+                const currentSlug = slugField ? String(slugField.value || '').trim() : '';
+                let hasVisibleSelectedOption = currentValue === '';
+
+                Array.from(parentSlugField.options).forEach((option, index) => {
+                    if (index === 0) {
+                        option.hidden = false;
+                        return;
+                    }
+
+                    const optionScope = option.dataset.scope || 'root';
+                    const optionAuthorSlug = option.dataset.authorSlug || '';
+                    const optionSlug = option.value || '';
+                    const matchesScope = optionScope === currentScope;
+                    const matchesAuthor = currentScope !== 'author' || optionAuthorSlug === currentAuthorSlug;
+                    const isSelf = currentSlug !== '' && optionSlug === currentSlug;
+                    const visible = matchesScope && matchesAuthor && !isSelf;
+                    option.hidden = !visible;
+
+                    if (visible && option.value === currentValue) {
+                        hasVisibleSelectedOption = true;
+                    }
+                });
+
+                if (!hasVisibleSelectedOption) {
+                    parentSlugField.value = '';
+                }
+            }
+
+            function getSiblingPageRecords() {
+                if (!parentSlugField) {
+                    return [];
+                }
+
+                return Array.from(parentSlugField.options)
+                    .slice(1)
+                    .map((option) => ({
+                        entryId: String(option.dataset.entryId || '').trim(),
+                        scope: String(option.dataset.scope || 'root').trim(),
+                        authorSlug: String(option.dataset.authorSlug || '').trim(),
+                        parentSlug: String(option.dataset.parentSlug || '').trim(),
+                        sortOrder: Number.parseInt(option.dataset.sortOrder || '0', 10) || 0,
+                    }));
+            }
+
+            function buildSortOrderContextLabel(parentSlug) {
+                const normalizedParentSlug = String(parentSlug || '').trim();
+                return normalizedParentSlug !== '' ? ('/' + normalizedParentSlug) : 'top-level pages';
+            }
+
+            function getSuggestedNextSortOrder(siblingRecords) {
+                if (!Array.isArray(siblingRecords) || siblingRecords.length === 0) {
+                    return 10;
+                }
+
+                const siblingOrders = siblingRecords
+                    .map((record) => Number.parseInt(record.sortOrder, 10) || 0)
+                    .filter((value) => value >= 0);
+                if (siblingOrders.length === 0) {
+                    return 10;
+                }
+
+                const maxSortOrder = Math.max(...siblingOrders);
+                const positiveOrders = siblingOrders.filter((value) => value > 0);
+                if (positiveOrders.length === 0) {
+                    return 10;
+                }
+
+                return positiveOrders.every((value) => value % 10 === 0)
+                    ? (maxSortOrder + 10)
+                    : (maxSortOrder + 1);
+            }
+
+            function shouldApplySuggestedSortOrder() {
+                if (!sortOrderField || sortOrderTouched) {
+                    return false;
+                }
+
+                const currentValue = String(sortOrderField.value || '').trim();
+                if (currentValue === '') {
+                    return true;
+                }
+
+                const normalizedCurrentValue = Number.parseInt(currentValue, 10);
+                if (Number.isNaN(normalizedCurrentValue)) {
+                    return true;
+                }
+
+                if (lastSuggestedSortOrder !== null && normalizedCurrentValue === lastSuggestedSortOrder) {
+                    return true;
+                }
+
+                return normalizedCurrentValue === 0 && loadedEntryId === '' && loadedDraftId === '' && loadedRevisionId === '';
+            }
+
+            function updateSuggestedSortOrder() {
+                const isPage = entryTypeField && entryTypeField.value === 'page';
+                if (!sortOrderHint) {
+                    return;
+                }
+
+                if (!isPage || !parentSlugField || !sortOrderField) {
+                    sortOrderHint.textContent = 'Pages with the same parent are sorted by this number first.';
+                    lastSuggestedSortOrder = null;
+                    return;
+                }
+
+                const currentScope = scopeField ? String(scopeField.value || 'root').trim() : 'root';
+                const currentAuthorSlug = authorSlugField ? String(authorSlugField.value || '').trim() : '';
+                const currentParentSlug = String(parentSlugField.value || '').trim();
+                const currentEntryId = String(loadedEntryId || '').trim();
+                const siblingRecords = getSiblingPageRecords().filter((record) => {
+                    if (record.scope !== currentScope) {
+                        return false;
+                    }
+                    if (currentScope === 'author' && record.authorSlug !== currentAuthorSlug) {
+                        return false;
+                    }
+                    if (record.parentSlug !== currentParentSlug) {
+                        return false;
+                    }
+                    if (currentEntryId !== '' && record.entryId === currentEntryId) {
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                const suggestedSortOrder = getSuggestedNextSortOrder(siblingRecords);
+                lastSuggestedSortOrder = suggestedSortOrder;
+                sortOrderHint.textContent = 'Suggested next order: ' + suggestedSortOrder + ' under ' + buildSortOrderContextLabel(currentParentSlug) + '. Change it if you want a different position.';
+
+                if (shouldApplySuggestedSortOrder()) {
+                    sortOrderField.value = String(suggestedSortOrder);
+                }
+            }
+
+            function buildDraftPayload() {
+                return {
+                    tinymash_csrf: csrfToken,
+                    draft_id: loadedDraftId,
+                    loaded_entry_id: loadedEntryId,
+                    loaded_entry_type: loadedEntryType,
+                    loaded_entry_scope: loadedEntryScope,
+                    loaded_entry_author_slug: loadedEntryAuthorSlug,
+                    attachment_session_id: attachmentSessionId,
+                    status: statusField ? statusField.value : 'unpublished',
+                    published_at_local: publishedAtLocalField ? publishedAtLocalField.value : '',
+                    title: titleField.value,
+                    entry_type: entryTypeField.value,
+                    scope: scopeField.value,
+                    slug: slugField.value,
+                    author_slug: authorSlugField.value,
+                    parent_slug: parentSlugField.value,
+                    summary: summaryField.value,
+                    tags: tagsField ? tagsField.value : '',
+                    plugin_settings: collectEditorPluginSettingsPayload(),
+                    seo_title: seoTitleField ? seoTitleField.value : '',
+                    seo_description: seoDescriptionField ? seoDescriptionField.value : '',
+                    seo_social_title: seoSocialTitleField ? seoSocialTitleField.value : '',
+                    seo_social_description: seoSocialDescriptionField ? seoSocialDescriptionField.value : '',
+                    seo_social_image_media_id: seoSocialImageField ? seoSocialImageField.value : (seoSocialImageDisabledValueField ? seoSocialImageDisabledValueField.value : ''),
+                    seo_canonical_url: seoCanonicalUrlField ? seoCanonicalUrlField.value : '',
+                    seo_robots: seoRobotsField ? seoRobotsField.value : '',
+                    seo_exclude_from_sitemap: seoExcludeFromSitemapField && seoExcludeFromSitemapField.checked ? '1' : '0',
+                    featured_image_media_id: featuredImageField ? featuredImageField.value : (featuredImageDisabledValueField ? featuredImageDisabledValueField.value : ''),
+                    fallback_cover_color: getFallbackCoverColorValue(),
+                    sort_order: sortOrderField.value,
+                    aggregate_to_root: aggregateField.checked ? '1' : '0',
+                    sticky: stickyField.checked ? '1' : '0',
+                    featured: featuredField && featuredField.checked ? '1' : '0',
+                    show_in_navigation: navigationField.checked ? '1' : '0',
+                    content: markdownField.value
+                };
+            }
+
+            function slugify(value) {
+                return String(value || '')
+                    .toLowerCase()
+                    .trim()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^a-z0-9_-]+/g, '')
+                    .replace(/-+/g, '-')
+                    .replace(/^-+|-+$/g, '');
+            }
+
+            function updateSlugStatus(message, state) {
+                if (!slugStatus) {
+                    return;
+                }
+
+                slugStatus.textContent = message;
+                slugStatus.classList.remove('text-danger', 'text-success', 'text-body-secondary');
+                slugStatus.classList.add(state === 'danger' ? 'text-danger' : (state === 'success' ? 'text-success' : 'text-body-secondary'));
+            }
+
+            async function checkSlugAvailability(requestSequence) {
+                if (!slugCheckUrl || !slugField) {
+                    return;
+                }
+
+                const response = await fetch(slugCheckUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                    },
+                    body: new URLSearchParams(buildDraftPayload())
+                });
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.error || ('Slug check failed with status ' + response.status));
+                }
+                if (requestSequence !== slugCheckSequence) {
+                    return;
+                }
+
+                if (!slugTouched && payload.slug && slugField.value.trim() !== payload.slug) {
+                    slugField.value = payload.slug;
+                    lastAutoSlug = payload.slug;
+                }
+
+                updateSlugStatus(payload.message || 'Slug status unavailable.', payload.exists ? 'danger' : 'success');
+            }
+
+            function queueSlugCheck() {
+                if (!slugField) {
+                    return;
+                }
+                if (slugCheckTimer) {
+                    window.clearTimeout(slugCheckTimer);
+                }
+                const requestSequence = ++slugCheckSequence;
+                slugCheckTimer = window.setTimeout(() => {
+                    checkSlugAvailability(requestSequence).catch((error) => {
+                        if (requestSequence === slugCheckSequence) {
+                            updateSlugStatus(error.message || 'Unable to validate slug right now.', 'danger');
+                        }
+                    });
+                }, 250);
+            }
+
+            function syncSlugFromTitle() {
+                if (!titleField || !slugField) {
+                    return;
+                }
+
+                if (loadedEntryId !== '' || slugTouched) {
+                    queueSlugCheck();
+                    return;
+                }
+
+                const generatedSlug = slugify(titleField.value);
+                slugField.value = generatedSlug;
+                lastAutoSlug = generatedSlug;
+                queueSlugCheck();
+            }
+
+            async function saveDraft(isAutosave = false) {
+                if (!draftUrl) {
+                    return null;
+                }
+                if (isAutosave && !hasUnsavedChanges) {
+                    return null;
+                }
+                if (saveEntryInFlight) {
+                    if (isAutosave) {
+                        scheduleAutosave();
+                    }
+                    return null;
+                }
+                if (draftSaveInFlight) {
+                    if (isAutosave) {
+                        scheduleAutosave();
+                    }
+                    return null;
+                }
+
+                draftSaveInFlight = true;
+                draftSaveReason = isAutosave ? 'autosave' : 'manual';
+                draftSaveController = new AbortController();
+                clearAutosaveTimer();
+                setTransientStatus(isAutosave ? 'Autosaving...' : 'Saving...');
+                saveButton.disabled = true;
+
+                draftSavePromise = (async () => {
+                    const response = await fetch(draftUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify(buildDraftPayload()),
+                        signal: draftSaveController.signal
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Draft save failed with status ' + response.status);
+                    }
+
+                    const payload = await response.json();
+                    loadedDraftId = payload.draft_id || (payload.draft && payload.draft.draft_id) || loadedDraftId;
+                    if (editorRoot) {
+                        editorRoot.dataset.loadedDraftId = loadedDraftId;
+                    }
+                    syncFeaturedImageStateFromPayload(payload.draft || null);
+                    syncSeoSocialImageStateFromPayload(payload.draft || null);
+                    if (tagsField && payload.draft && Array.isArray(payload.draft.tags)) {
+                        tagsField.value = payload.draft.tags.join(', ');
+                    }
+                    if (publishedAtLocalField && payload.draft && typeof payload.draft.published_at_local === 'string') {
+                        publishedAtLocalField.value = payload.draft.published_at_local;
+                    }
+                    if (payload.draft && typeof payload.draft.fallback_cover_color === 'string') {
+                        applyFallbackCoverColorValue(payload.draft.fallback_cover_color);
+                    }
+                    hydrateEditorPluginSettings(payload.draft && payload.draft.plugin_settings ? payload.draft.plugin_settings : {});
+                    updateDeleteDraftVisibility();
+                    refreshCollections(payload.collections || null);
+                    hasUnsavedChanges = false;
+                    updateParentPageOptions();
+                    if (payload.updated_at_display) {
+                        updateStateSummary('Draft last updated ' + payload.updated_at_display + '.');
+                    }
+                    setTransientStatus(payload.updated_at_display ? ((isAutosave ? 'Autosaved ' : 'Saved ') + payload.updated_at_display) : (isAutosave ? 'Autosaved' : 'Saved'), 'text-success');
+                    return payload;
+                })();
+
+                try {
+                    return await draftSavePromise;
+                } catch (error) {
+                    if (error && error.name === 'AbortError') {
+                        return null;
+                    }
+                    setTransientStatus(error.message || (isAutosave ? 'Autosave failed' : 'Save failed'), 'text-danger');
+                    console.error('[tinymash] draft save error', error);
+                    return null;
+                } finally {
+                    draftSaveInFlight = false;
+                    draftSavePromise = null;
+                    draftSaveController = null;
+                    draftSaveReason = '';
+                    saveButton.disabled = false;
+                    if (hasUnsavedChanges) {
+                        scheduleAutosave();
+                    }
+                }
+            }
+
+            function duplicateEntry() {
+                const duplicatedTitle = titleField && titleField.value.trim() !== '' ? ('Copy of ' + titleField.value.trim()) : 'Copy of Untitled content';
+                const duplicatedScope = scopeField ? String(scopeField.value || 'root') : 'root';
+                const duplicatedAuthorSlug = authorSlugField ? String(authorSlugField.value || '') : '';
+                const duplicatedPublishedAtLocal = publishedAtLocalField ? String(publishedAtLocalField.value || '') : '';
+                const duplicatedTags = tagsField ? String(tagsField.value || '') : '';
+                loadedEntryId = '';
+                loadedDraftId = '';
+                loadedRevisionId = '';
+                slugTouched = false;
+                lastAutoSlug = '';
+                if (editorRoot) {
+                    editorRoot.dataset.loadedEntryId = '';
+                    editorRoot.dataset.loadedDraftId = '';
+                    editorRoot.dataset.loadedRevisionId = '';
+                }
+                updateDeleteDraftVisibility();
+                updateRevisionList([]);
+                if (titleField) {
+                    titleField.value = duplicatedTitle;
+                }
+                if (statusField) {
+                    statusField.value = 'unpublished';
+                }
+                if (scopeField) {
+                    scopeField.value = duplicatedScope;
+                }
+                if (authorSlugField) {
+                    authorSlugField.value = duplicatedAuthorSlug;
+                }
+                if (publishedAtLocalField) {
+                    publishedAtLocalField.value = duplicatedPublishedAtLocal;
+                }
+                if (tagsField) {
+                    tagsField.value = duplicatedTags;
+                }
+                if (sortOrderField && entryTypeField && entryTypeField.value === 'page') {
+                    sortOrderField.value = '';
+                }
+                sortOrderTouched = false;
+                lastSuggestedSortOrder = null;
+                syncSlugFromTitle();
+                updateFieldVisibility();
+                if (publishedLink) {
+                    publishedLink.classList.add('d-none');
+                }
+                hasUnsavedChanges = true;
+                setTransientStatus('Duplicated as new unpublished content', 'text-success');
+                updateStateSummary('Editing new duplicated content.');
+                setMode('metadata');
+                markDirty();
+            }
+
+            async function saveEntry(afterSave = 'stay') {
+                if (!saveEntryUrl) {
+                    return;
+                }
+                if (saveEntryInFlight) {
+                    return;
+                }
+
+                if (draftSaveInFlight) {
+                    if (draftSaveReason === 'autosave' && draftSaveController) {
+                        draftSaveController.abort();
+                    }
+
+                    if (draftSavePromise) {
+                        try {
+                            await draftSavePromise;
+                        } catch (error) {
+                            if (!error || error.name !== 'AbortError') {
+                                console.error('[tinymash] waiting for draft save before publish failed', error);
+                            }
+                        }
+                    }
+                }
+
+                saveEntryInFlight = true;
+                clearAutosaveTimer();
+                setTransientStatus('Saving content...');
+                saveButton.disabled = true;
+                setSaveEntryControlsDisabled(true);
+
+                try {
+                    const response = await fetch(saveEntryUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify(buildDraftPayload())
+                    });
+
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.error || ('Publish failed with status ' + response.status));
+                    }
+
+                    if (payload.entry) {
+                        titleField.value = payload.entry.title || titleField.value;
+                        slugField.value = payload.entry.slug || slugField.value;
+                        authorSlugField.value = payload.entry.author_slug || authorSlugField.value;
+                        parentSlugField.value = payload.entry.parent_slug || parentSlugField.value;
+                        if (publishedAtLocalField && typeof payload.entry.published_at_local === 'string') {
+                            publishedAtLocalField.value = payload.entry.published_at_local;
+                        }
+                        if (tagsField && Array.isArray(payload.entry.tags)) {
+                            tagsField.value = payload.entry.tags.join(', ');
+                        }
+                        if (typeof payload.entry.fallback_cover_color === 'string') {
+                            applyFallbackCoverColorValue(payload.entry.fallback_cover_color);
+                        }
+                        hydrateEditorPluginSettings(payload.entry.plugin_settings || {});
+                        if (seoTitleField) {
+                            seoTitleField.value = payload.entry.seo_title || '';
+                        }
+                        if (seoDescriptionField) {
+                            seoDescriptionField.value = payload.entry.seo_description || '';
+                        }
+                        if (seoSocialTitleField) {
+                            seoSocialTitleField.value = payload.entry.seo_social_title || '';
+                        }
+                        if (seoSocialDescriptionField) {
+                            seoSocialDescriptionField.value = payload.entry.seo_social_description || '';
+                        }
+                        if (seoSocialImageField) {
+                            seoSocialImageField.value = payload.entry.seo_social_image_media_id || '';
+                        }
+                        if (seoCanonicalUrlField) {
+                            seoCanonicalUrlField.value = payload.entry.seo_canonical_url || '';
+                        }
+                        if (seoRobotsField) {
+                            seoRobotsField.value = payload.entry.seo_robots || '';
+                        }
+                        if (seoExcludeFromSitemapField) {
+                            seoExcludeFromSitemapField.checked = !!payload.entry.seo_exclude_from_sitemap;
+                        }
+                        if (statusField && payload.entry.status) {
+                            statusField.value = payload.entry.status;
+                        }
+                        syncFeaturedImageStateFromPayload(payload.entry);
+                        syncSeoSocialImageStateFromPayload(payload.entry);
+                        loadedEntryId = payload.entry.id || loadedEntryId;
+                        loadedRevisionId = '';
+                        if (editorRoot) {
+                            editorRoot.dataset.loadedEntryId = loadedEntryId;
+                            editorRoot.dataset.loadedRevisionId = '';
+                        }
+                    }
+                    loadedDraftId = payload.draft_id || '';
+                    if (editorRoot) {
+                        editorRoot.dataset.loadedDraftId = loadedDraftId;
+                    }
+                    updateDeleteDraftVisibility();
+                    refreshCollections(payload.collections || null);
+                    updateParentPageOptions();
+                    setTransientStatus(payload.updated_at_display ? ((payload.message || 'Saved') + ' ' + payload.updated_at_display) : (payload.message || 'Saved'), 'text-success');
+                    if (payload.updated_at_display) {
+                        updateStateSummary('Editing saved content last updated ' + payload.updated_at_display + '.');
+                    }
+                    hasUnsavedChanges = false;
+                    clearAutosaveTimer();
+                    if (publishedLink && payload.url && payload.published) {
+                        publishedLink.href = payload.url;
+                        publishedLink.classList.remove('d-none');
+                    } else if (publishedLink) {
+                        publishedLink.classList.add('d-none');
+                    }
+                    if (afterSave === 'return') {
+                        window.location.href = getEditorExitUrl();
+                    } else if (afterSave === 'new') {
+                        window.location.href = getEditorNewUrl();
+                    }
+                } catch (error) {
+                    setTransientStatus(error.message || 'Save failed', 'text-danger');
+                    if (publishedLink) {
+                        publishedLink.classList.add('d-none');
+                    }
+                    console.error('[tinymash] content save error', error);
+                } finally {
+                    saveEntryInFlight = false;
+                    saveButton.disabled = false;
+                    setSaveEntryControlsDisabled(false);
+                }
+            }
+
+            function triggerSaveEntryShortcut() {
+                if (!saveEntryButton || saveEntryButton.disabled) {
+                    return;
+                }
+
+                const openModal = document.querySelector('.modal.show');
+                if (openModal) {
+                    return;
+                }
+
+                saveEntry();
+            }
+
+            function getCurrentComposerTitle() {
+                if (!titleField) {
+                    return 'Untitled draft';
+                }
+
+                const title = titleField.value.trim();
+                return title !== '' ? title : 'Untitled draft';
+            }
+
+            function openCancelModal() {
+                if (!loadedDraftId && !hasUnsavedChanges) {
+                    window.location.href = getEditorExitUrl();
+                    return;
+                }
+
+                const hasDraft = loadedDraftId !== '';
+                if (cancelModalSummary) {
+                    cancelModalSummary.textContent = hasDraft
+                        ? 'A draft exists for "' + getCurrentComposerTitle() + '".'
+                        : 'You have unsaved changes for "' + getCurrentComposerTitle() + '".';
+                }
+                if (cancelModalDetail) {
+                    cancelModalDetail.textContent = hasDraft
+                        ? 'Choose whether to keep the draft for later, discard it now, or stay in the editor.'
+                        : 'Choose whether to save a draft before leaving, leave without saving, or stay in the editor.';
+                }
+                if (cancelKeepButton) {
+                    cancelKeepButton.textContent = hasDraft ? 'Keep draft and leave' : 'Save draft and leave';
+                }
+                if (cancelDiscardButton) {
+                    cancelDiscardButton.textContent = hasDraft ? 'Discard draft and leave' : 'Leave without saving';
+                }
+
+                const cancelModal = getBootstrapModal(cancelModalElement);
+                if (cancelModal) {
+                    cancelModal.show();
+                }
+            }
+
+            function setCancelActionState(disabled) {
+                if (cancelKeepButton) {
+                    cancelKeepButton.disabled = disabled;
+                }
+                if (cancelDiscardButton) {
+                    cancelDiscardButton.disabled = disabled;
+                }
+            }
+
+            async function keepDraftAndLeave() {
+                setCancelActionState(true);
+
+                try {
+                    if (!loadedDraftId && hasUnsavedChanges) {
+                        const payload = await saveDraft(false);
+                        if (!payload || !loadedDraftId) {
+                            return;
+                        }
+                    }
+
+                    window.location.href = getEditorExitUrl();
+                } finally {
+                    setCancelActionState(false);
+                }
+            }
+
+            async function discardDraftAndLeave() {
+                setCancelActionState(true);
+
+                try {
+                    if (loadedDraftId) {
+                        const response = await fetch(draftDeleteUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                            },
+                            body: new URLSearchParams({
+                                tinymash_csrf: csrfToken,
+                                draft_id: loadedDraftId
+                            })
+                        });
+
+                        const payload = await response.json();
+                        if (!response.ok) {
+                            throw new Error(payload.error || ('Draft delete failed with status ' + response.status));
+                        }
+                    }
+
+                    window.location.href = getEditorExitUrl();
+                } catch (error) {
+                    setTransientStatus(error.message || 'Unable to leave the editor right now', 'text-danger');
+                    console.error('[tinymash] cancel/discard error', error);
+                } finally {
+                    setCancelActionState(false);
+                }
+            }
+
+            function requestDraftDeletion(draftId, draftTitle, isCurrentDraft) {
+                pendingDeleteDraftId = String(draftId || '');
+                pendingDeleteDraftTitle = String(draftTitle || 'Untitled draft');
+                pendingDeleteIsCurrent = Boolean(isCurrentDraft);
+                if (deleteDraftName) {
+                    deleteDraftName.textContent = pendingDeleteDraftTitle;
+                }
+                const deleteDraftModal = getBootstrapModal(deleteDraftModalElement);
+                if (deleteDraftModal) {
+                    deleteDraftModal.show();
+                }
+            }
+
+            async function deleteDraft() {
+                if (!draftDeleteUrl || pendingDeleteDraftId === '') {
+                    return;
+                }
+
+                confirmDeleteDraftButton.disabled = true;
+                setTransientStatus('Deleting draft...');
+
+                try {
+                    const response = await fetch(draftDeleteUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                        },
+                        body: new URLSearchParams({
+                            tinymash_csrf: csrfToken,
+                            draft_id: pendingDeleteDraftId
+                        })
+                    });
+
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.error || ('Draft delete failed with status ' + response.status));
+                    }
+
+                    const deleteDraftModal = getBootstrapModal(deleteDraftModalElement);
+                    if (deleteDraftModal) {
+                        deleteDraftModal.hide();
+                    }
+
+                    if (pendingDeleteIsCurrent && payload.redirect_url) {
+                        window.location.href = payload.redirect_url;
+                        return;
+                    }
+
+                    refreshCollections(payload.collections || null);
+                    setTransientStatus(payload.message || 'Draft deleted', 'text-success');
+                } catch (error) {
+                    setTransientStatus(error.message || 'Draft delete failed', 'text-danger');
+                    console.error('[tinymash] draft delete error', error);
+                } finally {
+                    confirmDeleteDraftButton.disabled = false;
+                    pendingDeleteDraftId = '';
+                    pendingDeleteDraftTitle = '';
+                    pendingDeleteIsCurrent = false;
+                }
+            }
+
+            async function renderPreview() {
+                const markdown = markdownField.value;
+                if (markdown === lastPreviewSource) {
+                    return;
+                }
+
+                previewStatus.textContent = 'Rendering...';
+                previewTarget.innerHTML = '';
+
+                try {
+                    const response = await fetch(previewUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                        },
+                        body: new URLSearchParams({ markdown, tinymash_csrf: csrfToken })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Preview request failed with status ' + response.status);
+                    }
+
+                    const payload = await response.json();
+                    previewTarget.innerHTML = payload.html || '<p class="text-body-secondary mb-0">Nothing to preview.</p>';
+                    previewStatus.textContent = 'Up to date';
+                    lastPreviewSource = markdown;
+                } catch (error) {
+                    previewTarget.innerHTML = '<div class="alert alert-danger mb-0" role="alert">Preview could not be rendered right now.</div>';
+                    previewStatus.textContent = 'Preview failed';
+                    console.error('[tinymash] preview error', error);
+                }
+            }
+
+            tabButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    setMode(button.getAttribute('data-mode'));
+                });
+            });
+
+            [
+                markdownField,
+                titleField,
+                entryTypeField,
+                scopeField,
+                slugField,
+                authorSlugField,
+                parentSlugField,
+                summaryField,
+                seoTitleField,
+                seoDescriptionField,
+                seoSocialTitleField,
+                seoSocialDescriptionField,
+                seoSocialImageField,
+                seoCanonicalUrlField,
+                seoRobotsField,
+                seoExcludeFromSitemapField,
+                featuredImageField,
+                fallbackCoverColorField,
+                fallbackCoverColorCustomField,
+                sortOrderField,
+                statusField,
+                aggregateField,
+                stickyField,
+                featuredField,
+                navigationField
+            ].forEach((field) => {
+                if (!field) {
+                    return;
+                }
+                field.addEventListener('input', markDirty);
+                field.addEventListener('change', () => {
+                    markDirty();
+                    updateFieldVisibility();
+                });
+            });
+
+            if (sortOrderField) {
+                sortOrderField.addEventListener('input', () => {
+                    sortOrderTouched = true;
+                });
+                sortOrderField.addEventListener('change', () => {
+                    sortOrderTouched = true;
+                });
+            }
+
+            if (titleField) {
+                titleField.addEventListener('input', syncSlugFromTitle);
+            }
+            if (slugField) {
+                slugField.addEventListener('input', () => {
+                    slugTouched = slugField.value.trim() !== '' && slugField.value.trim() !== lastAutoSlug;
+                    updateParentPageOptions();
+                    queueSlugCheck();
+                });
+            }
+            if (entryTypeField) {
+                entryTypeField.addEventListener('change', () => {
+                    updateFieldVisibility();
+                    queueSlugCheck();
+                });
+            }
+            if (scopeField) {
+                scopeField.addEventListener('change', () => {
+                    updateFieldVisibility();
+                    invalidateMediaPickerCollections();
+                    void loadMediaPickerSource('attached').catch((error) => {
+                        setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
+                    });
+                    queueSlugCheck();
+                });
+            }
+            if (authorSlugField) {
+                authorSlugField.addEventListener('input', () => {
+                    updateParentPageOptions();
+                    rebuildFeaturedImageOptions();
+                    invalidateMediaPickerCollections();
+                    void loadMediaPickerSource('attached').catch((error) => {
+                        setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
+                    });
+                    queueSlugCheck();
+                });
+            }
+            if (fallbackCoverColorField) {
+                fallbackCoverColorField.addEventListener('change', () => {
+                    updateFallbackCoverColorUi();
+                    updateFieldVisibility();
+                });
+            }
+            if (fallbackCoverColorCustomField) {
+                fallbackCoverColorCustomField.addEventListener('input', updateFallbackCoverColorUi);
+                fallbackCoverColorCustomField.addEventListener('change', () => {
+                    const color = getFallbackCoverColorValue();
+                    if (isCustomFallbackCoverColor(color)) {
+                        rememberFallbackCoverColor(color);
+                    }
+                    updateFallbackCoverColorUi();
+                });
+            }
+            if (fallbackCoverColorRecentContainer) {
+                fallbackCoverColorRecentContainer.addEventListener('click', (event) => {
+                    const button = event.target.closest('button[data-color]');
+                    if (!button) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    if (fallbackCoverColorField) {
+                        fallbackCoverColorField.value = 'custom';
+                    }
+                    if (fallbackCoverColorCustomField) {
+                        fallbackCoverColorCustomField.value = String(button.dataset.color || '#6c757d');
+                    }
+                    updateFallbackCoverColorUi();
+                    markDirty();
+                });
+            }
+            if (featuredImageOpenButton) {
+                featuredImageOpenButton.addEventListener('click', async () => {
+                    await openImagePickerModal('featured');
+                });
+            }
+            if (featuredImageClearButton) {
+                featuredImageClearButton.addEventListener('click', () => {
+                    setFeaturedImage('');
+                });
+            }
+            if (seoSocialImageOpenButton) {
+                seoSocialImageOpenButton.addEventListener('click', async () => {
+                    await openImagePickerModal('social');
+                });
+            }
+            if (seoSocialImageClearButton) {
+                seoSocialImageClearButton.addEventListener('click', () => {
+                    setSeoSocialImage('');
+                });
+            }
+            if (featuredImageFilterField) {
+                featuredImageFilterField.addEventListener('input', renderFeaturedImagePickerGrid);
+            }
+            featuredImageSourceButtons.forEach((button) => {
+                button.addEventListener('click', async () => {
+                    const nextSource = String(button.dataset.source || 'attached');
+                    featuredImageSource = [ 'attached', 'recent', 'library' ].includes(nextSource) ? nextSource : 'attached';
+                    try {
+                        await loadMediaPickerSource(featuredImageSource, { force: true });
+                    } catch (error) {
+                        setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
+                    }
+                    renderFeaturedImagePickerGrid();
+                });
+            });
+            if (featuredImagePickerGrid) {
+                featuredImagePickerGrid.addEventListener('click', (event) => {
+                    const button = event.target.closest('.tm-editor-featured-image-choice');
+                    if (!button) {
+                        return;
+                    }
+
+                    if (imagePickerTarget === 'inline') {
+                        insertInlineImage(button.getAttribute('data-media-id') || '');
+                    } else if (imagePickerTarget === 'social') {
+                        setSeoSocialImage(button.getAttribute('data-media-id') || '');
+                    } else {
+                        setFeaturedImage(button.getAttribute('data-media-id') || '');
+                    }
+                    const featuredImageModal = getBootstrapModal(featuredImageModalElement);
+                    if (featuredImageModal) {
+                        featuredImageModal.hide();
+                    }
+                });
+                featuredImagePickerGrid.addEventListener('change', (event) => {
+                    if (event.target && event.target.matches('.tm-editor-image-picker-check')) {
+                        updateInlinePickerInsertState();
+                    }
+                });
+            }
+            if (imagePickerInsertSelectedButton) {
+                imagePickerInsertSelectedButton.addEventListener('click', applyImagePickerSelection);
+            }
+            if (featuredImageRemoveButton) {
+                featuredImageRemoveButton.addEventListener('click', () => {
+                    if (imagePickerTarget === 'social') {
+                        setSeoSocialImage('');
+                    } else {
+                        setFeaturedImage('');
+                    }
+                    const featuredImageModal = getBootstrapModal(featuredImageModalElement);
+                    if (featuredImageModal) {
+                        featuredImageModal.hide();
+                    }
+                });
+            }
+            if (attachedImagesContainer) {
+                attachedImagesContainer.addEventListener('click', (event) => {
+                    const button = event.target.closest('.tm-editor-use-attached-image');
+                    if (!button) {
+                        return;
+                    }
+
+                    setFeaturedImage(button.getAttribute('data-media-id') || '');
+                });
+            }
+            if (markdownField) {
+                markdownField.addEventListener('input', updateEmojiAutocomplete);
+                markdownField.addEventListener('click', updateEmojiAutocomplete);
+                markdownField.addEventListener('blur', () => {
+                    window.setTimeout(hideEmojiAutocomplete, 150);
+                });
+                markdownField.addEventListener('keydown', (event) => {
+                    if (emojiAutocompleteMatches.length === 0) {
+                        return;
+                    }
+
+                    if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        emojiAutocompleteIndex = emojiAutocompleteIndex >= emojiAutocompleteMatches.length - 1 ? 0 : emojiAutocompleteIndex + 1;
+                        renderEmojiAutocomplete();
+                        return;
+                    }
+                    if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        emojiAutocompleteIndex = emojiAutocompleteIndex <= 0 ? emojiAutocompleteMatches.length - 1 : emojiAutocompleteIndex - 1;
+                        renderEmojiAutocomplete();
+                        return;
+                    }
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        hideEmojiAutocomplete();
+                        return;
+                    }
+                    if (event.key === 'Enter' || event.key === 'Tab') {
+                        const activeEntry = emojiAutocompleteMatches[emojiAutocompleteIndex];
+                        if (!activeEntry) {
+                            return;
+                        }
+                        event.preventDefault();
+                        applyEmojiShortcode(activeEntry);
+                    }
+                });
+            }
+            if (emojiAutocomplete) {
+                emojiAutocomplete.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                });
+                emojiAutocomplete.addEventListener('click', (event) => {
+                    const button = event.target.closest('[data-emoji-index]');
+                    if (!button) {
+                        return;
+                    }
+
+                    const selectedIndex = Number(button.getAttribute('data-emoji-index'));
+                    if (!Number.isInteger(selectedIndex) || !emojiAutocompleteMatches[selectedIndex]) {
+                        return;
+                    }
+
+                    applyEmojiShortcode(emojiAutocompleteMatches[selectedIndex]);
+                });
+                window.addEventListener('resize', () => {
+                    if (!emojiAutocomplete.classList.contains('d-none')) {
+                        positionEmojiAutocomplete();
+                    }
+                });
+                window.addEventListener('scroll', () => {
+                    if (!emojiAutocomplete.classList.contains('d-none')) {
+                        positionEmojiAutocomplete();
+                    }
+                }, true);
+            }
+
+            if (saveButton) {
+                saveButton.addEventListener('click', () => {
+                    saveDraft(false);
+                });
+            }
+            if (saveEntryButton) {
+                saveEntryButton.addEventListener('click', () => {
+                    saveEntry('stay');
+                });
+            }
+            if (saveReturnButton) {
+                saveReturnButton.addEventListener('click', () => {
+                    saveEntry('return');
+                });
+            }
+            if (saveNewButton) {
+                saveNewButton.addEventListener('click', () => {
+                    saveEntry('new');
+                });
+            }
+            if (duplicateButton) {
+                duplicateButton.addEventListener('click', duplicateEntry);
+            }
+            if (cancelButton) {
+                cancelButton.addEventListener('click', openCancelModal);
+            }
+            if (currentDraftDeleteButton) {
+                currentDraftDeleteButton.addEventListener('click', () => {
+                    requestDraftDeletion(loadedDraftId, titleField && titleField.value.trim() !== '' ? titleField.value.trim() : 'Untitled draft', true);
+                });
+            }
+            if (cancelKeepButton) {
+                cancelKeepButton.addEventListener('click', keepDraftAndLeave);
+            }
+            if (cancelDiscardButton) {
+                cancelDiscardButton.addEventListener('click', discardDraftAndLeave);
+            }
+            if (loadFilterField && !contentSearchUrl) {
+                loadFilterField.addEventListener('input', filterLoadOptions);
+            }
+            if (tagsField && tagsAutocomplete) {
+                tagsField.addEventListener('input', updateTagAutocomplete);
+                tagsField.addEventListener('focus', updateTagAutocomplete);
+                tagsField.addEventListener('blur', () => {
+                    window.setTimeout(hideTagAutocomplete, 120);
+                });
+                tagsField.addEventListener('keydown', (event) => {
+                    if (tagsAutocomplete.classList.contains('d-none') || tagAutocompleteMatches.length === 0) {
+                        return;
+                    }
+
+                    if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        tagAutocompleteIndex = Math.min(tagAutocompleteMatches.length - 1, tagAutocompleteIndex + 1);
+                        renderTagAutocomplete();
+                    } else if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        tagAutocompleteIndex = Math.max(0, tagAutocompleteIndex - 1);
+                        renderTagAutocomplete();
+                    } else if (event.key === 'Enter' || event.key === 'Tab') {
+                        event.preventDefault();
+                        const selectedTag = tagAutocompleteMatches[Math.max(0, tagAutocompleteIndex)] || '';
+                        if (selectedTag !== '') {
+                            applyTagSuggestion(selectedTag);
+                        }
+                    } else if (event.key === 'Escape') {
+                        hideTagAutocomplete();
+                    }
+                });
+                tagsAutocomplete.addEventListener('click', (event) => {
+                    const button = event.target.closest('[data-tag-index]');
+                    if (!button) {
+                        return;
+                    }
+
+                    const selectedIndex = Number.parseInt(button.getAttribute('data-tag-index') || '-1', 10);
+                    if (!Number.isInteger(selectedIndex) || !tagAutocompleteMatches[selectedIndex]) {
+                        return;
+                    }
+
+                    applyTagSuggestion(tagAutocompleteMatches[selectedIndex]);
+                });
+            }
+            if (draftsList) {
+                draftsList.addEventListener('click', (event) => {
+                    const button = event.target.closest('.tm-editor-delete-draft');
+                    if (!button) {
+                        return;
+                    }
+                    requestDraftDeletion(
+                        button.getAttribute('data-draft-id') || '',
+                        button.getAttribute('data-draft-title') || 'Untitled draft',
+                        loadedDraftId !== '' && (button.getAttribute('data-draft-id') || '') === loadedDraftId
+                    );
+                });
+            }
+            if (confirmDeleteDraftButton) {
+                confirmDeleteDraftButton.addEventListener('click', deleteDraft);
+            }
+            if (emojiPickerButton) {
+                emojiPickerButton.addEventListener('click', () => {
+                    syncEmojiPickerTheme();
+                    const emojiPickerModal = getBootstrapModal(emojiPickerModalElement);
+                    if (emojiPickerModal) {
+                        emojiPickerModal.show();
+                    }
+                });
+            }
+            if (emojiPickerElement) {
+                emojiPickerElement.setAttribute('data-source', emojiDataUrl);
+                emojiPickerElement.addEventListener('emoji-click', (event) => {
+                    const unicode = event && event.detail ? (event.detail.unicode || (event.detail.emoji && event.detail.emoji.unicode) || '') : '';
+                    if (unicode !== '') {
+                        insertText(unicode);
+                    }
+                    const emojiPickerModal = getBootstrapModal(emojiPickerModalElement);
+                    if (emojiPickerModal) {
+                        emojiPickerModal.hide();
+                    }
+                });
+            }
+            if (imageUploadButton && imageInput) {
+                imageUploadButton.addEventListener('click', async () => {
+                    await openImagePickerModal('inline');
+                });
+                imageInput.addEventListener('change', async () => {
+                    if (!imageInput.files || imageInput.files.length === 0) {
+                        return;
+                    }
+                    try {
+                        const uploadedPayloads = await uploadImageFiles(imageInput.files);
+                        const lastUploaded = uploadedPayloads.length > 0 ? uploadedPayloads[uploadedPayloads.length - 1] : null;
+                        if (imagePickerTarget === 'social') {
+                            if (lastUploaded && lastUploaded.media_id) {
+                                setSeoSocialImage(lastUploaded.media_id);
+                            }
+                        } else if (imagePickerTarget === 'featured') {
+                            if (lastUploaded && lastUploaded.media_id) {
+                                setFeaturedImage(lastUploaded.media_id);
+                            }
+                        } else if (imagePickerTarget === 'gallery') {
+                            document.dispatchEvent(new CustomEvent('tinymash:editor-images-uploaded', {
+                                detail: {
+                                    target: 'gallery',
+                                    records: uploadedPayloads
+                                }
+                            }));
+                        } else {
+                            uploadedPayloads.forEach((payload) => {
+                                if (payload && payload.media_id) {
+                                    insertInlineImage(payload.media_id);
+                                }
+                            });
+                        }
+
+                        const featuredImageModal = getBootstrapModal(featuredImageModalElement);
+                        if (featuredImageModal && uploadedPayloads.length > 0) {
+                            featuredImageModal.hide();
+                        }
+                    } catch (error) {
+                        setTransientStatus(error.message || 'Image upload failed', 'text-danger');
+                        console.error('[tinymash] image upload error', error);
+                    } finally {
+                        imageInput.value = '';
+                    }
+                });
+            }
+            if (imagePickerUploadButton && imageInput) {
+                imagePickerUploadButton.addEventListener('click', () => {
+                    imageInput.multiple = imagePickerTarget === 'inline' || imagePickerTarget === 'gallery';
+                    imageInput.click();
+                });
+            }
+            if (imageInput) {
+                document.addEventListener('tinymash:editor-request-image-picker', async (event) => {
+                    const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
+                    const target = String(detail.target || 'inline').trim() || 'inline';
+                    await openImagePickerModal(target);
+                });
+                document.addEventListener('tinymash:editor-request-image-upload', (event) => {
+                    const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
+                    imagePickerTarget = String(detail.target || 'inline').trim() || 'inline';
+                    imageInput.multiple = imagePickerTarget === 'inline' || imagePickerTarget === 'gallery';
+                    imageInput.click();
+                });
+            }
+            if (externalLinkButton) {
+                externalLinkButton.addEventListener('click', openExternalLinkModal);
+            }
+            if (externalLinkInsertButton) {
+                externalLinkInsertButton.addEventListener('click', insertExternalLink);
+            }
+            if (externalLinkNewTabField) {
+                externalLinkNewTabField.addEventListener('change', () => {
+                    writeStickyCheckboxPreference(externalLinkNewTabStorageKey, externalLinkNewTabField.checked);
+                });
+            }
+            if (internalLinkButton) {
+                internalLinkButton.addEventListener('click', openInternalLinkModal);
+            }
+            if (internalLinkFilterField) {
+                internalLinkFilterField.addEventListener('input', () => {
+                    internalLinkFilterTouched = true;
+                    buildInternalLinkOptions(internalLinkFilterField.value || '');
+                });
+            }
+            if (internalLinkTargetField) {
+                internalLinkTargetField.addEventListener('change', syncInternalLinkTextFromTarget);
+            }
+            if (internalLinkInsertButton) {
+                internalLinkInsertButton.addEventListener('click', insertInternalLink);
+            }
+            if (internalLinkNewTabField) {
+                internalLinkNewTabField.addEventListener('change', () => {
+                    writeStickyCheckboxPreference(internalLinkNewTabStorageKey, internalLinkNewTabField.checked);
+                });
+            }
+            if (internalLinkModalElement) {
+                internalLinkModalElement.addEventListener('shown.bs.modal', () => {
+                    if (!internalLinkFilterTouched) {
+                        syncInternalLinkTextFromSelection(true);
+                    }
+                });
+            }
+            if (markdownField && imagesEnabled) {
+                markdownField.addEventListener('paste', async (event) => {
+                    const clipboardItems = event.clipboardData ? Array.from(event.clipboardData.items || []) : [];
+                    const imageFiles = clipboardItems
+                        .filter((item) => item && item.kind === 'file' && String(item.type || '').startsWith('image/'))
+                        .map((item) => item.getAsFile())
+                        .filter((file) => file);
+                    if (imageFiles.length === 0) {
+                        return;
+                    }
+                    event.preventDefault();
+                    try {
+                        const uploadedPayloads = await uploadImageFiles(imageFiles);
+                        uploadedPayloads.forEach((payload) => {
+                            if (payload && payload.media_id) {
+                                insertInlineImage(payload.media_id);
+                            }
+                        });
+                    } catch (error) {
+                        setTransientStatus(error.message || 'Image upload failed', 'text-danger');
+                        console.error('[tinymash] pasted image upload error', error);
+                    }
+                });
+                markdownField.addEventListener('dragover', (event) => {
+                    if (!event.dataTransfer) {
+                        return;
+                    }
+                    const hasImage = Array.from(event.dataTransfer.items || []).some((item) => item && String(item.type || '').startsWith('image/'));
+                    if (!hasImage) {
+                        return;
+                    }
+                    event.preventDefault();
+                    markdownField.classList.add('border-primary');
+                });
+                markdownField.addEventListener('dragleave', () => {
+                    markdownField.classList.remove('border-primary');
+                });
+                markdownField.addEventListener('drop', async (event) => {
+                    markdownField.classList.remove('border-primary');
+                    const imageFiles = event.dataTransfer ? Array.from(event.dataTransfer.files || []).filter((file) => String(file.type || '').startsWith('image/')) : [];
+                    if (imageFiles.length === 0) {
+                        return;
+                    }
+                    event.preventDefault();
+                    try {
+                        const uploadedPayloads = await uploadImageFiles(imageFiles);
+                        uploadedPayloads.forEach((payload) => {
+                            if (payload && payload.media_id) {
+                                insertInlineImage(payload.media_id);
+                            }
+                        });
+                    } catch (error) {
+                        setTransientStatus(error.message || 'Image upload failed', 'text-danger');
+                        console.error('[tinymash] dropped image upload error', error);
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', (event) => {
+                if (event.defaultPrevented) {
+                    return;
+                }
+                if (event.key === 'Escape') {
+                    if (!editorRoot || !document.body.contains(editorRoot)) {
+                        return;
+                    }
+
+                    const openModal = document.querySelector('.modal.show');
+                    if (openModal) {
+                        return;
+                    }
+
+                    const activeElement = document.activeElement;
+                    if (activeElement && !editorRoot.contains(activeElement)) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    openCancelModal();
+                    return;
+                }
+                if (!(event.ctrlKey || event.metaKey) || event.key !== 'Enter') {
+                    return;
+                }
+                if (!editorRoot || !document.body.contains(editorRoot)) {
+                    return;
+                }
+
+                const activeElement = document.activeElement;
+                if (activeElement && !editorRoot.contains(activeElement)) {
+                    return;
+                }
+
+                event.preventDefault();
+                triggerSaveEntryShortcut();
+            });
+
+            updateFieldVisibility();
+            updateParentPageOptions();
+            seedSelectedImageRecords();
+            rebuildFeaturedImageOptions();
+            renderAttachedImages();
+            void loadMediaPickerSource('attached').catch((error) => {
+                setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
+            });
+            if (!contentSearchUrl) {
+                filterLoadOptions();
+            }
+            updateDeleteDraftVisibility();
+            updateRevisionList(editorRevisions);
+            syncEmojiPickerTheme();
+            applyFallbackCoverColorValue(getFallbackCoverColorValue());
+            initializeContentSearch();
+            queueSlugCheck();
+        })();
+    </script>
+{/block}

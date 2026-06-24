@@ -1,0 +1,114 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Media</div>
+    <div class="fw-semibold mb-1">Content images and image metadata policy</div>
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="media">
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Content images</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-content-images-mode">Composer image policy</label>
+                            <select class="form-select" id="tm-system-content-images-mode" name="content_images_mode">
+                                <option value="disabled" n:attr="selected => $system_settings['content_images_mode'] === 'disabled'">Disabled</option>
+                                <option value="admins_only" n:attr="selected => $system_settings['content_images_mode'] === 'admins_only'">Admins only</option>
+                                <option value="authenticated" n:attr="selected => $system_settings['content_images_mode'] === 'authenticated'">All logged-in users</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-content-image-driver">Preferred driver</label>
+                            <select class="form-select font-monospace" id="tm-system-content-image-driver" name="content_image_driver">
+                                <option value="auto" n:attr="selected => $system_settings['content_image_driver'] === 'auto'">auto</option>
+                                <option value="imagick" n:attr="selected => $system_settings['content_image_driver'] === 'imagick'">imagick</option>
+                                <option value="gd" n:attr="selected => $system_settings['content_image_driver'] === 'gd'">gd</option>
+                                <option value="none" n:attr="selected => $system_settings['content_image_driver'] === 'none'">none</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-content-image-max-width">Max width</label>
+                            <input class="form-control font-monospace" id="tm-system-content-image-max-width" name="content_image_max_width" type="number" min="256" max="8192" step="1" value="{$system_settings['content_image_max_width']}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-content-image-max-height">Max height</label>
+                            <input class="form-control font-monospace" id="tm-system-content-image-max-height" name="content_image_max_height" type="number" min="256" max="8192" step="1" value="{$system_settings['content_image_max_height']}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-content-image-max-upload-mb">Max upload size (MB)</label>
+                            <input class="form-control font-monospace" id="tm-system-content-image-max-upload-mb" name="content_image_max_upload_mb" type="number" min="1" max="200" step="1" value="{$system_settings['content_image_max_upload_mb']}">
+                        </div>
+                        <div class="col-12 col-md-8">
+                            <div class="small text-uppercase text-body-secondary mb-2">Allowed content image types</div>
+                            <div class="row g-2">
+                                {foreach $system_content_image_mime_options as $content_image_mime_option}
+                                    <div class="col-12 col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" id="tm-system-content-image-mime-{$iterator->counter}" name="content_image_allowed_mimes[]" type="checkbox" value="{$content_image_mime_option['value']}" n:attr="checked => in_array($content_image_mime_option['value'], $system_settings['content_image_allowed_mimes'] ?? [], true)">
+                                            <label class="form-check-label" for="tm-system-content-image-mime-{$iterator->counter}">{$content_image_mime_option['label']}</label>
+                                        </div>
+                                        <div class="form-text">{$content_image_mime_option['description']}</div>
+                                    </div>
+                                {/foreach}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-content-generate-thumbnails" name="content_generate_thumbnails" type="checkbox" n:attr="checked => $system_settings['content_generate_thumbnails']">
+                                <label class="form-check-label" for="tm-system-content-generate-thumbnails">Generate thumbnails for media browsing</label>
+                            </div>
+                            <div class="form-text">Creates one smaller raster derivative during upload/import when a resize-capable driver is active. Housekeeping removes orphaned thumbnails if the source image disappears.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-content-thumbnail-max-width">Thumbnail max width</label>
+                            <input class="form-control font-monospace" id="tm-system-content-thumbnail-max-width" name="content_thumbnail_max_width" type="number" min="64" max="2048" step="1" value="{$system_settings['content_thumbnail_max_width']}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-content-thumbnail-max-height">Thumbnail max height</label>
+                            <input class="form-control font-monospace" id="tm-system-content-thumbnail-max-height" name="content_thumbnail_max_height" type="number" min="64" max="2048" step="1" value="{$system_settings['content_thumbnail_max_height']}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Image metadata policy</div>
+                    <div class="form-text mt-0 mb-3">These settings define the global maximum for uploaded and imported image metadata. Retained groups are normalized into tinymash media metadata; embedded file metadata is stripped when possible unless every supported group is retained. Public display is limited to retained groups.</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-6">
+                            <div class="fw-semibold mb-2">Retain during upload/import</div>
+                            <div class="row g-2">
+                                {foreach $system_media_metadata_group_options as $metadata_group_option}
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" id="tm-system-media-metadata-retain-{$iterator->counter}" name="content_media_metadata_retention_groups[]" type="checkbox" value="{$metadata_group_option['value']}" n:attr="checked => in_array($metadata_group_option['value'], $system_settings['content_media_metadata_retention_groups'] ?? [], true)">
+                                            <label class="form-check-label" for="tm-system-media-metadata-retain-{$iterator->counter}">{$metadata_group_option['label']}</label>
+                                        </div>
+                                        <div class="form-text">{$metadata_group_option['description']}</div>
+                                    </div>
+                                {/foreach}
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <div class="fw-semibold mb-2">Allow public display</div>
+                            <div class="row g-2">
+                                {foreach $system_media_metadata_group_options as $metadata_group_option}
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" id="tm-system-media-metadata-public-{$iterator->counter}" name="content_media_metadata_public_groups[]" type="checkbox" value="{$metadata_group_option['value']}" n:attr="checked => in_array($metadata_group_option['value'], $system_settings['content_media_metadata_public_groups'] ?? [], true)">
+                                            <label class="form-check-label" for="tm-system-media-metadata-public-{$iterator->counter}">{$metadata_group_option['label']}</label>
+                                        </div>
+                                        <div class="form-text">Available only for metadata that is retained.</div>
+                                    </div>
+                                {/foreach}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save media settings</button>
+            </div>
+        </div>
+    </form>
+</section>

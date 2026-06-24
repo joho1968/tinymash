@@ -1,0 +1,84 @@
+{var $system_section = (string) ($system_section ?? 'site')}
+{var $system_section_urls = is_array($system_section_urls ?? null) ? $system_section_urls : []}
+{var $system_notifications_unread_count = (int) ($system_notifications_unread_count ?? 0)}
+{var $system_nav_id_prefix = trim((string) ($system_nav_id_prefix ?? 'tm-system-sections-nav'))}
+{var $system_group_general_open = in_array($system_section, ['site', 'locale', 'information'], true)}
+{var $system_group_content_open = in_array($system_section, ['content-media', 'menus', 'themes', 'themes-settings', 'plugins'], true)}
+{var $system_group_media_open = true}
+{var $system_group_media_force_open = in_array($system_section, ['media', 'media-library'], true)}
+{var $system_group_operations_open = in_array($system_section, ['security', 'notifications', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'components'], true)}
+
+<nav class="tm-section-nav" data-tm-section-nav="system-sections" aria-label="System sections">
+    <section class="tm-section-nav-group{if $system_group_general_open} is-open{/if}" data-tm-section-node data-tm-section-key="general" data-tm-section-default-open="{$system_group_general_open ? '1' : '0'}" data-tm-section-force-open="{$system_group_general_open ? '1' : '0'}">
+        <h2 class="mb-0" id="{$system_nav_id_prefix}-general-heading">
+            <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$system_group_general_open ? 'true' : 'false'}" aria-controls="{$system_nav_id_prefix}-general">
+                <span class="tm-section-nav-title small text-uppercase text-body-secondary">General</span>
+                <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+            </button>
+        </h2>
+        <div id="{$system_nav_id_prefix}-general" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="{$system_nav_id_prefix}-general-heading" n:attr="hidden => ! $system_group_general_open ? true : null">
+            <div class="tm-section-nav-items">
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'site'} active{/if}" n:attr="aria-current => $system_section === 'site' ? 'page' : null" href="{$system_section_urls['site']}"><span class="tm-section-nav-link-label">Site settings</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'locale'} active{/if}" n:attr="aria-current => $system_section === 'locale' ? 'page' : null" href="{$system_section_urls['locale']}"><span class="tm-section-nav-link-label">Locale</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'information'} active{/if}" n:attr="aria-current => $system_section === 'information' ? 'page' : null" href="{$system_section_urls['information']}"><span class="tm-section-nav-link-label">Information</span></a>
+            </div>
+        </div>
+    </section>
+
+    <section class="tm-section-nav-group{if $system_group_content_open} is-open{/if}" data-tm-section-node data-tm-section-key="content" data-tm-section-default-open="{$system_group_content_open ? '1' : '0'}" data-tm-section-force-open="{$system_group_content_open ? '1' : '0'}">
+        <h2 class="mb-0" id="{$system_nav_id_prefix}-content-heading">
+            <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$system_group_content_open ? 'true' : 'false'}" aria-controls="{$system_nav_id_prefix}-content">
+                <span class="tm-section-nav-title small text-uppercase text-body-secondary">Content</span>
+                <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+            </button>
+        </h2>
+        <div id="{$system_nav_id_prefix}-content" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="{$system_nav_id_prefix}-content-heading" n:attr="hidden => ! $system_group_content_open ? true : null">
+            <div class="tm-section-nav-items">
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'content-media'} active{/if}" n:attr="aria-current => $system_section === 'content-media' ? 'page' : null" href="{$system_section_urls['content_media']}"><span class="tm-section-nav-link-label">Content</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'menus'} active{/if}" n:attr="aria-current => $system_section === 'menus' ? 'page' : null" href="{$system_section_urls['menus']}"><span class="tm-section-nav-link-label">Menus</span></a>
+                <a class="tm-section-nav-link link-offset-2{if in_array($system_section, ['themes', 'themes-settings'], true)} active{/if}" n:attr="aria-current => in_array($system_section, ['themes', 'themes-settings'], true) ? 'page' : null" href="{$system_section_urls['themes']}"><span class="tm-section-nav-link-label">Themes</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'plugins'} active{/if}" n:attr="aria-current => $system_section === 'plugins' ? 'page' : null" href="{$system_section_urls['plugins']}"><span class="tm-section-nav-link-label">Plugins</span></a>
+            </div>
+        </div>
+    </section>
+
+    <section class="tm-section-nav-group{if $system_group_media_open} is-open{/if}" data-tm-section-node data-tm-section-key="media" data-tm-section-default-open="1" data-tm-section-force-open="{$system_group_media_force_open ? '1' : '0'}">
+        <h2 class="mb-0" id="{$system_nav_id_prefix}-media-heading">
+            <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$system_group_media_open ? 'true' : 'false'}" aria-controls="{$system_nav_id_prefix}-media">
+                <span class="tm-section-nav-title small text-uppercase text-body-secondary">Media</span>
+                <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+            </button>
+        </h2>
+        <div id="{$system_nav_id_prefix}-media" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="{$system_nav_id_prefix}-media-heading" n:attr="hidden => ! $system_group_media_open ? true : null">
+            <div class="tm-section-nav-items">
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'media'} active{/if}" n:attr="aria-current => $system_section === 'media' ? 'page' : null" href="{$system_section_urls['media']}"><span class="tm-section-nav-link-label">Settings</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'media-library'} active{/if}" n:attr="aria-current => $system_section === 'media-library' ? 'page' : null" href="{$system_section_urls['media_library']}"><span class="tm-section-nav-link-label">Library</span></a>
+            </div>
+        </div>
+    </section>
+
+    <section class="tm-section-nav-group{if $system_group_operations_open} is-open{/if}" data-tm-section-node data-tm-section-key="operations" data-tm-section-default-open="{$system_group_operations_open ? '1' : '0'}" data-tm-section-force-open="{$system_group_operations_open ? '1' : '0'}">
+        <h2 class="mb-0" id="{$system_nav_id_prefix}-operations-heading">
+            <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$system_group_operations_open ? 'true' : 'false'}" aria-controls="{$system_nav_id_prefix}-operations">
+                <span class="tm-section-nav-title small text-uppercase text-body-secondary">Operations</span>
+                <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+            </button>
+        </h2>
+        <div id="{$system_nav_id_prefix}-operations" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="{$system_nav_id_prefix}-operations-heading" n:attr="hidden => ! $system_group_operations_open ? true : null">
+            <div class="tm-section-nav-items">
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'security'} active{/if}" n:attr="aria-current => $system_section === 'security' ? 'page' : null" href="{$system_section_urls['security']}"><span class="tm-section-nav-link-label">Security</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'notifications'} active{/if}" n:attr="aria-current => $system_section === 'notifications' ? 'page' : null" href="{$system_section_urls['notifications']}">
+                    <span class="tm-section-nav-link-label">Notifications</span>
+                    {if $system_notifications_unread_count > 0}
+                        <span class="badge rounded-pill text-bg-primary">{$system_notifications_unread_count}</span>
+                    {/if}
+                </a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'moderation'} active{/if}" n:attr="aria-current => $system_section === 'moderation' ? 'page' : null" href="{$system_section_urls['moderation']}"><span class="tm-section-nav-link-label">Moderation</span></a>
+                <a class="tm-section-nav-link link-offset-2{if in_array($system_section, ['users', 'users-edit'], true)} active{/if}" n:attr="aria-current => in_array($system_section, ['users', 'users-edit'], true) ? 'page' : null" href="{$system_section_urls['users']}"><span class="tm-section-nav-link-label">Users</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'smtp'} active{/if}" n:attr="aria-current => $system_section === 'smtp' ? 'page' : null" href="{$system_section_urls['smtp']}"><span class="tm-section-nav-link-label">SMTP</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'orphans'} active{/if}" n:attr="aria-current => $system_section === 'orphans' ? 'page' : null" href="{$system_section_urls['orphans']}"><span class="tm-section-nav-link-label">Orphans</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'components'} active{/if}" n:attr="aria-current => $system_section === 'components' ? 'page' : null" href="{$system_section_urls['components']}"><span class="tm-section-nav-link-label">Components</span></a>
+            </div>
+        </div>
+    </section>
+</nav>

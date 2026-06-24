@@ -1,0 +1,385 @@
+{var $media_library = is_array($system_media_library ?? null) ? $system_media_library : []}
+{var $media_records = is_array($media_library['records'] ?? null) ? $media_library['records'] : []}
+{var $media_owners = is_array($media_library['owners'] ?? null) ? $media_library['owners'] : []}
+{var $media_filters = is_array($media_library['filters'] ?? null) ? $media_library['filters'] : []}
+{var $media_pagination = is_array($media_library['pagination'] ?? null) ? $media_library['pagination'] : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm" data-tm-admin-fragment="system-media-library" data-tm-admin-fragment-url="{$system_media_library_fragment_url ?? ''}">
+    <div class="mb-3">
+        <div class="small text-uppercase text-body-secondary mb-2">Media library</div>
+        <h2 class="h5 mb-1">Uploaded media</h2>
+        <p class="text-body-secondary mb-0">Inspect stored media usage and classify cleanup candidates.</p>
+    </div>
+
+    <form class="rounded-3 p-3 bg-body-secondary mb-3" method="get" action="{$system_section_urls['media_library']}" data-tm-admin-fragment-form>
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-lg-7 col-xxl-8">
+                <label class="form-label small mb-1" for="tm-system-media-library-query">Search</label>
+                <input class="form-control" id="tm-system-media-library-query" name="q" value="{$media_filters['q'] ?? ''}" type="search" placeholder="Filename, alt text, media ID, metadata">
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small mb-1" for="tm-system-media-library-per-page">Per page</label>
+                <select class="form-select" id="tm-system-media-library-per-page" name="per_page">
+                    <option value="12" n:attr="selected => (int) ($media_filters['per_page'] ?? 24) === 12">12</option>
+                    <option value="24" n:attr="selected => (int) ($media_filters['per_page'] ?? 24) === 24">24</option>
+                    <option value="48" n:attr="selected => (int) ($media_filters['per_page'] ?? 24) === 48">48</option>
+                    <option value="96" n:attr="selected => (int) ($media_filters['per_page'] ?? 24) === 96">96</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3 col-xxl-2 d-flex gap-2">
+                <button class="btn btn-primary flex-fill" type="submit">Filter</button>
+                <a class="btn btn-outline-secondary" href="{$media_library['reset_url'] ?? $system_section_urls['media_library']}" data-tm-admin-fragment-link>Reset</a>
+            </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <label class="form-label small mb-1" for="tm-system-media-library-owner">Owner</label>
+                <select class="form-select" id="tm-system-media-library-owner" name="owner">
+                    <option value="all" n:attr="selected => ($media_filters['owner'] ?? 'all') === 'all'">All owners</option>
+                    {foreach $media_owners as $media_owner}
+                        <option value="{$media_owner}" n:attr="selected => ($media_filters['owner'] ?? 'all') === $media_owner">{$media_owner}</option>
+                    {/foreach}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <label class="form-label small mb-1" for="tm-system-media-library-type">Type</label>
+                <select class="form-select" id="tm-system-media-library-type" name="type">
+                    <option value="all" n:attr="selected => ($media_filters['type'] ?? 'all') === 'all'">All media</option>
+                    <option value="images" n:attr="selected => ($media_filters['type'] ?? 'all') === 'images'">Images</option>
+                    <option value="other" n:attr="selected => ($media_filters['type'] ?? 'all') === 'other'">Other</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <label class="form-label small mb-1" for="tm-system-media-library-attachment">Upload association</label>
+                <select class="form-select" id="tm-system-media-library-attachment" name="attachment">
+                    <option value="all" n:attr="selected => ($media_filters['attachment'] ?? 'all') === 'all'">All</option>
+                    <option value="attached" n:attr="selected => ($media_filters['attachment'] ?? 'all') === 'attached'">Has association</option>
+                    <option value="unattached" n:attr="selected => ($media_filters['attachment'] ?? 'all') === 'unattached'">No association</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <label class="form-label small mb-1" for="tm-system-media-library-usage">Usage</label>
+                <select class="form-select" id="tm-system-media-library-usage" name="usage">
+                    <option value="all" n:attr="selected => ($media_filters['usage'] ?? 'all') === 'all'">All</option>
+                    <option value="used" n:attr="selected => ($media_filters['usage'] ?? 'all') === 'used'">In use</option>
+                    <option value="unreferenced" n:attr="selected => ($media_filters['usage'] ?? 'all') === 'unreferenced'">Possibly unused</option>
+                    <option value="direct_marker_only" n:attr="selected => ($media_filters['usage'] ?? 'all') === 'direct_marker_only'">Upload association only</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-xl">
+                <label class="form-label small mb-1" for="tm-system-media-library-review">Review</label>
+                <select class="form-select" id="tm-system-media-library-review" name="review">
+                    <option value="all" n:attr="selected => ($media_filters['review'] ?? 'all') === 'all'">All</option>
+                    <option value="unreviewed" n:attr="selected => ($media_filters['review'] ?? 'all') === 'unreviewed'">Unreviewed</option>
+                    <option value="keep" n:attr="selected => ($media_filters['review'] ?? 'all') === 'keep'">Reviewed: keep</option>
+                    <option value="cleanup_candidate" n:attr="selected => ($media_filters['review'] ?? 'all') === 'cleanup_candidate'">Cleanup candidates</option>
+                </select>
+            </div>
+        </div>
+    </form>
+
+    {if empty($media_records)}
+        <div class="rounded-3 p-3 bg-body-secondary small text-body-secondary">No media records match the current filters.</div>
+    {else}
+        {if ($media_pagination['total_pages'] ?? 1) > 1}
+            <div class="d-flex justify-content-end mb-3">
+                <nav aria-label="Media library pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li n:class="'page-item', !($media_pagination['has_previous'] ?? false) ? 'disabled'">
+                            <a class="page-link" href="{$media_pagination['first_url'] ?? '#'}" title="First media page" aria-label="First media page" data-tm-admin-fragment-link>
+                                <span class="bi bi-skip-start d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                            </a>
+                        </li>
+                        <li n:class="'page-item', !($media_pagination['has_previous'] ?? false) ? 'disabled'">
+                            <a class="page-link" href="{$media_pagination['previous_url'] ?? '#'}" title="Previous media page" aria-label="Previous media page" data-tm-admin-fragment-link>
+                                <span class="bi bi-chevron-left" aria-hidden="true"></span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled"><span class="page-link">{$media_pagination['current_page'] ?? 1}/{$media_pagination['total_pages'] ?? 1}</span></li>
+                        <li n:class="'page-item', !($media_pagination['has_next'] ?? false) ? 'disabled'">
+                            <a class="page-link" href="{$media_pagination['next_url'] ?? '#'}" title="Next media page" aria-label="Next media page" data-tm-admin-fragment-link>
+                                <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                            </a>
+                        </li>
+                        <li n:class="'page-item', !($media_pagination['has_next'] ?? false) ? 'disabled'">
+                            <a class="page-link" href="{$media_pagination['last_url'] ?? '#'}" title="Last media page" aria-label="Last media page" data-tm-admin-fragment-link>
+                                <span class="bi bi-skip-end d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {/if}
+        <div class="row g-3">
+            {foreach $media_records as $media_record}
+                {var $media_detail_template_id = 'tm-system-media-library-detail-' . $iterator->counter}
+                {var $usage_references = is_array($media_record['usage_references'] ?? null) ? $media_record['usage_references'] : []}
+                <div class="col-12 col-xl-6">
+                    <div class="rounded-3 p-3 bg-body-secondary h-100 overflow-hidden" style="min-width: 0;">
+                        <div class="d-flex gap-3" style="min-width: 0;">
+                            <div class="flex-shrink-0">
+                                <button class="btn p-0 border-0 bg-transparent d-block" type="button" title="View media details" aria-label="View details for {$media_record['label'] ?? $media_record['media_id']}" data-tm-media-detail-trigger data-tm-media-detail-template="{$media_detail_template_id}" data-tm-media-detail-title="{$media_record['label'] ?? $media_record['media_id']}">
+                                    {if ! empty($media_record['thumbnail_url']) || (! empty($media_record['is_image']) && ! empty($media_record['url']))}
+                                        <img class="rounded-2 border bg-body object-fit-cover" src="{$media_record['thumbnail_url'] ?: $media_record['url']}" alt="" loading="lazy" decoding="async" style="width: 5rem; height: 5rem;">
+                                    {else}
+                                        <span class="rounded-2 border bg-body d-flex align-items-center justify-content-center text-body-secondary" style="width: 5rem; height: 5rem;">
+                                            <span n:class="'bi', ! empty($media_record['is_image']) ? 'bi-image' : 'bi-file-earmark'" aria-hidden="true"></span>
+                                        </span>
+                                    {/if}
+                                </button>
+                            </div>
+                            <div class="flex-grow-1" style="min-width: 0;">
+                                <div class="fw-semibold text-truncate" title="{$media_record['filename'] ?? $media_record['media_id']}">{$media_record['label'] ?? $media_record['media_id']}</div>
+                                <div class="small text-body-secondary text-truncate" title="{$media_record['filename'] ?? ''}">{$media_record['filename'] ?? ''}</div>
+                                <div class="small font-monospace text-body-secondary text-truncate" title="{$media_record['media_id'] ?? ''}">{$media_record['media_id'] ?? ''}</div>
+                                <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
+                                    <span>{$media_record['owner_username'] ?? ''}</span>
+                                    <span>{$media_record['mime'] ?? ''}</span>
+                                    <span>{$media_record['size_label'] ?? ''}</span>
+                                    {if ! empty($media_record['dimensions'])}<span>{$media_record['dimensions']}</span>{/if}
+                                    {if ! empty($media_record['created_at_display'])}<span>{$media_record['created_at_display']}</span>{/if}
+                                </div>
+                                {if ! empty($media_record['is_image'])}
+                                    <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
+                                        {if ! empty($media_record['has_display_derivative'])}
+                                            <span class="badge text-bg-success">large display variant</span>
+                                            {if ! empty($media_record['display_dimensions'])}<span>{$media_record['display_dimensions']}</span>{/if}
+                                            {if ! empty($media_record['display_size_label'])}<span>{$media_record['display_size_label']}</span>{/if}
+                                        {elseif ! empty($media_record['display_derivative_expected'])}
+                                            <span class="badge text-bg-warning">display variant missing</span>
+                                        {else}
+                                            <span class="badge text-bg-secondary">primary display source</span>
+                                        {/if}
+                                    </div>
+                                {/if}
+                                <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
+                                    <span class="badge {$media_record['usage_badge_class'] ?? 'text-bg-secondary'}">{$media_record['usage_status_label'] ?? 'Unknown'}</span>
+                                    {if ($media_record['usage_reference_count'] ?? 0) > 0}<span>{$media_record['usage_reference_count']} reference{if ($media_record['usage_reference_count'] ?? 0) !== 1}s{/if}</span>{/if}
+                                </div>
+                                <div class="small text-body-secondary d-flex flex-wrap gap-2 align-items-center mt-2">
+                                    <span class="badge {$media_record['review_badge_class'] ?? 'text-bg-secondary'}">{$media_record['review_status_label'] ?? 'Unreviewed'}</span>
+                                    {if ! empty($media_record['reviewed_at_display'])}<span>{$media_record['reviewed_at_display']}</span>{/if}
+                                    {if ! empty($media_record['reviewed_by'])}<span>by {$media_record['reviewed_by']}</span>{/if}
+                                </div>
+                                {if ! empty($usage_references)}
+                                    <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
+                                        <span>Used by:</span>
+                                        {foreach array_slice($usage_references, 0, 2) as $reference}
+                                            <span class="text-break">{$reference['label'] ?? 'Reference'}</span>
+                                        {/foreach}
+                                        {if count($usage_references) > 2}<span>+{count($usage_references) - 2} more</span>{/if}
+                                    </div>
+                                {elseif ($media_record['usage_status'] ?? '') === 'direct_marker_only'}
+                                    <div class="small text-body-secondary mt-2">Upload association recorded, but no current use was verified.</div>
+                                {else}
+                                    <div class="small text-body-secondary mt-2">No known use found.</div>
+                                {/if}
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    {if ($media_record['review_status'] ?? 'unreviewed') !== 'keep'}
+                                        <form method="post" action="{$system_media_library_review_url}" class="d-inline">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
+                                            <input type="hidden" name="review_status" value="keep">
+                                            <button class="btn btn-sm btn-outline-primary" type="submit">Keep</button>
+                                        </form>
+                                    {/if}
+                                    {if ($media_record['review_status'] ?? 'unreviewed') !== 'cleanup_candidate'}
+                                        <form method="post" action="{$system_media_library_review_url}" class="d-inline">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
+                                            <input type="hidden" name="review_status" value="cleanup_candidate">
+                                            <button class="btn btn-sm btn-outline-warning tm-media-review-candidate-action" type="submit">Cleanup candidate</button>
+                                        </form>
+                                    {/if}
+                                    {if ($media_record['review_status'] ?? 'unreviewed') !== 'unreviewed'}
+                                        <form method="post" action="{$system_media_library_review_url}" class="d-inline">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
+                                            <input type="hidden" name="review_status" value="unreviewed">
+                                            <button class="btn btn-sm btn-outline-secondary" type="submit">Clear</button>
+                                        </form>
+                                    {/if}
+                                    {if ($media_record['review_status'] ?? 'unreviewed') === 'cleanup_candidate'}
+                                        <form method="post" action="{$system_media_library_delete_url}" class="d-inline" onsubmit="return window.confirm('Delete this media item permanently? This cannot be undone.');">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
+                                            <input type="hidden" name="confirm_permanent_delete" value="permanent">
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete permanently</button>
+                                        </form>
+                                    {/if}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <template id="{$media_detail_template_id}">
+                        <div class="row g-4">
+                            <div class="col-12 col-lg-7">
+                                <div class="rounded-3 bg-body-secondary d-flex align-items-center justify-content-center overflow-hidden" style="min-height: 18rem;">
+                                    {if ! empty($media_record['is_image']) && (! empty($media_record['display_url']) || ! empty($media_record['url']))}
+                                        <img class="img-fluid" src="{$media_record['display_url'] ?: $media_record['url']}" alt="{$media_record['label'] ?? ''}" loading="lazy" decoding="async" style="max-height: 65vh; object-fit: contain;">
+                                    {else}
+                                        <div class="text-center text-body-secondary p-4">
+                                            <div class="bi bi-file-earmark fs-1 mb-2" aria-hidden="true"></div>
+                                            <div class="small">Preview is not available for this media type.</div>
+                                        </div>
+                                    {/if}
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 mt-3">
+                                    {if ! empty($media_record['display_url'])}
+                                        <a class="btn btn-sm btn-outline-secondary" href="{$media_record['display_url']}" target="_blank" rel="noopener">Open display</a>
+                                    {/if}
+                                    {if ! empty($media_record['url'])}
+                                        <a class="btn btn-sm btn-outline-secondary" href="{$media_record['url']}" target="_blank" rel="noopener">Open original</a>
+                                    {/if}
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-5">
+                                <div class="small text-uppercase text-body-secondary mb-2">File</div>
+                                <dl class="row small mb-3">
+                                    <dt class="col-5 text-body-secondary">Media ID</dt>
+                                    <dd class="col-7 font-monospace text-break">{$media_record['media_id'] ?? ''}</dd>
+                                    <dt class="col-5 text-body-secondary">Owner</dt>
+                                    <dd class="col-7">{$media_record['owner_username'] ?? ''}</dd>
+                                    <dt class="col-5 text-body-secondary">Filename</dt>
+                                    <dd class="col-7 text-break">{$media_record['filename'] ?? ''}</dd>
+                                    {if ! empty($media_record['original_filename']) && ($media_record['original_filename'] !== ($media_record['filename'] ?? ''))}
+                                        <dt class="col-5 text-body-secondary">Original name</dt>
+                                        <dd class="col-7 text-break">{$media_record['original_filename']}</dd>
+                                    {/if}
+                                    <dt class="col-5 text-body-secondary">MIME</dt>
+                                    <dd class="col-7">{$media_record['mime'] ?? ''}</dd>
+                                    <dt class="col-5 text-body-secondary">Size</dt>
+                                    <dd class="col-7">{$media_record['size_label'] ?? ''}</dd>
+                                    {if ! empty($media_record['dimensions'])}
+                                        <dt class="col-5 text-body-secondary">Dimensions</dt>
+                                        <dd class="col-7">{$media_record['dimensions']}</dd>
+                                    {/if}
+                                    {if ! empty($media_record['created_at_display'])}
+                                        <dt class="col-5 text-body-secondary">Created</dt>
+                                        <dd class="col-7">{$media_record['created_at_display']}</dd>
+                                    {/if}
+                                    {if ! empty($media_record['source'])}
+                                        <dt class="col-5 text-body-secondary">Source</dt>
+                                        <dd class="col-7">{$media_record['source']}</dd>
+                                    {/if}
+                                    <dt class="col-5 text-body-secondary">Display</dt>
+                                    <dd class="col-7">
+                                        {if ! empty($media_record['has_display_derivative'])}
+                                            {$media_record['display_dimensions'] ?? ''}{if ! empty($media_record['display_size_label'])} &middot; {$media_record['display_size_label']}{/if}
+                                        {elseif ! empty($media_record['display_derivative_expected'])}
+                                            Display variant missing
+                                        {else}
+                                            Stored primary is already within display size
+                                        {/if}
+                                    </dd>
+                                    {if ! empty($media_record['attached_entry_id']) || ! empty($media_record['attached_draft_id']) || ! empty($media_record['attachment_session_id'])}
+                                    <dt class="col-5 text-body-secondary">Upload association</dt>
+                                    <dd class="col-7">
+                                        {if ! empty($media_record['attached_entry_id'])}<div>entry: <span class="font-monospace">{$media_record['attached_entry_id']}</span></div>{/if}
+                                        {if ! empty($media_record['attached_draft_id'])}<div>draft: <span class="font-monospace">{$media_record['attached_draft_id']}</span></div>{/if}
+                                        {if ! empty($media_record['attachment_session_id'])}<div>session: <span class="font-monospace">{$media_record['attachment_session_id']}</span></div>{/if}
+                                    </dd>
+                                    {/if}
+                                    <dt class="col-5 text-body-secondary">Usage</dt>
+                                    <dd class="col-7">
+                                        <span class="badge {$media_record['usage_badge_class'] ?? 'text-bg-secondary'}">{$media_record['usage_status_label'] ?? 'Unknown'}</span>
+                                        <div class="text-body-secondary mt-1">{$media_record['usage_reference_count'] ?? 0} known reference{if ($media_record['usage_reference_count'] ?? 0) !== 1}s{/if}</div>
+                                        {if ! empty($media_record['usage_reference_categories']) && ($media_record['usage_reference_categories'] ?? '-') !== '-'}
+                                            <div class="font-monospace small text-break">{$media_record['usage_reference_categories']}</div>
+                                        {/if}
+                                    </dd>
+                                    <dt class="col-5 text-body-secondary">Review</dt>
+                                    <dd class="col-7">
+                                        <span class="badge {$media_record['review_badge_class'] ?? 'text-bg-secondary'}">{$media_record['review_status_label'] ?? 'Unreviewed'}</span>
+                                        {if ! empty($media_record['reviewed_at_display'])}<div class="text-body-secondary mt-1">{$media_record['reviewed_at_display']}</div>{/if}
+                                        {if ! empty($media_record['reviewed_by'])}<div class="text-body-secondary">by {$media_record['reviewed_by']}</div>{/if}
+                                    </dd>
+                                    <dt class="col-5 text-body-secondary">Embedded metadata</dt>
+                                    <dd class="col-7">
+                                        {if ! empty($media_record['embedded_metadata_stripped'])}
+                                            Stripped
+                                            {if ! empty($media_record['embedded_metadata_strip_note'])}<div class="text-body-secondary">{$media_record['embedded_metadata_strip_note']}</div>{/if}
+                                        {else}
+                                            Not recorded as stripped
+                                        {/if}
+                                    </dd>
+                                </dl>
+                                <div class="small text-uppercase text-body-secondary mb-2">Known references</div>
+                                {if empty($usage_references)}
+                                    {if ($media_record['usage_status'] ?? '') === 'direct_marker_only'}
+                                        <div class="small text-body-secondary mb-3">An upload association is recorded, but it does not point to verified current use.</div>
+                                    {else}
+                                        <div class="small text-body-secondary mb-3">No confirmed use found. Treat this as possibly unused until reviewed.</div>
+                                    {/if}
+                                {else}
+                                    <div class="table-responsive mb-3">
+                                        <table class="table table-sm small align-middle mb-0">
+                                            <tbody>
+                                                {foreach array_slice($usage_references, 0, 12) as $reference}
+                                                    <tr>
+                                                        <th class="text-body-secondary fw-normal" scope="row">{$reference['category_label'] ?? 'Reference'}</th>
+                                                        <td class="font-monospace text-break">{$reference['source'] ?? ''}</td>
+                                                        <td class="text-break">{$reference['label'] ?? ''}</td>
+                                                    </tr>
+                                                {/foreach}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {/if}
+                                {var $retained_rows = is_array($media_record['metadata_rows'] ?? null) ? $media_record['metadata_rows'] : []}
+                                {var $public_rows = is_array($media_record['public_metadata_rows'] ?? null) ? $media_record['public_metadata_rows'] : []}
+                                <div class="small text-uppercase text-body-secondary mb-2">Retained metadata</div>
+                                {if empty($retained_rows)}
+                                    <div class="small text-body-secondary mb-3">No retained metadata rows.</div>
+                                {else}
+                                    <div class="table-responsive mb-3">
+                                        <table class="table table-sm small align-middle mb-0">
+                                            <tbody>
+                                                {foreach $retained_rows as $row}
+                                                    <tr>
+                                                        <th class="text-body-secondary fw-normal" scope="row">{$row['group'] ?? ''}</th>
+                                                        <td>{$row['label'] ?? ''}</td>
+                                                        <td class="text-break">{$row['value'] ?? ''}</td>
+                                                    </tr>
+                                                {/foreach}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {/if}
+                                <div class="small text-uppercase text-body-secondary mb-2">Public metadata</div>
+                                {if empty($public_rows)}
+                                    <div class="small text-body-secondary">No public metadata rows.</div>
+                                {else}
+                                    <div class="table-responsive">
+                                        <table class="table table-sm small align-middle mb-0">
+                                            <tbody>
+                                                {foreach $public_rows as $row}
+                                                    <tr>
+                                                        <th class="text-body-secondary fw-normal" scope="row">{$row['group'] ?? ''}</th>
+                                                        <td>{$row['label'] ?? ''}</td>
+                                                        <td class="text-break">{$row['value'] ?? ''}</td>
+                                                    </tr>
+                                                {/foreach}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            {/foreach}
+        </div>
+    {/if}
+    <div class="modal fade" id="tm-system-media-library-detail-modal" tabindex="-1" aria-labelledby="tm-system-media-library-detail-title" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h5" id="tm-system-media-library-detail-title" data-tm-media-detail-modal-title>Media item</h3>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" data-tm-media-detail-modal-body>
+                    <div class="text-body-secondary small">Choose a media item to inspect.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

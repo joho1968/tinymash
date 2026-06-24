@@ -1,0 +1,111 @@
+{extends './layout.latte'}
+
+{block content}
+    {if ! empty( $landing_entry ) }
+        <article class="tm-timeline-panel tm-timeline-hero">
+            <div class="tm-timeline-hero-inner">
+                {if ! empty( $landing_entry['content_heading_html'] )}
+                    <header class="tm-timeline-entry-header mb-3">
+                        {$landing_entry['content_heading_html']|noescape}
+                    </header>
+                {else}
+                    <header class="tm-timeline-entry-header mb-3">
+                        <h1 class="mb-0">{$landing_entry['title_html']|noescape}</h1>
+                    </header>
+                {/if}
+                <div class="tm-timeline-content link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+                    {$landing_entry['content_body_html']|noescape}
+                </div>
+                {if ! empty( $landing_entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+                    <section class="tm-timeline-section mt-4 pt-3">
+                        <h2 class="h5 mb-3">{$theme_child_pages_heading}</h2>
+                        <div class="row g-3">
+                            {foreach $landing_entry_child_pages as $child_page}
+                                <div class="col-12 col-md-6">
+                                    <a class="tm-timeline-subpage card h-100 text-decoration-none" href="{$child_page['url']}">
+                                        <div class="card-body">
+                                            <div class="fw-semibold">{$child_page['title']}</div>
+                                        </div>
+                                    </a>
+                                </div>
+                            {/foreach}
+                        </div>
+                    </section>
+                {/if}
+            </div>
+        </article>
+    {else}
+        {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
+            <section class="tm-timeline-panel tm-timeline-context mb-4">
+                {if ! empty( $listing_context_title ) }
+                    <h2 class="h5 mb-2">{$listing_context_title}</h2>
+                {/if}
+                {if ! empty( $listing_context_summary ) }
+                    <p class="mb-0 text-secondary">{$listing_context_summary}</p>
+                {/if}
+            </section>
+        {/if}
+        {if empty( $entries )}
+            <div class="tm-timeline-panel">
+                <p class="mb-0 text-secondary">{$listing_empty_message ?? 'No published posts are currently aggregated to the front page.'}</p>
+            </div>
+        {else}
+            <section class="tm-timeline-list d-grid gap-4">
+                {var $previous_timeline_date_key = ''}
+                {foreach $entries as $entry}
+                    {var $entry_timeline_date_key = ! empty( $entry['published_at_utc'] ) ? ($entry['published_at_utc']|date:'Y-m-d') : ( ! empty( $entry['published_at_display'] ) ? (string) $entry['published_at_display'] : '' )}
+                    {var $entry_timeline_date_day = ! empty( $entry['published_at_utc'] ) ? ($entry['published_at_utc']|date:'d-M') : ( ! empty( $entry['published_at_display'] ) ? (string) $entry['published_at_display'] : '' )}
+                    {var $entry_timeline_date_year = ! empty( $entry['published_at_utc'] ) ? ($entry['published_at_utc']|date:'Y') : '' }
+                    {var $show_timeline_date = $entry_timeline_date_key !== '' && $entry_timeline_date_key !== $previous_timeline_date_key}
+                    <article class="tm-timeline-card">
+                        <div n:class="'tm-timeline-rail', $show_timeline_date ? 'tm-timeline-rail-with-date'">
+                            <div class="tm-timeline-rail-line border-start border-secondary-subtle" aria-hidden="true"></div>
+                            {if $show_timeline_date}
+                                <div class="tm-timeline-date-day p-2">
+                                    <span class="tm-timeline-date-primary">{$entry_timeline_date_day}</span>
+                                    {if $entry_timeline_date_year !== ''}
+                                        <span class="tm-timeline-date-year">{$entry_timeline_date_year}</span>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
+                        <div class="tm-timeline-main">
+                            <div class="tm-timeline-panel h-100">
+                                <div class="d-flex flex-column flex-lg-row align-items-lg-start gap-2 mb-2">
+                                    <div class="me-lg-auto min-w-0">
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <h2 class="h4 mb-0"><a class="link-body-emphasis link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover text-decoration-none" href="{$entry['url']}">{$entry['title_html']|noescape}</a></h2>
+                                            {if ! empty( $entry['sticky'] )}
+                                                <span class="badge text-bg-warning">Sticky</span>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tm-timeline-meta">
+                                    {if $entry['scope'] === 'author'}
+                                        <span>by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a></span>
+                                    {/if}
+                                </div>
+                                {if empty( $force_listing_results ) && ! empty( $entry['featured_image']['url'] )}
+                                    <p class="mb-3 mt-3 tm-timeline-featured-image">
+                                        <a class="d-block" href="{$entry['url']}">
+                                            <img class="img-fluid rounded-0" src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                                        </a>
+                                    </p>
+                                {/if}
+                                {if ! empty( $entry['summary_html'] )}
+                                    <div class="tm-timeline-content link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                                {/if}
+                                <div class="mt-3">
+                                    <a class="btn btn-outline-secondary btn-sm" href="{$entry['url']}">Read</a>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                    {var $previous_timeline_date_key = $entry_timeline_date_key}
+                {/foreach}
+                {include '../baseline/partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+            </section>
+        {/if}
+    {/if}
+{/block}

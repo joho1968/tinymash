@@ -1,0 +1,213 @@
+{extends 'layout.latte'}
+
+{block content}
+    {var $login_security_summary = is_array($login_security_summary ?? null) ? $login_security_summary : []}
+    <div>
+        <div class="row g-3">
+            <div class="col-12 col-xl-7">
+                <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">{if ! empty( $is_superadmin )}Author Area{else}Workspace{/if}</div>
+                    <div class="fw-semibold mb-1">Content workbench</div>
+                    <div class="small text-body-secondary mb-3">This side of the back end is for writing, editing, previewing, and eventually managing your own content lifecycle.</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="rounded-3 p-3 h-100 bg-body-secondary d-flex flex-column">
+                                <div class="fw-semibold mb-1">Post and page composer</div>
+                                <div class="small text-body-secondary mb-3">Draft, preview, publish, and load existing content through the responsive composer.</div>
+                                <div class="mt-auto">
+                                    <a class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}"><span class="bi bi-pencil-square" aria-hidden="true"></span><span>Open composer</span></a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="rounded-3 p-3 h-100 bg-body-secondary d-flex flex-column">
+                                <div class="fw-semibold mb-1">Content library</div>
+                                <div class="small text-body-secondary mb-3">Review drafts and saved content in one place, then jump into the composer with the right context.</div>
+                                <div class="mt-auto">
+                                    <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$entries_url}"><span class="bi bi-collection" aria-hidden="true"></span><span>Open content</span></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-5">
+                <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">{if ! empty( $is_superadmin )}Admin Area{else}Current Access{/if}</div>
+                    {if ! empty( $is_superadmin ) }
+                        <div class="fw-semibold mb-1">Policy and runtime status</div>
+                        <div class="bg-body mb-3 overflow-hidden">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-borderless align-middle mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="small text-body-secondary">Site visibility</td>
+                                            <td class="text-end">
+                                                <span class="badge text-center {if ! empty($system_settings['site_public'])}text-bg-success{else}text-bg-secondary{/if}" style="min-width: 6rem; --bs-badge-padding-x: .65rem;">{if ! empty($system_settings['site_public'])}Public{else}Private{/if}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="small text-body-secondary">Maintenance</td>
+                                            <td class="text-end">
+                                                <span class="badge text-center {if ! empty($system_settings['maintenance'])}text-bg-warning{else}text-bg-secondary{/if}" style="min-width: 6rem; --bs-badge-padding-x: .65rem;">{if ! empty($system_settings['maintenance'])}On{else}Off{/if}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="small text-body-secondary">Registrations</td>
+                                            <td class="text-end">
+                                                <span class="badge text-center {if ! empty($system_settings['allow_registrations'])}text-bg-success{else}text-bg-secondary{/if}" style="min-width: 6rem; --bs-badge-padding-x: .65rem;">{if ! empty($system_settings['allow_registrations'])}Open{else}Closed{/if}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="small text-body-secondary">Moderation</td>
+                                            <td class="text-end">
+                                                <span class="badge text-center {if ! empty($content_moderation_required)}text-bg-warning{else}text-bg-secondary{/if}" style="min-width: 6rem; --bs-badge-padding-x: .65rem;">{if ! empty($content_moderation_required)}On{else}Off{/if}</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="small text-body-secondary">Editor autosave ({$system_settings['editor_autosave_interval_seconds'] ?? 120}s)</td>
+                                            <td class="text-end">
+                                                <span class="badge text-center {if ! empty($system_settings['editor_autosave_enabled'])}text-bg-primary{else}text-bg-secondary{/if}" style="min-width: 6rem; --bs-badge-padding-x: .65rem;">{if ! empty($system_settings['editor_autosave_enabled'])}Enabled{else}Disabled{/if}</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-between gap-2">
+                            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$admin_system_url}/site"><span class="bi bi-sliders2" aria-hidden="true"></span><span>Site settings</span></a>
+                            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$admin_system_url}/moderation">
+                                <span class="bi bi-eye" aria-hidden="true"></span>
+                                <span>Moderation</span>
+                                <span class="badge {if ($content_stats['pending_review'] ?? 0) > 0}text-bg-warning{else}text-bg-success{/if}">{$content_stats['pending_review'] ?? 0}</span>
+                            </a>
+                            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$admin_system_url}/users"><span class="bi bi-people" aria-hidden="true"></span><span>Users</span></a>
+                        </div>
+                    {else}
+                        <div class="fw-semibold mb-1">Author access</div>
+                        <div class="small text-body-secondary mb-0">This account is currently scoped to content work. System-wide tools remain reserved for higher-privilege roles. {if ! empty( $content_moderation_required )}Sitewide moderation is active, so submitted content will require review before going live.{/if}</div>
+                    {/if}
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="p-3 bg-body border rounded-3 shadow-sm h-100 d-flex flex-column">
+                    <div class="small text-uppercase text-body-secondary mb-2">Site</div>
+                    <div class="fw-semibold mb-1">Public front page</div>
+                    <div class="small text-body-secondary mb-3">Check the current public rendering and content flow.</div>
+                    <div class="mt-auto">
+                        <a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" href="/"><span class="bi bi-box-arrow-up-right" aria-hidden="true"></span><span>View site</span></a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">At a glance</div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$system_user_count ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">users</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$content_stats['entries'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">content</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$content_stats['published'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">published</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$content_stats['pending_review'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">pending review</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="p-3 bg-body border rounded-3 shadow-sm">
+                    <div class="small text-uppercase text-body-secondary mb-2">Login security</div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6 col-xl-3">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$login_security_summary['failed_last_hour'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">failed last hour</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-xl-3">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$login_security_summary['failed_last_24_hours'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">failed last 24h</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-xl-3">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$login_security_summary['throttled_ips'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">throttled ips</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-xl-3">
+                            <div class="rounded-3 p-2 bg-body-secondary h-100">
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="fs-5 fw-semibold">{$login_security_summary['throttled_usernames'] ?? 0}</span>
+                                    <span class="small text-body-secondary text-lowercase">throttled usernames</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="small text-body-secondary">
+                        Last failed login:
+                        <span class="text-body">{if ! empty($login_security_summary['last_failed_at_display'])}{$login_security_summary['last_failed_at_display']}{else}No recent failures{/if}</span>
+                    </div>
+                    <div class="border-top mt-3 pt-3">
+                        <div class="small text-uppercase text-body-secondary mb-2">Recent failures</div>
+                        {if ! empty($login_security_summary['recent_failures'])}
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" class="fw-normal">Username</th>
+                                            <th scope="col" class="fw-normal">IP</th>
+                                            <th scope="col" class="fw-normal">Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {foreach $login_security_summary['recent_failures'] as $recent_failure}
+                                            <tr>
+                                                <td class="font-monospace">{if ! empty($recent_failure['username'])}{$recent_failure['username']}{else}unknown{/if}</td>
+                                                <td class="font-monospace">{if ! empty($recent_failure['ip'])}{$recent_failure['ip']}{else}unknown{/if}</td>
+                                                <td>{$recent_failure['failed_at_display'] ?? ($recent_failure['failed_at_utc'] ?? '')}</td>
+                                            </tr>
+                                        {/foreach}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {else}
+                            <div class="small text-body-secondary">No recent failures.</div>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{/block}

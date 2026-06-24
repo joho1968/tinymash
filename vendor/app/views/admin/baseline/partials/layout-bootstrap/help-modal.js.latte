@@ -1,0 +1,201 @@
+                const helpContentCache = new Map();
+                const helpRequestPromises = new Map();
+                function createHelpModalController() {
+                    const helpModal = document.getElementById('tm-help-modal');
+                    const helpModalBody = document.getElementById('tm-help-modal-body');
+                    const helpModalContent = document.getElementById('tm-help-modal-content');
+                    const helpModalLoading = document.getElementById('tm-help-modal-loading');
+                    const helpModalLoadingText = document.getElementById('tm-help-modal-loading-text');
+                    const helpModalStatus = document.getElementById('tm-help-modal-status');
+                    const helpModalTrigger = document.querySelector('[data-bs-target="#tm-help-modal"]');
+
+                    if (!helpModal || !helpModalBody || !(helpModalContent instanceof HTMLElement) || !(helpModalStatus instanceof HTMLElement)) {
+                        return null;
+                    }
+
+                    let helpRequestCounter = 0;
+
+                    function isExtraLargeViewport() {
+                        return window.matchMedia('(min-width: 1200px)').matches;
+                    }
+
+                    function cssAttributeValue(value) {
+                        if (window.CSS && typeof window.CSS.escape === 'function') {
+                            return window.CSS.escape(value);
+                        }
+                        return value.replace(/["\\]/g, '\\$&');
+                    }
+
+                    function restoreHelpIndexState(options = {}) {
+                        const activeContexts = (options.activeContexts || helpModal.getAttribute('data-help-contexts') || '').trim();
+                        const keepTocOpen = !!options.keepTocOpen || isExtraLargeViewport();
+                        const helpIndexCollapse = helpModalBody.querySelector('#tm-help-index-collapse');
+                        if (helpIndexCollapse && keepTocOpen && !isExtraLargeViewport()) {
+                            helpIndexCollapse.classList.add('show');
+                        }
+                        if (activeContexts === '') {
+                            return;
+                        }
+                        const selector = '.tm-help-index-link[data-help-contexts="' + cssAttributeValue(activeContexts) + '"]';
+                        const activeLink = helpModalBody.querySelector(selector) || helpModalBody.querySelector('.tm-help-index-link.active');
+                        if (!activeLink) {
+                            return;
+                        }
+                        window.requestAnimationFrame(() => {
+                            activeLink.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                        });
+                    }
+
+                    function renderCachedHelpContent(helpContexts, options = {}) {
+                        const cachedHtml = helpContentCache.get(helpContexts) || '';
+                        if (cachedHtml === '') {
+                            return false;
+                        }
+                        helpModalContent.innerHTML = cachedHtml;
+                        if (helpModalLoading instanceof HTMLElement) {
+                            helpModalLoading.classList.add('d-none');
+                            helpModalLoading.classList.remove('d-flex');
+                        }
+                        helpModalStatus.textContent = 'Loaded';
+                        const documentsScroll = helpModalContent.querySelector('.tm-help-documents-scroll');
+                        if (documentsScroll) {
+                            documentsScroll.scrollTop = 0;
+                        }
+                        restoreHelpIndexState({
+                            activeContexts: options.activeContexts || helpContexts,
+                            keepTocOpen: !!options.keepTocOpen,
+                        });
+                        return true;
+                    }
+
+                    function fetchHelpContent(helpContexts, helpLocale) {
+                        const cacheKey = helpContexts + '::' + helpLocale;
+                        if (helpRequestPromises.has(cacheKey)) {
+                            return helpRequestPromises.get(cacheKey);
+                        }
+                        const helpUrl = helpModal.getAttribute('data-help-url') || '';
+                        if (helpUrl === '') {
+                            return Promise.resolve(null);
+                        }
+                        const request = fetch(helpUrl + '?contexts=' + encodeURIComponent(helpContexts) + '&locale=' + encodeURIComponent(helpLocale), {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                            .then((response) => {
+                                if (!response.ok) {
+                                    throw new Error('Help request failed with status ' + response.status);
+                                }
+                                return response.json();
+                            })
+                            .finally(() => {
+                                helpRequestPromises.delete(cacheKey);
+                            });
+                        helpRequestPromises.set(cacheKey, request);
+                        return request;
+                    }
+
+                    async function loadHelpContent(options = {}) {
+                        const preserveBody = !!options.preserveBody;
+                        const helpContexts = helpModal.getAttribute('data-help-contexts') || 'admin-global';
+                        const helpLocale = helpModal.getAttribute('data-help-locale') || 'en';
+                        if (helpContexts === '') {
+                            return;
+                        }
+
+                        const requestId = ++helpRequestCounter;
+                        if (renderCachedHelpContent(helpContexts, options)) {
+                            return;
+                        }
+                        helpModalStatus.textContent = 'Loading';
+                        if (helpModalLoading instanceof HTMLElement) {
+                            helpModalLoading.classList.remove('d-none');
+                            helpModalLoading.classList.add('d-flex');
+                        }
+                        if (helpModalLoadingText instanceof HTMLElement) {
+                            helpModalLoadingText.textContent = 'Loading help…';
+                        }
+                        if (!preserveBody && helpModalContent.innerHTML.trim() === '') {
+                            helpModalContent.innerHTML = '';
+                        }
+
+                        try {
+                            const payload = await fetchHelpContent(helpContexts, helpLocale);
+                            if (requestId !== helpRequestCounter) {
+                                return;
+                            }
+                            const html = (payload && typeof payload.html === 'string' && payload.html !== '')
+                                ? payload.html
+                                : '<div class="alert alert-secondary mb-0" role="alert">No help is available for this section yet.</div>';
+                            helpContentCache.set(helpContexts, html);
+                            renderCachedHelpContent(helpContexts, options);
+                        } catch (error) {
+                            if (requestId !== helpRequestCounter) {
+                                return;
+                            }
+                            helpModalContent.innerHTML = '<div class="alert alert-danger mb-0" role="alert">Help could not be loaded right now.</div>';
+                            if (helpModalLoading instanceof HTMLElement) {
+                                helpModalLoading.classList.add('d-none');
+                                helpModalLoading.classList.remove('d-flex');
+                            }
+                            helpModalStatus.textContent = 'Unavailable';
+                            console.error('[tinymash] help load error', error);
+                        }
+                    }
+
+                    function warmCurrentHelp() {
+                        const helpContexts = helpModal.getAttribute('data-help-contexts') || 'admin-global';
+                        const helpLocale = helpModal.getAttribute('data-help-locale') || 'en';
+                        if (helpContentCache.has(helpContexts) || helpContexts === '') {
+                            return;
+                        }
+                        fetchHelpContent(helpContexts, helpLocale)
+                            .then((payload) => {
+                                const html = (payload && typeof payload.html === 'string' && payload.html !== '')
+                                    ? payload.html
+                                    : '<div class="alert alert-secondary mb-0" role="alert">No help is available for this section yet.</div>';
+                                helpContentCache.set(helpContexts, html);
+                            })
+                            .catch(() => {});
+                    }
+
+                    function bindHelpModal() {
+                        helpModal.addEventListener('show.bs.modal', loadHelpContent);
+                        helpModalBody.addEventListener('click', (event) => {
+                            const trigger = event.target.closest('[data-help-contexts]');
+                            if (!trigger) {
+                                return;
+                            }
+                            const selection = window.getSelection ? window.getSelection() : null;
+                            if (selection && String(selection).trim() !== '') {
+                                return;
+                            }
+                            event.preventDefault();
+                            const nextContexts = trigger.getAttribute('data-help-contexts') || '';
+                            if (nextContexts === '') {
+                                return;
+                            }
+                            const helpIndexCollapse = helpModalBody.querySelector('#tm-help-index-collapse');
+                            const keepTocOpen = isExtraLargeViewport() || !!helpIndexCollapse?.classList.contains('show');
+                            helpModal.setAttribute('data-help-contexts', nextContexts);
+                            loadHelpContent({
+                                preserveBody: true,
+                                activeContexts: nextContexts,
+                                keepTocOpen: keepTocOpen,
+                            });
+                        });
+                        if (helpModalTrigger instanceof HTMLElement) {
+                            helpModalTrigger.addEventListener('mouseenter', warmCurrentHelp, { once: true });
+                            helpModalTrigger.addEventListener('focus', warmCurrentHelp, { once: true });
+                        }
+                        if (typeof window.requestIdleCallback === 'function') {
+                            window.requestIdleCallback(warmCurrentHelp, { timeout: 1200 });
+                        } else {
+                            window.setTimeout(warmCurrentHelp, 600);
+                        }
+                    }
+
+                    return {
+                        bindHelpModal,
+                    };
+                }

@@ -1,0 +1,346 @@
+<section class="d-grid gap-3">
+    {if ! empty( $system_plugin_settings_page ) && ! empty( $system_plugin_settings_section )}
+        {var $selected_plugin_settings = $system_plugin_settings_section}
+        {var $selected_plugin = $system_selected_plugin}
+
+        <div class="p-3 bg-body border rounded-3 shadow-sm">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                <div>
+                    <div class="small text-uppercase text-body-secondary mb-2">Plugins</div>
+                    <h2 class="h5 mb-1">{$selected_plugin['name'] ?? $selected_plugin_settings['plugin_key']}</h2>
+                    {if ! empty( $selected_plugin['description'] )}
+                        <p class="text-body-secondary mb-0">{$selected_plugin['description']}</p>
+                    {/if}
+                </div>
+                <a class="btn btn-outline-secondary btn-sm" href="{$system_plugins_index_url}">Back to plugins</a>
+            </div>
+        </div>
+
+        <section class="p-3 bg-body border rounded-3 shadow-sm">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="badge {$selected_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$selected_plugin['boot_status_label'] ?? 'Unknown'}</span>
+                <span class="small text-body-secondary font-monospace">{$selected_plugin_settings['plugin_key']}</span>
+                {if ! empty( $selected_plugin['version'] )}
+                    <span class="small text-body-secondary">{$selected_plugin['version']}</span>
+                {/if}
+            </div>
+
+            <div class="small text-body-secondary d-flex flex-wrap gap-3 justify-content-between">
+                <div>Stage: <span class="text-body">{$selected_plugin['stage'] ?? 'early'}</span></div>
+                {if ! empty( $selected_plugin['booted_stage'] )}
+                    <div>Booted: <span class="text-body">{$selected_plugin['booted_stage']}</span></div>
+                {/if}
+                {if ! empty( $selected_plugin['author_name'] )}
+                    <div>Author: <span class="text-body">{$selected_plugin['author_name']}</span></div>
+                {/if}
+                {if ! empty( $selected_plugin['license'] )}
+                    <div>License: <span class="text-body">{$selected_plugin['license']}</span></div>
+                {/if}
+                {if ! empty( $selected_plugin['website'] )}
+                    <div><a class="link-offset-2" href="{$selected_plugin['website']}" target="_blank" rel="noopener noreferrer">Website</a></div>
+                {/if}
+            </div>
+
+            {if ! empty( $selected_plugin['boot_error'] )}
+                <div class="alert alert-danger py-2 px-3 small mt-3 mb-0" role="alert">
+                    {$selected_plugin['boot_error']}
+                </div>
+            {/if}
+            {if ! empty( $selected_plugin['manifest_warnings'] )}
+                <div class="alert alert-warning py-2 px-3 small mt-3 mb-0" role="alert">
+                    <div class="fw-semibold mb-1">Manifest warnings</div>
+                    <ul class="mb-0 ps-3">
+                        {foreach $selected_plugin['manifest_warnings'] as $plugin_manifest_warning}
+                            <li>{$plugin_manifest_warning}</li>
+                        {/foreach}
+                    </ul>
+                </div>
+            {/if}
+        </section>
+
+        <form method="post" action="{$system_settings_url}">
+            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+            <input type="hidden" name="settings_group" value="plugins">
+            <input type="hidden" name="plugin_key" value="{$selected_plugin_settings['plugin_key']}">
+            <section class="p-3 bg-body border rounded-3 shadow-sm">
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                    <div>
+                        <div class="small text-uppercase text-body-secondary mb-2">Plugin settings</div>
+                        <h3 class="h5 mb-1">{$selected_plugin_settings['title']}</h3>
+                        {if ! empty( $selected_plugin_settings['summary'] )}
+                            <p class="text-body-secondary mb-0">{$selected_plugin_settings['summary']}</p>
+                        {/if}
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    {foreach $selected_plugin_settings['fields'] as $plugin_settings_field}
+                        {var $plugin_field_name = 'plugin_settings[' . $selected_plugin_settings['plugin_key'] . '][' . $plugin_settings_field['key'] . ']'}
+                        {if $plugin_settings_field['type'] === 'checkbox'}
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" id="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}" type="checkbox" value="1" n:attr="checked => ! empty( $selected_plugin_settings['values'][$plugin_settings_field['key']] )">
+                                    <label class="form-check-label" for="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                </div>
+                                {if ! empty( $plugin_settings_field['help_html'] )}
+                                    <div class="form-text">{$plugin_settings_field['help_html']|noescape}</div>
+                                {elseif ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {elseif $plugin_settings_field['type'] === 'select'}
+                            <div class="col-12 col-xl-6">
+                                <label class="form-label small mb-1" for="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                <select class="form-select" id="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}">
+                                    {foreach $plugin_settings_field['options'] as $plugin_settings_option}
+                                        <option value="{$plugin_settings_option['value']}" n:attr="selected => ($selected_plugin_settings['values'][$plugin_settings_field['key']] ?? $plugin_settings_field['default']) === $plugin_settings_option['value']">{$plugin_settings_option['label']}</option>
+                                    {/foreach}
+                                </select>
+                                {if ! empty( $plugin_settings_field['help_html'] )}
+                                    <div class="form-text">{$plugin_settings_field['help_html']|noescape}</div>
+                                {elseif ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {elseif $plugin_settings_field['type'] === 'password'}
+                            <div class="col-12 col-xl-6">
+                                <label class="form-label small mb-1" for="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                <input class="form-control" id="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}" type="password" value="" autocomplete="off" n:attr="placeholder => ! empty( $selected_plugin_settings['values'][$plugin_settings_field['key']] ) ? 'Stored value unchanged' : ''">
+                                {if ! empty( $plugin_settings_field['help_html'] )}
+                                    <div class="form-text">{$plugin_settings_field['help_html']|noescape}</div>
+                                {elseif ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {else}
+                            <div class="col-12 col-xl-6">
+                                <label class="form-label small mb-1" for="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}">{$plugin_settings_field['label']}</label>
+                                <input class="form-control" id="tm-plugin-setting-{$selected_plugin_settings['plugin_key']}-{$plugin_settings_field['key']}" name="{$plugin_field_name}" type="text" value="{$selected_plugin_settings['values'][$plugin_settings_field['key']] ?? $plugin_settings_field['default'] ?? ''}">
+                                {if ! empty( $plugin_settings_field['help_html'] )}
+                                    <div class="form-text">{$plugin_settings_field['help_html']|noescape}</div>
+                                {elseif ! empty( $plugin_settings_field['help'] )}
+                                    <div class="form-text">{$plugin_settings_field['help']}</div>
+                                {/if}
+                            </div>
+                        {/if}
+                    {/foreach}
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <button class="btn btn-primary btn-sm" type="submit">Save plugin settings</button>
+                </div>
+            </section>
+        </form>
+    {else}
+        <div class="p-3 bg-body border rounded-3 shadow-sm">
+            {var $plugin_diagnostics_summary = $system_plugin_diagnostics['summary'] ?? []}
+            {var $plugin_diagnostics_errors = $system_plugin_diagnostics['errors'] ?? []}
+            {var $plugin_diagnostics_warnings = $system_plugin_diagnostics['warnings'] ?? []}
+            {var $active_plugin_count = (int) ($plugin_diagnostics_summary['active'] ?? 0)}
+            {var $inactive_plugin_count = (int) ($plugin_diagnostics_summary['inactive'] ?? 0)}
+            {var $error_plugin_count = (int) ($plugin_diagnostics_summary['error'] ?? 0)}
+            {var $manifest_warning_count = (int) ($plugin_diagnostics_summary['warnings'] ?? 0)}
+            <div class="small text-uppercase text-body-secondary mb-2">Plugins</div>
+            <h2 class="h5 mb-1">
+                Installed plugins
+            </h2>
+            <p class="text-body-secondary mb-2">
+                Only active plugins are booted. Inactive plugins cannot register routes, settings, or output.
+            </p>
+            <div class="small text-body-secondary d-flex flex-wrap gap-3">
+                <span><span class="fw-semibold text-body">{$active_plugin_count}</span> active</span>
+                <span>
+                    {if $inactive_plugin_count > 0}
+                        <a class="link-offset-2 text-body-secondary" href="#inactive"><span class="fw-semibold text-body">{$inactive_plugin_count}</span> inactive</a>
+                    {else}
+                        <span class="fw-semibold text-body">{$inactive_plugin_count}</span> inactive
+                    {/if}
+                </span>
+                {if $error_plugin_count > 0}
+                    <span><span class="fw-semibold text-danger">{$error_plugin_count}</span> with errors</span>
+                {/if}
+                {if $manifest_warning_count > 0}
+                    <span><span class="fw-semibold text-warning">{$manifest_warning_count}</span> manifest warnings</span>
+                {/if}
+            </div>
+        </div>
+
+        {if $error_plugin_count > 0}
+            <section class="alert alert-danger mb-0" role="alert" aria-labelledby="tm-plugin-boot-errors-heading">
+                <h3 class="h6" id="tm-plugin-boot-errors-heading">Plugin boot errors</h3>
+                <p class="small mb-2">Affected plugins were skipped during boot. Deactivate the plugin or fix its files, then reload this page.</p>
+                <div class="d-grid gap-2">
+                    {foreach $plugin_diagnostics_errors as $plugin_diagnostics_error}
+                        <div class="small">
+                            <span class="fw-semibold">{$plugin_diagnostics_error['name'] ?? $plugin_diagnostics_error['key'] ?? 'Plugin'}</span>
+                            <span class="font-monospace">{$plugin_diagnostics_error['key'] ?? ''}</span>:
+                            {$plugin_diagnostics_error['boot_error'] ?? 'Boot failed.'}
+                        </div>
+                    {/foreach}
+                </div>
+            </section>
+        {/if}
+
+        {if $manifest_warning_count > 0}
+            <section class="alert alert-warning mb-0" role="alert" aria-labelledby="tm-plugin-manifest-warnings-heading">
+                <h3 class="h6" id="tm-plugin-manifest-warnings-heading">Plugin manifest warnings</h3>
+                <p class="small mb-2">These warnings do not stop plugins from running, but they should be fixed before packaging or release.</p>
+                <div class="d-grid gap-2">
+                    {foreach $plugin_diagnostics_warnings as $plugin_diagnostics_warning}
+                        <div class="small">
+                            <span class="fw-semibold">{$plugin_diagnostics_warning['name'] ?? $plugin_diagnostics_warning['key'] ?? 'Plugin'}</span>
+                            <span class="font-monospace">{$plugin_diagnostics_warning['key'] ?? ''}</span>:
+                            {foreach ($plugin_diagnostics_warning['manifest_warnings'] ?? []) as $plugin_manifest_warning}
+                                <span>{$plugin_manifest_warning}</span>{sep} {/sep}
+                            {/foreach}
+                        </div>
+                    {/foreach}
+                </div>
+            </section>
+        {/if}
+
+        <section class="d-grid gap-3">
+            {if empty( $system_registered_plugins )}
+                <div class="p-3 bg-body border rounded-3 shadow-sm small text-body-secondary">No plugins are currently installed.</div>
+            {else}
+                {if $active_plugin_count > 0}
+                    <div>
+                        <div class="small text-uppercase text-body-secondary mb-2">Active plugins</div>
+                        <div class="row g-3">
+                    {foreach $system_registered_plugins as $registered_plugin}
+                        {if ! empty( $registered_plugin['active'] )}
+                            {var $plugin_settings_url = $system_plugin_settings_urls[$registered_plugin['key']] ?? ''}
+                            <div class="col-12 col-xl-6">
+                                <article class="border rounded-3 p-3 bg-body h-100 shadow-sm d-flex flex-column gap-3">
+                                    <div>
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                            <h3 class="h6 mb-0">{$registered_plugin['name']}</h3>
+                                            <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
+                                            <span class="small text-body-secondary font-monospace">{$registered_plugin['key']}</span>
+                                            {if ! empty( $registered_plugin['version'] )}
+                                                <span class="small text-body-secondary">{$registered_plugin['version']}</span>
+                                            {/if}
+                                        </div>
+                                        {if ! empty( $registered_plugin['description'] )}
+                                            <div class="small text-body-secondary">{$registered_plugin['description']}</div>
+                                        {/if}
+                                    </div>
+                                    <div class="small text-body-secondary d-flex flex-wrap gap-3">
+                                        <span>Stage: <span class="text-body">{$registered_plugin['stage'] ?? 'early'}</span></span>
+                                        {if ! empty( $registered_plugin['booted_stage'] )}
+                                            <span>Booted: <span class="text-body">{$registered_plugin['booted_stage']}</span></span>
+                                        {/if}
+                                        {if ! empty( $registered_plugin['author_name'] )}
+                                            <span>Author: <span class="text-body">{$registered_plugin['author_name']}</span></span>
+                                        {/if}
+                                        {if ! empty( $registered_plugin['license'] )}
+                                            <span>License: <span class="text-body">{$registered_plugin['license']}</span></span>
+                                        {/if}
+                                        {if ! empty( $registered_plugin['website'] )}
+                                            <span><a class="link-offset-2" href="{$registered_plugin['website']}" target="_blank" rel="noopener noreferrer">Website</a></span>
+                                        {/if}
+                                    </div>
+                                    {if ! empty( $registered_plugin['boot_error'] )}
+                                        <div class="alert alert-danger py-2 px-3 small mb-0" role="alert">
+                                            {$registered_plugin['boot_error']}
+                                        </div>
+                                    {/if}
+                                    {if ! empty( $registered_plugin['manifest_warnings'] )}
+                                        <div class="alert alert-warning py-2 px-3 small mb-0" role="alert">
+                                            <div class="fw-semibold mb-1">Manifest warnings</div>
+                                            <ul class="mb-0 ps-3">
+                                                {foreach $registered_plugin['manifest_warnings'] as $plugin_manifest_warning}
+                                                    <li>{$plugin_manifest_warning}</li>
+                                                {/foreach}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                    <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions tm-system-plugin-card-actions mt-auto">
+                                        {if $plugin_settings_url !== ''}
+                                            <a class="btn btn-outline-secondary btn-sm tm-system-plugin-action tm-system-plugin-card-action" href="{$plugin_settings_url}">Configure</a>
+                                        {/if}
+                                        <form method="post" action="{$system_plugin_toggle_url}" class="tm-system-plugin-action tm-system-plugin-card-action">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="plugin_key" value="{$registered_plugin['key']}">
+                                            <input type="hidden" name="active" value="0">
+                                            <button class="btn btn-outline-secondary btn-sm w-100" type="submit">Deactivate</button>
+                                        </form>
+                                    </div>
+                                </article>
+                            </div>
+                        {/if}
+                    {/foreach}
+                        </div>
+                    </div>
+                {/if}
+                {if $inactive_plugin_count > 0}
+                    <div id="inactive">
+                        <div class="small text-uppercase text-body-secondary mb-2">Inactive plugins</div>
+                        <div class="row g-3">
+                    {foreach $system_registered_plugins as $registered_plugin}
+                        {if empty( $registered_plugin['active'] )}
+                            {var $plugin_settings_url = $system_plugin_settings_urls[$registered_plugin['key']] ?? ''}
+                            <div class="col-12 col-xl-6">
+                                <article class="border rounded-3 p-3 bg-body h-100 shadow-sm d-flex flex-column gap-3">
+                                    <div>
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                            <h3 class="h6 mb-0">{$registered_plugin['name']}</h3>
+                                            <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
+                                            <span class="small text-body-secondary font-monospace">{$registered_plugin['key']}</span>
+                                            {if ! empty( $registered_plugin['version'] )}
+                                                <span class="small text-body-secondary">{$registered_plugin['version']}</span>
+                                            {/if}
+                                        </div>
+                                        {if ! empty( $registered_plugin['description'] )}
+                                            <div class="small text-body-secondary">{$registered_plugin['description']}</div>
+                                        {/if}
+                                    </div>
+                                    <div class="small text-body-secondary d-flex flex-wrap gap-3">
+                                        <span>Stage: <span class="text-body">{$registered_plugin['stage'] ?? 'early'}</span></span>
+                                        {if ! empty( $registered_plugin['author_name'] )}
+                                            <span>Author: <span class="text-body">{$registered_plugin['author_name']}</span></span>
+                                        {/if}
+                                        {if ! empty( $registered_plugin['license'] )}
+                                            <span>License: <span class="text-body">{$registered_plugin['license']}</span></span>
+                                        {/if}
+                                        {if ! empty( $registered_plugin['website'] )}
+                                            <span><a class="link-offset-2" href="{$registered_plugin['website']}" target="_blank" rel="noopener noreferrer">Website</a></span>
+                                        {/if}
+                                    </div>
+                                    {if ! empty( $registered_plugin['boot_error'] )}
+                                        <div class="alert alert-danger py-2 px-3 small mb-0" role="alert">
+                                            {$registered_plugin['boot_error']}
+                                        </div>
+                                    {/if}
+                                    {if ! empty( $registered_plugin['manifest_warnings'] )}
+                                        <div class="alert alert-warning py-2 px-3 small mb-0" role="alert">
+                                            <div class="fw-semibold mb-1">Manifest warnings</div>
+                                            <ul class="mb-0 ps-3">
+                                                {foreach $registered_plugin['manifest_warnings'] as $plugin_manifest_warning}
+                                                    <li>{$plugin_manifest_warning}</li>
+                                                {/foreach}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                    <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions tm-system-plugin-card-actions mt-auto">
+                                        {if $plugin_settings_url !== ''}
+                                            <a class="btn btn-outline-secondary btn-sm tm-system-plugin-action tm-system-plugin-card-action" href="{$plugin_settings_url}">Configure</a>
+                                        {/if}
+                                        <form method="post" action="{$system_plugin_toggle_url}" class="tm-system-plugin-action tm-system-plugin-card-action">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="plugin_key" value="{$registered_plugin['key']}">
+                                            <input type="hidden" name="active" value="1">
+                                            <button class="btn btn-primary btn-sm w-100" type="submit">Activate</button>
+                                        </form>
+                                    </div>
+                                </article>
+                            </div>
+                        {/if}
+                    {/foreach}
+                        </div>
+                    </div>
+                {/if}
+            {/if}
+        </section>
+    {/if}
+</section>

@@ -1,0 +1,599 @@
+                function passwordToggleClick(e) {
+                    const toggle = e.currentTarget;
+                    const icon = toggle.querySelector('.bi');
+                    let t = toggle.getAttribute('data-target');
+                    if (t) {
+                        let field = document.getElementById(t);
+                        if (field) {
+                            let fType = field.getAttribute('type');
+                            if (fType === 'text') {
+                                fType = 'password';
+                                if (icon) {
+                                    icon.classList.add('bi-eye-slash-fill');
+                                    icon.classList.remove('bi-eye-fill');
+                                }
+                                toggle.setAttribute('aria-label', 'Show password');
+                                toggle.setAttribute('title', 'Show password');
+                            } else {
+                                fType = 'text';
+                                if (icon) {
+                                    icon.classList.add('bi-eye-fill');
+                                    icon.classList.remove('bi-eye-slash-fill');
+                                }
+                                toggle.setAttribute('aria-label', 'Hide password');
+                                toggle.setAttribute('title', 'Hide password');
+                            }
+                            field.setAttribute('type', fType);
+                        } else {
+                            console.error('[tinymash] "data-target" named "' + t + '" not found');
+                        }
+                    } else {
+                        console.error('[tinymash] No "data-target" assigned');
+                    }
+                }
+                function setupFilterableSelect(filterField) {
+                    if (!(filterField instanceof HTMLInputElement) || filterField.getAttribute('data-tm-filter-select-initialized') === '1') {
+                        return;
+                    }
+                    filterField.setAttribute('data-tm-filter-select-initialized', '1');
+                    const targetSelector = filterField.getAttribute('data-tm-filter-select') || '';
+                    if (targetSelector === '') {
+                        return;
+                    }
+                    const selectField = document.querySelector(targetSelector);
+                    if (!(selectField instanceof HTMLSelectElement)) {
+                        return;
+                    }
+
+                    const optionData = Array.from(selectField.options).map((option) => ({
+                        value: option.value,
+                        label: option.textContent || option.value || '',
+                        selected: option.selected,
+                    }));
+
+                    function renderOptions() {
+                        const query = (filterField.value || '').trim().toLowerCase();
+                        const currentValue = selectField.value;
+                        const visibleOptions = optionData.filter((option) => {
+                            if (option.value === '') {
+                                return true;
+                            }
+                            return query === '' || option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query);
+                        });
+
+                        selectField.innerHTML = '';
+                        visibleOptions.forEach((option) => {
+                            const optionElement = document.createElement('option');
+                            optionElement.value = option.value;
+                            optionElement.textContent = option.label;
+                            optionElement.selected = option.value === currentValue || (currentValue === '' && option.selected);
+                            selectField.appendChild(optionElement);
+                        });
+
+                        if (selectField.options.length > 0 && selectField.selectedIndex === -1) {
+                            selectField.selectedIndex = 0;
+                        }
+                    }
+
+                    selectField.addEventListener('change', () => {
+                        optionData.forEach((option) => {
+                            option.selected = option.value === selectField.value;
+                        });
+                    });
+
+                    filterField.addEventListener('input', renderOptions);
+                    renderOptions();
+                }
+                function setupValidatedDatalist(inputField) {
+                    if (!(inputField instanceof HTMLInputElement) || inputField.getAttribute('data-tm-validated-list-initialized') === '1') {
+                        return;
+                    }
+                    inputField.setAttribute('data-tm-validated-list-initialized', '1');
+                    const listId = inputField.getAttribute('data-tm-validate-list') || inputField.getAttribute('list') || '';
+                    if (listId === '') {
+                        return;
+                    }
+                    const dataList = document.getElementById(listId);
+                    if (!(dataList instanceof HTMLDataListElement)) {
+                        return;
+                    }
+                    const allowEmpty = inputField.getAttribute('data-tm-allow-empty') === '1';
+                    const invalidMessage = inputField.getAttribute('data-tm-invalid-message') || 'Choose a valid value from the list.';
+                    const allowedValues = Array.from(dataList.options).map((option) => (option.value || '').trim()).filter((value) => value !== '');
+
+                    const syncValidity = () => {
+                        const currentValue = (inputField.value || '').trim();
+                        const isValid = currentValue === ''
+                            ? allowEmpty
+                            : allowedValues.includes(currentValue);
+                        inputField.setCustomValidity(isValid ? '' : invalidMessage);
+                        inputField.classList.toggle('is-invalid', !isValid);
+                        return isValid;
+                    };
+
+                    inputField.addEventListener('input', () => {
+                        if (inputField.classList.contains('is-invalid')) {
+                            syncValidity();
+                        }
+                    });
+                    inputField.addEventListener('change', syncValidity);
+                    inputField.addEventListener('blur', syncValidity);
+                    if (inputField.form instanceof HTMLFormElement) {
+                        inputField.form.addEventListener('submit', (event) => {
+                            if (!syncValidity()) {
+                                event.preventDefault();
+                                inputField.focus();
+                            }
+                        });
+                    }
+                }
+                function setupSearchPicker(inputField) {
+                    if (!(inputField instanceof HTMLInputElement) || inputField.getAttribute('data-tm-search-picker-initialized') === '1') {
+                        return;
+                    }
+                    inputField.setAttribute('data-tm-search-picker-initialized', '1');
+                    const inputId = inputField.getAttribute('id') || '';
+                    const listId = inputField.getAttribute('data-tm-validate-list') || inputField.getAttribute('list') || '';
+                    const menuId = inputField.getAttribute('data-tm-picker-menu') || '';
+                    if (inputId === '' || listId === '' || menuId === '') {
+                        return;
+                    }
+
+                    const dataList = document.getElementById(listId);
+                    const menu = document.getElementById(menuId);
+                    if (!(dataList instanceof HTMLDataListElement) || !(menu instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    const wrapper = inputField.closest('.tm-search-picker');
+                    const toggleButton = document.querySelector('[data-tm-picker-toggle="' + inputId.replace(/["\\]/g, '\\$&') + '"]');
+                    const summary = menu.querySelector('[data-tm-picker-summary]');
+                    const optionsRoot = menu.querySelector('[data-tm-picker-options]');
+                    if (!(optionsRoot instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    const allOptions = Array.from(dataList.options).map((option) => ({
+                        value: (option.value || '').trim(),
+                        label: ((option.label || option.value || '') + '').trim(),
+                    })).filter((option) => option.value !== '');
+                    const maxVisible = 60;
+
+                    function setExpanded(isExpanded) {
+                        inputField.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                        if (toggleButton instanceof HTMLElement) {
+                            toggleButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                        }
+                    }
+
+                    function closeMenu() {
+                        menu.classList.remove('show');
+                        setExpanded(false);
+                    }
+
+                    function renderOptions() {
+                        const query = (inputField.value || '').trim().toLowerCase();
+                        const currentValue = (inputField.value || '').trim();
+                        const matches = allOptions.filter((option) => {
+                            if (query === '') {
+                                return true;
+                            }
+                            return option.value.toLowerCase().includes(query) || option.label.toLowerCase().includes(query);
+                        });
+                        const visibleOptions = matches.slice(0, maxVisible);
+
+                        if (summary instanceof HTMLElement) {
+                            if (matches.length === 0) {
+                                summary.textContent = 'No matches';
+                            } else if (query === '') {
+                                summary.textContent = matches.length + ' available';
+                            } else if (matches.length > maxVisible) {
+                                summary.textContent = 'Showing ' + maxVisible + ' of ' + matches.length + ' matches';
+                            } else {
+                                summary.textContent = matches.length + ' match' + (matches.length === 1 ? '' : 'es');
+                            }
+                        }
+
+                        optionsRoot.innerHTML = '';
+                        if (visibleOptions.length === 0) {
+                            const emptyState = document.createElement('div');
+                            emptyState.className = 'px-2 py-2 text-body-secondary';
+                            emptyState.textContent = 'No matching options';
+                            optionsRoot.appendChild(emptyState);
+                            return;
+                        }
+
+                        visibleOptions.forEach((option) => {
+                            const optionButton = document.createElement('button');
+                            optionButton.type = 'button';
+                            optionButton.className = 'list-group-item list-group-item-action px-2 py-2';
+                            if (option.value === currentValue) {
+                                optionButton.classList.add('active');
+                            }
+
+                            const labelNode = document.createElement('div');
+                            labelNode.textContent = option.label || option.value;
+                            optionButton.appendChild(labelNode);
+
+                            if (option.label !== option.value) {
+                                const valueNode = document.createElement('div');
+                                valueNode.className = 'small text-body-secondary font-monospace';
+                                valueNode.textContent = option.value;
+                                optionButton.appendChild(valueNode);
+                            }
+
+                            optionButton.addEventListener('click', () => {
+                                inputField.value = option.value;
+                                inputField.classList.remove('is-invalid');
+                                inputField.setCustomValidity('');
+                                inputField.dispatchEvent(new Event('input', { bubbles: true }));
+                                inputField.dispatchEvent(new Event('change', { bubbles: true }));
+                                closeMenu();
+                                inputField.focus();
+                            });
+                            optionsRoot.appendChild(optionButton);
+                        });
+                    }
+
+                    function openMenu() {
+                        renderOptions();
+                        menu.classList.add('show');
+                        setExpanded(true);
+                    }
+
+                    if (toggleButton instanceof HTMLElement) {
+                        toggleButton.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            if (menu.classList.contains('show')) {
+                                closeMenu();
+                            } else {
+                                openMenu();
+                                inputField.focus();
+                            }
+                        });
+                    }
+
+                    inputField.addEventListener('focus', openMenu);
+                    inputField.addEventListener('input', () => {
+                        if (!menu.classList.contains('show')) {
+                            menu.classList.add('show');
+                            setExpanded(true);
+                        }
+                        renderOptions();
+                    });
+                    inputField.addEventListener('keydown', (event) => {
+                        if (event.key === 'Escape') {
+                            closeMenu();
+                        }
+                    });
+
+                    document.addEventListener('click', (event) => {
+                        if (!(wrapper instanceof HTMLElement) || !(event.target instanceof Node)) {
+                            return;
+                        }
+                        if (!wrapper.contains(event.target)) {
+                            closeMenu();
+                        }
+                    });
+                }
+                function resetInputValue(event) {
+                    const targetId = event.currentTarget?.getAttribute('data-tm-reset-input') || '';
+                    if (targetId === '') {
+                        return;
+                    }
+                    const field = document.getElementById(targetId);
+                    if (!(field instanceof HTMLInputElement)) {
+                        return;
+                    }
+                    field.value = '';
+                    field.classList.remove('is-invalid');
+                    field.setCustomValidity('');
+                    field.dispatchEvent(new Event('input', { bubbles: true }));
+                    field.dispatchEvent(new Event('change', { bubbles: true }));
+                    field.focus();
+                }
+                function setupReorderList(list) {
+                    if (!(list instanceof HTMLElement) || list.getAttribute('data-tm-reorder-initialized') === '1') {
+                        return;
+                    }
+                    list.setAttribute('data-tm-reorder-initialized', '1');
+                    const itemSelector = '[data-tm-reorder-item]';
+                    const fieldSelector = '[data-tm-reorder-field]';
+                    let activeDrag = null;
+                    const items = () => Array.from(list.querySelectorAll(itemSelector))
+                        .filter((item) => item instanceof HTMLElement && item.closest('[data-tm-reorder-list]') === list);
+                    const itemForTarget = (target) => target instanceof Element ? target.closest(itemSelector) : null;
+                    const pointFromEvent = (event) => {
+                        const point = event && event.touches && event.touches.length > 0 ? event.touches[0] : event;
+                        if (!point || typeof point.clientX !== 'number' || typeof point.clientY !== 'number') {
+                            return null;
+                        }
+                        return { x: point.clientX, y: point.clientY };
+                    };
+                    const sortableThreshold = () => {
+                        const value = Number.parseFloat(list.getAttribute('data-tm-reorder-swap-threshold') || '0.65');
+                        if (!Number.isFinite(value) || value <= 0 || value > 1) {
+                            return 0.65;
+                        }
+                        return value;
+                    };
+                    const sortableInvertedThreshold = () => {
+                        const value = Number.parseFloat(list.getAttribute('data-tm-reorder-inverted-swap-threshold') || '1');
+                        if (!Number.isFinite(value) || value <= 0 || value > 1) {
+                            return 1;
+                        }
+                        return value;
+                    };
+                    const sortableDirection = (event, target, dragElement) => {
+                        if (!(target instanceof HTMLElement) || !(dragElement instanceof HTMLElement)) {
+                            return 'vertical';
+                        }
+                        const targetRect = target.getBoundingClientRect();
+                        const dragRect = dragElement.getBoundingClientRect();
+                        const targetCenterY = targetRect.top + targetRect.height / 2;
+                        const dragCenterY = dragRect.top + dragRect.height / 2;
+                        const sameRowTolerance = Math.min(targetRect.height, dragRect.height) * 0.6;
+                        return Math.abs(targetCenterY - dragCenterY) <= sameRowTolerance ? 'horizontal' : 'vertical';
+                    };
+                    const sortableMove = (event) => {
+                        const target = event && event.related instanceof HTMLElement ? event.related : null;
+                        const dragElement = event && event.dragged instanceof HTMLElement ? event.dragged : null;
+                        if (!(target instanceof HTMLElement) || !(dragElement instanceof HTMLElement)) {
+                            return true;
+                        }
+                        if (sortableDirection(event.originalEvent || event, target, dragElement) !== 'horizontal') {
+                            return true;
+                        }
+                        const currentItems = items();
+                        const from = currentItems.indexOf(dragElement);
+                        const to = currentItems.indexOf(target);
+                        if (from === -1 || to === -1 || from === to) {
+                            return true;
+                        }
+                        return from > to ? -1 : 1;
+                    };
+                    const sameRowPointerAssist = (event) => {
+                        if (!(activeDrag instanceof HTMLElement)) {
+                            return;
+                        }
+                        const point = pointFromEvent(event);
+                        if (!point) {
+                            return;
+                        }
+                        const stack = typeof document.elementsFromPoint === 'function' ? document.elementsFromPoint(point.x, point.y) : [];
+                        const target = stack
+                            .map((element) => itemForTarget(element))
+                            .find((item) => item instanceof HTMLElement && item !== activeDrag && item.closest('[data-tm-reorder-list]') === list);
+                        if (!(target instanceof HTMLElement) || sortableDirection(event, target, activeDrag) !== 'horizontal') {
+                            return;
+                        }
+                        const currentItems = items();
+                        const from = currentItems.indexOf(activeDrag);
+                        const to = currentItems.indexOf(target);
+                        if (from === -1 || to === -1 || from === to) {
+                            return;
+                        }
+                        const targetRect = target.getBoundingClientRect();
+                        if (from > to && point.x < targetRect.right) {
+                            list.insertBefore(activeDrag, target);
+                            update();
+                        } else if (from < to && point.x > targetRect.left) {
+                            list.insertBefore(activeDrag, target.nextElementSibling);
+                            update();
+                        }
+                    };
+                    const bindPointerAssist = () => {
+                        document.addEventListener('mousemove', sameRowPointerAssist);
+                        document.addEventListener('pointermove', sameRowPointerAssist);
+                        document.addEventListener('touchmove', sameRowPointerAssist, { passive: true });
+                    };
+                    const unbindPointerAssist = () => {
+                        document.removeEventListener('mousemove', sameRowPointerAssist);
+                        document.removeEventListener('pointermove', sameRowPointerAssist);
+                        document.removeEventListener('touchmove', sameRowPointerAssist);
+                    };
+                    const update = () => {
+                        const base = list.getAttribute('data-tm-reorder-name') || '';
+                        const idPrefix = list.getAttribute('data-tm-reorder-id-prefix') || 'tm-reorder-item';
+                        const currentItems = items();
+                        currentItems.forEach((item, index) => {
+                            item.querySelectorAll(fieldSelector).forEach((field) => {
+                                if (!(field instanceof HTMLElement)) {
+                                    return;
+                                }
+                                const name = field.getAttribute('data-tm-reorder-field') || '';
+                                if (base !== '' && name !== '') {
+                                    field.setAttribute('name', base + '[' + index + '][' + name + ']');
+                                    field.id = idPrefix + '-' + name + '-' + index;
+                                    const label = field.closest('.col-12,.col-sm-4,.col-sm-8,.mb-3,.form-check')?.querySelector('label');
+                                    if (label instanceof HTMLLabelElement) {
+                                        label.htmlFor = field.id;
+                                    }
+                                }
+                            });
+                            item.querySelectorAll('[data-tm-reorder-move]').forEach((button) => {
+                                if (!(button instanceof HTMLButtonElement)) {
+                                    return;
+                                }
+                                const direction = button.getAttribute('data-tm-reorder-move') || '';
+                                button.disabled = (direction === 'up' && index === 0) || (direction === 'down' && index === currentItems.length - 1);
+                            });
+                        });
+                    };
+                    const move = (item, direction) => {
+                        if (!(item instanceof HTMLElement)) {
+                            return;
+                        }
+                        if (direction === 'up' && item.previousElementSibling) {
+                            list.insertBefore(item, item.previousElementSibling);
+                        } else if (direction === 'down' && item.nextElementSibling) {
+                            list.insertBefore(item.nextElementSibling, item);
+                        }
+                        update();
+                    };
+
+                    list.addEventListener('click', (event) => {
+                        const button = event.target instanceof Element ? event.target.closest('[data-tm-reorder-move]') : null;
+                        if (!(button instanceof HTMLButtonElement)) {
+                            return;
+                        }
+                        move(itemForTarget(button), button.getAttribute('data-tm-reorder-move') || '');
+                    });
+                    if (typeof window.Sortable === 'function') {
+                        window.Sortable.create(list, {
+                            animation: 150,
+                            draggable: itemSelector,
+                            handle: '[data-tm-reorder-handle]',
+                            ghostClass: 'opacity-50',
+                            chosenClass: 'tm-reorder-chosen',
+                            dragClass: 'tm-reorder-drag',
+                            swapThreshold: sortableThreshold(),
+                            invertedSwapThreshold: sortableInvertedThreshold(),
+                            invertSwap: true,
+                            direction: sortableDirection,
+                            forceFallback: true,
+                            fallbackOnBody: true,
+                            fallbackTolerance: 3,
+                            onMove: sortableMove,
+                            onStart: (event) => {
+                                activeDrag = event && event.item instanceof HTMLElement ? event.item : null;
+                                bindPointerAssist();
+                            },
+                            onEnd: () => {
+                                unbindPointerAssist();
+                                activeDrag = null;
+                                update();
+                            },
+                            onSort: update,
+                        });
+                        list.setAttribute('data-tm-reorder-engine', 'sortablejs');
+                    } else {
+                        list.setAttribute('data-tm-reorder-engine', 'buttons');
+                    }
+                    update();
+                }
+                function escapeCssAttributeValue(value) {
+                    if (window.CSS && typeof window.CSS.escape === 'function') {
+                        return window.CSS.escape(value);
+                    }
+                    return String(value).replace(/["\\]/g, '\\$&');
+                }
+                function setupPersistentSectionNav(sectionNav) {
+                    if (!(sectionNav instanceof HTMLElement) || sectionNav.getAttribute('data-tm-section-nav-initialized') === '1') {
+                        return;
+                    }
+                    const navKey = (sectionNav.getAttribute('data-tm-section-nav') || '').trim();
+                    if (navKey === '') {
+                        return;
+                    }
+                    sectionNav.setAttribute('data-tm-section-nav-initialized', '1');
+                    const storageKey = 'tinymash.admin.section_nav.' + navKey;
+                    const navNodes = Array.from(sectionNav.querySelectorAll('[data-tm-section-node]'));
+                    if (navNodes.length === 0) {
+                        return;
+                    }
+                    let persistedState = {};
+                    try {
+                        const stored = window.localStorage ? String(window.localStorage.getItem(storageKey) || '') : '';
+                        if (stored !== '') {
+                            const parsed = JSON.parse(stored);
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                persistedState = parsed;
+                            }
+                        }
+                    } catch (error) {
+                        persistedState = {};
+                    }
+
+                    function applyNodeState(node, isOpen) {
+                        if (!(node instanceof HTMLElement)) {
+                            return;
+                        }
+                        const toggle = node.querySelector('[data-tm-section-toggle]');
+                        const panel = node.querySelector('[data-tm-section-panel]');
+                        node.classList.toggle('is-open', isOpen);
+                        if (toggle instanceof HTMLElement) {
+                            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                        }
+                        if (panel instanceof HTMLElement) {
+                            panel.hidden = !isOpen;
+                        }
+                    }
+
+                    function persistState() {
+                        try {
+                            if (window.localStorage) {
+                                window.localStorage.setItem(storageKey, JSON.stringify(persistedState));
+                            }
+                        } catch (error) {
+                        }
+                    }
+
+                    function syncNodes(sectionKey, isOpen) {
+                        const navSelector = '[data-tm-section-nav="' + escapeCssAttributeValue(navKey) + '"]';
+                        const nodeSelector = '[data-tm-section-node][data-tm-section-key="' + escapeCssAttributeValue(sectionKey) + '"]';
+                        document.querySelectorAll(navSelector + ' ' + nodeSelector).forEach((node) => {
+                            if (node instanceof HTMLElement) {
+                                applyNodeState(node, isOpen);
+                            }
+                        });
+                    }
+
+                    navNodes.forEach((node) => {
+                        if (!(node instanceof HTMLElement)) {
+                            return;
+                        }
+                        const sectionKey = (node.getAttribute('data-tm-section-key') || '').trim();
+                        if (sectionKey === '') {
+                            return;
+                        }
+                        const defaultOpen = node.getAttribute('data-tm-section-default-open') === '1';
+                        const forceOpen = node.getAttribute('data-tm-section-force-open') === '1';
+                        const savedOpen = typeof persistedState[sectionKey] === 'boolean' ? persistedState[sectionKey] : null;
+                        applyNodeState(node, forceOpen ? true : (savedOpen === null ? defaultOpen : savedOpen));
+
+                        const toggle = node.querySelector('[data-tm-section-toggle]');
+                        if (!(toggle instanceof HTMLElement)) {
+                            return;
+                        }
+                        toggle.addEventListener('click', () => {
+                            const isCurrentlyOpen = node.classList.contains('is-open');
+                            const nextState = !isCurrentlyOpen;
+                            persistedState[sectionKey] = nextState;
+                            persistState();
+                            syncNodes(sectionKey, nextState);
+                        });
+                    });
+                }
+                function initializeDynamicAdminFields(root = document) {
+                    const searchRoot = root instanceof Element || root instanceof Document ? root : document;
+                    searchRoot.querySelectorAll('[data-tm-filter-select]').forEach((field) => {
+                        if (field instanceof HTMLInputElement) {
+                            setupFilterableSelect(field);
+                        }
+                    });
+                    searchRoot.querySelectorAll('input[data-tm-validate-list]').forEach((field) => {
+                        if (field instanceof HTMLInputElement) {
+                            setupValidatedDatalist(field);
+                            if (field.hasAttribute('data-tm-picker-menu')) {
+                                setupSearchPicker(field);
+                            }
+                        }
+                    });
+                    searchRoot.querySelectorAll('[data-tm-reset-input]').forEach((button) => {
+                        if (!(button instanceof HTMLElement) || button.getAttribute('data-tm-reset-input-initialized') === '1') {
+                            return;
+                        }
+                        button.setAttribute('data-tm-reset-input-initialized', '1');
+                        button.addEventListener('click', resetInputValue);
+                    });
+                    searchRoot.querySelectorAll('[data-tm-reorder-list]').forEach((list) => {
+                        setupReorderList(list);
+                    });
+                }
+                function initializePersistentSectionNavs(root = document) {
+                    const searchRoot = root instanceof Element || root instanceof Document ? root : document;
+                    searchRoot.querySelectorAll('[data-tm-section-nav]').forEach((sectionNav) => {
+                        setupPersistentSectionNav(sectionNav);
+                    });
+                }

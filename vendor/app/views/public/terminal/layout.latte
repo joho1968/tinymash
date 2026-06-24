@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+{var $theme_screen_cookie_name = (string) ($theme_screen_cookie_name ?? 'tinymashScreen')}
+{var $theme_screen_mode = in_array(($theme_screen_mode ?? 'auto'), ['auto', 'light', 'dark'], true) ? (string) $theme_screen_mode : 'auto'}
+{var $theme_initial_mode = $theme_screen_mode === 'dark' ? 'dark' : 'light'}
+{var $theme_background_inline_style = trim((string) ($theme_background_inline_style ?? ''))}
+{var $theme_background_preload_url = trim((string) ($theme_background_preload_url ?? ''))}
+{var $theme_banner_preload_url = trim((string) ($theme_banner_preload_url ?? ''))}
+{var $theme_terminal_palette = in_array(($theme_settings['terminal_palette'] ?? 'green'), ['green', 'amber', 'ice', 'campbell', 'solarized', 'paper', 'monokai', 'classic-linux'], true) ? (string) ($theme_settings['terminal_palette'] ?? 'green') : 'green'}
+{var $document_title = trim((string) ($document_title ?? $title ?? $site_name ?? 'tinymash'))}
+{var $meta_title = trim((string) ($meta_title ?? $document_title))}
+{var $meta_description = trim((string) ($meta_description ?? ''))}
+{var $meta_url = trim((string) ($meta_url ?? ''))}
+{var $meta_type = trim((string) ($meta_type ?? 'website'))}
+{var $meta_image = is_array($meta_image ?? null) ? $meta_image : []}
+{var $theme_seo = is_array($theme_seo ?? null) ? $theme_seo : []}
+{var $theme_seo_entry = is_array($theme_seo_entry ?? null) ? $theme_seo_entry : []}
+{var $social_title = trim((string) ($theme_seo['social_title'] ?? $meta_title))}
+{var $social_description = trim((string) ($theme_seo['social_description'] ?? $meta_description))}
+{var $social_image = is_array($theme_seo['social_image'] ?? null) ? $theme_seo['social_image'] : $meta_image}
+{var $site_favicon_png_image = is_array($site_favicon_png_image ?? null) ? $site_favicon_png_image : []}
+{var $site_favicon_ico_image = is_array($site_favicon_ico_image ?? null) ? $site_favicon_ico_image : []}
+<html lang="{$site_default_language ?? 'en'}" data-bs-theme="{$theme_initial_mode}"{if $theme_background_inline_style !== ''}{=' style="' . $theme_background_inline_style . '"'|noescape}{/if}>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light dark">
+        <script>
+            (() => {
+                const root = document.documentElement;
+                const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
+                const screenModeStorageKey = screenModeCookieName;
+                const cookieMatch = document.cookie.match(new RegExp('(?:^|;\\s*)' + screenModeCookieName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + '=([^;]+)'));
+                const cookieValue = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+                let storedMode = '';
+                try {
+                    storedMode = window.localStorage ? String(window.localStorage.getItem(screenModeStorageKey) || '') : '';
+                } catch (error) {
+                    storedMode = '';
+                }
+                let requestedMode = {=json_encode($theme_screen_mode)|noescape};
+                if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto') {
+                    requestedMode = storedMode;
+                } else if (cookieValue === 'light' || cookieValue === 'dark' || cookieValue === 'auto') {
+                    requestedMode = cookieValue;
+                }
+                const resolvedMode = requestedMode === 'auto'
+                    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                    : requestedMode;
+                root.setAttribute('data-tm-screen-mode-script', '1');
+                root.setAttribute('data-bs-theme', resolvedMode);
+                root.style.colorScheme = resolvedMode;
+                root.style.backgroundColor = resolvedMode === 'dark' ? '#08110c' : '#f4efe2';
+                root.style.color = resolvedMode === 'dark' ? '#95f59b' : '#1d2c1f';
+                root.setAttribute('data-tm-screen-mode-ready', '1');
+            })();
+        </script>
+        {if $theme_background_preload_url !== ''}
+            <link rel="preload" as="image" href="{$theme_background_preload_url}" fetchpriority="high">
+        {/if}
+        {if $theme_banner_preload_url !== ''}
+            <link rel="preload" as="image" href="{$theme_banner_preload_url}" fetchpriority="high">
+        {/if}
+        <style>
+            html {
+                background-color: #f4efe2;
+                color: #1d2c1f;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                html {
+                    background-color: #08110c;
+                    color: #95f59b;
+                }
+            }
+
+            html[data-bs-theme="dark"] {
+                background-color: #08110c;
+                color: #95f59b;
+            }
+
+            html[data-tm-screen-mode-script="1"]:not([data-tm-screen-mode-ready="1"]) body {
+                visibility: hidden;
+            }
+
+            body {
+                background: transparent !important;
+                color: inherit;
+                min-height: 100vh;
+            }
+        </style>
+        {foreach ($theme_css_urls ?? []) as $theme_css_url}
+            <link href="{$theme_css_url}" rel="stylesheet">
+        {/foreach}
+        <title>{$document_title}</title>
+        {if ! empty( $site_favicon_png_image['url'] )}
+            <link rel="icon" type="image/png" href="{$site_favicon_png_image['url']}"{if ! empty( $site_favicon_png_image['width'] ) && ! empty( $site_favicon_png_image['height'] )} sizes="{$site_favicon_png_image['width']}x{$site_favicon_png_image['height']}"{/if}>
+            <link rel="apple-touch-icon" href="{$site_favicon_png_image['url']}">
+        {/if}
+        {if ! empty( $site_favicon_ico_image['url'] )}
+            <link rel="icon" type="image/x-icon" href="{$site_favicon_ico_image['url']}">
+        {/if}
+        <meta name="title" content="{$meta_title}">
+        {if ! empty( $theme_seo['canonical_url'] )}
+            <link rel="canonical" href="{$theme_seo['canonical_url']}">
+        {/if}
+        {if $meta_description !== '' || $social_description !== ''}
+            {if $meta_description !== ''}
+                <meta name="description" content="{$meta_description}">
+            {/if}
+            <meta property="og:description" content="{$social_description !== '' ? $social_description : $meta_description}">
+            <meta name="twitter:description" content="{$social_description !== '' ? $social_description : $meta_description}">
+        {/if}
+        <meta property="og:type" content="{$meta_type}">
+        {if ! empty( $theme_seo['site_name'] )}
+            <meta property="og:site_name" content="{$theme_seo['site_name']}">
+        {/if}
+        <meta property="og:title" content="{$social_title !== '' ? $social_title : $meta_title}">
+        <meta name="twitter:title" content="{$social_title !== '' ? $social_title : $meta_title}">
+        {if $meta_url !== ''}
+            <meta property="og:url" content="{$meta_url}">
+        {/if}
+        {if ! empty( $theme_seo_entry['published_at_utc'] )}
+            <meta property="article:published_time" content="{$theme_seo_entry['published_at_utc']}">
+        {/if}
+        {if ! empty( $theme_seo_entry['updated_at_utc'] )}
+            <meta property="article:modified_time" content="{$theme_seo_entry['updated_at_utc']}">
+        {/if}
+        {if ! empty( $social_image['url'] )}
+            <meta property="og:image" content="{$social_image['url']}">
+            <meta name="twitter:image" content="{$social_image['url']}">
+            <meta name="twitter:card" content="summary_large_image">
+            {if ! empty( $social_image['mime'] )}
+                <meta property="og:image:type" content="{$social_image['mime']}">
+            {/if}
+            {if ! empty( $social_image['width'] )}
+                <meta property="og:image:width" content="{$social_image['width']}">
+            {/if}
+            {if ! empty( $social_image['height'] )}
+                <meta property="og:image:height" content="{$social_image['height']}">
+            {/if}
+            {if ! empty( $social_image['alt_text'] )}
+                <meta property="og:image:alt" content="{$social_image['alt_text']}">
+            {/if}
+        {else}
+            <meta name="twitter:card" content="summary">
+        {/if}
+        {if ! empty( $theme_meta_robots )}
+            <meta name="robots" content="{$theme_meta_robots}">
+        {/if}
+        {if ! empty( $theme_seo['json_ld'] )}
+            <script type="application/ld+json">{=json_encode($theme_seo['json_ld'], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)|noescape}</script>
+        {/if}
+    </head>
+    <body class="tm-terminal-shell tm-terminal-palette-{$theme_terminal_palette} {$theme_body_classes ?? ''}">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
+        <script>
+            (() => {
+                'use strict';
+                const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
+                const screenModeStorageKey = screenModeCookieName;
+
+                function getPreferredTheme() {
+                    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+
+                function getCookie(nameOfCookie) {
+                    const cName = nameOfCookie + '=';
+                    const decodedCookies = decodeURIComponent(document.cookie);
+                    const cookies = decodedCookies.split('; ');
+                    let cookieRes = '';
+                    cookies.forEach((val) => {
+                        if (val.indexOf(cName) === 0) {
+                            cookieRes = val.substring(cName.length);
+                        }
+                    });
+                    return cookieRes;
+                }
+
+                function getScreenMode() {
+                    try {
+                        const storedMode = window.localStorage ? String(window.localStorage.getItem(screenModeStorageKey) || '') : '';
+                        if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto') {
+                            return storedMode;
+                        }
+                    } catch (error) {
+                    }
+                    const screenMode = getCookie(screenModeCookieName);
+                    if (screenMode === 'light' || screenMode === 'dark' || screenMode === 'auto') {
+                        return screenMode;
+                    }
+                    return 'auto';
+                }
+
+                function updateScreenModeMenu(mode) {
+                    const screenModeButtons = Array.from(document.querySelectorAll('[data-tm-screen-mode]'));
+                    screenModeButtons.forEach((button) => {
+                        const buttonMode = button.getAttribute('data-tm-screen-mode') || '';
+                        button.classList.toggle('is-active', buttonMode === mode);
+                        button.setAttribute('aria-pressed', buttonMode === mode ? 'true' : 'false');
+                    });
+                }
+
+                function applyScreenMode(mode) {
+                    const effectiveMode = mode === 'auto' ? getPreferredTheme() : mode;
+                    document.documentElement.setAttribute('data-bs-theme', effectiveMode);
+                    document.documentElement.style.colorScheme = effectiveMode;
+                    document.documentElement.style.backgroundColor = effectiveMode === 'dark' ? '#08110c' : '#f4efe2';
+                    document.documentElement.style.color = effectiveMode === 'dark' ? '#95f59b' : '#1d2c1f';
+                    updateScreenModeMenu(mode);
+                }
+
+                function setScreenMode(mode) {
+                    const secureSuffix = window.location.protocol === 'https:' ? '; Secure' : '';
+                    try {
+                        if (window.localStorage) {
+                            window.localStorage.setItem(screenModeStorageKey, mode);
+                        }
+                    } catch (error) {
+                    }
+                    document.cookie = screenModeCookieName + '=' + mode + '; Path=/; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
+                    applyScreenMode(mode);
+                }
+
+                const initialScreenMode = getScreenMode();
+                applyScreenMode(initialScreenMode);
+
+                function bindScreenModeButtons() {
+                    const screenModeButtons = Array.from(document.querySelectorAll('[data-tm-screen-mode]'));
+                    screenModeButtons.forEach((button) => {
+                        button.addEventListener('click', () => {
+                            const requestedMode = button.getAttribute('data-tm-screen-mode') || 'auto';
+                            setScreenMode(requestedMode);
+                        });
+                    });
+                    updateScreenModeMenu(getScreenMode());
+                }
+
+                function bindSearchForms() {
+                    const searchForms = Array.from(document.querySelectorAll('[data-tm-search-form]'));
+                    searchForms.forEach((form) => {
+                        form.addEventListener('submit', (event) => {
+                            const input = form.querySelector('[data-tm-search-input]');
+                            if (!(input instanceof HTMLInputElement)) {
+                                return;
+                            }
+                            const trimmedValue = input.value.trim();
+                            input.value = trimmedValue;
+                            if (trimmedValue === '') {
+                                event.preventDefault();
+                                input.focus();
+                            }
+                        });
+                    });
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        bindScreenModeButtons();
+                        bindSearchForms();
+                    }, { once: true });
+                } else {
+                    bindScreenModeButtons();
+                    bindSearchForms();
+                }
+
+                const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const updateAutoTheme = () => {
+                    if (getScreenMode() === 'auto') {
+                        applyScreenMode('auto');
+                    }
+                };
+                if (colorSchemeQuery && typeof colorSchemeQuery.addEventListener === 'function') {
+                    colorSchemeQuery.addEventListener('change', updateAutoTheme);
+                } else if (colorSchemeQuery && typeof colorSchemeQuery.addListener === 'function') {
+                    colorSchemeQuery.addListener(updateAutoTheme);
+                }
+            })();
+        </script>
+
+        {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
+        {var $theme_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_sidebar_enabled )}
+        {var $theme_sidebar_rendered = $theme_sidebar_visible && ( ! empty( $theme_page_structure ) || ! empty( $theme_sidebar_menu ) )}
+        {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || ! empty( $theme_page_structure ) || ( ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) ) )}
+        {var $theme_author_space_slug = ''}
+        {if ! empty( $author_slug )}
+            {var $theme_author_space_slug = (string) $author_slug}
+        {elseif isset( $entry ) && is_array( $entry ) && ( $entry['scope'] ?? '' ) === 'author' && ! empty( $entry['author_slug'] )}
+            {var $theme_author_space_slug = (string) $entry['author_slug']}
+        {/if}
+        {var $theme_secret_link_author_space_view = ! empty( $theme_secret_link_author_space_view )}
+        {var $theme_header_home_url = $theme_secret_link_author_space_view && $theme_author_space_slug !== '' ? ('/' . $theme_author_space_slug) : '/'}
+        {var $theme_banner = is_array($theme_banner ?? null) ? $theme_banner : []}
+        {var $theme_banner_image = is_array($theme_banner['image'] ?? null) ? $theme_banner['image'] : []}
+        {var $theme_banner_enabled = ! empty($theme_banner['enabled']) && ! empty($theme_banner_image['url'])}
+
+        <header n:if="$theme_show_public_chrome" class="tm-terminal-header">
+            <div n:class="'tm-terminal-header-inner', $theme_content_width_class ?? 'tm-content-width-default'">
+                <div class="tm-terminal-window">
+                    <div class="tm-terminal-window-bar">
+                        <a href="{$theme_header_home_url}" class="tm-terminal-window-home" aria-label="Go to home">
+                            <span class="tm-terminal-window-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                    <rect x="2.5" y="4" width="19" height="16" rx="1.75" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+                                    <path d="M7 9.25 10.75 12 7 14.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                                    <path d="M12.5 15h4.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"></path>
+                                </svg>
+                            </span>
+                            <span class="tm-terminal-window-title">terminal://{$site_name}</span>
+                        </a>
+                        <div class="tm-terminal-toolbar">
+                            <div class="tm-terminal-toolbar-row">
+                                {if ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) }
+                                    <form class="tm-terminal-search-form tm-terminal-desktop-only" method="get" action="{$theme_search['url']}" data-tm-search-form>
+                                        <label class="tm-visually-hidden" for="tm-terminal-public-search">Search</label>
+                                        <input class="tm-terminal-button" id="tm-terminal-public-search" type="search" name="q" value="{$theme_search['query'] ?? ''}" minlength="{$theme_search['min_query_length'] ?? 2}" placeholder="search" data-tm-search-input>
+                                        {if ! empty( $theme_search['author_slug'] )}
+                                            <input type="hidden" name="author" value="{$theme_search['author_slug']}">
+                                        {/if}
+                                        <button type="submit" class="tm-terminal-button" title="Search" aria-label="Search">go</button>
+                                    </form>
+                                {/if}
+                                <div class="tm-terminal-screen-controls" role="group" aria-label="Screen mode">
+                                    <button type="button" class="tm-terminal-screen-mode-button" data-tm-screen-mode="auto" title="Auto screen mode" aria-label="Auto screen mode">
+                                        <span class="tm-terminal-screen-label">[A]</span>
+                                    </button>
+                                    <button type="button" class="tm-terminal-screen-mode-button" data-tm-screen-mode="light" title="Light screen mode" aria-label="Light screen mode">
+                                        <span class="tm-terminal-screen-label">[L]</span>
+                                    </button>
+                                    <button type="button" class="tm-terminal-screen-mode-button" data-tm-screen-mode="dark" title="Dark screen mode" aria-label="Dark screen mode">
+                                        <span class="tm-terminal-screen-label">[D]</span>
+                                    </button>
+                                </div>
+                                {if ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) }
+                                    <form class="tm-terminal-search-form tm-terminal-search-form-mobile-inline tm-terminal-mobile-only" method="get" action="{$theme_search['url']}" data-tm-search-form>
+                                        <label class="tm-visually-hidden" for="tm-terminal-public-search-mobile-inline">Search</label>
+                                        <input class="tm-terminal-button" id="tm-terminal-public-search-mobile-inline" type="search" name="q" value="{$theme_search['query'] ?? ''}" minlength="{$theme_search['min_query_length'] ?? 2}" placeholder="search" data-tm-search-input>
+                                        {if ! empty( $theme_search['author_slug'] )}
+                                            <input type="hidden" name="author" value="{$theme_search['author_slug']}">
+                                        {/if}
+                                    </form>
+                                {/if}
+                                <details n:if="$theme_has_mobile_panel" class="tm-terminal-mobile-menu tm-terminal-mobile-only">
+                                    <summary class="tm-terminal-button" aria-label="Browse site navigation" title="Browse">[=]</summary>
+                                    <div class="tm-terminal-mobile-panel tm-terminal-panel">
+                                        <div class="tm-terminal-stack">
+                                            {if ! empty( $theme_navigation_menu ) }
+                                                <section>
+                                                    <div class="tm-terminal-panel-title">/nav</div>
+                                                    <nav aria-label="Primary">
+                                                        <ul class="tm-terminal-nav-list">
+                                                            {include './partials/navigation-menu-items.latte', items: $theme_navigation_menu, level: 1}
+                                                        </ul>
+                                                    </nav>
+                                                </section>
+                                            {/if}
+                                            {if ! empty( $theme_sidebar_menu ) }
+                                                <section>
+                                                    <div class="tm-terminal-panel-title">/menu</div>
+                                                    <nav aria-label="Sidebar">
+                                                        <ul class="tm-terminal-nav-list">
+                                                            {include './partials/navigation-menu-items.latte', items: $theme_sidebar_menu, level: 1}
+                                                        </ul>
+                                                    </nav>
+                                                </section>
+                                            {/if}
+                                            {if ! empty( $theme_page_structure ) }
+                                                <section>
+                                                    <div class="tm-terminal-panel-title">/pages</div>
+                                                    <nav aria-label="Page structure">
+                                                        <ul class="tm-terminal-tree">
+                                                            {include './partials/page-tree.latte', pages: $theme_page_structure}
+                                                        </ul>
+                                                    </nav>
+                                                </section>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tm-terminal-window-body">
+                        <p n:if="$theme_author_space_slug === ''" class="tm-terminal-prompt"><span class="tm-terminal-prompt-user">visitor</span>@{$site_name}:~$ <span class="tm-terminal-prompt-command">{if ! empty( $title )}{$title}{else}home{/if}</span></p>
+                        {if $theme_author_space_slug === '' && ! empty( $site_slogan )}
+                            <p class="tm-terminal-slogan"># {$site_slogan}</p>
+                        {/if}
+                        <p n:if="$theme_author_space_slug !== ''" class="tm-terminal-context">
+                            <a href="/{$theme_author_space_slug}" class="tm-terminal-context-path">~ /home/{$theme_author_space_slug}</a>
+                            <a n:if="! empty( $author_home_can_edit ) && ! empty( $author_home_edit_url )" href="{$author_home_edit_url}" class="tm-terminal-context-action">[ Edit ]</a>
+                        </p>
+                        {if ! empty( $theme_navigation_menu )}
+                            <nav class="tm-terminal-navigation tm-terminal-desktop-only" aria-label="Primary">
+                                <div class="tm-terminal-panel-title">/nav</div>
+                                <ul class="tm-terminal-nav-list">
+                                    {include './partials/navigation-menu-items.latte', items: $theme_navigation_menu, level: 1}
+                                </ul>
+                            </nav>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div n:if="$theme_show_public_chrome && $theme_banner_enabled" n:class="'tm-terminal-banner-shell', $theme_content_width_class ?? 'tm-content-width-default'">
+            <div class="tm-terminal-window tm-terminal-banner-window">
+                <div n:class="'tm-terminal-banner', ($theme_banner['scope'] ?? 'site') === 'author' ? 'tm-terminal-banner-author' : 'tm-terminal-banner-site'">
+                    <img class="tm-terminal-banner-image" src="{$theme_banner_image['url']}" alt="{$theme_banner_image['alt_text'] ?? ''}" decoding="async"{if ! empty( $theme_banner_image['width'] )} width="{$theme_banner_image['width']}"{/if}{if ! empty( $theme_banner_image['height'] )} height="{$theme_banner_image['height']}"{/if}>
+                </div>
+            </div>
+        </div>
+
+        <div n:class="'tm-terminal-main', $theme_content_width_class ?? 'tm-content-width-default'">
+            <div n:class="$theme_sidebar_rendered ? 'tm-terminal-grid tm-terminal-grid-with-sidebar' : 'tm-terminal-grid'">
+                <main class="tm-terminal-content" id="tm-main-content" tabindex="-1">
+                    {block content}{/block}
+                </main>
+                <aside n:if="$theme_sidebar_rendered" class="tm-terminal-sidebar tm-terminal-desktop-only">
+                    <section n:if="! empty( $theme_sidebar_menu )" class="tm-terminal-panel">
+                        <div class="tm-terminal-panel-title">/nav</div>
+                        <nav aria-label="Sidebar">
+                            <ul class="tm-terminal-nav-list">
+                                {include './partials/navigation-menu-items.latte', items: $theme_sidebar_menu, level: 1}
+                            </ul>
+                        </nav>
+                    </section>
+                    <section n:if="! empty( $theme_page_structure )" class="tm-terminal-panel">
+                        <div class="tm-terminal-panel-title">/pages</div>
+                        <nav aria-label="Page structure">
+                            <ul class="tm-terminal-tree">
+                                {include './partials/page-tree.latte', pages: $theme_page_structure}
+                            </ul>
+                        </nav>
+                    </section>
+                </aside>
+            </div>
+        </div>
+
+        <footer n:if="$theme_show_public_chrome && ( ! empty( $theme_footer_menu ) || ! empty( $theme_public_footer_fragments ) )" class="tm-terminal-footer">
+            <div n:class="'tm-terminal-footer-inner', $theme_content_width_class ?? 'tm-content-width-default'">
+                <div class="tm-terminal-footer-stack">
+                    <nav n:if="! empty( $theme_footer_menu )" class="tm-terminal-footer-menu" aria-label="Footer">
+                        {foreach $theme_footer_menu as $footer_item}
+                            {if ! empty( $footer_item['is_separator'] )}
+                                <span class="tm-terminal-footer-separator" aria-hidden="true">|</span>
+                            {else}
+                                <a class="tm-terminal-context-action" href="{$footer_item['url']}" n:attr="target => !empty($footer_item['target']) ? $footer_item['target'] : null, rel => !empty($footer_item['rel']) ? $footer_item['rel'] : null, aria-current => ! empty($footer_item['is_current']) ? 'page' : null">[ {$footer_item['title']} ]</a>
+                            {/if}
+                        {/foreach}
+                    </nav>
+                    <div n:if="! empty( $theme_public_footer_fragments )" class="tm-terminal-footer-fragments">
+                        {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
+                            {if ! empty( $theme_public_footer_fragment['lines'] ) }
+                                <div class="tm-terminal-stack">
+                                    {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
+                                        <div>{$theme_public_footer_line|noescape}</div>
+                                    {/foreach}
+                                </div>
+                            {elseif ! empty( $theme_public_footer_fragment['html'] ) }
+                                <div>{$theme_public_footer_fragment['html']|noescape}</div>
+                            {/if}
+                        {/foreach}
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+        {foreach ($theme_js_urls ?? []) as $theme_js_url}
+            <script src="{$theme_js_url}"></script>
+        {/foreach}
+    </body>
+</html>

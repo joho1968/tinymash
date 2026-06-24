@@ -1,0 +1,29 @@
+{
+  "group": "Administration",
+  "roles": ["admin"],
+  "order": 20,
+  "title": "System settings",
+  "summary": "Sitewide policy and operational settings.",
+  "sections": [
+    {
+      "title": "Site and security",
+      "markdown": "- **Site settings** covers identity, mail addresses, and basic site policy.\n- **Security** covers public/private behavior, password resets, forwarded IP handling, web cron fallback, and advanced runtime options such as the runtime umask."
+    },
+    {
+      "title": "Content and presentation",
+      "markdown": "- **Content** covers tags, page timestamp visibility, editor defaults, revisions, stale-draft cleanup, and rendered-content caching.\n- **Media** covers content image upload policy, image processing limits, thumbnails, and the global image metadata policy.\n- **Locale** covers timezone, week start, and time formatting.\n- **Menus** manages primary and footer navigation.\n- **Themes** and **Plugins** control the active presentation and extension set."
+    },
+    {
+      "title": "Image metadata",
+      "markdown": "The media metadata policy applies during upload and import. Retained groups are normalized into tinymash media metadata. Public groups are limited to retained groups and can be shown by features such as Photos. Embedded metadata in stored raster files is stripped when possible unless every supported group is retained."
+    },
+    {
+      "title": "Operations",
+      "markdown": "- **Notifications** keeps in-app operational notices and dismissible events.\n- **SMTP** stores outbound mail settings, including test send.\n- **Components** shows dependency update and audit status.\n- **Information** is the runtime/reference page."
+    },
+    {
+      "title": "People and moderation",
+      "markdown": "- **Moderation** controls review policy. When moderation is required, lower-privilege saves go to **Pending review** instead of going live immediately.\n- **Users** manages accounts, locks, and roles.\n- **Orphans** holds content from deleted users so it can be reviewed, reassigned, or deleted explicitly."
+    }
+  ]
+}

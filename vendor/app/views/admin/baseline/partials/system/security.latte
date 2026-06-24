@@ -1,0 +1,173 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Security</div>
+    <div class="fw-semibold mb-1">Access, recovery, and privacy policy</div>
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="security">
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Access and policy</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-site-public" name="site_public" type="checkbox" n:attr="checked => $system_settings['site_public']">
+                                <label n:class="'form-check-label', empty($system_settings['site_public']) ? 'text-warning-emphasis fw-semibold' : ''" for="tm-system-site-public">Site is public</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-maintenance" name="maintenance" type="checkbox" n:attr="checked => $system_settings['maintenance']">
+                                <label class="form-check-label" for="tm-system-maintenance">Site is in maintenance</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-allow-registrations" name="allow_registrations" type="checkbox" n:attr="checked => $system_settings['allow_registrations']">
+                                <label class="form-check-label" for="tm-system-allow-registrations">Site allows registrations</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-allow-username-change" name="allow_username_change" type="checkbox" n:attr="checked => $system_settings['allow_username_change']">
+                                <label class="form-check-label" for="tm-system-allow-username-change">Authors can change Username/Author</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-allow-email-change" name="allow_email_change" type="checkbox" n:attr="checked => $system_settings['allow_email_change']">
+                                <label class="form-check-label" for="tm-system-allow-email-change">Authors can change e-mail address</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-allow-secret-links" name="allow_secret_links" type="checkbox" n:attr="checked => !empty($system_settings['allow_secret_links'])">
+                                <label class="form-check-label" for="tm-system-allow-secret-links">Allow secret links</label>
+                            </div>
+                            <div class="form-text">Secret links only expose one author space on a non-public site.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-discourage-search-indexing" name="discourage_search_indexing" type="checkbox" n:attr="checked => !empty($system_settings['discourage_search_indexing'])">
+                                <label class="form-check-label" for="tm-system-discourage-search-indexing">Discourage search engines from indexing the site</label>
+                            </div>
+                            <div class="form-text">Adds a noindex directive to public pages, without changing site visibility.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-secret-link-default-expiry-days">Secret-link default expiry (days)</label>
+                            <input class="form-control font-monospace" id="tm-system-secret-link-default-expiry-days" name="secret_link_default_expiry_days" type="number" min="1" max="365" step="1" value="{$system_settings['secret_link_default_expiry_days'] ?? 60}">
+                            <div class="form-text">Used when an author generates or regenerates a secret link.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Password resets</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-allow-admin-password-resets" name="allow_admin_password_resets" type="checkbox" n:attr="checked => $system_settings['allow_admin_password_resets']">
+                                <label class="form-check-label" for="tm-system-allow-admin-password-resets">Admins can reset passwords by e-mail</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-allow-author-password-resets" name="allow_author_password_resets" type="checkbox" n:attr="checked => $system_settings['allow_author_password_resets']">
+                                <label class="form-check-label" for="tm-system-allow-author-password-resets">Authors can reset passwords by e-mail</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-password-reset-throttle-window-minutes">Throttle window (minutes)</label>
+                            <input class="form-control font-monospace" id="tm-system-password-reset-throttle-window-minutes" name="password_reset_throttle_window_minutes" type="number" min="1" max="1440" step="1" value="{$system_settings['password_reset_throttle_window_minutes'] ?? 60}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-password-reset-max-ip-requests">Max requests per IP</label>
+                            <input class="form-control font-monospace" id="tm-system-password-reset-max-ip-requests" name="password_reset_max_ip_requests" type="number" min="1" max="100" step="1" value="{$system_settings['password_reset_max_ip_requests'] ?? 5}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-password-reset-max-identifier-requests">Max requests per username/e-mail</label>
+                            <input class="form-control font-monospace" id="tm-system-password-reset-max-identifier-requests" name="password_reset_max_identifier_requests" type="number" min="1" max="100" step="1" value="{$system_settings['password_reset_max_identifier_requests'] ?? 3}">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">Responses remain generic whether the account exists, is disallowed, or is currently throttled.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Filesystem permissions</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-system-filesystem-umask">Runtime umask</label>
+                            <input class="form-control font-monospace" id="tm-system-filesystem-umask" name="filesystem_umask" type="text" inputmode="numeric" pattern="[0-7][0-7]?[0-7]?[0-7]?" maxlength="4" value="{$system_settings['filesystem_umask'] ?? '0007'}" placeholder="0007">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">Advanced setting. <span class="font-monospace">0007</span> is the recommended default for shared-group hosting because directories requested as <span class="font-monospace">0775</span> become <span class="font-monospace">0770</span>, and normal new files stay group-readable instead of world-readable.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Runtime and request handling</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-forwarded-ip-mode">Forwarded visitor IP handling</label>
+                            <select class="form-select" id="tm-system-forwarded-ip-mode" name="forwarded_ip_mode">
+                                <option value="off" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'off'">OFF</option>
+                                <option value="cf-connecting-ip" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'cf-connecting-ip'">Cloudflare header</option>
+                                <option value="x-forwarded-for-first" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'x-forwarded-for-first'">X-Forwarded-For first IP</option>
+                            </select>
+                            <div class="form-text">Advanced setting. <strong>OFF</strong> trusts only <span class="font-monospace">REMOTE_ADDR</span>. Enable a forwarded mode only when your host or proxy setup really uses that header for the client IP.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-housekeeping-web-fallback-mode">Web cron fallback</label>
+                            <select class="form-select" id="tm-system-housekeeping-web-fallback-mode" name="housekeeping_web_fallback_mode">
+                                <option value="auto" n:attr="selected => ($system_settings['housekeeping_web_fallback_mode'] ?? 'auto') === 'auto'">AUTO</option>
+                                <option value="off" n:attr="selected => ($system_settings['housekeeping_web_fallback_mode'] ?? 'auto') === 'off'">OFF</option>
+                            </select>
+                            <div class="form-text">Advanced setting. <strong>AUTO</strong> runs housekeeping in a throttled web fallback when external cron is unavailable. <strong>OFF</strong> depends on real cron jobs instead.</div>
+                            <div class="small text-body-secondary mt-2">
+                                <div>Last run: {if ! empty( $system_settings['housekeeping_last_run_utc'] )}{$system_settings['housekeeping_last_run_utc']}{else}Never{/if}</div>
+                                <div>
+                                    Last trigger:
+                                    {if ($system_settings['housekeeping_last_trigger'] ?? '') === 'web_fallback'}
+                                        Automatic web fallback
+                                    {elseif ($system_settings['housekeeping_last_trigger'] ?? '') === 'cli'}
+                                        CLI / external cron
+                                    {elseif ! empty( $system_settings['housekeeping_last_trigger'] )}
+                                        {$system_settings['housekeeping_last_trigger']}
+                                    {else}
+                                        Unknown
+                                    {/if}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-public-cache-warm-basic-auth-username">Public cache-warmer HTTP auth username</label>
+                            <input class="form-control font-monospace" id="tm-system-public-cache-warm-basic-auth-username" name="public_cache_warm_basic_auth_username" type="text" maxlength="190" value="{$system_settings['public_cache_warm_basic_auth_username'] ?? ''}" placeholder="">
+                            <div class="form-text">Optional. Use this only when the public site is protected by HTTP basic auth and the page-cache warmer must authenticate before fetching public URLs.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-system-public-cache-warm-basic-auth-password">Public cache-warmer HTTP auth password</label>
+                            <input class="form-control font-monospace" id="tm-system-public-cache-warm-basic-auth-password" name="public_cache_warm_basic_auth_password" type="password" value="" placeholder="">
+                            <div class="form-text">Leave blank to keep the current password. Clear the username above to disable cache-warmer HTTP auth entirely.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" id="tm-system-public-cache-warm-insecure-tls" name="public_cache_warm_insecure_tls" type="checkbox" n:attr="checked => !empty($system_settings['public_cache_warm_insecure_tls'])">
+                                <label class="form-check-label" for="tm-system-public-cache-warm-insecure-tls">Allow insecure TLS for public cache warming</label>
+                            </div>
+                            <div class="form-text">Advanced setting. Only affects the housekeeping page-cache warmer. Use this only when the public hostname is behind a front-door setup that makes PHP cURL fail certificate hostname checks, but you still need cache warming to run.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save security settings</button>
+            </div>
+        </div>
+    </form>
+</section>

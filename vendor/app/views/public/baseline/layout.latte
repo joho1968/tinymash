@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+{var $theme_screen_cookie_name = (string) ($theme_screen_cookie_name ?? 'tinymashScreen')}
+{var $theme_screen_mode = in_array(($theme_screen_mode ?? 'auto'), ['auto', 'light', 'dark'], true) ? (string) $theme_screen_mode : 'auto'}
+{var $theme_initial_bs_theme = $theme_screen_mode === 'dark' ? 'dark' : 'light'}
+{var $theme_background_inline_style = trim((string) ($theme_background_inline_style ?? ''))}
+{var $theme_background_preload_url = trim((string) ($theme_background_preload_url ?? ''))}
+{var $theme_banner_preload_url = trim((string) ($theme_banner_preload_url ?? ''))}
+{var $document_title = trim((string) ($document_title ?? $title ?? $site_name ?? 'tinymash'))}
+{var $meta_title = trim((string) ($meta_title ?? $document_title))}
+{var $meta_description = trim((string) ($meta_description ?? ''))}
+{var $meta_url = trim((string) ($meta_url ?? ''))}
+{var $meta_type = trim((string) ($meta_type ?? 'website'))}
+{var $meta_image = is_array($meta_image ?? null) ? $meta_image : []}
+{var $theme_seo = is_array($theme_seo ?? null) ? $theme_seo : []}
+{var $theme_seo_entry = is_array($theme_seo_entry ?? null) ? $theme_seo_entry : []}
+{var $social_title = trim((string) ($theme_seo['social_title'] ?? $meta_title))}
+{var $social_description = trim((string) ($theme_seo['social_description'] ?? $meta_description))}
+{var $social_image = is_array($theme_seo['social_image'] ?? null) ? $theme_seo['social_image'] : $meta_image}
+{var $site_favicon_png_image = is_array($site_favicon_png_image ?? null) ? $site_favicon_png_image : []}
+{var $site_favicon_ico_image = is_array($site_favicon_ico_image ?? null) ? $site_favicon_ico_image : []}
+<html lang="{$site_default_language ?? 'en'}" data-bs-theme="{$theme_initial_bs_theme}"{if $theme_background_inline_style !== ''}{=' style="' . $theme_background_inline_style . '"'|noescape}{/if}>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light dark">
+        <script>
+            (() => {
+                const root = document.documentElement;
+                const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
+                const screenModeStorageKey = screenModeCookieName;
+                const cookieMatch = document.cookie.match(new RegExp('(?:^|;\\s*)' + screenModeCookieName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + '=([^;]+)'));
+                const cookieValue = cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+                let storedMode = '';
+                try {
+                    storedMode = window.localStorage ? String(window.localStorage.getItem(screenModeStorageKey) || '') : '';
+                } catch (error) {
+                    storedMode = '';
+                }
+                let requestedMode = {=json_encode($theme_screen_mode)|noescape};
+                if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto') {
+                    requestedMode = storedMode;
+                } else if (cookieValue === 'light' || cookieValue === 'dark' || cookieValue === 'auto') {
+                    requestedMode = cookieValue;
+                }
+                const resolvedMode = requestedMode === 'auto'
+                    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                    : requestedMode;
+                root.setAttribute('data-tm-screen-mode-script', '1');
+                root.setAttribute('data-bs-theme', resolvedMode);
+                root.style.colorScheme = resolvedMode;
+                root.style.backgroundColor = resolvedMode === 'dark' ? '#212529' : '#f8f9fa';
+                root.style.color = resolvedMode === 'dark' ? '#dee2e6' : '#212529';
+                root.setAttribute('data-tm-screen-mode-ready', '1');
+            })();
+        </script>
+        {if $theme_background_preload_url !== ''}
+            <link rel="preload" as="image" href="{$theme_background_preload_url}" fetchpriority="high">
+        {/if}
+        {if $theme_banner_preload_url !== ''}
+            <link rel="preload" as="image" href="{$theme_banner_preload_url}" fetchpriority="high">
+        {/if}
+        <style>
+            html {
+                background-color: #f8f9fa;
+                color: #212529;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                html {
+                    background-color: #212529;
+                    color: #dee2e6;
+                }
+            }
+
+            html[data-bs-theme="dark"] {
+                background-color: #212529;
+                color: #dee2e6;
+            }
+
+            html[data-tm-screen-mode-script="1"]:not([data-tm-screen-mode-ready="1"]) body {
+                visibility: hidden;
+            }
+
+            body {
+                background: transparent !important;
+                color: inherit;
+                min-height: 100vh;
+            }
+        </style>
+        {foreach ($theme_css_urls ?? []) as $theme_css_url}
+            <link href="{$theme_css_url}" rel="stylesheet">
+        {/foreach}
+        <title>{$document_title}</title>
+        {if ! empty( $site_favicon_png_image['url'] )}
+            <link rel="icon" type="image/png" href="{$site_favicon_png_image['url']}"{if ! empty( $site_favicon_png_image['width'] ) && ! empty( $site_favicon_png_image['height'] )} sizes="{$site_favicon_png_image['width']}x{$site_favicon_png_image['height']}"{/if}>
+            <link rel="apple-touch-icon" href="{$site_favicon_png_image['url']}">
+        {/if}
+        {if ! empty( $site_favicon_ico_image['url'] )}
+            <link rel="icon" type="image/x-icon" href="{$site_favicon_ico_image['url']}">
+        {/if}
+        <meta name="title" content="{$meta_title}">
+        {if ! empty( $theme_seo['canonical_url'] )}
+            <link rel="canonical" href="{$theme_seo['canonical_url']}">
+        {/if}
+        {if $meta_description !== '' || $social_description !== ''}
+            {if $meta_description !== ''}
+                <meta name="description" content="{$meta_description}">
+            {/if}
+            <meta property="og:description" content="{$social_description !== '' ? $social_description : $meta_description}">
+            <meta name="twitter:description" content="{$social_description !== '' ? $social_description : $meta_description}">
+        {/if}
+        <meta property="og:type" content="{$meta_type}">
+        {if ! empty( $theme_seo['site_name'] )}
+            <meta property="og:site_name" content="{$theme_seo['site_name']}">
+        {/if}
+        <meta property="og:title" content="{$social_title !== '' ? $social_title : $meta_title}">
+        <meta name="twitter:title" content="{$social_title !== '' ? $social_title : $meta_title}">
+        {if $meta_url !== ''}
+            <meta property="og:url" content="{$meta_url}">
+        {/if}
+        {if ! empty( $theme_seo_entry['published_at_utc'] )}
+            <meta property="article:published_time" content="{$theme_seo_entry['published_at_utc']}">
+        {/if}
+        {if ! empty( $theme_seo_entry['updated_at_utc'] )}
+            <meta property="article:modified_time" content="{$theme_seo_entry['updated_at_utc']}">
+        {/if}
+        {if ! empty( $social_image['url'] )}
+            <meta property="og:image" content="{$social_image['url']}">
+            <meta name="twitter:image" content="{$social_image['url']}">
+            <meta name="twitter:card" content="summary_large_image">
+            {if ! empty( $social_image['mime'] )}
+                <meta property="og:image:type" content="{$social_image['mime']}">
+            {/if}
+            {if ! empty( $social_image['width'] )}
+                <meta property="og:image:width" content="{$social_image['width']}">
+            {/if}
+            {if ! empty( $social_image['height'] )}
+                <meta property="og:image:height" content="{$social_image['height']}">
+            {/if}
+            {if ! empty( $social_image['alt_text'] )}
+                <meta property="og:image:alt" content="{$social_image['alt_text']}">
+            {/if}
+        {else}
+            <meta name="twitter:card" content="summary">
+        {/if}
+        {if ! empty( $theme_meta_robots )}
+            <meta name="robots" content="{$theme_meta_robots}">
+        {/if}
+        {if ! empty( $theme_seo['json_ld'] )}
+            <script type="application/ld+json">{=json_encode($theme_seo['json_ld'], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)|noescape}</script>
+        {/if}
+    </head>
+    <body class="d-flex flex-column min-vh-100 {$theme_body_classes ?? ''}">
+        <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>
+        <script>
+            (() => {
+                'use strict';
+                const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
+                const screenModeStorageKey = screenModeCookieName;
+
+                function getPreferredTheme() {
+                    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+
+                function getCookie(nameOfCookie) {
+                    const cName = nameOfCookie + '=';
+                    const decodedCookies = decodeURIComponent(document.cookie);
+                    const cookies = decodedCookies.split('; ');
+                    let cookieRes = '';
+                    cookies.forEach((val) => {
+                        if (val.indexOf(cName) === 0) {
+                            cookieRes = val.substring(cName.length);
+                        }
+                    });
+                    return cookieRes;
+                }
+
+                function getScreenMode() {
+                    try {
+                        const storedMode = window.localStorage ? String(window.localStorage.getItem(screenModeStorageKey) || '') : '';
+                        if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'auto') {
+                            return storedMode;
+                        }
+                    } catch (error) {
+                    }
+                    const screenMode = getCookie(screenModeCookieName);
+                    if (screenMode === 'light' || screenMode === 'dark' || screenMode === 'auto') {
+                        return screenMode;
+                    }
+                    return 'auto';
+                }
+
+                function updateScreenModeMenu(mode) {
+                    const screenModeButtons = Array.from(document.querySelectorAll('[data-tm-screen-mode]'));
+                    screenModeButtons.forEach((button) => {
+                        const buttonMode = button.getAttribute('data-tm-screen-mode') || '';
+                        button.classList.toggle('active', buttonMode === mode);
+                        button.setAttribute('aria-pressed', buttonMode === mode ? 'true' : 'false');
+                    });
+                }
+
+                function applyScreenMode(mode) {
+                    const effectiveMode = mode === 'auto' ? getPreferredTheme() : mode;
+                    document.documentElement.setAttribute('data-bs-theme', effectiveMode);
+                    document.documentElement.style.colorScheme = effectiveMode;
+                    document.documentElement.style.backgroundColor = effectiveMode === 'dark' ? '#212529' : '#f8f9fa';
+                    document.documentElement.style.color = effectiveMode === 'dark' ? '#dee2e6' : '#212529';
+                    updateScreenModeMenu(mode);
+                }
+
+                function setScreenMode(mode) {
+                    const secureSuffix = window.location.protocol === 'https:' ? '; Secure' : '';
+                    try {
+                        if (window.localStorage) {
+                            window.localStorage.setItem(screenModeStorageKey, mode);
+                        }
+                    } catch (error) {
+                    }
+                    document.cookie = screenModeCookieName + '=' + mode + '; Path=/; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
+                    applyScreenMode(mode);
+                }
+
+                const initialScreenMode = getScreenMode();
+                applyScreenMode(initialScreenMode);
+
+                function bindScreenModeButtons() {
+                    const screenModeButtons = Array.from(document.querySelectorAll('[data-tm-screen-mode]'));
+                    screenModeButtons.forEach((button) => {
+                        button.addEventListener('click', () => {
+                            const requestedMode = button.getAttribute('data-tm-screen-mode') || 'auto';
+                            setScreenMode(requestedMode);
+                        });
+                    });
+                    updateScreenModeMenu(getScreenMode());
+                }
+
+                function bindSearchForms() {
+                    const searchForms = Array.from(document.querySelectorAll('[data-tm-search-form]'));
+                    searchForms.forEach((form) => {
+                        form.addEventListener('submit', (event) => {
+                            const input = form.querySelector('[data-tm-search-input]');
+                            if (!(input instanceof HTMLInputElement)) {
+                                return;
+                            }
+                            const trimmedValue = input.value.trim();
+                            input.value = trimmedValue;
+                            if (trimmedValue === '') {
+                                event.preventDefault();
+                                input.focus();
+                            }
+                        });
+                    });
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        bindScreenModeButtons();
+                        bindSearchForms();
+                    }, { once: true });
+                } else {
+                    bindScreenModeButtons();
+                    bindSearchForms();
+                }
+
+                const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const updateAutoTheme = () => {
+                    if (getScreenMode() === 'auto') {
+                        applyScreenMode('auto');
+                    }
+                };
+                if (colorSchemeQuery && typeof colorSchemeQuery.addEventListener === 'function') {
+                    colorSchemeQuery.addEventListener('change', updateAutoTheme);
+                } else if (colorSchemeQuery && typeof colorSchemeQuery.addListener === 'function') {
+                    colorSchemeQuery.addListener(updateAutoTheme);
+                }
+            })();
+        </script>
+
+        {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
+        {var $theme_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_sidebar_enabled )}
+        {var $theme_page_navigation_enabled = ($theme_settings['page_sidebar_style'] ?? 'flat') !== 'disabled'}
+        {var $theme_page_navigation_position = ($theme_settings['page_navigation_position'] ?? 'opposite_sidebar') === 'identity_panel' ? 'identity_panel' : 'opposite_sidebar'}
+        {var $theme_has_page_navigation = $theme_page_navigation_enabled && ! empty( $theme_page_structure )}
+        {var $theme_identity_page_navigation = $theme_page_navigation_position === 'identity_panel' && $theme_has_page_navigation}
+        {var $theme_sidebar_page_navigation = $theme_page_navigation_position !== 'identity_panel' && $theme_has_page_navigation}
+        {var $theme_plugin_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_public_sidebar_fragments ) && ($theme_settings['secondary_sidebar'] ?? 'enabled') !== 'disabled'}
+        {var $theme_sidebar_rendered = ( $theme_sidebar_visible && ( $theme_sidebar_page_navigation || ! empty( $theme_sidebar_menu ) ) ) || $theme_plugin_sidebar_visible}
+        {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || $theme_has_page_navigation || $theme_plugin_sidebar_visible )}
+        {var $theme_author_space_slug = ''}
+        {if ! empty( $author_slug )}
+            {var $theme_author_space_slug = (string) $author_slug}
+        {elseif isset( $entry ) && is_array( $entry ) && ( $entry['scope'] ?? '' ) === 'author' && ! empty( $entry['author_slug'] )}
+            {var $theme_author_space_slug = (string) $entry['author_slug']}
+        {/if}
+        {var $theme_secret_link_author_space_view = ! empty( $theme_secret_link_author_space_view )}
+        {var $theme_header_home_url = $theme_secret_link_author_space_view && $theme_author_space_slug !== '' ? ('/' . $theme_author_space_slug) : $home_url}
+        {var $theme_banner = is_array($theme_banner ?? null) ? $theme_banner : []}
+        {var $theme_banner_image = is_array($theme_banner['image'] ?? null) ? $theme_banner['image'] : []}
+        {var $theme_banner_enabled = ! empty($theme_banner['enabled']) && ! empty($theme_banner_image['url'])}
+
+        <div n:if="$theme_show_public_chrome && $theme_banner_enabled" n:class="$theme_content_container_class ?? 'container-fluid', $theme_content_width_class ?? 'tm-content-width-default', 'tm-baseline-banner-shell'">
+            <div n:class="'tm-public-banner tm-baseline-banner', ($theme_banner['scope'] ?? 'site') === 'author' ? 'tm-public-banner-author' : 'tm-public-banner-site'">
+                <img class="tm-public-banner-image" src="{$theme_banner_image['url']}" alt="{$theme_banner_image['alt_text'] ?? ''}" decoding="async"{if ! empty( $theme_banner_image['width'] )} width="{$theme_banner_image['width']}"{/if}{if ! empty( $theme_banner_image['height'] )} height="{$theme_banner_image['height']}"{/if}>
+            </div>
+        </div>
+
+        <header n:if="$theme_show_public_chrome" class="container-fluid px-0 py-3 bg-body border-bottom shadow-sm sticky-top z-3 tm-baseline-header">
+            <div n:class="$theme_content_container_class ?? 'container-fluid', $theme_content_width_class ?? 'tm-content-width-default'">
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-flex align-items-start gap-2">
+                        <div class="d-inline-flex flex-wrap align-items-center gap-2 me-auto">
+                            <button n:if="$theme_has_mobile_panel"
+                                    class="btn btn-outline-secondary btn-sm d-xl-none" type="button"
+                                    data-bs-toggle="offcanvas"
+                                    data-bs-target="#tm-baseline-mobile-panel"
+                                    aria-controls="tm-baseline-mobile-panel"
+                                    title="Browse">
+                                <span class="bi bi-list" aria-hidden="true"></span>
+                                <span class="visually-hidden">Browse site navigation</span>
+                            </button>
+                            <a class="text-decoration-none text-body d-inline-flex align-items-center" href="{$theme_header_home_url}">
+                                <span class="fw-semibold fs-5">{$site_name}</span>
+                            </a>
+                            {if $theme_author_space_slug !== ''}
+                                <a class="text-decoration-none d-inline-flex align-items-center" href="/{$theme_author_space_slug}">
+                                    <span class="fs-6 font-monospace text-body-emphasis">~ /home/{$theme_author_space_slug}</span>
+                                </a>
+                                <a n:if="! empty( $author_home_can_edit ) && ! empty( $author_home_edit_url )" class="btn btn-outline-primary btn-sm" href="{$author_home_edit_url}">Edit</a>
+                            {elseif ! empty( $site_slogan )}
+                                <span class="fs-6 text-body-secondary">{$site_slogan}</span>
+                            {/if}
+                        </div>
+                        <div class="d-flex flex-nowrap align-items-center gap-2 ms-auto">
+                            {if ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) }
+                                <form class="d-none d-xl-flex align-items-center flex-nowrap m-0" method="get" action="{$theme_search['url']}" data-tm-search-form>
+                                    <label class="visually-hidden" for="tm-public-search">Search</label>
+                                    <div class="input-group input-group-sm flex-nowrap" style="max-width: 16rem;">
+                                        <input class="form-control" id="tm-public-search" type="search" name="q" value="{$theme_search['query'] ?? ''}" minlength="{$theme_search['min_query_length'] ?? 2}" placeholder="Search" data-tm-search-input>
+                                        <button class="btn btn-outline-secondary" type="submit"
+                                                title="Search">
+                                            <span class="bi bi-search" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Search</span>
+                                        </button>
+                                    </div>
+                                    {if ! empty( $theme_search['author_slug'] )}
+                                        <input type="hidden" name="author" value="{$theme_search['author_slug']}">
+                                    {/if}
+                                </form>
+                            {/if}
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                        type="button" data-bs-toggle="dropdown"
+                                        aria-expanded="false" aria-haspopup="menu"
+                                        id="screenModeDropdown" title="Screen mode">
+                                    <span class="bi bi-circle-half" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Screen mode menu</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" role="menu" aria-labelledby="screenModeDropdown">
+                                    <li><h6 class="dropdown-header">Screen mode</h6></li>
+                                    <li><button class="dropdown-item" type="button" role="menuitemradio" aria-checked="false"  data-tm-screen-mode="auto"><span class="bi bi-circle-half me-2" aria-hidden="true"></span>Auto</button></li>
+                                    <li><button class="dropdown-item" type="button" role="menuitemradio" aria-checked="false" data-tm-screen-mode="light"><span class="bi bi-sun me-2" aria-hidden="true"></span>Light</button></li>
+                                    <li><button class="dropdown-item" type="button" role="menuitemradio" aria-checked="false" data-tm-screen-mode="dark"><span class="bi bi-moon-stars me-2" aria-hidden="true"></span>Dark</button></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div n:if="! empty( $theme_navigation_menu ) || $theme_identity_page_navigation" class="d-none d-xl-grid gap-3 tm-baseline-header-navigation">
+                        <nav n:if="! empty( $theme_navigation_menu )" class="d-flex flex-wrap gap-2 tm-baseline-header-nav" aria-label="Primary">
+                            {foreach $theme_navigation_menu as $page}
+                                {if ! empty( $page['is_separator'] )}
+                                    <div class="vr align-self-center opacity-50" aria-hidden="true"></div>
+                                {elseif ! empty( $page['children'] )}
+                                    <div n:class="'dropdown tm-header-nav-parent', ($page['url'] ?? '') !== '#' && trim((string) ($page['url'] ?? '')) !== '' ? 'btn-group'">
+                                        {if ($page['url'] ?? '') !== '#' && trim((string) ($page['url'] ?? '')) !== ''}
+                                            <a n:class="'btn btn-outline-secondary btn-sm', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" href="{$page['url']}" n:attr="target => !empty($page['target']) ? $page['target'] : null, rel => !empty($page['rel']) ? $page['rel'] : null, aria-current => ! empty($page['is_current']) ? 'page' : null">{$page['title']}</a>
+                                            <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Show submenu for {$page['title']}">
+                                                <span class="visually-hidden">Show submenu for {$page['title']}</span>
+                                            </button>
+                                        {else}
+                                            <button n:class="'btn btn-outline-secondary btn-sm dropdown-toggle', ! empty($page['is_current']) || ! empty($page['is_ancestor']) ? 'active'" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                {$page['title']}
+                                            </button>
+                                        {/if}
+                                        <ul class="dropdown-menu">
+                                            {include './partials/navigation-menu-items.latte', items: $page['children'], level: 2}
+                                        </ul>
+                                    </div>
+                                {else}
+                                    <a n:class="'btn btn-outline-secondary btn-sm', ! empty($page['is_current']) ? 'active'" href="{$page['url']}" n:attr="target => !empty($page['target']) ? $page['target'] : null, rel => !empty($page['rel']) ? $page['rel'] : null, aria-current => ! empty($page['is_current']) ? 'page' : null">{$page['title']}</a>
+                                {/if}
+                            {/foreach}
+                        </nav>
+                        <nav n:if="$theme_identity_page_navigation" class="d-grid gap-2 tm-panel-page-navigation" aria-label="Pages">
+                            <div class="small text-uppercase text-body-secondary">Pages</div>
+                            {include './partials/page-tree.latte', pages: $theme_page_structure, tree_style: 'flat'}
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div n:if="$theme_has_mobile_panel" class="offcanvas offcanvas-start d-xl-none" tabindex="-1" id="tm-baseline-mobile-panel" role="dialog" aria-labelledby="tm-baseline-mobile-panel-title">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="tm-baseline-mobile-panel-title">Browse</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body bg-body-tertiary d-grid gap-4">
+                {if ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) }
+                    <section class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                        <div class="small text-uppercase text-body-secondary mb-2">Search</div>
+                        <form method="get" action="{$theme_search['url']}" data-tm-search-form>
+                            <label class="visually-hidden" for="tm-baseline-mobile-search">Search</label>
+                            <div class="input-group input-group-sm flex-nowrap">
+                                <input class="form-control" id="tm-baseline-mobile-search" type="search" name="q" value="{$theme_search['query'] ?? ''}" minlength="{$theme_search['min_query_length'] ?? 2}" placeholder="Search" data-tm-search-input>
+                                <button class="btn btn-outline-secondary" type="submit" title="Search" aria-label="Search">
+                                    <span class="bi bi-search" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Search</span>
+                                </button>
+                            </div>
+                            {if ! empty( $theme_search['author_slug'] )}
+                                <input type="hidden" name="author" value="{$theme_search['author_slug']}">
+                            {/if}
+                        </form>
+                    </section>
+                {/if}
+                <section n:if="! empty( $theme_navigation_menu )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                    <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
+                    {include './partials/menu-tree.latte', items: $theme_navigation_menu, menu_tree_collapsible: true, menu_tree_prefix: 'tm-mobile-primary'}
+                </section>
+                <section n:if="! empty( $theme_sidebar_menu )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                    <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
+                    {include './partials/menu-tree.latte', items: $theme_sidebar_menu, menu_tree_collapsible: true, menu_tree_prefix: 'tm-mobile-sidebar'}
+                </section>
+                <section n:if="$theme_has_page_navigation" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                    {include './partials/page-tree.latte', pages: $theme_page_structure, tree_style: $theme_settings['page_sidebar_style'] ?? 'flat'}
+                </section>
+                <section n:if="$theme_plugin_sidebar_visible" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                    {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
+                        <div n:if="! empty( $theme_public_sidebar_fragment['html'] )">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                    {/foreach}
+                </section>
+            </div>
+        </div>
+
+        <div n:class="$theme_content_container_class ?? 'container-fluid', $theme_content_width_class ?? 'tm-content-width-default', 'py-4', 'flex-grow-1'">
+            <div class="row g-4">
+                <main id="tm-main-content" tabindex="-1" n:class="$theme_sidebar_rendered ? 'col-12 col-xl-8' : 'col-12'">
+                    {block content}{/block}
+                </main>
+                <aside n:if="$theme_sidebar_rendered" class="d-none d-xl-block col-xl-4 tm-baseline-sidebar">
+                    <div class="d-grid gap-4 tm-baseline-sidebar-content">
+                        <section n:if="! empty( $theme_sidebar_menu )" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                            <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
+                            {include './partials/menu-tree.latte', items: $theme_sidebar_menu}
+                        </section>
+                        <section n:if="$theme_sidebar_page_navigation" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                            {include './partials/page-tree.latte', pages: $theme_page_structure, tree_style: $theme_settings['page_sidebar_style'] ?? 'flat'}
+                        </section>
+                        <section n:if="$theme_plugin_sidebar_visible" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
+                            {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
+                                <div n:if="! empty( $theme_public_sidebar_fragment['html'] )">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                            {/foreach}
+                        </section>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <footer n:if="$theme_show_public_chrome && ( ! empty( $theme_footer_menu ) || ! empty( $theme_public_footer_fragments ) )" class="container-fluid px-0 py-4 border-top bg-body-tertiary mt-auto">
+            <div n:class="$theme_content_container_class ?? 'container-fluid', $theme_content_width_class ?? 'tm-content-width-default'">
+                <div class="d-grid gap-3">
+                    <nav n:if="! empty( $theme_footer_menu )" class="small d-flex flex-wrap justify-content-center gap-2" aria-label="Footer">
+                        {foreach $theme_footer_menu as $footer_item}
+                            {if ! empty( $footer_item['is_separator'] )}
+                                <div class="vr align-self-stretch opacity-50" aria-hidden="true"></div>
+                            {else}
+                                <a class="link-secondary text-decoration-none" href="{$footer_item['url']}" n:attr="target => !empty($footer_item['target']) ? $footer_item['target'] : null, rel => !empty($footer_item['rel']) ? $footer_item['rel'] : null, aria-current => ! empty($footer_item['is_current']) ? 'page' : null">{$footer_item['title']}</a>
+                            {/if}
+                        {/foreach}
+                    </nav>
+                    {block public_footer_desktop_fragments}
+                        <div n:if="! empty( $theme_public_footer_fragments )" class="d-grid gap-3">
+                            {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
+                                <section class="tm-baseline-footer-fragment small text-body-secondary">
+                                    {if ! empty( $theme_public_footer_fragment['lines'] ) }
+                                        <div class="tm-baseline-footer-fragment-lines">
+                                            {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
+                                                <div>{$theme_public_footer_line|noescape}</div>
+                                            {/foreach}
+                                        </div>
+                                    {elseif ! empty( $theme_public_footer_fragment['html'] ) }
+                                        <div class="text-body-secondary">{$theme_public_footer_fragment['html']|noescape}</div>
+                                    {/if}
+                                </section>
+                            {/foreach}
+                        </div>
+                    {/block}
+                </div>
+            </div>
+        </footer>
+
+        {foreach ($theme_js_urls ?? []) as $theme_js_url}
+            <script src="{$theme_js_url}"></script>
+        {/foreach}
+    </body>
+</html>

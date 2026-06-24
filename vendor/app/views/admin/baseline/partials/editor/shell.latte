@@ -1,0 +1,58 @@
+<div class="p-3 bg-body border rounded-3 shadow-sm h-100">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        {if ! empty( $content_moderation_required ) && empty( $is_superadmin )}
+            <span class="badge text-bg-warning">Moderated publishing</span>
+        {/if}
+        <span class="small text-body-secondary" id="tm-editor-state-summary">
+            {if $editor_loaded_source === 'draft' && ! empty( $editor_draft['updated_at_display'] )}
+                Draft last updated {$editor_draft['updated_at_display']}.
+            {elseif $editor_loaded_source === 'revision' && ! empty( $editor_draft['updated_at_display'] )}
+                Revision snapshot from {$editor_draft['updated_at_display']} loaded into the composer.
+            {elseif $editor_loaded_source === 'published' && ! empty( $editor_draft['updated_at_display'] )}
+                Editing saved content last updated {$editor_draft['updated_at_display']}.
+            {else}
+                No saved draft yet for this editor.
+            {/if}
+        </span>
+    </div>
+    {if ! empty( $content_moderation_required )}
+        <div class="small mb-3 {if ! empty( $is_superadmin )}text-body-secondary{else}text-warning-emphasis{/if}">
+            {if ! empty( $is_superadmin )}
+                Sitewide moderation is enabled. Admins can still publish directly while other roles submit content for review.
+            {else}
+                Sitewide moderation is enabled. Your save action will submit the content for review instead of making it live immediately.
+            {/if}
+        </div>
+    {/if}
+    <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Save actions">
+            <button class="btn btn-success d-inline-flex align-items-center gap-1" id="tm-editor-save-entry" type="button" title="Save (Ctrl/Cmd+Enter)" data-tm-editor-save-action><span class="bi bi-check2-circle" aria-hidden="true"></span><span>Save</span></button>
+            <button class="btn btn-success dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-tm-editor-save-action><span class="visually-hidden">More save actions</span></button>
+            <ul class="dropdown-menu">
+                <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save" type="button"><span class="bi bi-floppy" aria-hidden="true"></span><span>Save draft</span></button></li>
+                <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save-return" type="button" data-tm-editor-save-action><span class="bi bi-box-arrow-left" aria-hidden="true"></span><span>Save and return</span></button></li>
+                <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save-new" type="button" data-tm-editor-save-action><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>Save and new</span></button></li>
+            </ul>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-duplicate" type="button"><span class="bi bi-copy" aria-hidden="true"></span><span>Duplicate</span></button>
+        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-cancel" type="button"><span class="bi bi-x-circle" aria-hidden="true"></span><span>Cancel</span></button>
+        <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1{if empty( $editor_loaded_draft_id )} d-none{/if}" id="tm-editor-delete-current-draft" type="button"><span class="bi bi-trash" aria-hidden="true"></span><span>Delete draft</span></button>
+        <span id="tm-editor-save-status" class="small text-body-secondary" aria-live="polite">Ready</span>
+        <a class="small text-decoration-none d-none" id="tm-editor-published-link" href="#" target="_blank" rel="noopener">Open published content</a>
+    </div>
+    <div class="small text-body-secondary mb-3">
+        Drafts are resumed here in the composer, and each saved content item can only have one active draft at a time.
+        {if ! empty( $editor_autosave['enabled'] )}
+            Autosave is on every {$editor_autosave['interval_seconds']} seconds.
+        {elseif ! empty( $editor_autosave['system_enabled'] )}
+            Autosave is disabled.
+        {else}
+            Autosave is disabled sitewide.
+        {/if}
+    </div>
+    <div class="small mb-3 {if ! empty( $editor_image_upload['enabled'] )}text-body-secondary{else}text-warning-emphasis{/if}">
+        {$editor_image_upload['message'] ?? ''}
+    </div>
+
+    {include './tabs.latte'}
+</div>

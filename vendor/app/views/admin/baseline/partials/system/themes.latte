@@ -1,0 +1,114 @@
+<section class="d-grid gap-3">
+    {include './themes-nav.latte'}
+
+    <section class="p-3 bg-body border rounded-3 shadow-sm">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+            <div>
+                <div class="small text-uppercase text-body-secondary mb-2">Available public themes</div>
+                <h3 class="h5 mb-1">Choose a public theme</h3>
+                <p class="text-body-secondary mb-0">Switching theme changes the live public presentation. Theme-specific settings are kept with each theme.</p>
+            </div>
+        </div>
+        {if empty( $system_available_public_themes )}
+            <div class="small text-body-secondary">No public themes are currently registered.</div>
+        {else}
+            <section class="overflow-hidden">
+                <div class="overflow-auto tm-system-plugin-list-scroll">
+                    <div class="list-group list-group-flush bg-body-secondary rounded-3">
+                {foreach $system_available_public_themes as $available_theme}
+                    <article class="list-group-item p-3 bg-body-secondary">
+                        <div class="d-flex flex-column flex-xl-row align-items-xl-start justify-content-between gap-3">
+                            <div class="flex-grow-1">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                    <h4 class="h6 mb-0">{$available_theme['name']}</h4>
+                                    {if $available_theme['key'] === $system_theme_key}
+                                        <span class="badge text-bg-primary">Active</span>
+                                    {/if}
+                                    {if ! empty( $available_theme['manifest_warnings'] )}
+                                        <span class="badge text-bg-warning">Manifest warnings</span>
+                                    {/if}
+                                    <span class="small text-body-secondary font-monospace">{$available_theme['key']}</span>
+                                    {if ! empty( $available_theme['version'] )}
+                                        <span class="small text-body-secondary">{$available_theme['version']}</span>
+                                    {/if}
+                                </div>
+
+                                {if ! empty( $available_theme['description'] )}
+                                    <div class="small text-body-secondary mb-2">{$available_theme['description']}</div>
+                                {/if}
+
+                                <div class="small text-body-secondary d-flex flex-wrap gap-3 justify-content-between">
+                                    <span>Status: <span class="text-body">{if $available_theme['key'] === $system_theme_key}Active{else}Inactive{/if}</span></span>
+                                    {if ! empty( $available_theme['support_details'] )}
+                                        <span>Features: <span class="text-body">{count( $available_theme['support_details'] )}</span></span>
+                                    {/if}
+                                    {if ! empty( $available_theme['manifest_warnings'] )}
+                                        <span>Warnings: <span class="text-body">{count( $available_theme['manifest_warnings'] )}</span></span>
+                                    {/if}
+                                </div>
+                                {if ! empty( $available_theme['manifest_warnings'] )}
+                                    <div class="alert alert-warning py-2 px-3 small mt-3 mb-0" role="alert">
+                                        <div class="fw-semibold mb-1">Manifest warnings</div>
+                                        <ul class="mb-0 ps-3">
+                                            {foreach $available_theme['manifest_warnings'] as $theme_manifest_warning}
+                                                <li>{$theme_manifest_warning}</li>
+                                            {/foreach}
+                                        </ul>
+                                    </div>
+                                {/if}
+                            </div>
+
+                            <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions">
+                                {if ! empty( $available_theme['support_details'] )}
+                                    <button class="btn btn-outline-secondary btn-sm tm-system-plugin-action" type="button" data-bs-toggle="modal" data-bs-target="#tm-theme-supports-{$available_theme['key']}">Features</button>
+                                {/if}
+                                {if $available_theme['key'] === $system_theme_key}
+                                    <button class="btn btn-primary btn-sm tm-system-plugin-action" type="button" disabled>Active theme</button>
+                                    <a class="btn btn-outline-secondary btn-sm tm-system-plugin-action" href="{$system_section_urls['themes_settings']}">Edit settings</a>
+                                {else}
+                                    <form method="post" action="{$system_theme_select_url}" class="tm-system-plugin-action">
+                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                        <input type="hidden" name="theme_key" value="{$available_theme['key']}">
+                                        <button class="btn btn-primary btn-sm w-100" type="submit">Use this theme</button>
+                                    </form>
+                                {/if}
+                            </div>
+                        </div>
+                    </article>
+                    {if ! empty( $available_theme['support_details'] )}
+                        <div class="modal fade" id="tm-theme-supports-{$available_theme['key']}" tabindex="-1" aria-labelledby="tm-theme-supports-{$available_theme['key']}-label" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <div>
+                                            <div class="small text-uppercase text-body-secondary mb-1">Theme features</div>
+                                            <h5 class="modal-title" id="tm-theme-supports-{$available_theme['key']}-label">{$available_theme['name']}</h5>
+                                        </div>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body d-grid gap-3">
+                                        {if ! empty( $available_theme['description'] )}
+                                            <p class="text-body-secondary mb-0">{$available_theme['description']}</p>
+                                        {/if}
+                                        <div class="d-grid gap-2">
+                                            {foreach $available_theme['support_details'] as $available_theme_support}
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2">
+                                                    <span>{$available_theme_support['label']}</span>
+                                                    <span class="badge {if ! empty( $available_theme_support['enabled'] )}text-bg-success{else}text-bg-secondary{/if}">
+                                                        {if ! empty( $available_theme_support['enabled'] )}Enabled{else}Disabled{/if}
+                                                    </span>
+                                                </div>
+                                            {/foreach}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
+                {/foreach}
+                    </div>
+                </div>
+            </section>
+        {/if}
+    </section>
+</section>

@@ -1,0 +1,59 @@
+{var $menu_tree_collapsible = ! empty( $menu_tree_collapsible ?? false )}
+{var $menu_tree_prefix = (string) ( $menu_tree_prefix ?? 'tm-menu-tree' )}
+{var $menu_tree_level = max(1, (int) ($menu_tree_level ?? 1))}
+{if ! empty( $items )}
+    <div class="d-grid gap-1 tm-page-tree-flat">
+        {foreach $items as $item}
+            {if ! empty( $item['is_separator'] )}
+                <hr class="my-2 text-body-tertiary opacity-100">
+            {else}
+                {var $branch_id = $menu_tree_prefix . '-' . $menu_tree_level . '-' . $iterator->counter}
+                {var $branch_expanded = ! empty($item['is_current']) || ! empty($item['is_ancestor'])}
+                {var $toggle_only_branch = $menu_tree_collapsible && ! empty( $item['children'] ) && ( ($item['url'] ?? '') === '#' || trim((string) ($item['url'] ?? '')) === '' )}
+                <div class="tm-page-tree-node">
+                    <div class="d-flex align-items-center gap-1 tm-menu-tree-row">
+                        {if $toggle_only_branch}
+                            <button n:class="'btn btn-link btn-sm text-start text-decoration-none d-inline-flex align-items-center tm-page-tree-link tm-menu-tree-toggle tm-menu-tree-toggle-label', $branch_expanded ? 'fw-semibold' : null"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#{$branch_id}"
+                                aria-controls="{$branch_id}" n:attr="aria-expanded => $branch_expanded ? 'true' : 'false', aria-label => 'Toggle submenu for ' . $item['title']">
+                                <span>{$item['title']}</span>
+                                <span class="bi bi-chevron-down ms-2" aria-hidden="true"></span>
+                            </button>
+                        {else}
+                            <a
+                                n:class="'flex-grow-1', ! empty($item['is_current'])
+                                    ? 'd-inline-flex align-items-center fw-semibold text-decoration-none link-body-emphasis tm-page-tree-link current'
+                                    : (! empty($item['is_ancestor'])
+                                        ? 'd-inline-flex align-items-center fw-semibold text-decoration-none tm-page-tree-link ancestor'
+                                        : 'd-inline-flex align-items-center text-decoration-none tm-page-tree-link')"
+                                href="{$item['url']}"
+                                n:attr="target => !empty($item['target']) ? $item['target'] : null, rel => !empty($item['rel']) ? $item['rel'] : null, aria-current => ! empty($item['is_current']) ? 'page' : null"
+                            >
+                                <span>{$item['title']}</span>
+                            </a>
+                            <button n:if="$menu_tree_collapsible && ! empty( $item['children'] )"
+                                class="btn btn-link btn-sm text-body-secondary tm-menu-tree-toggle"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#{$branch_id}"
+                                aria-controls="{$branch_id}" n:attr="aria-expanded => $branch_expanded ? 'true' : 'false', aria-label => 'Toggle submenu for ' . $item['title']">
+                                <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                            </button>
+                        {/if}
+                    </div>
+                    {if ! empty( $item['children'] )}
+                        {if $menu_tree_collapsible}
+                            <div n:class="'collapse tm-menu-tree-branch', $branch_expanded ? 'show'" id="{$branch_id}">
+                                <div class="ms-3 ps-2 border-start d-grid gap-1 tm-page-tree-children">
+                                    {include './menu-tree.latte', items: $item['children'], menu_tree_collapsible: true, menu_tree_prefix: $branch_id, menu_tree_level: $menu_tree_level + 1}
+                                </div>
+                            </div>
+                        {else}
+                            <div class="ms-3 ps-2 border-start d-grid gap-1 tm-page-tree-children">
+                                {include './menu-tree.latte', items: $item['children'], menu_tree_collapsible: false, menu_tree_prefix: $branch_id, menu_tree_level: $menu_tree_level + 1}
+                            </div>
+                        {/if}
+                    {/if}
+                </div>
+            {/if}
+        {/foreach}
+    </div>
+{/if}

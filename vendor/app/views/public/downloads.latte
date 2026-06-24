@@ -1,0 +1,99 @@
+{extends '../' . ($theme_template_root ?? 'public/baseline') . '/layout.latte'}
+
+{block content}
+    {var $downloads_catalogue = is_array($downloads_catalogue ?? null) ? $downloads_catalogue : []}
+    {var $downloads_children = is_array($downloads_children ?? null) ? $downloads_children : []}
+    {var $downloads_files = is_array($downloads_files ?? null) ? $downloads_files : []}
+    {var $downloads_breadcrumbs = is_array($downloads_breadcrumbs ?? null) ? $downloads_breadcrumbs : []}
+    {var $downloads_root_url = (string) ($downloads_root_url ?? '/downloads')}
+    {var $downloads_root_label = (string) ($downloads_root_label ?? 'Downloads')}
+    {var $downloads_up_url = (string) ($downloads_up_url ?? '')}
+    {var $downloads_return_url = (string) ($downloads_return_url ?? '')}
+    {var $downloads_timezone_label = (string) ($downloads_timezone_label ?? '')}
+
+    <div class="tm-downloads-page">
+        {if $downloads_return_url !== ''}
+            <div class="tm-downloads-return">
+                <a class="tm-downloads-return-link" href="{$downloads_return_url}">Exit</a>
+            </div>
+        {/if}
+
+        {if ! empty($downloads_breadcrumbs)}
+            <nav class="tm-downloads-breadcrumbs" aria-label="Breadcrumb">
+                {if $downloads_root_url !== ''}
+                    <a href="{$downloads_root_url}">{$downloads_root_label}</a>
+                {else}
+                    <span>{$downloads_root_label}</span>
+                {/if}
+                {foreach $downloads_breadcrumbs as $breadcrumb}
+                    <span class="tm-downloads-breadcrumb-separator">/</span><a href="{$breadcrumb['url'] ?? ''}">{$breadcrumb['title'] ?? ''}</a>
+                {/foreach}
+            </nav>
+        {/if}
+
+        <div class="tm-downloads-header">
+            <h1 class="tm-downloads-title">{$downloads_catalogue['title'] ?? 'Downloads'}</h1>
+            {if trim((string) ($downloads_catalogue['intro'] ?? '')) !== ''}
+                <div class="tm-downloads-description">
+                    {=nl2br(htmlspecialchars((string) $downloads_catalogue['intro'], \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'))|noescape}
+                </div>
+            {/if}
+        </div>
+
+        {if ! empty($downloads_children) || $downloads_up_url !== ''}
+            <div class="tm-downloads-catalogues">
+                <h2 class="tm-downloads-section-title">Folders</h2>
+                <div class="tm-downloads-catalogue-list">
+                    {if $downloads_up_url !== ''}
+                        <a class="tm-downloads-catalogue-link" href="{$downloads_up_url}">
+                            <span class="tm-downloads-folder-icon" aria-hidden="true"></span>
+                            <span>..</span>
+                        </a>
+                    {/if}
+                    {foreach $downloads_children as $child}
+                        <a class="tm-downloads-catalogue-link" href="{$child['public_url'] ?? ''}">
+                            <span class="tm-downloads-folder-icon" aria-hidden="true"></span>
+                            <span>{$child['title'] ?? ''}</span>
+                        </a>
+                    {/foreach}
+                </div>
+            </div>
+        {/if}
+
+        {if ! empty($downloads_files)}
+            <div class="tm-downloads-files">
+                <h2 class="tm-downloads-section-title">Files</h2>
+                <div class="tm-downloads-file-list" role="table" aria-label="Download files">
+                    <div class="tm-downloads-file-row tm-downloads-file-head" role="row">
+                        <div class="tm-downloads-file-cell tm-downloads-file-name" role="columnheader">Filename</div>
+                        <div class="tm-downloads-file-cell tm-downloads-file-size" role="columnheader">Size</div>
+                        <div class="tm-downloads-file-cell tm-downloads-file-date" role="columnheader">Date{if $downloads_timezone_label !== ''} <span class="tm-downloads-file-date-zone">({$downloads_timezone_label})</span>{/if}</div>
+                        <div class="tm-downloads-file-cell tm-downloads-file-description" role="columnheader">Description</div>
+                    </div>
+                    {foreach $downloads_files as $file}
+                        <div class="tm-downloads-file-row" role="row">
+                            <div class="tm-downloads-file-cell tm-downloads-file-name" role="cell">
+                                <a class="tm-downloads-file-link" href="{$file['public_url'] ?? ''}" title="{$file['original_filename'] ?? ($file['title'] ?? '')}">
+                                    {$file['original_filename'] ?? ($file['title'] ?? '')}
+                                </a>
+                            </div>
+                            <div class="tm-downloads-file-cell tm-downloads-file-size" role="cell">{$file['size_label'] ?? ''}</div>
+                            <div class="tm-downloads-file-cell tm-downloads-file-date" role="cell" title="{$file['file_date_title'] ?? ($file['file_date_display'] ?? '')}" data-timezone="{$downloads_timezone_label}">{$file['file_date_display'] ?? ''}</div>
+                            <div class="tm-downloads-file-cell tm-downloads-file-description" role="cell">
+                                {if trim((string) ($file['description'] ?? '')) !== ''}
+                                    {=nl2br(htmlspecialchars((string) $file['description'], \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'))|noescape}
+                                {else}
+                                    <span class="tm-downloads-empty-value">-</span>
+                                {/if}
+                            </div>
+                        </div>
+                    {/foreach}
+                </div>
+            </div>
+        {/if}
+
+        {if empty($downloads_children) && $downloads_up_url === '' && empty($downloads_files)}
+            <div class="tm-downloads-empty">No downloads are available here yet.</div>
+        {/if}
+    </div>
+{/block}

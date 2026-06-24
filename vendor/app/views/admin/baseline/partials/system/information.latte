@@ -1,0 +1,101 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">System information</div>
+    <div class="fw-semibold mb-3">Runtime and image support</div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-6">
+            <div class="rounded-3 p-3 bg-body-secondary h-100">
+                <div class="fw-semibold mb-3">Runtime</div>
+                <div class="small d-grid gap-2">
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">PHP</span>
+                        <span class="fw-semibold font-monospace">{$system_runtime_info['php_version'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">SAPI</span>
+                        <span class="fw-semibold font-monospace">{$system_runtime_info['php_sapi'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Default timezone</span>
+                        <span class="fw-semibold font-monospace">{$system_runtime_info['default_timezone'] ?? ''}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Execution time</span>
+                        <span class="fw-semibold font-monospace {if ! empty($system_runtime_info['max_execution_time_warning'])}text-warning-emphasis{/if}">{$system_runtime_info['max_execution_time'] ?? 0}s</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Input time</span>
+                        <span class="fw-semibold font-monospace {if ! empty($system_runtime_info['max_input_time_warning'])}text-warning-emphasis{/if}">{$system_runtime_info['max_input_time'] ?? 0}s</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Memory limit</span>
+                        <span class="fw-semibold font-monospace {if ! empty($system_runtime_info['memory_limit_warning'])}text-warning-emphasis{/if}">{$system_runtime_info['memory_limit'] ?? ''}</span>
+                    </div>
+                    <div class="mt-2"></div>
+                    {foreach ($system_runtime_info['runtime_paths'] ?? []) as $runtime_path}
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+                            <span class="text-body-secondary">{$runtime_path['label']}</span>
+                            <span class="badge {$runtime_path['state']['badge_class']}">{$runtime_path['state']['label']}</span>
+                        </div>
+                    {/foreach}
+                    <div class="d-flex justify-content-between gap-3 mt-2">
+                        <span class="text-body-secondary">Composer image policy</span>
+                        <span class="fw-semibold">{$system_runtime_info['media_runtime_image_uploads_mode_label'] ?? 'Disabled'}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Preferred image driver</span>
+                        <span class="fw-semibold font-monospace">{$system_settings['content_image_driver'] ?? 'auto'}</span>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Active image driver</span>
+                        <span class="fw-semibold font-monospace">{$system_runtime_info['media_runtime']['selected_driver'] ?? 'none'}</span>
+                    </div>
+                    {if ($system_runtime_info['media_runtime']['selected_driver'] ?? 'none') === 'none'}
+                        <div class="small text-warning-emphasis">No image driver is selected, image metadata is disabled.</div>
+                    {/if}
+                    <div class="d-flex justify-content-between gap-3">
+                        <span class="text-body-secondary">Image max size</span>
+                        <span class="fw-semibold font-monospace">{$system_settings['content_image_max_width']}×{$system_settings['content_image_max_height']}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="d-grid gap-3 h-100">
+                <div class="rounded-3 p-3 bg-body-secondary">
+                    <div class="fw-semibold mb-3">Supported image formats</div>
+                    <div class="d-grid gap-2 small">
+                        {foreach ($system_runtime_info['media_runtime']['format_details'] ?? []) as $format_detail}
+                            <div class="d-flex justify-content-between gap-3">
+                                <span class="fw-semibold">{$format_detail['label']}</span>
+                                <span class="font-monospace text-body-secondary">{$format_detail['extension']}</span>
+                            </div>
+                        {/foreach}
+                    </div>
+                </div>
+
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="fw-semibold mb-2">PHP extensions</div>
+                    <div class="d-grid gap-2 small">
+                        {foreach ($system_runtime_info['extensions'] ?? []) as $runtime_extension}
+                            <div class="d-flex justify-content-between align-items-center gap-3">
+                                <span class="font-monospace">
+                                    {$runtime_extension['name']}
+                                    {if ! empty($runtime_extension['required'])}
+                                        <span class="text-body-secondary">required</span>
+                                    {else}
+                                        <span class="text-body-secondary">recommended</span>
+                                    {/if}
+                                </span>
+                                <span class="badge {if ! empty($runtime_extension['loaded'])}text-bg-success{else}text-bg-warning{/if}">
+                                    {if ! empty($runtime_extension['loaded'])}Loaded{else}Missing{/if}
+                                </span>
+                            </div>
+                        {/foreach}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

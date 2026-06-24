@@ -1,0 +1,78 @@
+{var $sidebar_pages = ! empty( $sidebar_pages ?? [] ) ? $sidebar_pages : []}
+{var $sidebar_navigation_menu = ! empty( $sidebar_navigation_menu ?? [] ) ? $sidebar_navigation_menu : []}
+{var $sidebar_fragments = ! empty( $sidebar_fragments ?? [] ) ? $sidebar_fragments : []}
+{var $sidebar_footer_menu = ! empty( $sidebar_footer_menu ?? [] ) ? $sidebar_footer_menu : []}
+{var $sidebar_footer_fragments = ! empty( $sidebar_footer_fragments ?? [] ) ? $sidebar_footer_fragments : []}
+{var $sidebar_site_name = trim((string) ($sidebar_site_name ?? ''))}
+{var $sidebar_site_slogan = trim((string) ($sidebar_site_slogan ?? ''))}
+{var $sidebar_theme_name = trim((string) ($sidebar_theme_name ?? ''))}
+{var $sidebar_navigation_collapsible = ! empty( $sidebar_navigation_collapsible ?? false )}
+{var $sidebar_navigation_prefix = (string) ( $sidebar_navigation_prefix ?? 'tm-docsmatter-menu' )}
+<div class="tm-docsmatter-sidebar-layout">
+    <div class="tm-docsmatter-sidebar-main d-grid gap-4">
+        {if ! empty( $sidebar_navigation_menu )}
+            <section class="tm-docsmatter-sidebar-section">
+                <div class="small text-uppercase text-body-secondary mb-2">Menu</div>
+                {include './menu-tree.latte', items: $sidebar_navigation_menu, menu_tree_collapsible: $sidebar_navigation_collapsible, menu_tree_prefix: $sidebar_navigation_prefix}
+            </section>
+        {/if}
+
+        {if ! empty( $sidebar_pages )}
+            <section class="tm-docsmatter-sidebar-section">
+                {include './page-tree.latte', pages: $sidebar_pages}
+            </section>
+        {/if}
+
+        {if ! empty( $sidebar_fragments )}
+            <section class="tm-docsmatter-sidebar-section tm-docsmatter-sidebar-plugin-fragments">
+                <div class="d-grid gap-3">
+                    {foreach $sidebar_fragments as $sidebar_fragment}
+                        <div>{$sidebar_fragment['html']|noescape}</div>
+                    {/foreach}
+                </div>
+            </section>
+        {/if}
+    </div>
+
+    <div class="tm-docsmatter-sidebar-footer">
+        {if ! empty( $sidebar_footer_menu )}
+            <section class="tm-docsmatter-sidebar-section">
+                <nav class="small d-flex flex-wrap gap-2 justify-content-center" aria-label="Footer">
+                    {foreach $sidebar_footer_menu as $footer_item}
+                        {if ! empty( $footer_item['is_separator'] )}
+                            <div class="vr align-self-stretch opacity-50" aria-hidden="true"></div>
+                        {else}
+                            <a class="link-secondary text-decoration-none" href="{$footer_item['url']}" n:attr="target => !empty($footer_item['target']) ? $footer_item['target'] : null, rel => !empty($footer_item['rel']) ? $footer_item['rel'] : null">{$footer_item['title']}</a>
+                        {/if}
+                    {/foreach}
+                </nav>
+            </section>
+        {/if}
+
+        {if ! empty( $sidebar_footer_fragments )}
+            <section class="tm-docsmatter-sidebar-section tm-docsmatter-sidebar-footer-fragments">
+                <div class="small text-body-secondary d-grid gap-2">
+                    {foreach $sidebar_footer_fragments as $theme_public_footer_fragment}
+                        {if ! empty( $theme_public_footer_fragment['lines'] ) }
+                            <div class="d-grid gap-1">
+                                {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
+                                    <div>{$theme_public_footer_line|noescape}</div>
+                                {/foreach}
+                            </div>
+                        {elseif ! empty( $theme_public_footer_fragment['html'] ) }
+                            <div>{$theme_public_footer_fragment['html']|noescape}</div>
+                        {/if}
+                    {/foreach}
+                </div>
+            </section>
+        {/if}
+
+        {if $sidebar_site_slogan !== ''}
+            <section class="tm-docsmatter-sidebar-section">
+                <div class="tm-docsmatter-sidebar-meta small text-body-secondary">
+                    <div>{$sidebar_site_slogan}</div>
+                </div>
+            </section>
+        {/if}
+    </div>
+</div>

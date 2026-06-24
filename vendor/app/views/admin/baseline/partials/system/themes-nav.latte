@@ -1,0 +1,20 @@
+<div class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="d-grid gap-2">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-6 min-w-0">
+                <div class="small text-uppercase text-body-secondary mb-2">Themes</div>
+                <h2 class="h5 mb-0">Public theme</h2>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="d-flex justify-content-md-end">
+                    {if $system_section === 'themes-settings'}
+                        <a class="btn btn-outline-secondary btn-sm" href="{$system_section_urls['themes']}">Theme list</a>
+                    {else}
+                        <a class="btn btn-outline-secondary btn-sm" href="{$system_section_urls['themes_settings']}">Customize active theme</a>
+                    {/if}
+                </div>
+            </div>
+        </div>
+        <p class="text-body-secondary mb-0">The Use this theme action changes the live public presentation. Customization is saved with the active theme.</p>
+    </div>
+</div>

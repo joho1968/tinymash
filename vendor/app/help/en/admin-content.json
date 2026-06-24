@@ -1,0 +1,21 @@
+{
+  "group": "Writing",
+  "roles": ["author", "admin"],
+  "order": 20,
+  "title": "Content library",
+  "summary": "Saved content, drafts, and moderation queues.",
+  "sections": [
+    {
+      "title": "Tabs",
+      "markdown": "- **Content**: saved pages and posts\n- **Drafts**: private working copies\n- **Moderation**: items waiting for review"
+    },
+    {
+      "title": "Open and view",
+      "markdown": "Use the row to continue editing in the composer. Use separate actions to view or preview the saved item."
+    },
+    {
+      "title": "Status",
+      "markdown": "- **Published**: live on the public site\n- **Unpublished**: saved but not live\n- **Pending review**: waiting for moderation\n\nDrafts are private working copies, not a public status."
+    }
+  ]
+}

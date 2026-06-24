@@ -1,0 +1,25 @@
+{
+  "group": "Writing",
+  "roles": ["author", "admin"],
+  "order": 30,
+  "title": "Composer",
+  "summary": "Write, preview, and save content.",
+  "sections": [
+    {
+      "title": "Write, Preview, and Metadata",
+      "markdown": "- **Write** edits the Markdown source.\n- **Preview** uses the same render pipeline as the public site.\n- **Metadata** controls title, slug, publish date/time, tags, hierarchy, visibility, and publishing status."
+    },
+    {
+      "title": "Save actions",
+      "markdown": "- **Save draft** keeps a private working copy.\n- **Save** writes the real content item using the selected status.\n- **Duplicate** starts a new copy from the current content.\n- Revisions are created by real saves, not by draft save or autosave."
+    },
+    {
+      "title": "Slugs and duplicates",
+      "markdown": "- A new title can suggest a slug while you are creating content.\n- Duplicate slugs are checked before save.\n- If a saved item already has an active draft, the composer warns you before you continue."
+    },
+    {
+      "title": "Links, tags, emoji, and smileys",
+      "markdown": "- The toolbar inserts common Markdown patterns, including fenced code blocks.\n- Internal and external links use dedicated pickers.\n- Tags are entered in **Metadata** and autocomplete as you type.\n- Markdown underline uses `++text++`.\n- Type `:` in the editor to autocomplete emoji shortcodes such as `:blush:`.\n- The emoji button opens the full picker, including skin-tone variants.\n- Classic smileys such as `:)`, `8-)`, and `:-\\` follow the site default and your profile override.\n- Use the **Markdown reference** for the full syntax and support list."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+<div class="modal fade" id="tm-help-modal" tabindex="-1" aria-labelledby="tm-help-modal-title" aria-hidden="true" data-help-url="{$admin_url}/help" data-help-contexts="{$help_contexts_csv}" data-help-locale="en">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl modal-fullscreen-sm-down tm-help-modal-dialog">
+        <div class="modal-content tm-help-modal-content">
+            <div class="modal-header">
+                <div class="me-auto">
+                    <h2 class="modal-title h4 mb-0" id="tm-help-modal-title">Help</h2>
+                    <div class="visually-hidden" id="tm-help-modal-status" aria-live="polite"></div>
+                </div>
+                <div class="tm-help-modal-loading d-none align-items-center gap-2 small text-body-secondary me-3" id="tm-help-modal-loading" aria-hidden="true">
+                    <div id="tm-help-modal-loading-text">Loading help…</div>
+                    <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body bg-body-tertiary tm-help-modal-body" id="tm-help-modal-body">
+                <div class="tm-help-modal-content-region" id="tm-help-modal-content"></div>
+            </div>
+        </div>
+    </div>
+</div>

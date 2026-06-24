@@ -1,0 +1,146 @@
+    <div class="offcanvas offcanvas-start h-auto w-auto tm-notransition" style="--bs-bg-opacity: .9; min-width:250px !important;" tabindex="-1" id="offcanvas" data-bs-scroll="true" data-bs-keyboard="true" data-bs-backdrop="true">
+        {var $admin_plugin_nav_items = is_array($admin_plugin_nav_items ?? null) ? $admin_plugin_nav_items : []}
+        {var $admin_plugin_nav_author_import = is_array($admin_plugin_nav_author_import_items ?? null) ? $admin_plugin_nav_author_import_items : []}
+        {var $admin_plugin_nav_author_general = is_array($admin_plugin_nav_author_general_items ?? null) ? $admin_plugin_nav_author_general_items : []}
+        {var $admin_plugin_nav_admin = is_array($admin_plugin_nav_items['admin'] ?? null) ? $admin_plugin_nav_items['admin'] : []}
+        {var $admin_plugin_nav_account = is_array($admin_plugin_nav_items['account'] ?? null) ? $admin_plugin_nav_items['account'] : []}
+        {var $current_section_value = (string) ($current_section ?? '')}
+        {var $dashboard_active = $current_section_value === 'overview' || (empty($is_superadmin) && $current_section_value === 'author')}
+        {var $about_active = $current_section_value === 'about'}
+        {var $composer_active = $current_section_value === 'composer'}
+        {var $content_active = in_array($current_section_value, ['entries', 'content'], true)}
+        {var $author_plugin_active = count(array_filter($admin_plugin_nav_author_general, fn($item) => (string) ($item['section'] ?? '') === $current_section_value)) > 0}
+        {var $author_import_active = count(array_filter($admin_plugin_nav_author_import, fn($item) => (string) ($item['section'] ?? '') === $current_section_value)) > 0}
+        {var $admin_plugin_active = count(array_filter($admin_plugin_nav_admin, fn($item) => (string) ($item['section'] ?? '') === $current_section_value)) > 0}
+        {var $account_plugin_active = count(array_filter($admin_plugin_nav_account, fn($item) => (string) ($item['section'] ?? '') === $current_section_value)) > 0}
+        {var $author_group_open = $composer_active || $content_active || $author_plugin_active}
+        {var $import_group_open = $author_import_active}
+        {var $admin_group_open = $current_section_value === 'system' || $admin_plugin_active}
+        {var $account_group_open = $current_section_value === 'profile' || $account_plugin_active}
+    <div class="offcanvas-header py-2 text-center">
+        <div class="badge p-0">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="offcanvas" aria-label="Close">
+                <i class="bi bi-x-lg fs-5 fw-bold"></i>
+            </button>
+        </div>
+    </div>
+    <div class="offcanvas-body px-0 py-2">
+        <div class="m-0 p-0 mx-auto">
+            <nav class="tm-section-nav px-3" data-tm-section-nav="admin-main" aria-label="Admin navigation">
+                <div class="tm-section-nav-items fs-6 mb-2">
+                    <a href="{$admin_url}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $dashboard_active}active{/if}" n:attr="aria-current => $dashboard_active ? 'page' : null">
+                        <span class="tm-section-nav-link-label">Dashboard</span>
+                    </a>
+                    <a href="{$visit_site_url ?? '/'}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none">
+                        <span class="tm-section-nav-link-label">View site</span>
+                    </a>
+                    <a href="{$admin_url}/about" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $about_active}active{/if}" n:attr="aria-current => $about_active ? 'page' : null">
+                        <span class="tm-section-nav-link-label">About</span>
+                    </a>
+                    {if ! empty( $visit_root_url ) && ($visit_root_url !== ($visit_site_url ?? ''))}
+                    <a href="{$visit_root_url}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none">
+                        <span class="tm-section-nav-link-label">Visit root</span>
+                    </a>
+                    {/if}
+                </div>
+
+                <section class="tm-section-nav-group{if $author_group_open} is-open{/if}" data-tm-section-node data-tm-section-key="author" data-tm-section-default-open="{$author_group_open ? '1' : '0'}" data-tm-section-force-open="{$author_group_open ? '1' : '0'}">
+                    <h2 class="mb-0" id="tm-admin-nav-author-heading">
+                        <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$author_group_open ? 'true' : 'false'}" aria-controls="tm-admin-nav-author">
+                            <span class="tm-section-nav-title small text-uppercase text-body-secondary">{if ! empty( $is_superadmin )}Author area{else}Author tools{/if}</span>
+                            <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+                        </button>
+                    </h2>
+                    <div id="tm-admin-nav-author" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="tm-admin-nav-author-heading" n:attr="hidden => ! $author_group_open ? true : null">
+                        <div class="tm-section-nav-items fs-6">
+                            <a href="{$admin_url}/editor" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $composer_active}active{/if}" n:attr="aria-current => $composer_active ? 'page' : null">
+                                <span class="tm-section-nav-link-label">Composer</span>
+                            </a>
+                            <a href="{$entries_url}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $content_active}active{/if}" n:attr="aria-current => $content_active ? 'page' : null">
+                                <span class="tm-section-nav-link-label">Content</span>
+                            </a>
+                            {foreach $admin_plugin_nav_author_general as $admin_plugin_nav_item}
+                            <a href="{$admin_plugin_nav_item['url']}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $current_section_value === ($admin_plugin_nav_item['section'] ?? '')}active{/if}" n:attr="aria-current => $current_section_value === ($admin_plugin_nav_item['section'] ?? '') ? 'page' : null">
+                                <span class="tm-section-nav-link-label">{$admin_plugin_nav_item['label']}</span>
+                            </a>
+                            {/foreach}
+                        </div>
+                    </div>
+                </section>
+
+                {if ! empty( $admin_plugin_nav_author_import )}
+                <section class="tm-section-nav-group{if $import_group_open} is-open{/if}" data-tm-section-node data-tm-section-key="import" data-tm-section-default-open="{$import_group_open ? '1' : '0'}" data-tm-section-force-open="{$import_group_open ? '1' : '0'}">
+                    <h2 class="mb-0" id="tm-admin-nav-import-heading">
+                        <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$import_group_open ? 'true' : 'false'}" aria-controls="tm-admin-nav-import">
+                            <span class="tm-section-nav-title small text-uppercase text-body-secondary">{$admin_plugin_nav_author_import[0]['group_label'] ?? 'Import'}</span>
+                            <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+                        </button>
+                    </h2>
+                    <div id="tm-admin-nav-import" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="tm-admin-nav-import-heading" n:attr="hidden => ! $import_group_open ? true : null">
+                        <div class="tm-section-nav-items fs-6">
+                            {foreach $admin_plugin_nav_author_import as $admin_plugin_nav_item}
+                            <a href="{$admin_plugin_nav_item['url']}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $current_section_value === ($admin_plugin_nav_item['section'] ?? '')}active{/if}" n:attr="aria-current => $current_section_value === ($admin_plugin_nav_item['section'] ?? '') ? 'page' : null">
+                                <span class="tm-section-nav-link-label">{$admin_plugin_nav_item['label']}</span>
+                            </a>
+                            {/foreach}
+                        </div>
+                    </div>
+                </section>
+                {/if}
+
+                {if ! empty( $is_superadmin )}
+                <section class="tm-section-nav-group{if $admin_group_open} is-open{/if}" data-tm-section-node data-tm-section-key="admin" data-tm-section-default-open="{$admin_group_open ? '1' : '0'}" data-tm-section-force-open="{$admin_group_open ? '1' : '0'}">
+                    <h2 class="mb-0" id="tm-admin-nav-admin-heading">
+                        <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$admin_group_open ? 'true' : 'false'}" aria-controls="tm-admin-nav-admin">
+                            <span class="tm-section-nav-title small text-uppercase text-body-secondary">Admin area</span>
+                            <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+                        </button>
+                    </h2>
+                    <div id="tm-admin-nav-admin" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="tm-admin-nav-admin-heading" n:attr="hidden => ! $admin_group_open ? true : null">
+                        <div class="tm-section-nav-items fs-6">
+                            <a href="{$admin_system_url}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $current_section_value === 'system'}active{/if}" n:attr="aria-current => $current_section_value === 'system' ? 'page' : null">
+                                <span class="tm-section-nav-link-label">System settings</span>
+                            </a>
+                            {foreach $admin_plugin_nav_admin as $admin_plugin_nav_item}
+                            <a href="{$admin_plugin_nav_item['url']}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $current_section_value === ($admin_plugin_nav_item['section'] ?? '')}active{/if}" n:attr="aria-current => $current_section_value === ($admin_plugin_nav_item['section'] ?? '') ? 'page' : null">
+                                <span class="tm-section-nav-link-label">{$admin_plugin_nav_item['label']}</span>
+                            </a>
+                            {/foreach}
+                        </div>
+                    </div>
+                </section>
+                {/if}
+
+                <section class="tm-section-nav-group{if $account_group_open} is-open{/if}" data-tm-section-node data-tm-section-key="account" data-tm-section-default-open="{$account_group_open ? '1' : '0'}" data-tm-section-force-open="{$account_group_open ? '1' : '0'}">
+                    <h2 class="mb-0" id="tm-admin-nav-account-heading">
+                        <button class="tm-section-nav-toggle py-2" type="button" data-tm-section-toggle aria-expanded="{$account_group_open ? 'true' : 'false'}" aria-controls="tm-admin-nav-account">
+                            <span class="tm-section-nav-title small text-uppercase text-body-secondary">Account</span>
+                            <span class="bi bi-chevron-down tm-section-nav-chevron text-body-secondary" aria-hidden="true"></span>
+                        </button>
+                    </h2>
+                    <div id="tm-admin-nav-account" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="tm-admin-nav-account-heading" n:attr="hidden => ! $account_group_open ? true : null">
+                        <div class="tm-section-nav-items fs-6">
+                            <a href="{$admin_profile_url}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $current_section_value === 'profile'}active{/if}" n:attr="aria-current => $current_section_value === 'profile' ? 'page' : null">
+                                <span class="tm-section-nav-link-label">Profile</span>
+                            </a>
+                            {foreach $admin_plugin_nav_account as $admin_plugin_nav_item}
+                            <a href="{$admin_plugin_nav_item['url']}" class="tm-section-nav-link link-offset-2 text-truncate user-select-none {if $current_section_value === ($admin_plugin_nav_item['section'] ?? '')}active{/if}" n:attr="aria-current => $current_section_value === ($admin_plugin_nav_item['section'] ?? '') ? 'page' : null">
+                                <span class="tm-section-nav-link-label">{$admin_plugin_nav_item['label']}</span>
+                            </a>
+                            {/foreach}
+                            <a href="{$admin_url}/logout" class="tm-section-nav-link link-offset-2 text-truncate user-select-none">
+                                <span class="tm-section-nav-link-label">Log out</span>
+                            </a>
+                        </div>
+                    </div>
+                </section>
+            </nav>
+            <div class="border-top mt-3 mb-3 w-100 p-0" aria-hidden="true"></div>
+            <div aria-label="Current server time" class="text-body-secondary small text-center">
+                <span class="user-select-none">Server time</span><br/>
+                <span class="user-select-all">{date('Y-m-d H:i:s')}<br/></span>
+                <span class="user-select-all">UTC</span>
+            </div>
+        </div>
+    </div>
+</div>

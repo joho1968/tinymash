@@ -1,0 +1,499 @@
+{extends 'layout.latte'}
+
+{block content}
+    {var $profile_user = is_array($profile_user ?? null) ? $profile_user : []}
+    {var $profile_form = is_array($profile_form ?? null) ? $profile_form : []}
+    {var $profile_notice = is_array($profile_notice ?? null) ? $profile_notice : []}
+    {var $profile_autosave = is_array($profile_autosave ?? null) ? $profile_autosave : []}
+    {var $profile_classic_smileys = is_array($profile_classic_smileys ?? null) ? $profile_classic_smileys : []}
+    {var $profile_publishing_defaults = is_array($profile_publishing_defaults ?? null) ? $profile_publishing_defaults : []}
+    {var $profile_secret_links = is_array($profile_secret_links ?? null) ? $profile_secret_links : []}
+    {var $profile_timezone_options = is_array($profile_timezone_options ?? null) ? $profile_timezone_options : []}
+    {var $profile_site_timezone = (string) ($profile_site_timezone ?? 'UTC')}
+    {var $profile_section = (string) ($profile_section ?? 'account')}
+    {var $profile_section_urls = is_array($profile_section_urls ?? null) ? $profile_section_urls : []}
+    {var $profile_plugin_settings_sections = is_array($profile_plugin_settings_sections ?? null) ? $profile_plugin_settings_sections : []}
+    {var $profile_public_theme_options = is_array($profile_public_theme_options ?? null) ? $profile_public_theme_options : []}
+    {var $profile_public_theme_system_label = (string) ($profile_public_theme_system_label ?? 'Site theme')}
+    {var $profile_has_fediverse_settings = ! empty($profile_has_fediverse_settings ?? false)}
+    {var $current_user_theme_override = in_array(($current_user_theme_override ?? ''), ['light', 'dark'], true) ? (string) $current_user_theme_override : ''}
+
+    {if ! empty($profile_notice)}
+        <div class="alert alert-{$profile_notice['type']} mb-3" role="alert">
+            {$profile_notice['message']}
+        </div>
+    {/if}
+
+    <div class="row g-3">
+        <div class="col-12 d-lg-none">
+            <div class="d-flex justify-content-end">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#tm-profile-sections" aria-controls="tm-profile-sections" aria-label="Open profile navigation">
+                    <span class="bi bi-list me-2" aria-hidden="true"></span>Profile navigation
+                </button>
+            </div>
+        </div>
+
+        <div class="col-12 d-lg-none">
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="tm-profile-sections" role="dialog" aria-labelledby="tm-profile-sections-title">
+                <div class="offcanvas-header">
+                    <h2 class="offcanvas-title h5 mb-0" id="tm-profile-sections-title">Profile navigation</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body d-grid gap-3">
+                    {include './partials/profile/sidebar.latte',
+                        profile_nav_id_prefix: 'tm-profile-sections-mobile',
+                        profile_nav_label: 'Profile navigation'}
+                    {include './partials/profile/status-card.latte'}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 d-none d-lg-block">
+            <div class="d-grid gap-3 position-lg-sticky" style="top: 5rem;">
+                <div class="p-3 bg-body border rounded-3 shadow-sm">
+                    {include './partials/profile/sidebar.latte',
+                        profile_nav_id_prefix: 'tm-profile-sections-desktop',
+                        profile_nav_label: 'Profile sections'}
+                </div>
+                {include './partials/profile/status-card.latte'}
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-9">
+            <form method="post" action="{$profile_save_url}" enctype="multipart/form-data">
+                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+
+                <div class="d-grid gap-3">
+                    {if $profile_section === 'account'}
+                    <div class="p-3 bg-body border rounded-3 shadow-sm">
+                    <div class="small text-uppercase text-body-secondary mb-2">Account</div>
+                    <div class="fw-semibold mb-1">Login and regional settings</div>
+                    <div class="small text-body-secondary mb-3">Manage your account identity, e-mail, timezone, and password. Theme mode is now controlled from the account menu only.</div>
+
+                    <div class="rounded-3 p-3 bg-body-secondary">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-profile-username">Username/Author</label>
+                            <input class="form-control font-monospace text-body-secondary" id="tm-profile-username" type="text" value="{$profile_form['username'] ?? ($profile_user['username'] ?? '')}" disabled>
+                            <div class="form-text">This value is currently managed at the system-policy level.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-profile-display-name">Display name</label>
+                            <input class="form-control" id="tm-profile-display-name" name="display_name" type="text" maxlength="120" value="{$profile_form['display_name'] ?? ($profile_user['display_name'] ?? '')}">
+                            <div class="form-text">Used in public author listings, titles, and author-space statistics.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-profile-role">Role</label>
+                            <input class="form-control font-monospace text-uppercase text-body-secondary" id="tm-profile-role" type="text" value="{$profile_role_label ?? ($profile_form['role'] ?? ($profile_user['role'] ?? ''))}" disabled>
+                            {if !empty($is_superadmin)}
+                                <div class="form-text">Managed in <a href="{($admin_system_url ?? '/admin/system') . '/users'}">System &gt; Users</a>.</div>
+                            {/if}
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-profile-email">E-mail address</label>
+                            <input class="form-control font-monospace" id="tm-profile-email" name="email" type="email" value="{$profile_form['email'] ?? ($profile_user['email'] ?? '')}" n:attr="readonly => empty($profile_can_change_email)">
+                            <div class="form-text">
+                                {if ! empty($profile_can_change_email)}
+                                    Used for account communication and mail-backed features.
+                                {else}
+                                    E-mail changes are currently managed by the site administrator.
+                                {/if}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-profile-timezone">Timezone</label>
+                            <div class="tm-search-picker">
+                                <div class="input-group">
+                                    <input class="form-control font-monospace" id="tm-profile-timezone" name="timezone" type="text" value="{$profile_form['timezone'] ?? ($profile_user['timezone'] ?? '')}" autocomplete="off" data-tm-validate-list="tm-profile-timezone-options" data-tm-picker-menu="tm-profile-timezone-menu" data-tm-allow-empty="1" data-tm-invalid-message="Choose a valid timezone from the list, or leave the field blank.">
+                                    <button class="btn btn-outline-secondary" type="button" data-tm-picker-toggle="tm-profile-timezone" aria-label="Browse timezones" title="Browse timezones">
+                                        <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" type="button" data-tm-reset-input="tm-profile-timezone">Use site timezone</button>
+                                </div>
+                                <div class="dropdown-menu tm-search-picker-menu w-100 shadow-sm" id="tm-profile-timezone-menu" data-tm-picker-menu-for="tm-profile-timezone">
+                                    <div class="tm-search-picker-summary small text-body-secondary" data-tm-picker-summary></div>
+                                    <div class="list-group list-group-flush small tm-search-picker-options" data-tm-picker-options></div>
+                                </div>
+                                <datalist id="tm-profile-timezone-options">
+                                    {foreach $profile_timezone_options as $profile_timezone_option}
+                                        <option value="{$profile_timezone_option}"></option>
+                                    {/foreach}
+                                </datalist>
+                            </div>
+                            <div class="form-text">
+                                Start typing to narrow the timezone list, or leave the field blank to use the current site timezone: <span class="font-monospace">{$profile_site_timezone}</span>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="form-label small mb-1">Theme mode</div>
+                            <div class="form-control bg-body-tertiary">Controlled from the top-right account menu</div>
+                            <div class="form-text">Current mode: {if $current_user_theme_override !== ''}{$current_user_theme_override|capitalize}{else}Auto{/if}.</div>
+                        </div>
+                    </div>
+
+                    </div>
+
+                    <div class="rounded-3 p-3 bg-body-secondary mt-3">
+                        <div class="fw-semibold mb-1">Password</div>
+                        <div class="small text-body-secondary mb-3">Leave these fields blank if you do not want to change your password.</div>
+                        <div class="rounded-3 p-3 bg-body-secondary">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small mb-1" for="tm-profile-current-password">Current password</label>
+                                <div class="input-group">
+                                    <input class="form-control font-monospace" id="tm-profile-current-password" name="current_password" type="password" value="" autocomplete="current-password">
+                                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-profile-current-password">
+                                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-new-password">New password</label>
+                                <div class="input-group">
+                                    <input class="form-control font-monospace" id="tm-profile-new-password" name="new_password" type="password" value="" autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-profile-new-password">
+                                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-confirm-password">Confirm new password</label>
+                                <div class="input-group">
+                                    <input class="form-control font-monospace" id="tm-profile-confirm-password" name="confirm_password" type="password" value="" autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-profile-confirm-password">
+                                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 d-flex flex-wrap gap-2">
+                        <button class="btn btn-success" type="submit">Save account settings</button>
+                    </div>
+                    </div>
+                    {/if}
+
+                    {if $profile_section === 'editor'}
+                    <div class="p-3 bg-body border rounded-3 shadow-sm">
+                        <div class="small text-uppercase text-body-secondary mb-2">Editor</div>
+                        <div class="fw-semibold mb-1">Autosave preferences</div>
+                        <div class="small text-body-secondary mb-3">Control how the composer saves your private working drafts.</div>
+
+                        <div class="rounded-3 p-3 bg-body-secondary">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label small mb-1" for="tm-profile-autosave-mode">Autosave mode</label>
+                                <select class="form-select" id="tm-profile-autosave-mode" name="autosave_mode">
+                                    <option value="inherit" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'inherit'">Inherit site default ({if !empty($profile_autosave['system_enabled'])}Enabled{else}Disabled{/if}, {$profile_autosave['system_interval_seconds'] ?? 120}s)</option>
+                                    <option value="enabled" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'enabled'">Enabled</option>
+                                    <option value="disabled" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'disabled'">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small mb-1" for="tm-profile-autosave-interval">Autosave interval override (seconds)</label>
+                                <input class="form-control font-monospace" id="tm-profile-autosave-interval" name="autosave_interval_seconds" type="number" min="30" max="180" step="1" value="{$profile_form['autosave_interval_seconds'] ?? ''}">
+                                <div class="form-text">Leave blank to use the current site default of {$profile_autosave['system_interval_seconds'] ?? 120} seconds.</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small mb-1" for="tm-profile-classic-smileys-mode">Classic smileys</label>
+                                <select class="form-select" id="tm-profile-classic-smileys-mode" name="classic_smileys_mode">
+                                    <option value="inherit" n:attr="selected => ($profile_form['classic_smileys_mode'] ?? 'inherit') === 'inherit'">Inherit site default ({if !empty($profile_classic_smileys['system_enabled'])}Enabled{else}Disabled{/if})</option>
+                                    <option value="enabled" n:attr="selected => ($profile_form['classic_smileys_mode'] ?? 'inherit') === 'enabled'">Enabled</option>
+                                    <option value="disabled" n:attr="selected => ($profile_form['classic_smileys_mode'] ?? 'inherit') === 'disabled'">Disabled</option>
+                                </select>
+                                <div class="form-text">
+                                    Controls whether classic smileys like <span class="font-monospace">:)</span>, <span class="font-monospace">8-)</span>, and <span class="font-monospace">:-\</span> are converted outside code blocks.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-4 d-flex flex-wrap gap-2">
+                            <button class="btn btn-success" type="submit">Save editor settings</button>
+                        </div>
+                    </div>
+                    {/if}
+
+                    {if $profile_section === 'appearance'}
+                    <div class="p-3 bg-body border rounded-3 shadow-sm">
+                        <div class="small text-uppercase text-body-secondary mb-2">Appearance</div>
+                        <div class="fw-semibold mb-1">Author-space presentation</div>
+                        <div class="small text-body-secondary mb-3">Control the public theme, screen mode default, banner, and background for your author space.</div>
+
+                        <div class="rounded-3 p-3 bg-body-secondary">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-public-theme-key">Public theme</label>
+                                <select class="form-select" id="tm-profile-public-theme-key" name="public_theme_key">
+                                    <option value="inherit" n:attr="selected => ($profile_form['public_theme_key'] ?? 'inherit') === 'inherit'">Inherit site theme ({$profile_public_theme_system_label})</option>
+                                    {foreach $profile_public_theme_options as $profile_public_theme_option}
+                                        <option value="{$profile_public_theme_option['value']}" n:attr="selected => ($profile_form['public_theme_key'] ?? 'inherit') === $profile_public_theme_option['value']">{$profile_public_theme_option['label']}</option>
+                                    {/foreach}
+                                </select>
+                                <div class="form-text">Applies to your author-space routes. Save to refresh theme-specific settings below.</div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-public-screen-mode">Screen mode default</label>
+                                <select class="form-select" id="tm-profile-public-screen-mode" name="public_screen_mode">
+                                    <option value="inherit" n:attr="selected => ($profile_form['public_screen_mode'] ?? 'inherit') === 'inherit'">Inherit system</option>
+                                    <option value="auto" n:attr="selected => ($profile_form['public_screen_mode'] ?? 'inherit') === 'auto'">Auto</option>
+                                    <option value="light" n:attr="selected => ($profile_form['public_screen_mode'] ?? 'inherit') === 'light'">Light</option>
+                                    <option value="dark" n:attr="selected => ($profile_form['public_screen_mode'] ?? 'inherit') === 'dark'">Dark</option>
+                                </select>
+                                <div class="form-text">Used as the public default unless a visitor already has a screen-mode preference.</div>
+                            </div>
+                            {foreach $profile_theme_override_settings as $profile_theme_override_setting}
+                                {if ($profile_theme_override_setting['lookup'] ?? '') === 'published_pages'}
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small mb-1" for="tm-profile-{$profile_theme_override_setting['input_name']}">{$profile_theme_override_setting['label']}</label>
+                                        <div class="tm-search-picker">
+                                            <div class="input-group">
+                                                <input class="form-control font-monospace" id="tm-profile-{$profile_theme_override_setting['input_name']}" name="{$profile_theme_override_setting['input_name']}" type="text" value="{=ltrim((string) ($profile_theme_override_setting['current_value'] ?? ''), '/')}" autocomplete="off" data-tm-validate-list="tm-profile-{$profile_theme_override_setting['input_name']}-options" data-tm-picker-menu="tm-profile-{$profile_theme_override_setting['input_name']}-menu" data-tm-allow-empty="1" data-tm-invalid-message="Choose one of your published pages, or leave the field blank." n:attr="disabled => !empty($profile_theme_override_setting['disabled'])">
+                                                <button class="btn btn-outline-secondary" type="button" data-tm-picker-toggle="tm-profile-{$profile_theme_override_setting['input_name']}" aria-label="Browse published pages" title="Browse published pages" n:attr="disabled => !empty($profile_theme_override_setting['disabled'])">
+                                                    <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                                                </button>
+                                                <button class="btn btn-outline-secondary" type="button" data-tm-reset-input="tm-profile-{$profile_theme_override_setting['input_name']}" n:attr="disabled => !empty($profile_theme_override_setting['disabled'])">Use site default</button>
+                                            </div>
+                                            <div class="dropdown-menu tm-search-picker-menu w-100 shadow-sm" id="tm-profile-{$profile_theme_override_setting['input_name']}-menu" data-tm-picker-menu-for="tm-profile-{$profile_theme_override_setting['input_name']}">
+                                                <div class="tm-search-picker-summary small text-body-secondary" data-tm-picker-summary></div>
+                                                <div class="list-group list-group-flush small tm-search-picker-options" data-tm-picker-options></div>
+                                            </div>
+                                            <datalist id="tm-profile-{$profile_theme_override_setting['input_name']}-options">
+                                                {foreach ($profile_theme_override_setting['lookup_options'] ?? []) as $profile_theme_lookup_option}
+                                                    <option value="{$profile_theme_lookup_option['value']}" label="{$profile_theme_lookup_option['label']}"></option>
+                                                {/foreach}
+                                            </datalist>
+                                        </div>
+                                        <div class="form-text">{$profile_theme_override_setting['help'] ?? ''} Use site default ({$profile_theme_override_setting['system_label'] ?? 'Automatic'}) by leaving the field blank.</div>
+                                    </div>
+                                {elseif ($profile_theme_override_setting['type'] ?? '') === 'select'}
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small mb-1" for="tm-profile-{$profile_theme_override_setting['input_name']}">{$profile_theme_override_setting['label']}</label>
+                                        <select class="form-select" id="tm-profile-{$profile_theme_override_setting['input_name']}" name="{$profile_theme_override_setting['input_name']}" n:attr="disabled => !empty($profile_theme_override_setting['disabled'])">
+                                            <option value="" n:attr="selected => ($profile_theme_override_setting['current_value'] ?? '') === ''">Use site default ({$profile_theme_override_setting['system_label'] ?? 'Theme default'})</option>
+                                            {foreach ($profile_theme_override_setting['options'] ?? []) as $profile_theme_override_option}
+                                                <option value="{$profile_theme_override_option['value']}" n:attr="selected => ($profile_theme_override_setting['current_value'] ?? '') === $profile_theme_override_option['value']">{$profile_theme_override_option['label']}</option>
+                                            {/foreach}
+                                        </select>
+                                        {if ! empty( $profile_theme_override_setting['help'] )}
+                                            <div class="form-text">{$profile_theme_override_setting['help']}</div>
+                                        {/if}
+                                    </div>
+                                {else}
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small mb-1" for="tm-profile-{$profile_theme_override_setting['input_name']}">{$profile_theme_override_setting['label']}</label>
+                                        <div class="input-group">
+                                            <input class="form-control" id="tm-profile-{$profile_theme_override_setting['input_name']}" name="{$profile_theme_override_setting['input_name']}" type="text" value="{$profile_theme_override_setting['current_value'] ?? ''}" n:attr="disabled => !empty($profile_theme_override_setting['disabled'])">
+                                            <button class="btn btn-outline-secondary" type="button" data-tm-reset-input="tm-profile-{$profile_theme_override_setting['input_name']}" n:attr="disabled => !empty($profile_theme_override_setting['disabled'])">Use site default</button>
+                                        </div>
+                                        <div class="form-text">{$profile_theme_override_setting['help'] ?? ''} Use site default ({$profile_theme_override_setting['system_label'] ?? 'Automatic'}) by leaving the field blank.</div>
+                                    </div>
+                                {/if}
+                            {/foreach}
+                            <div class="col-12 mt-4 pt-2">
+                                <div class="small text-uppercase text-body-secondary mb-2">Banner</div>
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small mb-1" for="tm-profile-public-banner-source">Author-space banner</label>
+                                        <select class="form-select" id="tm-profile-public-banner-source" name="public_banner_source">
+                                            <option value="inherit" n:attr="selected => ($profile_form['public_banner_source'] ?? 'inherit') === 'inherit'">Inherit site banner</option>
+                                            <option value="none" n:attr="selected => ($profile_form['public_banner_source'] ?? 'inherit') === 'none'">None</option>
+                                            <option value="custom" n:attr="selected => ($profile_form['public_banner_source'] ?? 'inherit') === 'custom'">Custom image</option>
+                                        </select>
+                                        <div class="form-text">Use the site banner, disable banners for your author space, or upload your own.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small mb-1" for="tm-profile-public-banner-image-file">Custom banner image</label>
+                                        <input class="form-control" id="tm-profile-public-banner-image-file" name="public_banner_image_file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml">
+                                        {if ! empty( $profile_public_banner_image['url'] )}
+                                            <div class="mt-2 d-flex flex-wrap align-items-start gap-3">
+                                                <img class="rounded border bg-body" src="{$profile_public_banner_image['url']}" alt="{$profile_public_banner_image['alt_text'] ?? ''}" style="max-width: 12rem; max-height: 6rem;">
+                                                <div class="small text-body-secondary flex-grow-1">
+                                                    <div class="fw-semibold text-body text-break">Current custom image: {$profile_public_banner_image['filename'] ?? 'banner image'}</div>
+                                                    <div>{$profile_public_banner_image['mime'] ?? ''}{if ! empty( $profile_public_banner_image['width'] ) && ! empty( $profile_public_banner_image['height'] )} | {$profile_public_banner_image['width']}x{$profile_public_banner_image['height']}{/if}</div>
+                                                    <div class="form-check mt-2">
+                                                        <input class="form-check-input" id="tm-profile-public-banner-image-clear" name="public_banner_image_clear" type="checkbox" value="1">
+                                                        <label class="form-check-label" for="tm-profile-public-banner-image-clear">Remove current custom banner image</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-4 pt-2">
+                                <div class="small text-uppercase text-body-secondary mb-2">Background</div>
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small mb-1" for="tm-profile-public-background-source">Author-space background</label>
+                                        <select class="form-select" id="tm-profile-public-background-source" name="public_background_source">
+                                            <option value="inherit" n:attr="selected => ($profile_form['public_background_source'] ?? 'inherit') === 'inherit'">Inherit system</option>
+                                            <option value="none" n:attr="selected => ($profile_form['public_background_source'] ?? 'inherit') === 'none'">None</option>
+                                            <option value="custom" n:attr="selected => ($profile_form['public_background_source'] ?? 'inherit') === 'custom'">Custom image</option>
+                                        </select>
+                                        <div class="form-text">Use the site background, disable it for your author space, or upload your own.</div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small mb-1" for="tm-profile-public-background-render-mode">Background render mode</label>
+                                        {if ($profile_form['public_background_source'] ?? 'inherit') !== 'custom'}
+                                            <input type="hidden" name="public_background_render_mode" value="{$profile_form['public_background_render_mode'] ?? 'scaled'}">
+                                        {/if}
+                                        <select class="form-select" id="tm-profile-public-background-render-mode" name="public_background_render_mode" n:attr="disabled => ($profile_form['public_background_source'] ?? 'inherit') !== 'custom'">
+                                            <option value="as_is" n:attr="selected => ($profile_form['public_background_render_mode'] ?? 'scaled') === 'as_is'">As-is</option>
+                                            <option value="centered" n:attr="selected => ($profile_form['public_background_render_mode'] ?? 'scaled') === 'centered'">Centered</option>
+                                            <option value="scaled" n:attr="selected => ($profile_form['public_background_render_mode'] ?? 'scaled') === 'scaled'">Scaled</option>
+                                            <option value="tiled" n:attr="selected => ($profile_form['public_background_render_mode'] ?? 'scaled') === 'tiled'">Tiled</option>
+                                        </select>
+                                        <div class="form-text">Used only for a custom author-space background image. Inherited backgrounds use the system render mode.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small mb-1" for="tm-profile-public-background-image-file">Custom background image</label>
+                                        <input class="form-control" id="tm-profile-public-background-image-file" name="public_background_image_file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml">
+                                        {if ! empty( $profile_public_background_image['url'] )}
+                                            <div class="mt-2 d-flex flex-wrap align-items-start gap-3">
+                                                <img class="rounded border bg-body" src="{$profile_public_background_image['url']}" alt="{$profile_public_background_image['alt_text'] ?? ''}" style="max-width: 12rem; max-height: 7rem;">
+                                                <div class="small text-body-secondary flex-grow-1">
+                                                    <div class="fw-semibold text-body text-break">Current custom image: {$profile_public_background_image['filename'] ?? 'background image'}</div>
+                                                    <div>{$profile_public_background_image['mime'] ?? ''}{if ! empty( $profile_public_background_image['width'] ) && ! empty( $profile_public_background_image['height'] )} | {$profile_public_background_image['width']}x{$profile_public_background_image['height']}{/if}</div>
+                                                    <div class="form-check mt-2">
+                                                        <input class="form-check-input" id="tm-profile-public-background-image-clear" name="public_background_image_clear" type="checkbox" value="1">
+                                                        <label class="form-check-label" for="tm-profile-public-background-image-clear">Remove current custom background image</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        <div class="pt-3 d-flex flex-wrap gap-2">
+                            <button class="btn btn-success" type="submit">Save appearance settings</button>
+                        </div>
+                    </div>
+                    {/if}
+
+                    {if $profile_section === 'publishing'}
+                    <div class="p-3 bg-body border rounded-3 shadow-sm">
+                        <div class="small text-uppercase text-body-secondary mb-2">Publishing</div>
+                        <div class="fw-semibold mb-1">New-content defaults</div>
+                        <div class="small text-body-secondary mb-3">These defaults are used when you open the composer for new content.</div>
+
+                        <div class="rounded-3 p-3 bg-body-secondary">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-default-entry-type">Default content type</label>
+                                <select class="form-select" id="tm-profile-default-entry-type" name="default_entry_type">
+                                    <option value="post" n:attr="selected => ($profile_form['default_entry_type'] ?? ($profile_publishing_defaults['default_entry_type'] ?? 'post')) === 'post'">Post</option>
+                                    <option value="page" n:attr="selected => ($profile_form['default_entry_type'] ?? ($profile_publishing_defaults['default_entry_type'] ?? 'post')) === 'page'">Page</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small mb-1" for="tm-profile-default-status">Default save status</label>
+                                <select class="form-select" id="tm-profile-default-status" name="default_status">
+                                    <option value="unpublished" n:attr="selected => ($profile_form['default_status'] ?? ($profile_publishing_defaults['default_status'] ?? 'unpublished')) === 'unpublished'">Unpublished</option>
+                                    <option value="published" n:attr="selected => ($profile_form['default_status'] ?? ($profile_publishing_defaults['default_status'] ?? 'unpublished')) === 'published'">Published</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input type="hidden" name="default_aggregate_to_root" value="0">
+                                    <input class="form-check-input" id="tm-profile-default-aggregate" name="default_aggregate_to_root" type="checkbox" n:attr="checked => !empty($profile_form['default_aggregate_to_root'])">
+                                    <label class="form-check-label" for="tm-profile-default-aggregate">Aggregate new posts to the root stream by default</label>
+                                </div>
+                                <div class="form-text">This only applies to new posts. Pages continue to ignore aggregation.</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input type="hidden" name="discourage_search_indexing" value="0">
+                                    <input class="form-check-input" id="tm-profile-discourage-search-indexing" name="discourage_search_indexing" type="checkbox" value="1" n:attr="checked => !empty($profile_form['discourage_search_indexing'])">
+                                    <label class="form-check-label" for="tm-profile-discourage-search-indexing">Discourage search engines from indexing my author space</label>
+                                </div>
+                                <div class="form-text">Adds a noindex directive to your public author pages without making them private.</div>
+                            </div>
+                        </div>
+                        </div>
+                        <div class="rounded-3 p-3 bg-body-secondary mt-3 d-grid gap-3">
+                            <div>
+                                <div class="fw-semibold mb-1">Secret link</div>
+                                <div class="small text-body-secondary mb-3">Invite a guest into your author space on a non-public site without exposing root content.</div>
+                            </div>
+                            {if ! empty( $profile_secret_links['record'] )}
+                                <div class="rounded-3 p-3 bg-body-secondary d-grid gap-2">
+                                    <div class="small text-uppercase text-body-secondary">Active link</div>
+                                    <div class="font-monospace text-break">{$profile_secret_links['url'] ?? ''}</div>
+                                    <div class="small text-body-secondary">
+                                        Created {$profile_secret_links['created_at_display'] ?? '—'} | Expires {$profile_secret_links['expires_at_display'] ?? '—'}
+                                    </div>
+                                </div>
+                            {else}
+                                <div class="small text-body-secondary">
+                                    No secret link is active for <span class="font-monospace">~ /home/{$profile_secret_links['author_slug'] ?? ($profile_user['username'] ?? '')}</span>.
+                                </div>
+                            {/if}
+                            <div class="small {if ! empty( $profile_secret_links['system_enabled'] ) && empty( $profile_secret_links['site_public'] ) && ! empty( $profile_secret_links['content_active'] )}text-body-secondary{else}text-warning-emphasis{/if}">
+                                {if ! empty( $profile_secret_links['site_public'] )}
+                                    Secret links are only used when the site is not public.
+                                {elseif empty( $profile_secret_links['system_enabled'] )}
+                                    Secret links are currently disabled in System &gt; Site settings.
+                                {elseif empty( $profile_secret_links['content_active'] )}
+                                    Your public author space is currently locked.
+                                {else}
+                                    New links currently expire after {$profile_secret_links['default_expiry_days'] ?? 60} days by default.
+                                {/if}
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button
+                                    class="btn btn-outline-secondary"
+                                    type="submit"
+                                    formaction="{$profile_secret_link_generate_url}"
+                                    formmethod="post"
+                                    n:attr="disabled => ! empty($profile_secret_links['site_public']) || empty($profile_secret_links['system_enabled']) || empty($profile_secret_links['content_active'])"
+                                >{if ! empty($profile_secret_links['record'])}Regenerate secret link{else}Generate secret link{/if}</button>
+                                <button
+                                    class="btn btn-outline-danger"
+                                    type="submit"
+                                    formaction="{$profile_secret_link_revoke_url}"
+                                    formmethod="post"
+                                    n:attr="disabled => empty($profile_secret_links['record'])"
+                                >Revoke secret link</button>
+                            </div>
+                        </div>
+                        <div class="rounded-3 p-3 bg-danger-subtle mt-3 d-grid gap-3">
+                            <div>
+                                <div class="fw-semibold text-danger mb-1">Delete all author content</div>
+                                <div class="small text-body-secondary mb-0">Deletes all posts and pages in <span class="font-monospace">~ /home/{$profile_user['username'] ?? ''}</span>. This does not delete media, drafts, notes, or the user account itself.</div>
+                            </div>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label small mb-1" for="tm-profile-delete-all-confirmation">Type DELETE ALL to confirm</label>
+                                    <input class="form-control font-monospace" id="tm-profile-delete-all-confirmation" name="delete_all_confirmation" type="text" autocomplete="off" spellcheck="false" placeholder="DELETE ALL">
+                                </div>
+                                <div class="col-12 col-md-auto">
+                                    <button class="btn btn-outline-danger" type="submit" formaction="{$profile_delete_all_content_url}" formmethod="post">Delete all posts and pages</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-3 d-flex flex-wrap gap-2">
+                            <button class="btn btn-success" type="submit">Save publishing settings</button>
+                        </div>
+                    </div>
+                    {/if}
+
+                    {if $profile_section === 'fediverse'}
+                    <div class="p-3 bg-body border rounded-3 shadow-sm">
+                        <div class="small text-uppercase text-body-secondary mb-2">Fediverse</div>
+                        <div class="fw-semibold mb-1">Author federation settings</div>
+                        <div class="small text-body-secondary mb-3">Control how the active Fediverse plugin publishes and identifies your author-space account.</div>
+
+                        {include './partials/profile/plugin-settings.latte'}
+
+                        <div class="pt-3 d-flex flex-wrap gap-2">
+                            <button class="btn btn-success" type="submit">Save Fediverse settings</button>
+                        </div>
+                    </div>
+                    {/if}
+                </div>
+            </form>
+        </div>
+    </div>
+{/block}

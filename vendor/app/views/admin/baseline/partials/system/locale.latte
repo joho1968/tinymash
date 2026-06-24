@@ -1,0 +1,70 @@
+{var $system_timezone_options = is_array($system_timezone_options ?? null) ? $system_timezone_options : []}
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Locale</div>
+    <div class="fw-semibold mb-1">Language and time</div>
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="locale">
+        <div class="row g-3">
+            <div class="col-12 col-xl-6">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Language</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-default-language">Default site language</label>
+                            <input class="form-control font-monospace" id="tm-system-default-language" name="default_language" type="text" value="{$system_settings['default_language']}" placeholder="en">
+                            <div class="form-text">Use an HTML language tag such as <span class="font-monospace">en</span>, <span class="font-monospace">en-DK</span>, or <span class="font-monospace">sv-SE</span>. Underscores are normalized to hyphens.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <div class="rounded-3 p-3 bg-body-secondary h-100">
+                    <div class="small text-uppercase text-body-secondary mb-2">Time</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-timezone">Site timezone</label>
+                            <div class="tm-search-picker">
+                                <div class="input-group">
+                                    <input class="form-control font-monospace" id="tm-system-timezone" name="timezone" type="text" value="{$system_settings['timezone']}" autocomplete="off" data-tm-validate-list="tm-system-timezone-options" data-tm-picker-menu="tm-system-timezone-menu" data-tm-invalid-message="Choose a valid timezone from the list.">
+                                    <button class="btn btn-outline-secondary" type="button" data-tm-picker-toggle="tm-system-timezone" aria-label="Browse timezones" title="Browse timezones">
+                                        <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="dropdown-menu tm-search-picker-menu w-100 shadow-sm" id="tm-system-timezone-menu" data-tm-picker-menu-for="tm-system-timezone">
+                                    <div class="tm-search-picker-summary small text-body-secondary" data-tm-picker-summary></div>
+                                    <div class="list-group list-group-flush small tm-search-picker-options" data-tm-picker-options></div>
+                                </div>
+                                <datalist id="tm-system-timezone-options">
+                                    {foreach $system_timezone_options as $system_timezone_option}
+                                        <option value="{$system_timezone_option}"></option>
+                                    {/foreach}
+                                </datalist>
+                            </div>
+                            <div class="form-text">Start typing to narrow the timezone list. Only <a class="link-offset-2" href="https://www.php.net/manual/en/timezones.php" target="_blank">valid PHP timezone identifiers</a> are accepted.</div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <label class="form-label small mb-1" for="tm-system-time-format">Site time format</label>
+                            <input class="form-control font-monospace" id="tm-system-time-format" name="time_format" type="text" value="{$system_settings['time_format']}" placeholder="H:i (T)">
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <label class="form-label small mb-1" for="tm-system-week-starts-on">Week starts on</label>
+                            <select class="form-select" id="tm-system-week-starts-on" name="week_starts_on">
+                                <option value="monday" n:attr="selected => $system_settings['week_starts_on'] === 'monday'">Monday</option>
+                                <option value="tuesday" n:attr="selected => $system_settings['week_starts_on'] === 'tuesday'">Tuesday</option>
+                                <option value="wednesday" n:attr="selected => $system_settings['week_starts_on'] === 'wednesday'">Wednesday</option>
+                                <option value="thursday" n:attr="selected => $system_settings['week_starts_on'] === 'thursday'">Thursday</option>
+                                <option value="friday" n:attr="selected => $system_settings['week_starts_on'] === 'friday'">Friday</option>
+                                <option value="saturday" n:attr="selected => $system_settings['week_starts_on'] === 'saturday'">Saturday</option>
+                                <option value="sunday" n:attr="selected => $system_settings['week_starts_on'] === 'sunday'">Sunday</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save locale settings</button>
+            </div>
+        </div>
+    </form>
+</section>

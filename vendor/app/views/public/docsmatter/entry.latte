@@ -1,0 +1,108 @@
+{extends './layout.latte'}
+
+{block content}
+    {var $docs_page_navigation = is_array($docs_page_navigation ?? null) ? $docs_page_navigation : ['home_url' => '', 'previous' => null, 'next' => null]}
+    {var $is_page_entry = (($entry['type'] ?? '') === 'page')}
+    <article class="tm-docsmatter-entry pt-0 pb-4 pb-lg-5{if ! empty( $entry['is_photo_post'] )} tm-entry-photo-post tm-docsmatter-photo-post{/if}{if ! empty( $entry['has_photo_gallery'] )} tm-entry-has-photo-gallery tm-docsmatter-has-photo-gallery{/if}">
+        <header class="tm-docsmatter-page-heading mb-4">
+            {if ! empty( $entry_navigation ) || ! empty( $docs_page_navigation['home_url'] ) || ! empty( $docs_page_navigation['previous'] ) || ! empty( $docs_page_navigation['next'] ) }
+                <section class="tm-docsmatter-entry-actions mb-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        {if $is_page_entry && (! empty( $docs_page_navigation['home_url'] ) || ! empty( $docs_page_navigation['previous'] ) || ! empty( $docs_page_navigation['next'] ))}
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Page navigation">
+                                <a n:class="! empty( $docs_page_navigation['previous'] ) ? 'btn btn-outline-secondary' : 'btn btn-outline-secondary disabled'" href="{! empty( $docs_page_navigation['previous'] ) ? $docs_page_navigation['previous']['url'] : '#'}" title="{! empty( $docs_page_navigation['previous']['title'] ) ? $docs_page_navigation['previous']['title'] : 'Previous'}" aria-label="{! empty( $docs_page_navigation['previous']['title'] ) ? 'Previous page: ' . $docs_page_navigation['previous']['title'] : 'Previous page'}" n:attr="aria-disabled => empty( $docs_page_navigation['previous'] ) ? 'true' : null, tabindex => empty( $docs_page_navigation['previous'] ) ? '-1' : null">
+                                    <span class="bi bi-chevron-left" aria-hidden="true"></span>
+                                </a>
+                                <a n:class="! empty( $docs_page_navigation['home_url'] ) ? 'btn btn-outline-secondary' : 'btn btn-outline-secondary disabled'" href="{! empty( $docs_page_navigation['home_url'] ) ? $docs_page_navigation['home_url'] : '#'}" title="Home" aria-label="Home" n:attr="aria-disabled => empty( $docs_page_navigation['home_url'] ) ? 'true' : null, tabindex => empty( $docs_page_navigation['home_url'] ) ? '-1' : null">
+                                    <span class="bi bi-house-door-fill" aria-hidden="true"></span>
+                                </a>
+                                <a n:class="! empty( $docs_page_navigation['next'] ) ? 'btn btn-outline-secondary' : 'btn btn-outline-secondary disabled'" href="{! empty( $docs_page_navigation['next'] ) ? $docs_page_navigation['next']['url'] : '#'}" title="{! empty( $docs_page_navigation['next']['title'] ) ? $docs_page_navigation['next']['title'] : 'Next'}" aria-label="{! empty( $docs_page_navigation['next']['title'] ) ? 'Next page: ' . $docs_page_navigation['next']['title'] : 'Next page'}" n:attr="aria-disabled => empty( $docs_page_navigation['next'] ) ? 'true' : null, tabindex => empty( $docs_page_navigation['next'] ) ? '-1' : null">
+                                    <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                                </a>
+                            </div>
+                        {else}
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                {if ! empty( $entry_navigation['back_url'] )}
+                                    <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['back_url']}">{$entry_navigation['back_label'] ?? 'Back'}</a>
+                                {/if}
+                                {if ! empty( $entry_navigation['previous'] )}
+                                    <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['previous']['url']}">&larr; Previous</a>
+                                {/if}
+                                {if ! empty( $entry_navigation['next'] )}
+                                    <a class="btn btn-outline-secondary btn-sm" href="{$entry_navigation['next']['url']}">Next &rarr;</a>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
+                </section>
+            {/if}
+            <div class="tm-docsmatter-page-heading-top d-flex align-items-start gap-2">
+                <div class="tm-docsmatter-page-heading-main d-flex align-items-start gap-2 flex-grow-1 min-w-0">
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex flex-wrap align-items-start gap-2">
+                            <div class="flex-grow-1 min-w-0">
+                                {if ! empty( $entry['content_heading_html'] )}
+                                    {$entry['content_heading_html']|noescape}
+                                {else}
+                                    <h1>{$entry['title_html']|noescape}</h1>
+                                {/if}
+                            </div>
+                            {if ! empty( $entry_can_edit ) && ! empty( $entry_edit_url ) }
+                                <div class="tm-docsmatter-page-heading-edit flex-shrink-0">
+                                    <a class="btn btn-outline-primary btn-sm" href="{$entry_edit_url}" title="Edit" aria-label="Edit page">
+                                        <span class="bi bi-pencil" aria-hidden="true"></span>
+                                    </a>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="bs5docs-toc" class="d-none d-lg-block text-truncate text-nowrap" role="navigation" aria-label="On this page"></div>
+            {if ! empty( $entry['show_entry_timestamps'] ) || ! empty( $entry['sticky'] ) || $entry['scope'] === 'author'}
+                <div class="small text-body-secondary d-flex flex-wrap align-items-center gap-2 mt-3">
+                    {if $entry['scope'] === 'author'}
+                        <span>by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a></span>
+                    {/if}
+                    {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['published_at_display'] )}
+                        <span>{$entry['published_at_display']}</span>
+                    {/if}
+                    {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['updated_at_display'] ) && $entry['updated_at_display'] !== $entry['published_at_display']}
+                        <span>Updated {$entry['updated_at_display_without_timezone'] ?? $entry['updated_at_display']}</span>
+                    {/if}
+                    {if ! empty( $entry['sticky'] )}
+                        <span class="badge text-bg-warning">Sticky</span>
+                    {/if}
+                </div>
+            {/if}
+        </header>
+
+        {if ( $entry['type'] ?? '' ) !== 'post' && ! empty( $entry['featured_image']['url'] ) && ! empty( $entry['show_featured_image_in_entry'] )}
+            <figure class="mb-4 tm-docsmatter-featured-image tm-docsmatter-featured-image-entry text-center">
+                <img class="img-fluid rounded" src="{$entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" decoding="async"{if ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+            </figure>
+        {/if}
+
+        <div class="tm-docsmatter-content bs5docs-page-content mt-3 mb-5" id="tm-docsmatter-content-body" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+            {$entry['content_body_html']|noescape}
+        </div>
+        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+            <div class="tm-docsmatter-tags d-flex flex-wrap gap-2 mb-4">
+                {foreach $entry['tag_links'] as $tag_link}
+                    <a class="tm-docsmatter-tag" href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                {/foreach}
+            </div>
+        {/if}
+
+        {if ! empty( $entry_child_pages ) && ! empty( $theme_child_pages_enabled ) }
+            <section class="mt-5 pt-4 border-top">
+                <h3 class="h5 mb-3">{$theme_child_pages_heading}</h3>
+                <ul class="mb-0 list-unstyled d-grid gap-2">
+                    {foreach $entry_child_pages as $child_page}
+                        <li><a href="{$child_page['url']}">{$child_page['title']}</a></li>
+                    {/foreach}
+                </ul>
+            </section>
+        {/if}
+    </article>
+{/block}

@@ -1,0 +1,951 @@
+{extends 'layout.latte'}
+
+{block content}
+    {var $entry_management = is_array($entry_management ?? null) ? $entry_management : []}
+    {var $entry_counts = is_array($entry_management['counts'] ?? null) ? $entry_management['counts'] : []}
+    {var $entry_drafts = is_array($entry_management['drafts'] ?? null) ? $entry_management['drafts'] : []}
+    {var $entries = is_array($entry_management['entries'] ?? null) ? $entry_management['entries'] : []}
+    {var $pending_review_entries = is_array($entry_management['pending_review_entries'] ?? null) ? $entry_management['pending_review_entries'] : []}
+    {var $trash_entries = is_array($entry_management['trash_entries'] ?? null) ? $entry_management['trash_entries'] : []}
+    {var $owner_filter_options = is_array($entry_management['owner_filter_options'] ?? null) ? $entry_management['owner_filter_options'] : []}
+    {var $filtered_counts = is_array($entry_management['filtered_counts'] ?? null) ? $entry_management['filtered_counts'] : []}
+    {var $pagination = is_array($entry_management['pagination'] ?? null) ? $entry_management['pagination'] : []}
+    {var $content_notice = is_array($content_notice ?? null) ? $content_notice : []}
+    {var $content_batch_url = (string) ($content_batch_url ?? '/admin/content/batch')}
+    {var $can_moderate_here = !empty($is_superadmin)}
+    {var $content_active_tab = in_array(($content_active_tab ?? 'entries'), ['entries', 'drafts', 'moderation', 'trash'], true) ? (string) $content_active_tab : 'entries'}
+    {if $content_active_tab === 'moderation' && empty($content_moderation_required)}
+        {var $content_active_tab = 'entries'}
+    {/if}
+    {var $content_filters = is_array($content_filters ?? null) ? $content_filters : []}
+    {var $entries_owner_filter = (string) ($content_filters['entries_owner'] ?? '')}
+    {var $entries_title_filter = (string) ($content_filters['entries_title'] ?? '')}
+    {var $entries_type_filter = (string) ($content_filters['entries_type'] ?? '')}
+    {var $entries_tree_enabled = ! array_key_exists('entries_tree', $content_filters) || (string) ($content_filters['entries_tree'] ?? '1') !== '0'}
+    {var $entries_tree_filter = $entries_tree_enabled ? '1' : '0'}
+    {var $drafts_owner_filter = (string) ($content_filters['drafts_owner'] ?? '')}
+    {var $drafts_title_filter = (string) ($content_filters['drafts_title'] ?? '')}
+    {var $drafts_type_filter = (string) ($content_filters['drafts_type'] ?? '')}
+    {var $moderation_owner_filter = (string) ($content_filters['moderation_owner'] ?? '')}
+    {var $moderation_title_filter = (string) ($content_filters['moderation_title'] ?? '')}
+    {var $moderation_type_filter = (string) ($content_filters['moderation_type'] ?? '')}
+    {var $trash_owner_filter = (string) ($content_filters['trash_owner'] ?? '')}
+    {var $trash_title_filter = (string) ($content_filters['trash_title'] ?? '')}
+    {var $trash_type_filter = (string) ($content_filters['trash_type'] ?? '')}
+    {var $entries_pagination = is_array($pagination['entries'] ?? null) ? $pagination['entries'] : []}
+    {var $drafts_pagination = is_array($pagination['drafts'] ?? null) ? $pagination['drafts'] : []}
+    {var $moderation_pagination = is_array($pagination['moderation'] ?? null) ? $pagination['moderation'] : []}
+    {var $trash_pagination = is_array($pagination['trash'] ?? null) ? $pagination['trash'] : []}
+    {var $entries_page = (int) ($entries_pagination['current_page'] ?? ($content_filters['entries_page'] ?? 1))}
+    {var $drafts_page = (int) ($drafts_pagination['current_page'] ?? ($content_filters['drafts_page'] ?? 1))}
+    {var $moderation_page = (int) ($moderation_pagination['current_page'] ?? ($content_filters['moderation_page'] ?? 1))}
+    {var $trash_page = (int) ($trash_pagination['current_page'] ?? ($content_filters['trash_page'] ?? 1))}
+
+    <div class="row g-3">
+        {if ! empty($content_notice)}
+            <div class="col-12">
+                <div class="alert alert-{$content_notice['type']} mb-0" role="alert">
+                    {$content_notice['message']}
+                </div>
+            </div>
+        {/if}
+        <div class="col-12 col-xl-7">
+            <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                <div class="small text-uppercase text-body-secondary mb-2">Manage</div>
+                <div class="fw-semibold mb-1">Drafts and saved content</div>
+                <div class="small text-body-secondary mb-3">Use this area to move between drafts, saved content, and moderation without relying on the composer load pane.</div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}?new=1"><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>New content</span></a>
+                    <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}"><span class="bi bi-pencil-square" aria-hidden="true"></span><span>Open composer</span></a>
+                </div>
+                {if ! empty( $content_moderation_required )}
+                    <div class="alert alert-warning mt-3 mb-0 py-2" role="alert">
+                        Moderation is enabled. Published saves may flow into review instead of going live immediately.
+                    </div>
+                {/if}
+            </div>
+        </div>
+        <div class="col-12 col-xl-5">
+            <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
+                <div class="small text-uppercase text-body-secondary mb-2">Metrics</div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="rounded-3 p-2 bg-body-secondary h-100">
+                            <div class="small text-body-secondary">Drafts</div>
+                            <div class="fs-4 fw-semibold">{$entry_counts['drafts'] ?? 0}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="rounded-3 p-2 bg-body-secondary h-100">
+                            <div class="small text-body-secondary">Content</div>
+                            <div class="fs-4 fw-semibold">{$entry_counts['entries'] ?? 0}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="rounded-3 p-2 bg-body-secondary h-100">
+                            <div class="small text-body-secondary">Published</div>
+                            <div class="fs-4 fw-semibold">{$entry_counts['published'] ?? 0}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="rounded-3 p-2 bg-body-secondary h-100">
+                            <div class="small text-body-secondary">Pending review</div>
+                            <div class="fs-4 fw-semibold">{$entry_counts['pending_review'] ?? 0}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="bg-body border rounded-3 shadow-sm overflow-hidden">
+                <div class="p-3 border-bottom">
+                    <div class="small text-uppercase text-body-secondary mb-2">Library</div>
+                    <div class="fw-semibold">Content management</div>
+                </div>
+                <ul class="nav nav-tabs px-3 pt-3" id="tm-entry-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button n:class="'nav-link', $content_active_tab === 'entries' ? 'active'" id="tm-entry-tab-entries" data-bs-toggle="tab" data-bs-target="#tm-entry-pane-entries" type="button" role="tab" aria-controls="tm-entry-pane-entries" n:attr="aria-selected => $content_active_tab === 'entries' ? 'true' : 'false'">
+                            Content <span class="badge text-bg-secondary ms-1">{$entry_counts['entries'] ?? 0}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button n:class="'nav-link', $content_active_tab === 'drafts' ? 'active'" id="tm-entry-tab-drafts" data-bs-toggle="tab" data-bs-target="#tm-entry-pane-drafts" type="button" role="tab" aria-controls="tm-entry-pane-drafts" n:attr="aria-selected => $content_active_tab === 'drafts' ? 'true' : 'false'">
+                            Drafts <span class="badge text-bg-secondary ms-1">{$entry_counts['drafts'] ?? 0}</span>
+                        </button>
+                    </li>
+                    {if ! empty( $content_moderation_required )}
+                        <li class="nav-item" role="presentation">
+                            <button n:class="'nav-link', $content_active_tab === 'moderation' ? 'active'" id="tm-entry-tab-moderation" data-bs-toggle="tab" data-bs-target="#tm-entry-pane-moderation" type="button" role="tab" aria-controls="tm-entry-pane-moderation" n:attr="aria-selected => $content_active_tab === 'moderation' ? 'true' : 'false'">
+                                Moderation <span class="badge text-bg-warning ms-1">{$entry_counts['pending_review'] ?? 0}</span>
+                            </button>
+                        </li>
+                    {/if}
+                    <li class="nav-item" role="presentation">
+                        <button n:class="'nav-link', $content_active_tab === 'trash' ? 'active'" id="tm-entry-tab-trash" data-bs-toggle="tab" data-bs-target="#tm-entry-pane-trash" type="button" role="tab" aria-controls="tm-entry-pane-trash" n:attr="aria-selected => $content_active_tab === 'trash' ? 'true' : 'false'">
+                            Trash <span class="badge text-bg-secondary ms-1">{$entry_counts['trash'] ?? 0}</span>
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content p-3" id="tm-entry-tabs-content">
+                    <div n:class="'tab-pane fade', $content_active_tab === 'entries' ? 'show active'" id="tm-entry-pane-entries" role="tabpanel" aria-labelledby="tm-entry-tab-entries" tabindex="0">
+                            <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                                <input type="hidden" name="tab" value="entries">
+                                <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                                <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                                <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                                <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                                <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                                <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                                <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                                <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                                <div class="col-12">
+                                    <input type="hidden" name="entries_tree" value="0">
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="tm-content-entries-tree" name="entries_tree" type="checkbox" value="1" n:attr="checked => $entries_tree_enabled">
+                                        <label class="form-check-label" for="tm-content-entries-tree">Show page tree order</label>
+                                    </div>
+                                </div>
+                                {if ! empty( $is_superadmin )}
+                                    <div class="col-12 col-md-4 col-lg-3">
+                                        <label class="form-label small mb-1" for="tm-content-filter-entries-owner">Owner</label>
+                                        <select class="form-select form-select-sm" id="tm-content-filter-entries-owner" name="entries_owner">
+                                            {foreach (is_array($owner_filter_options['entries'] ?? null) ? $owner_filter_options['entries'] : []) as $owner_option}
+                                                <option value="{$owner_option['value']}" n:attr="selected => $entries_owner_filter === (string) $owner_option['value']">{$owner_option['label']}</option>
+                                            {/foreach}
+                                        </select>
+                                    </div>
+                                {else}
+                                    <input type="hidden" name="entries_owner" value="">
+                                {/if}
+                                <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-4 col-lg-4' : 'col-md-6 col-lg-5'">
+                                    <label class="form-label small mb-1" for="tm-content-filter-entries-title">Title</label>
+                                    <input class="form-control form-control-sm" id="tm-content-filter-entries-title" name="entries_title" value="{$entries_title_filter}" type="text">
+                                </div>
+                                <div class="col-12 col-md-3 col-lg-2">
+                                    <label class="form-label small mb-1" for="tm-content-filter-entries-type">Type</label>
+                                    <select class="form-select form-select-sm" id="tm-content-filter-entries-type" name="entries_type">
+                                        <option value="" n:attr="selected => $entries_type_filter === ''">All</option>
+                                        <option value="post" n:attr="selected => $entries_type_filter === 'post'">Post</option>
+                                        <option value="page" n:attr="selected => $entries_type_filter === 'page'">Page</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+                                    <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}">Reset</a>
+                                </div>
+                                <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
+                                    Showing {count($entries)} ({$filtered_counts['entries'] ?? count($entries)})
+                                </div>
+                            </form>
+                        {if ! empty( $entries )}
+                            <form method="post" action="{$content_batch_url}" class="d-grid gap-3 tm-content-batch-form">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <input type="hidden" name="batch_tab" value="entries">
+                                <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                                <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                                <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                                <input type="hidden" name="entries_page" value="{$entries_page}">
+                                <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                                <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                                <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                                <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                                <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                                <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                                <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                                <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Content batch action">
+                                        <option value="">Batch action</option>
+                                        <option value="publish">Publish</option>
+                                        <option value="unpublish">Unpublish</option>
+                                        <option value="delete">Delete</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Apply</button>
+                                    <span class="small text-body-secondary d-none tm-batch-selected-count" aria-live="polite"></span>
+                                    {if ($entries_pagination['total_pages'] ?? 1) > 1}
+                                        <nav class="ms-auto" aria-label="Content pages">
+                                            <ul class="pagination pagination-sm mb-0">
+                                                <li n:class="'page-item', !($entries_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page=1&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="First content page" aria-label="First content page">
+                                                        <span class="bi bi-skip-start d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li n:class="'page-item', !($entries_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_pagination['previous_page'] ?? 1}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="Previous content page" aria-label="Previous content page">
+                                                        <span class="bi bi-chevron-left" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item disabled"><span class="page-link">{$entries_page}/{$entries_pagination['total_pages'] ?? 1}</span></li>
+                                                <li n:class="'page-item', !($entries_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_pagination['next_page'] ?? $entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="Next content page" aria-label="Next content page">
+                                                        <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li n:class="'page-item', !($entries_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_pagination['total_pages'] ?? $entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="Last content page" aria-label="Last content page">
+                                                        <span class="bi bi-skip-end d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                    {/if}
+                                </div>
+                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                <table class="table table-hover table-sm align-middle mb-0">
+                                    <thead class="tm-sticky-divider">
+                                        <tr>
+                                            <th scope="col" class="text-center" style="width: 2.5rem;">
+                                                <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-entries" aria-label="Select all saved content">
+                                            </th>
+                                            <th scope="col">Title</th>
+                                            <th scope="col">Path</th>
+                                            <th scope="col" class="text-center" style="width: 4rem;">State</th>
+                                            <th scope="col" class="text-center" style="width: 4rem;">Rev</th>
+                                            <th scope="col">Updated</th>
+                                            <th scope="col" class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {foreach $entries as $entry}
+                                            {var $entry_status_label = $entry['status'] === 'pending_review' ? 'Pending review' : ($entry['status'] === 'published' ? 'Published' : 'Unpublished')}
+                                            {var $entry_status_icon = $entry['status'] === 'pending_review' ? 'bi-circle-fill' : ($entry['status'] === 'published' ? 'bi-circle-fill' : 'bi-circle')}
+                                            {var $entry_tree_depth = $entries_tree_enabled && ($entry['type'] ?? '') === 'page' ? max(0, (int) ($entry['content_tree_depth'] ?? 0)) : 0}
+                                            {var $entry_tree_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $entry_tree_depth)}
+                                            <tr n:attr="data-open-url => $entry['active_draft'] ? ($editor_url . '?draft=' . rawurlencode((string) $entry['active_draft']['draft_id'])) : ($editor_url . '?entry=' . rawurlencode((string) $entry['id']))" class="tm-library-row">
+                                                <td class="text-center">
+                                                    <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$entry['id']}" aria-label="Select {$entry['title']}">
+                                                </td>
+                                                <td style="max-width:35% !important;">
+                                                    <div class="fw-semibold">
+                                                        {$entry_tree_indent|noescape}{$entry['title_highlight_html']|noescape}
+                                                    </div>
+                                                    <div class="small text-body-secondary">
+                                                        {if $entries_tree_enabled && ($entry['type'] ?? '') === 'page'}
+                                                            {$entry_tree_indent|noescape}{$entry['content_tree_display_path'] ?? $entry['path']} · #{$entry['sort_order'] ?? 0}{if ! empty($entry['active_draft'])} · active draft{/if}
+                                                        {elseif ($entry['type'] ?? '') === 'page'}
+                                                            Page #{$entry['sort_order'] ?? 0}{if ($entry['parent_slug'] ?? '') !== ''} · under /{$entry['parent_slug']}{else} · top-level{/if}{if ! empty($entry['active_draft'])} · active draft{/if}
+                                                        {else}
+                                                            {$entry['type']}{if ! empty($entry['active_draft'])} · active draft{/if}
+                                                        {/if}
+                                                    </div>
+                                                </td>
+                                                <td style="max-width:35% !important" class="small text-body-secondary font-monospace">
+                                                    {if ! empty( $is_superadmin )}
+                                                        {$entry['scope'] === 'author' ? $entry['author_slug'] : 'root'} / {$entry['path']}
+                                                    {else}
+                                                        {$entry['path']}
+                                                    {/if}
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge d-inline-flex align-items-center justify-content-center {if $entry['status'] === 'published'}text-success{elseif $entry['status'] === 'pending_review'}text-warning{else}text-secondary{/if}" title="{$entry_status_label}">
+                                                        <span class="bi {$entry_status_icon}" aria-hidden="true"></span>
+                                                        <span class="visually-hidden">{$entry_status_label}</span>
+                                                    </span>
+                                                </td>
+                                                <td class="text-center small text-body-secondary font-monospace" title="{$entry['revision_count']} revisions">{$entry['revision_count']}</td>
+                                                <td class="small text-body-secondary">
+                                                    {$entry['updated_at_display']}
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="d-inline-flex gap-1">
+                                                    {if ! empty( $entry['active_draft'] )}
+                                                        <a class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?draft={$entry['active_draft']['draft_id']}" title="Open draft" aria-label="Open draft">
+                                                            <span class="bi bi-pencil-square" aria-hidden="true"></span>
+                                                        </a>
+                                                    {else}
+                                                        <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?entry={$entry['id']}" title="Edit content" aria-label="Edit content">
+                                                            <span class="bi bi-pencil-square" aria-hidden="true"></span>
+                                                        </a>
+                                                    {/if}
+                                                    {if ($entry['status'] ?? '') === 'published' && ! empty($entry['view_url'])}
+                                                        <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center" href="{$entry['view_url']}" title="View published content" aria-label="View published content">
+                                                            <span class="bi bi-box-arrow-up-right" aria-hidden="true"></span>
+                                                        </a>
+                                                    {else}
+                                                        <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?entry={$entry['id']}" title="Preview in composer" aria-label="Preview in composer">
+                                                            <span class="bi bi-eye" aria-hidden="true"></span>
+                                                        </a>
+                                                    {/if}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {/foreach}
+                                    </tbody>
+                                </table>
+                                </div>
+                            </form>
+                        {else}
+                            <div class="small text-body-secondary">No saved content to show yet.</div>
+                        {/if}
+                    </div>
+                    <div n:class="'tab-pane fade', $content_active_tab === 'drafts' ? 'show active'" id="tm-entry-pane-drafts" role="tabpanel" aria-labelledby="tm-entry-tab-drafts" tabindex="0">
+                            <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                                <input type="hidden" name="tab" value="drafts">
+                                <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                                <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                                <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                                <input type="hidden" name="entries_page" value="{$entries_page}">
+                                <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                                <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                                <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                                <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                                {if ! empty( $is_superadmin )}
+                                    <div class="col-12 col-md-4 col-lg-3">
+                                        <label class="form-label small mb-1" for="tm-content-filter-drafts-owner">Owner</label>
+                                        <select class="form-select form-select-sm" id="tm-content-filter-drafts-owner" name="drafts_owner">
+                                            {foreach (is_array($owner_filter_options['drafts'] ?? null) ? $owner_filter_options['drafts'] : []) as $owner_option}
+                                                <option value="{$owner_option['value']}" n:attr="selected => $drafts_owner_filter === (string) $owner_option['value']">{$owner_option['label']}</option>
+                                            {/foreach}
+                                        </select>
+                                    </div>
+                                {else}
+                                    <input type="hidden" name="drafts_owner" value="">
+                                {/if}
+                                <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-4 col-lg-4' : 'col-md-6 col-lg-5'">
+                                    <label class="form-label small mb-1" for="tm-content-filter-drafts-title">Title</label>
+                                    <input class="form-control form-control-sm" id="tm-content-filter-drafts-title" name="drafts_title" value="{$drafts_title_filter}" type="text">
+                                </div>
+                                <div class="col-12 col-md-3 col-lg-2">
+                                    <label class="form-label small mb-1" for="tm-content-filter-drafts-type">Type</label>
+                                    <select class="form-select form-select-sm" id="tm-content-filter-drafts-type" name="drafts_type">
+                                        <option value="" n:attr="selected => $drafts_type_filter === ''">All</option>
+                                        <option value="post" n:attr="selected => $drafts_type_filter === 'post'">Post</option>
+                                        <option value="page" n:attr="selected => $drafts_type_filter === 'page'">Page</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+                                    <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=drafts">Reset</a>
+                                </div>
+                                <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
+                                    Showing {count($entry_drafts)} ({$filtered_counts['drafts'] ?? count($entry_drafts)})
+                                </div>
+                            </form>
+                        {if ! empty( $entry_drafts )}
+                            <form method="post" action="{$content_batch_url}" class="d-grid gap-3 tm-content-batch-form">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <input type="hidden" name="batch_tab" value="drafts">
+                                <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                                <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                                <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                                <input type="hidden" name="entries_page" value="{$entries_page}">
+                                <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                                <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                                <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                                <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                                <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                                <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                                <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                                <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Draft batch action">
+                                        <option value="">Batch action</option>
+                                        <option value="delete">Delete</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-secondary tm-batch-submit" type="submit">Apply</button>
+                                    <span class="small text-body-secondary d-none tm-batch-selected-count" aria-live="polite"></span>
+                                    {if ($drafts_pagination['total_pages'] ?? 1) > 1}
+                                        <nav class="ms-auto" aria-label="Draft pages">
+                                            <ul class="pagination pagination-sm mb-0">
+                                                <li n:class="'page-item', !($drafts_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=drafts&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page=1&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="First draft page" aria-label="First draft page">
+                                                        <span class="bi bi-skip-start d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li n:class="'page-item', !($drafts_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=drafts&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_pagination['previous_page'] ?? 1}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="Previous draft page" aria-label="Previous draft page">
+                                                        <span class="bi bi-chevron-left" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item disabled"><span class="page-link">{$drafts_page}/{$drafts_pagination['total_pages'] ?? 1}</span></li>
+                                                <li n:class="'page-item', !($drafts_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=drafts&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_pagination['next_page'] ?? $drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="Next draft page" aria-label="Next draft page">
+                                                        <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li n:class="'page-item', !($drafts_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=drafts&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_pagination['total_pages'] ?? $drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}" title="Last draft page" aria-label="Last draft page">
+                                                        <span class="bi bi-skip-end d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                    {/if}
+                                </div>
+                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" class="text-center" style="width: 2.5rem;">
+                                                <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-drafts" aria-label="Select all drafts">
+                                            </th>
+                                            <th scope="col">Draft</th>
+                                            <th scope="col">Scope</th>
+                                            <th scope="col">Updated</th>
+                                            <th scope="col" class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {foreach $entry_drafts as $draft}
+                                            <tr n:attr="data-open-url => $draft['open_url'] ?? ($editor_url . '?draft=' . rawurlencode((string) $draft['draft_id']))" class="tm-library-row">
+                                                <td class="text-center">
+                                                    <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$draft['draft_id']}" aria-label="Select {$draft['title']}">
+                                                </td>
+                                                <td>
+                                                    <div class="fw-semibold">{$draft['title_highlight_html']|noescape}</div>
+                                                    <div class="small text-body-secondary">{$draft['entry_type']} · {$draft['slug'] !== '' ? $draft['slug'] : 'no slug yet'}</div>
+                                                </td>
+                                                <td class="small text-body-secondary font-monospace">{$draft['scope'] === 'author' ? $draft['author_slug'] : 'root'}</td>
+                                                <td class="small text-body-secondary">{$draft['updated_at_display']}</td>
+                                                <td class="text-end">
+                                                    <div class="d-inline-flex gap-1">
+                                                        <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?draft={$draft['draft_id']}" title="Open draft" aria-label="Open draft">
+                                                            <span class="bi bi-pencil-square" aria-hidden="true"></span>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {/foreach}
+                                    </tbody>
+                                </table>
+                                </div>
+                            </form>
+                        {else}
+                            <div class="small text-body-secondary">No drafts to show yet.</div>
+                        {/if}
+                    </div>
+                    {if ! empty( $content_moderation_required )}
+                        <div n:class="'tab-pane fade', $content_active_tab === 'moderation' ? 'show active'" id="tm-entry-pane-moderation" role="tabpanel" aria-labelledby="tm-entry-tab-moderation" tabindex="0">
+                                <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                                    <input type="hidden" name="tab" value="moderation">
+                                    <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                                    <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                                    <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                    <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                                    <input type="hidden" name="entries_page" value="{$entries_page}">
+                                    <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                                    <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                                    <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                                    <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                                    {if ! empty( $is_superadmin )}
+                                        <div class="col-12 col-md-4 col-lg-3">
+                                            <label class="form-label small mb-1" for="tm-content-filter-moderation-owner">Owner</label>
+                                            <select class="form-select form-select-sm" id="tm-content-filter-moderation-owner" name="moderation_owner">
+                                                {foreach (is_array($owner_filter_options['moderation'] ?? null) ? $owner_filter_options['moderation'] : []) as $owner_option}
+                                                    <option value="{$owner_option['value']}" n:attr="selected => $moderation_owner_filter === (string) $owner_option['value']">{$owner_option['label']}</option>
+                                                {/foreach}
+                                            </select>
+                                        </div>
+                                    {else}
+                                        <input type="hidden" name="moderation_owner" value="">
+                                    {/if}
+                                    <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-4 col-lg-4' : 'col-md-6 col-lg-5'">
+                                        <label class="form-label small mb-1" for="tm-content-filter-moderation-title">Title</label>
+                                        <input class="form-control form-control-sm" id="tm-content-filter-moderation-title" name="moderation_title" value="{$moderation_title_filter}" type="text">
+                                    </div>
+                                    <div class="col-12 col-md-3 col-lg-2">
+                                        <label class="form-label small mb-1" for="tm-content-filter-moderation-type">Type</label>
+                                        <select class="form-select form-select-sm" id="tm-content-filter-moderation-type" name="moderation_type">
+                                            <option value="" n:attr="selected => $moderation_type_filter === ''">All</option>
+                                            <option value="post" n:attr="selected => $moderation_type_filter === 'post'">Post</option>
+                                            <option value="page" n:attr="selected => $moderation_type_filter === 'page'">Page</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                                        <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+                                        <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=moderation">Reset</a>
+                                    </div>
+                                    <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
+                                        Showing {count($pending_review_entries)} ({$filtered_counts['pending_review'] ?? count($pending_review_entries)})
+                                    </div>
+                                </form>
+                            {if ! empty( $pending_review_entries )}
+                                {if ($moderation_pagination['total_pages'] ?? 1) > 1}
+                                    <div class="d-flex justify-content-end mb-3">
+                                        <nav aria-label="Moderation pages">
+                                            <ul class="pagination pagination-sm mb-0">
+                                                <li n:class="'page-item', !($moderation_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=moderation&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page=1" title="First moderation page" aria-label="First moderation page">
+                                                        <span class="bi bi-skip-start d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li n:class="'page-item', !($moderation_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=moderation&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_pagination['previous_page'] ?? 1}" title="Previous moderation page" aria-label="Previous moderation page">
+                                                        <span class="bi bi-chevron-left" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item disabled"><span class="page-link">{$moderation_page}/{$moderation_pagination['total_pages'] ?? 1}</span></li>
+                                                <li n:class="'page-item', !($moderation_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=moderation&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_pagination['next_page'] ?? $moderation_page}" title="Next moderation page" aria-label="Next moderation page">
+                                                        <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                                <li n:class="'page-item', !($moderation_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=moderation&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_pagination['total_pages'] ?? $moderation_page}" title="Last moderation page" aria-label="Last moderation page">
+                                                        <span class="bi bi-skip-end d-inline-block" style="transform: scale(1.2); transform-origin: center;" aria-hidden="true"></span>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                {/if}
+                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Content</th>
+                                                <th scope="col">Path</th>
+                                                <th scope="col">Updated</th>
+                                                <th scope="col" class="text-end">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {foreach $pending_review_entries as $entry}
+                                                <tr>
+                                                    <td>
+                                                        <div class="fw-semibold">{$entry['title_highlight_html']|noescape}</div>
+                                                        <div class="small text-body-secondary">{$entry['type']} · {$entry['revision_count']} rev</div>
+                                                    </td>
+                                                    <td class="small text-body-secondary font-monospace">
+                                                        {if ! empty( $is_superadmin )}
+                                                            {$entry['scope'] === 'author' ? $entry['author_slug'] : 'root'} / {$entry['path']}
+                                                        {else}
+                                                            {$entry['path']}
+                                                        {/if}
+                                                    </td>
+                                                    <td class="small text-body-secondary">{$entry['updated_at_display']}</td>
+                                                    <td class="text-end">
+                                                        <div class="d-inline-flex gap-1">
+                                                        {if ! empty( $entry['active_draft'] )}
+                                                            <a class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?draft={$entry['active_draft']['draft_id']}" title="Open draft" aria-label="Open draft">
+                                                                <span class="bi bi-pencil-square" aria-hidden="true"></span>
+                                                            </a>
+                                                        {else}
+                                                            <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?entry={$entry['id']}" title="Edit content" aria-label="Edit content">
+                                                                <span class="bi bi-pencil-square" aria-hidden="true"></span>
+                                                            </a>
+                                                        {/if}
+                                                        {if $can_moderate_here}
+                                                            <a class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center" href="{$editor_url}?entry={$entry['id']}" title="Review content" aria-label="Review content">
+                                                                <span class="bi bi-eye" aria-hidden="true"></span>
+                                                            </a>
+                                                        {/if}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {/foreach}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {else}
+                                <div class="small text-body-secondary">No content is waiting for review right now.</div>
+                            {/if}
+                        </div>
+                    {/if}
+                    <div n:class="'tab-pane fade', $content_active_tab === 'trash' ? 'show active'" id="tm-entry-pane-trash" role="tabpanel" aria-labelledby="tm-entry-tab-trash" tabindex="0">
+                        <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                            <input type="hidden" name="tab" value="trash">
+                            <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                            <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                            <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                            <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                            <input type="hidden" name="entries_page" value="{$entries_page}">
+                            <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                            <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                            <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                            <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                            <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                            <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                            <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                            <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                            {if ! empty( $is_superadmin )}
+                                <div class="col-12 col-md-4 col-lg-3">
+                                    <label class="form-label small mb-1" for="tm-content-filter-trash-owner">Owner</label>
+                                    <select class="form-select form-select-sm" id="tm-content-filter-trash-owner" name="trash_owner">
+                                        {foreach (is_array($owner_filter_options['trash'] ?? null) ? $owner_filter_options['trash'] : []) as $owner_option}
+                                            <option value="{$owner_option['value']}" n:attr="selected => $trash_owner_filter === (string) $owner_option['value']">{$owner_option['label']}</option>
+                                        {/foreach}
+                                    </select>
+                                </div>
+                            {else}
+                                <input type="hidden" name="trash_owner" value="">
+                            {/if}
+                            <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-4 col-lg-4' : 'col-md-6 col-lg-5'">
+                                <label class="form-label small mb-1" for="tm-content-filter-trash-title">Title</label>
+                                <input class="form-control form-control-sm" id="tm-content-filter-trash-title" name="trash_title" value="{$trash_title_filter}" type="text">
+                            </div>
+                            <div class="col-12 col-md-3 col-lg-2">
+                                <label class="form-label small mb-1" for="tm-content-filter-trash-type">Type</label>
+                                <select class="form-select form-select-sm" id="tm-content-filter-trash-type" name="trash_type">
+                                    <option value="" n:attr="selected => $trash_type_filter === ''">All</option>
+                                    <option value="post" n:attr="selected => $trash_type_filter === 'post'">Post</option>
+                                    <option value="page" n:attr="selected => $trash_type_filter === 'page'">Page</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
+                                <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=trash&entries_tree={$entries_tree_filter}">Reset</a>
+                            </div>
+                            <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
+                                Showing {count($trash_entries)} ({$filtered_counts['trash'] ?? count($trash_entries)})
+                            </div>
+                        </form>
+                        {if ! empty( $trash_entries )}
+                            <form method="post" action="{$content_batch_url}" class="d-grid gap-3 tm-content-batch-form">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <input type="hidden" name="batch_tab" value="trash">
+                                <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
+                                <input type="hidden" name="entries_title" value="{$entries_title_filter}">
+                                <input type="hidden" name="entries_type" value="{$entries_type_filter}">
+                                <input type="hidden" name="entries_tree" value="{$entries_tree_filter}">
+                                <input type="hidden" name="entries_page" value="{$entries_page}">
+                                <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
+                                <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
+                                <input type="hidden" name="drafts_type" value="{$drafts_type_filter}">
+                                <input type="hidden" name="drafts_page" value="{$drafts_page}">
+                                <input type="hidden" name="moderation_owner" value="{$moderation_owner_filter}">
+                                <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
+                                <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
+                                <input type="hidden" name="moderation_page" value="{$moderation_page}">
+                                <input type="hidden" name="trash_owner" value="{$trash_owner_filter}">
+                                <input type="hidden" name="trash_title" value="{$trash_title_filter}">
+                                <input type="hidden" name="trash_type" value="{$trash_type_filter}">
+                                <input type="hidden" name="trash_page" value="{$trash_page}">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Trash batch action">
+                                        <option value="">Batch action</option>
+                                        <option value="restore">Restore as unpublished</option>
+                                        <option value="permanent_delete">Delete permanently</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Apply</button>
+                                    <span class="small text-body-secondary d-none tm-batch-selected-count" aria-live="polite"></span>
+                                    {if ($trash_pagination['total_pages'] ?? 1) > 1}
+                                        <nav class="ms-auto" aria-label="Trash pages">
+                                            <ul class="pagination pagination-sm mb-0">
+                                                <li n:class="'page-item', !($trash_pagination['has_previous'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=trash&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}&trash_owner={$trash_owner_filter}&trash_title={$trash_title_filter}&trash_type={$trash_type_filter}&trash_page={$trash_pagination['previous_page'] ?? 1}" title="Previous Trash page" aria-label="Previous Trash page"><span class="bi bi-chevron-left" aria-hidden="true"></span></a>
+                                                </li>
+                                                <li class="page-item disabled"><span class="page-link">{$trash_page}/{$trash_pagination['total_pages'] ?? 1}</span></li>
+                                                <li n:class="'page-item', !($trash_pagination['has_next'] ?? false) ? 'disabled'">
+                                                    <a class="page-link" href="{$entries_url}?tab=trash&entries_owner={$entries_owner_filter}&entries_title={$entries_title_filter}&entries_type={$entries_type_filter}&entries_tree={$entries_tree_filter}&entries_page={$entries_page}&drafts_owner={$drafts_owner_filter}&drafts_title={$drafts_title_filter}&drafts_type={$drafts_type_filter}&drafts_page={$drafts_page}&moderation_owner={$moderation_owner_filter}&moderation_title={$moderation_title_filter}&moderation_type={$moderation_type_filter}&moderation_page={$moderation_page}&trash_owner={$trash_owner_filter}&trash_title={$trash_title_filter}&trash_type={$trash_type_filter}&trash_page={$trash_pagination['next_page'] ?? $trash_page}" title="Next Trash page" aria-label="Next Trash page"><span class="bi bi-chevron-right" aria-hidden="true"></span></a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                    {/if}
+                                </div>
+                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col" class="text-center" style="width: 2.5rem;">
+                                                    <input class="form-check-input tm-batch-toggle" type="checkbox" value="1" data-target="#tm-entry-pane-trash" aria-label="Select all Trash content">
+                                                </th>
+                                                <th scope="col">Content</th>
+                                                <th scope="col">Path</th>
+                                                <th scope="col">Previous state</th>
+                                                <th scope="col">Trashed</th>
+                                                <th scope="col" class="text-center" style="width: 4rem;">Rev</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {foreach $trash_entries as $entry}
+                                                <tr>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input tm-batch-item" type="checkbox" name="selected_ids[]" value="{$entry['id']}" aria-label="Select {$entry['title']}">
+                                                    </td>
+                                                    <td>
+                                                        <div class="fw-semibold">{$entry['title_highlight_html']|noescape}</div>
+                                                        <div class="small text-body-secondary">{$entry['type']}{if ! empty($entry['trashed_by'])} · by {$entry['trashed_by']}{/if}</div>
+                                                    </td>
+                                                    <td class="small text-body-secondary font-monospace">
+                                                        {if ! empty( $is_superadmin )}
+                                                            {$entry['scope'] === 'author' ? $entry['author_slug'] : 'root'} / {$entry['path']}
+                                                        {else}
+                                                            {$entry['path']}
+                                                        {/if}
+                                                    </td>
+                                                    <td class="small text-body-secondary">{$entry['pre_trash_status'] ?? 'unpublished'}</td>
+                                                    <td class="small text-body-secondary">{$entry['trashed_at_display'] ?? ''}</td>
+                                                    <td class="text-center small text-body-secondary font-monospace" title="{$entry['revision_count']} revisions">{$entry['revision_count']}</td>
+                                                </tr>
+                                            {/foreach}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </form>
+                        {else}
+                            <div class="small text-body-secondary">Trash is empty.</div>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="tm-batch-delete-modal" tabindex="-1" aria-labelledby="tm-batch-delete-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="tm-batch-delete-modal-label">Confirm delete</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0" id="tm-batch-delete-modal-message">Delete the selected items?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="tm-batch-delete-confirm">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="tm-batch-working-modal" tabindex="-1" aria-label="Working" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div class="d-inline-flex align-items-center gap-2">
+                        <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+                        <span id="tm-batch-working-message">Working…</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const entriesTreeToggle = document.getElementById('tm-content-entries-tree');
+        const entriesTreeStorageKey = 'tinymash.admin.content.entries_tree';
+        const deleteModalElement = document.getElementById('tm-batch-delete-modal');
+        const deleteModal = deleteModalElement && window.bootstrap ? new bootstrap.Modal(deleteModalElement) : null;
+        const deleteModalLabel = document.getElementById('tm-batch-delete-modal-label');
+        const deleteModalMessage = document.getElementById('tm-batch-delete-modal-message');
+        const confirmDeleteButton = document.getElementById('tm-batch-delete-confirm');
+        const workingModalElement = document.getElementById('tm-batch-working-modal');
+        const workingModal = workingModalElement && window.bootstrap ? new bootstrap.Modal(workingModalElement) : null;
+        const workingMessage = document.getElementById('tm-batch-working-message');
+        let pendingDeleteForm = null;
+        let pendingDeleteCount = 0;
+
+        if (entriesTreeToggle) {
+            const url = new URL(window.location.href);
+            const hasTreeParam = url.searchParams.has('entries_tree');
+            let storedTreeMode = '';
+            try {
+                storedTreeMode = window.localStorage ? String(window.localStorage.getItem(entriesTreeStorageKey) || '') : '';
+            } catch (error) {
+                storedTreeMode = '';
+            }
+
+            if (!hasTreeParam && storedTreeMode === '0') {
+                url.searchParams.set('entries_tree', '0');
+                url.searchParams.delete('entries_page');
+                window.location.replace(url.toString());
+                return;
+            }
+
+            try {
+                if (window.localStorage) {
+                    window.localStorage.setItem(entriesTreeStorageKey, entriesTreeToggle.checked ? '1' : '0');
+                }
+            } catch (error) {
+            }
+
+            entriesTreeToggle.addEventListener('change', function () {
+                try {
+                    if (window.localStorage) {
+                        window.localStorage.setItem(entriesTreeStorageKey, entriesTreeToggle.checked ? '1' : '0');
+                    }
+                } catch (error) {
+                }
+
+                const form = entriesTreeToggle.closest('form');
+                if (form) {
+                    form.submit();
+                }
+            });
+        }
+
+        const showWorkingModal = function (message) {
+            if (workingMessage && message) {
+                workingMessage.textContent = message;
+            }
+            if (workingModal) {
+                workingModal.show();
+            }
+        };
+
+        window.addEventListener('pageshow', function () {
+            if (workingModal) {
+                workingModal.hide();
+            }
+        });
+
+        document.querySelectorAll('.tm-batch-toggle').forEach(function (toggle) {
+            toggle.addEventListener('change', function () {
+                const pane = document.querySelector(toggle.dataset.target || '');
+                if (!pane) {
+                    return;
+                }
+                pane.querySelectorAll('.tm-batch-item').forEach(function (item) {
+                    item.checked = toggle.checked;
+                });
+                const form = toggle.closest('form');
+                if (form) {
+                    updateSelectedCount(form);
+                }
+            });
+        });
+
+        function updateSelectedCount(form) {
+            if (!form) {
+                return;
+            }
+            const countTarget = form.querySelector('.tm-batch-selected-count');
+            if (!countTarget) {
+                return;
+            }
+            const selectedCount = form.querySelectorAll('.tm-batch-item:checked').length;
+            countTarget.textContent = selectedCount > 0 ? selectedCount + ' selected' : '';
+            countTarget.classList.toggle('d-none', selectedCount < 1);
+        }
+
+        document.querySelectorAll('.tm-content-batch-form').forEach(function (form) {
+            form.querySelectorAll('.tm-batch-item').forEach(function (item) {
+                item.addEventListener('change', function () {
+                    updateSelectedCount(form);
+                });
+            });
+            updateSelectedCount(form);
+        });
+
+        document.querySelectorAll('.tm-library-row').forEach(function (row) {
+            row.addEventListener('click', function (event) {
+                if (event.target.closest('a, button, input, label, select, textarea, .dropdown-menu')) {
+                    return;
+                }
+                const openUrl = row.getAttribute('data-open-url');
+                if (openUrl) {
+                    window.location.href = openUrl;
+                }
+            });
+        });
+
+        document.querySelectorAll('.tm-content-batch-form').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                const actionField = form.querySelector('[name="batch_action"]');
+                const action = actionField ? actionField.value : '';
+                const checkedItems = form.querySelectorAll('.tm-batch-item:checked');
+                if (!action || checkedItems.length === 0) {
+                    event.preventDefault();
+                    return;
+                }
+
+                if ((action === 'delete' || action === 'permanent_delete') && deleteModal) {
+                    event.preventDefault();
+                    pendingDeleteForm = form;
+                    pendingDeleteCount = checkedItems.length;
+                    if (deleteModalLabel) {
+                        deleteModalLabel.textContent = action === 'permanent_delete' ? 'Confirm permanent delete' : 'Confirm delete';
+                    }
+                    if (deleteModalMessage) {
+                        deleteModalMessage.textContent = action === 'permanent_delete' ? 'Delete the selected items permanently? This cannot be undone.' : 'Delete the selected items?';
+                    }
+                    if (confirmDeleteButton) {
+                        confirmDeleteButton.textContent = action === 'permanent_delete' ? 'Delete permanently' : 'Delete';
+                    }
+                    deleteModal.show();
+                    return;
+                }
+
+                if (checkedItems.length >= 5) {
+                    showWorkingModal((action === 'delete' || action === 'permanent_delete') ? 'Deleting selected items…' : 'Applying batch action…');
+                }
+            });
+        });
+
+        if (confirmDeleteButton) {
+            confirmDeleteButton.addEventListener('click', function () {
+                if (pendingDeleteForm) {
+                    if (deleteModal) {
+                        deleteModal.hide();
+                    }
+                    if (pendingDeleteCount >= 5) {
+                        showWorkingModal('Deleting selected items…');
+                    }
+                    pendingDeleteForm.submit();
+                }
+            });
+        }
+
+        const entryTabs = document.getElementById('tm-entry-tabs');
+        if (entryTabs) {
+            entryTabs.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (tabButton) {
+                tabButton.addEventListener('shown.bs.tab', function (event) {
+                    const target = event.target.getAttribute('data-bs-target') || '';
+                    let tabName = 'entries';
+                    if (target === '#tm-entry-pane-drafts') {
+                        tabName = 'drafts';
+                    } else if (target === '#tm-entry-pane-moderation') {
+                        tabName = 'moderation';
+                    } else if (target === '#tm-entry-pane-trash') {
+                        tabName = 'trash';
+                    }
+                    const url = new URL(window.location.href);
+                    if (tabName === 'entries') {
+                        url.searchParams.delete('tab');
+                    } else {
+                        url.searchParams.set('tab', tabName);
+                    }
+                    window.history.replaceState({}, '', url.toString());
+                });
+            });
+        }
+    });
+    </script>
+{/block}

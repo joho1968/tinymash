@@ -1,0 +1,70 @@
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Users</div>
+    <div class="fw-semibold mb-1">{if $system_user_form['original_username'] !== ''}Edit user{else}Create user{/if}</div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-outline-secondary btn-sm" href="{$system_section_urls['users']}">Back to users</a>
+    </div>
+    <form method="post" action="{$system_user_save_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="original_username" value="{$system_user_form['original_username']}">
+        <div class="row g-3">
+            <div class="col-12 col-xl-8">
+                <label class="form-label small mb-1" for="tm-system-user-username">Username/Author</label>
+                <input class="form-control font-monospace" id="tm-system-user-username" name="username" type="text" value="{$system_user_form['username']}" n:attr="readonly => $system_user_form['original_username'] !== ''" placeholder="lowercase_letters_numbers_only">
+                <div class="form-text">This value is used as both the login username and the public author path. Use lowercase letters, numbers, and underscores only.</div>
+            </div>
+            <div class="col-12 col-xl-4">
+                <label class="form-label small mb-1" for="tm-system-user-role">Role</label>
+                <select class="form-select" id="tm-system-user-role" name="role">
+                    <option value="creator" n:attr="selected => $system_user_form['role'] === 'creator'">Author</option>
+                    <option value="superadmin" n:attr="selected => $system_user_form['role'] === 'superadmin'">Admin</option>
+                </select>
+            </div>
+            <div class="col-12 col-xl-8">
+                <label class="form-label small mb-1" for="tm-system-user-email">Account e-mail</label>
+                <input class="form-control font-monospace" id="tm-system-user-email" name="email" type="email" value="{$system_user_form['email']}">
+            </div>
+            <div class="col-12 col-xl-4">
+                <label class="form-label small mb-1" for="tm-system-user-display-name">Display name</label>
+                <input class="form-control" id="tm-system-user-display-name" name="display_name" type="text" maxlength="120" value="{$system_user_form['display_name'] ?? ''}">
+                <div class="form-text">Optional. Used for public author labels and statistics.</div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <label class="form-label small mb-1" for="tm-system-user-password">Password</label>
+                <div class="input-group">
+                    <input class="form-control font-monospace" id="tm-system-user-password" name="password" type="password" value="" autocomplete="new-password">
+                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-system-user-password">
+                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="form-text">{if $system_user_form['original_username'] !== ''}Leave blank to keep the current password.{else}Required for a new user.{/if}</div>
+            </div>
+            <div class="col-12 col-xl-6">
+                <label class="form-label small mb-1" for="tm-system-user-confirm-password">Confirm password</label>
+                <div class="input-group">
+                    <input class="form-control font-monospace" id="tm-system-user-confirm-password" name="confirm_password" type="password" value="" autocomplete="new-password">
+                    <button class="btn btn-outline-secondary tm-password-toggle" type="button" title="Show password" aria-label="Show password" data-target="tm-system-user-confirm-password">
+                        <span class="bi bi-eye-slash-fill" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <div class="form-text">Repeat the new password when setting or changing it.</div>
+            </div>
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" id="tm-system-user-active" name="active" type="checkbox" n:attr="checked => $system_user_form['active']">
+                        <label class="form-check-label" for="tm-system-user-active">Account enabled</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" id="tm-system-user-content-active" name="content_active" type="checkbox" n:attr="checked => $system_user_form['content_active']">
+                        <label class="form-check-label" for="tm-system-user-content-active">Public content enabled</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button class="btn btn-primary btn-sm" type="submit">Save user</button>
+                <a class="btn btn-outline-secondary btn-sm" href="{$system_section_urls['users']}">Cancel</a>
+            </div>
+        </div>
+    </form>
+</section>

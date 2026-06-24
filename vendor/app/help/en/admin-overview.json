@@ -1,0 +1,17 @@
+{
+  "group": "Administration",
+  "roles": ["admin"],
+  "order": 10,
+  "title": "Dashboard",
+  "summary": "Overview for admins.",
+  "sections": [
+    {
+      "title": "Use it for",
+      "markdown": "- Site/runtime toggles\n- Counts for drafts, content, and moderation\n- Quick links into the main admin areas"
+    },
+    {
+      "title": "Leave it for",
+      "markdown": "- **Composer**: day-to-day writing\n- **Content**: saved items, drafts, and moderation\n- **System settings**: policy and operational changes"
+    }
+  ]
+}

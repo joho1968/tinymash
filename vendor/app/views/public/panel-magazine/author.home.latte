@@ -1,0 +1,39 @@
+{extends '../baseline/layout.latte'}
+
+{block content}
+    {var $magazine_layout_enabled = empty( $force_listing_results ) && (string) ($panel_magazine_list_layout ?? ($theme_settings['post_list_layout'] ?? 'magazine')) === 'magazine'}
+    <section class="tm-panel-magazine-listing d-grid gap-4">
+        {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
+            <header class="tm-panel-magazine-listing-context px-3 py-3">
+                <h1 n:if="! empty( $listing_context_title )" class="h5 mb-2">{$listing_context_title}</h1>
+                <p n:if="! empty( $listing_context_summary )" class="mb-0 text-secondary">{$listing_context_summary}</p>
+            </header>
+        {/if}
+        {if empty( $posts )}
+            <div class="tm-panel-magazine-empty p-3">
+                <p class="mb-0 text-secondary">{$listing_empty_message ?? 'No published posts yet.'}</p>
+            </div>
+        {elseif $magazine_layout_enabled && ! empty( $panel_magazine_lead_entry )}
+            <section class="tm-panel-magazine-feature-stories d-grid gap-4" aria-label="Featured stories">
+                {include './partials/story.latte', entry: $panel_magazine_lead_entry, story_variant: 'lead'}
+                <div n:if="! empty( $panel_magazine_secondary_entries )" class="tm-panel-magazine-secondary-stories d-grid gap-3">
+                    {foreach $panel_magazine_secondary_entries as $entry}
+                        {include './partials/story.latte', entry: $entry, story_variant: 'secondary'}
+                    {/foreach}
+                </div>
+            </section>
+            <section n:if="! empty( $panel_magazine_stream_entries )" class="tm-panel-magazine-story-stream d-grid gap-3" aria-label="More stories">
+                {foreach $panel_magazine_stream_entries as $entry}
+                    {include './partials/story.latte', entry: $entry, story_variant: 'compact'}
+                {/foreach}
+            </section>
+        {else}
+            <section class="tm-panel-magazine-story-stream tm-panel-magazine-story-stream-full d-grid gap-3" aria-label="Stories">
+                {foreach $posts as $entry}
+                    {include './partials/story.latte', entry: $entry, story_variant: 'stream'}
+                {/foreach}
+            </section>
+        {/if}
+        {include '../baseline/partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+    </section>
+{/block}
