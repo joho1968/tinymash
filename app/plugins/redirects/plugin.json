@@ -1,7 +1,7 @@
 {
     "key": "redirects",
     "name": "Redirects",
-    "version": "0.92.2",
+    "version": "0.93.0",
     "description": "Redirects a specific /path to a page or a post.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

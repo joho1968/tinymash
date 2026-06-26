@@ -5,16 +5,16 @@ tinymash includes a command-line tool for operational tasks such as cache mainte
 Run commands from the tinymash runtime root:
 
 ```bash
-php8.4 bin/tinymash.php help
+php8.4 bin/tinymash.php list
 ```
 
-If your install includes the executable wrapper, this is equivalent:
+`bin/tinymash.php` is the only shipped CLI entrypoint. Symfony Console provides command discovery, per-command help, ANSI color support, and standard options such as `--no-ansi`, `--no-interaction`, and `--verbose`.
 
 ```bash
-bin/tinymash help
+php8.4 bin/tinymash.php help setup
 ```
 
-The examples below use the explicit PHP command because it works in both source checkouts and prepared runtime trees.
+Older two-word command forms such as `cache clear` are accepted as compatibility aliases where practical, but the documented command names use Symfony-style colons.
 
 ## Root User Guard
 
@@ -23,7 +23,7 @@ Run tinymash CLI commands as the runtime owner, not as `root`.
 When the effective user or group is `root`, read-only commands print a warning and continue. Mutating commands ask for confirmation before they continue. Non-interactive root runs must either use the correct runtime user or pass the explicit override:
 
 ```bash
-php8.4 bin/tinymash.php --allow-root cache clear
+php8.4 bin/tinymash.php --allow-root cache:clear
 ```
 
 Use `--allow-root` only when root-owned output is intentional.
@@ -33,7 +33,39 @@ Use `--allow-root` only when root-owned output is intentional.
 Show the available core commands and any commands registered by active plugins:
 
 ```bash
-php8.4 bin/tinymash.php help
+php8.4 bin/tinymash.php list
+php8.4 bin/tinymash.php help user:set-password
+```
+
+## First Setup
+
+Configure a deployed tree and create the first superadmin:
+
+```bash
+php8.4 bin/tinymash.php setup
+```
+
+For unattended setup, provide required values as options and pass the password through STDIN or a file:
+
+```bash
+printf '%s' "$PASSWORD" | php8.4 bin/tinymash.php setup \
+  --site-name="My Site" \
+  --base-url=https://example.com \
+  --timezone=Europe/Stockholm \
+  --language=en \
+  --admin-user=admin \
+  --admin-email=admin@example.com \
+  --password-stdin \
+  --no-interaction
+```
+
+If a config already exists, `setup` warns first. Interactive reruns ask for confirmation. Non-interactive reruns require `--update`. Existing config is preserved; setup updates only the site name, base URL, default language, timezone, public/private flag, admin e-mail, and selected superadmin user.
+
+Password options:
+
+```bash
+php8.4 bin/tinymash.php setup --password-file=/secure/path/admin-password
+printf '%s' "$PASSWORD" | php8.4 bin/tinymash.php setup --password-stdin
 ```
 
 Plugin commands are only listed when the plugin is active and available to the CLI runtime.
@@ -43,20 +75,20 @@ Plugin commands are only listed when the plugin is active and available to the C
 Show a small runtime summary:
 
 ```bash
-php8.4 bin/tinymash.php system status
+php8.4 bin/tinymash.php system:status
 ```
 
 Check maintenance mode:
 
 ```bash
-php8.4 bin/tinymash.php maintenance status
+php8.4 bin/tinymash.php maintenance:status
 ```
 
 Enable or disable maintenance mode:
 
 ```bash
-php8.4 bin/tinymash.php maintenance on
-php8.4 bin/tinymash.php maintenance off
+php8.4 bin/tinymash.php maintenance:on
+php8.4 bin/tinymash.php maintenance:off
 ```
 
 ## Users
@@ -64,19 +96,19 @@ php8.4 bin/tinymash.php maintenance off
 List local users:
 
 ```bash
-php8.4 bin/tinymash.php user list
+php8.4 bin/tinymash.php user:list
 ```
 
 Create or update a local user password:
 
 ```bash
-php8.4 bin/tinymash.php user set-password <username> <password> [role]
+php8.4 bin/tinymash.php user:set-password <username> <password> [role]
 ```
 
 For the first administrator, use:
 
 ```bash
-php8.4 bin/tinymash.php user set-password admin strong-password-here superadmin
+php8.4 bin/tinymash.php setup
 ```
 
 ## Cache
@@ -84,15 +116,15 @@ php8.4 bin/tinymash.php user set-password admin strong-password-here superadmin
 Clear compiled Latte cache files, the persistent content index cache, and cached public page responses:
 
 ```bash
-php8.4 bin/tinymash.php cache clear
+php8.4 bin/tinymash.php cache:clear
 ```
 
 Warm public listing caches and prune expired public response cache files:
 
 ```bash
-php8.4 bin/tinymash.php cache warm
-php8.4 bin/tinymash.php cache warm --base-url=https://example.com
-php8.4 bin/tinymash.php cache warm --base-url=https://example.com --author=joho --entries
+php8.4 bin/tinymash.php cache:warm
+php8.4 bin/tinymash.php cache:warm --base-url=https://example.com
+php8.4 bin/tinymash.php cache:warm --base-url=https://example.com --author=joho --entries
 ```
 
 Useful options:
@@ -108,19 +140,19 @@ Useful options:
 Show housekeeping policy and last-run state:
 
 ```bash
-php8.4 bin/tinymash.php housekeeping status
+php8.4 bin/tinymash.php housekeeping:status
 ```
 
 Run core housekeeping and active plugin housekeeping tasks:
 
 ```bash
-php8.4 bin/tinymash.php housekeeping run
+php8.4 bin/tinymash.php housekeeping:run
 ```
 
 Run only core housekeeping:
 
 ```bash
-php8.4 bin/tinymash.php housekeeping run --no-plugins
+php8.4 bin/tinymash.php housekeeping:run --no-plugins
 ```
 
 Cron is the recommended way to run housekeeping in production. See `INSTALL.md` for an example crontab entry.
@@ -142,9 +174,9 @@ Public shortcode rendering never retrieves remote calendars. Run this command fr
 Report stored media usage:
 
 ```bash
-php8.4 bin/tinymash.php media usage
-php8.4 bin/tinymash.php media usage --owner=joho
-php8.4 bin/tinymash.php media usage --unused-only --limit=50
+php8.4 bin/tinymash.php media:usage
+php8.4 bin/tinymash.php media:usage --owner=joho
+php8.4 bin/tinymash.php media:usage --unused-only --limit=50
 ```
 
 The usage report checks current content, drafts, site/profile settings, and known media IDs in stored plugin settings. It also reports stored direct attachment markers. A direct marker is counted as a real usage reference only when it points at an existing entry or draft; otherwise it is reported separately as `direct_marker_only`.
@@ -152,19 +184,19 @@ The usage report checks current content, drafts, site/profile settings, and know
 Inspect media records and backfill missing display derivatives:
 
 ```bash
-php8.4 bin/tinymash.php media cleanup --dry-run
-php8.4 bin/tinymash.php media cleanup --generate-missing-derivatives
-php8.4 bin/tinymash.php media cleanup --dry-run --owner=joho --limit=25
+php8.4 bin/tinymash.php media:cleanup --dry-run
+php8.4 bin/tinymash.php media:cleanup --generate-missing-derivatives
+php8.4 bin/tinymash.php media:cleanup --dry-run --owner=joho --limit=25
 ```
 
 Report likely unused media through the cleanup command without deleting anything:
 
 ```bash
-php8.4 bin/tinymash.php media cleanup --report-unused
-php8.4 bin/tinymash.php media cleanup --report-unused --owner=joho --limit=50
+php8.4 bin/tinymash.php media:cleanup --report-unused
+php8.4 bin/tinymash.php media:cleanup --report-unused --owner=joho --limit=50
 ```
 
-Current limitation: `media cleanup` can report likely unused records and generate missing display derivatives, but it does not delete media, rewrite originals, or automatically relink content.
+Current limitation: `media:cleanup` can report likely unused records and generate missing display derivatives, but it does not delete media, rewrite originals, or automatically relink content.
 
 ## Deployment Builds
 
@@ -183,29 +215,29 @@ See `docs/DEPLOY.md` for deployment details.
 Export the whole site:
 
 ```bash
-php8.4 bin/tinymash.php export site /path/to/export
-php8.4 bin/tinymash.php export site /path/to/export --with-plugins
+php8.4 bin/tinymash.php export:site /path/to/export
+php8.4 bin/tinymash.php export:site /path/to/export --with-plugins
 ```
 
 Export one author:
 
 ```bash
-php8.4 bin/tinymash.php export author <username> /path/to/export
-php8.4 bin/tinymash.php export author <username> /path/to/export --with-plugins
+php8.4 bin/tinymash.php export:author <username> /path/to/export
+php8.4 bin/tinymash.php export:author <username> /path/to/export --with-plugins
 ```
 
 Import a site export:
 
 ```bash
-php8.4 bin/tinymash.php import site /path/to/export
-php8.4 bin/tinymash.php import site /path/to/export --replace-existing
+php8.4 bin/tinymash.php import:site /path/to/export
+php8.4 bin/tinymash.php import:site /path/to/export --replace-existing
 ```
 
 Import an author export and assign a new login password:
 
 ```bash
-php8.4 bin/tinymash.php import author /path/to/export new-password-here
-php8.4 bin/tinymash.php import author /path/to/export new-password-here --replace-existing
+php8.4 bin/tinymash.php import:author /path/to/export new-password-here
+php8.4 bin/tinymash.php import:author /path/to/export new-password-here --replace-existing
 ```
 
 Plugin data is included only when the export/import command is run with `--with-plugins` and the relevant plugin supports that path.
@@ -215,16 +247,16 @@ Plugin data is included only when the export/import command is run with `--with-
 Scan stored content for remote image URLs that may indicate import misses:
 
 ```bash
-php8.4 bin/tinymash.php audit remote-media
-php8.4 bin/tinymash.php audit remote-media --author=joho
-php8.4 bin/tinymash.php audit remote-media --author=joho --include-unpublished
+php8.4 bin/tinymash.php audit:remote-media
+php8.4 bin/tinymash.php audit:remote-media --author=joho
+php8.4 bin/tinymash.php audit:remote-media --author=joho --include-unpublished
 ```
 
 Benchmark public routes with curl timing data:
 
 ```bash
-php8.4 bin/tinymash.php benchmark public --base-url=https://example.com --repeat=3
-php8.4 bin/tinymash.php benchmark public --base-url=https://example.com --author=joho --entry=post-slug --repeat=3
+php8.4 bin/tinymash.php benchmark:public --base-url=https://example.com --repeat=3
+php8.4 bin/tinymash.php benchmark:public --base-url=https://example.com --author=joho --entry=post-slug --repeat=3
 ```
 
 Useful options:

@@ -1,7 +1,7 @@
 {
     "format": "tinymash-deploy",
     "format_version": 1,
-    "built_at_utc": "2026-06-26T08:46:24Z",
+    "built_at_utc": "2026-06-26T14:04:33Z",
     "site": {
         "name": "tinymash",
         "base_url": "",
@@ -14,7 +14,6 @@
             "README.md",
             "INSTALL.md",
             "CLI.md",
-            "bin/tinymash",
             "bin/tinymash.php",
             "composer.json",
             "composer.lock",
@@ -89,7 +88,7 @@
         "example_config_path": "app/config/tinymash.json.example"
     },
     "counts": {
-        "copied_files": 1570,
+        "copied_files": 1797,
         "copied_directories": 11
     },
     "warnings": []

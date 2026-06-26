@@ -3,6 +3,11 @@
 
 declare(strict_types=1);
 
+if (PHP_VERSION_ID < 80401) {
+    fwrite(STDERR, "tinymash CLI requires PHP 8.4.1 or newer. You are running PHP " . PHP_VERSION . ".\n");
+    exit(1);
+}
+
 if (!defined('TINYMASH_RUNNING')) {
     define('TINYMASH_RUNNING', true);
 }
@@ -79,6 +84,14 @@ use app\classes\TinyMashMailer;
 use app\classes\TinyMashNotificationService;
 use app\classes\TinyMashPasswordResetService;
 use app\classes\TinyMashComponentsReportService;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 const TINYMASH_USERS_DIR = __DIR__ . '/../users';
 const TINYMASH_CACHE_DIR = __DIR__ . '/../data/runtime/latte-cache';
@@ -409,6 +422,10 @@ TEXT;
 }
 
 function getPluginCliCommands(): array {
+    if (!is_file(dirname(__DIR__) . '/app/config/tinymash.json')) {
+        return [];
+    }
+
     try {
         $runtime = buildCliRuntime(true);
     } catch (\Throwable) {
@@ -2192,193 +2209,784 @@ function runPluginCliCommand(string $command, array $arguments): bool {
     }
 }
 
+function getTinymashRawCommandArguments(): array {
+    $argv = $_SERVER['argv'] ?? [];
+    if (!is_array($argv)) {
+        return [];
+    }
+
+    array_shift($argv);
+    $command_seen = false;
+    $arguments = [];
+    foreach ($argv as $argument) {
+        if (!is_string($argument)) {
+            continue;
+        }
+        if ($argument === '--allow-root') {
+            continue;
+        }
+        if (!$command_seen) {
+            if (str_starts_with($argument, '-')) {
+                continue;
+            }
+            $command_seen = true;
+            continue;
+        }
+        $arguments[] = $argument;
+    }
+
+    return $arguments;
+}
+
+function transformLegacyCliArgv(array $argv): array {
+    $legacy_pairs = [
+        'system' => [ 'status' => 'system:status', 'plugins' => 'system:plugins' ],
+        'maintenance' => [ 'status' => 'maintenance:status', 'on' => 'maintenance:on', 'off' => 'maintenance:off' ],
+        'cache' => [ 'clear' => 'cache:clear', 'warm' => 'cache:warm' ],
+        'housekeeping' => [ 'status' => 'housekeeping:status', 'run' => 'housekeeping:run' ],
+        'media' => [ 'usage' => 'media:usage', 'cleanup' => 'media:cleanup' ],
+        'benchmark' => [ 'public' => 'benchmark:public' ],
+        'audit' => [ 'remote-media' => 'audit:remote-media' ],
+        'export' => [ 'site' => 'export:site', 'author' => 'export:author' ],
+        'import' => [ 'site' => 'import:site', 'author' => 'import:author' ],
+        'user' => [ 'list' => 'user:list', 'set-password' => 'user:set-password' ],
+    ];
+
+    $command_index = null;
+    for ($index = 1; $index < count($argv); $index++) {
+        $argument = $argv[$index] ?? '';
+        if (!is_string($argument) || $argument === '' || str_starts_with($argument, '-')) {
+            continue;
+        }
+        $command_index = $index;
+        break;
+    }
+
+    if ($command_index === null) {
+        return $argv;
+    }
+
+    $command = (string) ($argv[$command_index] ?? '');
+    $subcommand = (string) ($argv[$command_index + 1] ?? '');
+    if (isset($legacy_pairs[$command][$subcommand])) {
+        $argv[$command_index] = $legacy_pairs[$command][$subcommand];
+        array_splice($argv, $command_index + 1, 1);
+    }
+
+    return $argv;
+}
+
+function readSetupJsonFile(string $filename): array {
+    if (!is_file($filename) || !is_readable($filename)) {
+        return [];
+    }
+
+    $json = @file_get_contents($filename);
+    if (!is_string($json) || trim($json) === '') {
+        return [];
+    }
+
+    try {
+        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+    } catch (\JsonException) {
+        return [];
+    }
+
+    return is_array($decoded) ? $decoded : [];
+}
+
+function buildSetupDefaultConfig(): array {
+    return [
+        'site' => [
+            'name' => 'tinymash',
+            'slogan' => '',
+            'contact' => '',
+            'base_url' => '',
+            'login_url' => '/admin/login',
+            'admin_url' => '/admin',
+            'security_min_password' => 8,
+            'default_language' => 'en',
+            'allow_registrations' => false,
+            'is_public' => true,
+            'maintenance' => false,
+            'admin_email' => '',
+            'system_notifications_email' => '',
+            'week_starts_on' => 'monday',
+            'allow_username_change' => false,
+            'allow_email_change' => true,
+            'login_message' => '',
+            'head_tags' => [],
+            'images' => [
+                'banner' => [],
+                'favicon_png' => [],
+                'favicon_ico' => [],
+                'og' => [],
+                'background' => [],
+            ],
+            'background_render_mode' => 'scaled',
+            'allow_secret_links' => true,
+            'secret_link_default_expiry_days' => 60,
+            'filesystem_umask' => '0007',
+            'rendered_content_cache_enabled' => true,
+            'discourage_search_indexing' => false,
+            'allow_admin_password_resets' => false,
+            'allow_author_password_resets' => true,
+            'password_reset_throttle_window_minutes' => 60,
+            'password_reset_max_ip_requests' => 5,
+            'password_reset_max_identifier_requests' => 3,
+        ],
+        'locale' => [
+            'time' => 'H:i (T)',
+            'date' => 'd-M-Y',
+            'timezone' => 'UTC',
+        ],
+        'content' => [
+            'require_moderation' => false,
+            'revision_retention_limit' => 20,
+        ],
+        'editor' => [
+            'autosave_enabled' => true,
+            'autosave_interval_seconds' => 120,
+            'classic_smileys_enabled' => true,
+        ],
+        'media' => [
+            'content_images_mode' => 'authenticated',
+            'image_driver' => 'auto',
+            'image_max_width' => 1920,
+            'image_max_height' => 1920,
+            'generate_thumbnails' => true,
+            'thumbnail_max_width' => 320,
+            'thumbnail_max_height' => 320,
+            'image_max_upload_mb' => 10,
+            'allowed_image_mimes' => [
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/webp',
+                'image/avif',
+            ],
+        ],
+        'smtp' => [
+            'enabled' => false,
+            'host' => '',
+            'port' => 587,
+            'username' => '',
+            'password' => '',
+            'encryption' => 'tls',
+            'from_email' => '',
+            'from_name' => '',
+            'reply_to_email' => '',
+        ],
+        'themes' => [
+            'public' => [
+                'current' => 'baseline',
+                'settings' => [],
+            ],
+        ],
+        'plugins' => [
+            'states' => [],
+            'settings' => [],
+        ],
+        'housekeeping' => [
+            'stale_draft_retention_days' => 7,
+            'last_run_utc' => '',
+            'last_trigger' => '',
+            'last_mode' => '',
+            'web_fallback_mode' => 'auto',
+        ],
+        'notifications' => [
+            'retention_days' => 30,
+            'email_events' => [
+                'moderation_required' => false,
+                'profile_email_changed' => false,
+                'user_lockout' => true,
+                'component_updates' => true,
+            ],
+        ],
+        'menus' => [
+            'locations' => [
+                'primary' => [],
+                'footer' => [],
+            ],
+        ],
+    ];
+}
+
+function loadSetupConfigArray(string $config_filename): array {
+    $existing = readSetupJsonFile($config_filename);
+    if ($existing !== []) {
+        return $existing;
+    }
+
+    $example = readSetupJsonFile($config_filename . '.example');
+    if ($example !== []) {
+        return $example;
+    }
+
+    return buildSetupDefaultConfig();
+}
+
+function writeSetupConfigArray(string $config_filename, array $config): void {
+    $directory = dirname($config_filename);
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new \RuntimeException('Unable to create config directory.');
+    }
+
+    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($json)) {
+        throw new \RuntimeException('Unable to encode config JSON.');
+    }
+
+    if (file_put_contents($config_filename, $json . PHP_EOL, LOCK_EX) === false) {
+        throw new \RuntimeException('Unable to write config file.');
+    }
+}
+
+function ensureSetupDirectory(string $directory): bool {
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        return false;
+    }
+
+    return is_writable($directory);
+}
+
+function getSetupExistingSuperadmin(string $username = ''): ?array {
+    if (!is_dir(TINYMASH_USERS_DIR)) {
+        return null;
+    }
+
+    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+    if ($username !== '') {
+        return $repository->getUserByUsername($username);
+    }
+
+    foreach ($repository->getAllUsers() as $user) {
+        if (is_array($user) && (string) ($user['role'] ?? '') === 'superadmin') {
+            return $user;
+        }
+    }
+
+    return null;
+}
+
+function normalizeSetupBaseUrl(string $base_url): string {
+    $base_url = rtrim(trim($base_url), '/');
+    if ($base_url === '' || !preg_match('#^https?://#i', $base_url) || filter_var($base_url, FILTER_VALIDATE_URL) === false) {
+        throw new \InvalidArgumentException('Enter a valid HTTP or HTTPS base URL.');
+    }
+    $parts = parse_url($base_url);
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = trim((string) ($parts['host'] ?? ''));
+    if (!in_array($scheme, ['http', 'https'], true) || $host === '' || !isSetupValidUrlHost($host)) {
+        throw new \InvalidArgumentException('Enter a valid HTTP or HTTPS base URL with a valid host name.');
+    }
+
+    return $base_url;
+}
+
+function isSetupValidUrlHost(string $host): bool {
+    $host = trim($host, '[]');
+    if ($host === '' || str_ends_with($host, '.') || str_contains($host, '_')) {
+        return false;
+    }
+
+    if (strtolower($host) === 'localhost' || filter_var($host, FILTER_VALIDATE_IP) !== false) {
+        return true;
+    }
+
+    if (strlen($host) > 253 || !preg_match('/^[a-z0-9.-]+$/i', $host)) {
+        return false;
+    }
+
+    foreach (explode('.', $host) as $label) {
+        if ($label === '' || !preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i', $label)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function normalizeSetupLanguage(string $language): string {
+    $language = TinyMashConfig::normalizeHtmlLanguageTag(trim($language));
+    if ($language === '') {
+        return 'en';
+    }
+
+    return $language;
+}
+
+function normalizeSetupTimezone(string $timezone): string {
+    $timezone = trim($timezone);
+    if ($timezone === '') {
+        return 'UTC';
+    }
+    if (!in_array($timezone, timezone_identifiers_list(), true)) {
+        throw new \InvalidArgumentException('Enter a valid PHP timezone such as UTC or Europe/Stockholm.');
+    }
+
+    return $timezone;
+}
+
+function validateSetupPassword(string $password): string {
+    if ($password === '') {
+        throw new \InvalidArgumentException('Superadmin password must not be empty.');
+    }
+    if (mb_strlen($password) < 8) {
+        throw new \InvalidArgumentException('Superadmin password must be at least 8 characters.');
+    }
+
+    return $password;
+}
+
+function normalizeSetupYesNoAnswer(?string $value, bool $default): bool {
+    $value = strtolower(trim((string) $value));
+    if ($value === '') {
+        return $default;
+    }
+    if (in_array($value, ['y', 'yes'], true)) {
+        return true;
+    }
+    if (in_array($value, ['n', 'no'], true)) {
+        return false;
+    }
+
+    throw new \InvalidArgumentException('Answer yes or no.');
+}
+
+function readSetupPasswordFromInput(InputInterface $input): string {
+    $password_file = trim((string) ($input->getOption('password-file') ?? ''));
+    $password_stdin = (bool) $input->getOption('password-stdin');
+    if ($password_file !== '' && $password_stdin) {
+        throw new \InvalidArgumentException('Use either --password-file or --password-stdin, not both.');
+    }
+
+    if ($password_file !== '') {
+        if (!is_file($password_file) || !is_readable($password_file)) {
+            throw new \InvalidArgumentException('Password file is not readable.');
+        }
+        $password = file_get_contents($password_file);
+        return is_string($password) ? rtrim($password, "\r\n") : '';
+    }
+
+    if ($password_stdin) {
+        $password = stream_get_contents(STDIN);
+        return is_string($password) ? rtrim($password, "\r\n") : '';
+    }
+
+    return '';
+}
+
+class TinymashLegacyCommand extends Command {
+    /** @var callable */
+    protected $handler;
+    protected bool $read_only;
+    protected string $legacy_usage;
+
+    public function __construct(string $name, string $description, callable $handler, bool $read_only = false, string $legacy_usage = '', array $aliases = []) {
+        $this->handler = $handler;
+        $this->read_only = $read_only;
+        $this->legacy_usage = $legacy_usage !== '' ? $legacy_usage : $name;
+        parent::__construct($name);
+        $this->setDescription($description);
+        if ($aliases !== []) {
+            $this->setAliases($aliases);
+        }
+    }
+
+    protected function configure(): void {
+        $this->ignoreValidationErrors();
+        $this->addArgument('tokens', InputArgument::IS_ARRAY | InputArgument::OPTIONAL, 'Command arguments and legacy options.');
+        $this->setHelp('Usage: php8.4 bin/tinymash.php ' . $this->legacy_usage);
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int {
+        guardRootUserForCliCommand(getTinymashRootGuardArguments($this->getName(), getTinymashRawCommandArguments(), $this->read_only), (bool) $input->getOption('allow-root'));
+        call_user_func($this->handler, getTinymashRawCommandArguments(), $input, $output);
+        return Command::SUCCESS;
+    }
+}
+
+class TinymashPluginBridgeCommand extends Command {
+    protected string $plugin_command;
+
+    public function __construct(array $definition) {
+        $this->plugin_command = (string) ($definition['command'] ?? '');
+        parent::__construct($this->plugin_command);
+        $this->setDescription((string) ($definition['summary'] ?? 'Run a plugin command.'));
+        $usage = trim((string) ($definition['usage'] ?? ''));
+        if ($usage !== '') {
+            $this->setHelp('Usage: ' . $usage);
+        }
+    }
+
+    protected function configure(): void {
+        $this->ignoreValidationErrors();
+        $this->addArgument('tokens', InputArgument::IS_ARRAY | InputArgument::OPTIONAL, 'Plugin command arguments.');
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int {
+        guardRootUserForCliCommand([$this->plugin_command], (bool) $input->getOption('allow-root'));
+        if (!runPluginCliCommand($this->plugin_command, getTinymashRawCommandArguments())) {
+            throw new \RuntimeException('Plugin command is unavailable.');
+        }
+
+        return Command::SUCCESS;
+    }
+}
+
+class TinymashSetupCommand extends Command {
+    public function __construct() {
+        parent::__construct('setup');
+    }
+
+    protected function configure(): void {
+        $this
+            ->setDescription('Configure a deployed tinymash tree and create the first superadmin.')
+            ->addOption('site-name', null, InputOption::VALUE_REQUIRED, 'Site title')
+            ->addOption('base-url', null, InputOption::VALUE_REQUIRED, 'Public base URL')
+            ->addOption('language', null, InputOption::VALUE_REQUIRED, 'Default public language tag', 'en')
+            ->addOption('timezone', null, InputOption::VALUE_REQUIRED, 'Default timezone', 'UTC')
+            ->addOption('admin-user', null, InputOption::VALUE_REQUIRED, 'Superadmin username', 'admin')
+            ->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'Superadmin/admin e-mail address')
+            ->addOption('password-stdin', null, InputOption::VALUE_NONE, 'Read the superadmin password from STDIN')
+            ->addOption('password-file', null, InputOption::VALUE_REQUIRED, 'Read the superadmin password from a file')
+            ->addOption('public', null, InputOption::VALUE_NONE, 'Mark the site public')
+            ->addOption('private', null, InputOption::VALUE_NONE, 'Keep the site private')
+            ->addOption('update', null, InputOption::VALUE_NONE, 'Allow non-interactive updates to an existing config')
+            ->setHelp(
+                "Interactive setup:\n"
+                . "  php8.4 bin/tinymash.php setup\n\n"
+                . "Automated setup:\n"
+                . "  printf '%s' \"\$PASSWORD\" | php8.4 bin/tinymash.php setup --site-name=\"My Site\" --base-url=https://example.com --password-stdin --no-interaction\n\n"
+                . "Existing configs are preserved. Reruns update only setup fields after confirmation, or with --update in non-interactive mode."
+            );
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int {
+        $io = new SymfonyStyle($input, $output);
+        guardRootUserForCliCommand(['setup'], (bool) $input->getOption('allow-root'));
+
+        $config_filename = dirname(__DIR__) . '/app/config/tinymash.json';
+        $config_exists = is_file($config_filename) && trim((string) @file_get_contents($config_filename)) !== '';
+        $is_interactive = $input->isInteractive();
+
+        $io->title('tinymash setup');
+        if ($config_exists) {
+            $io->warning('Existing configuration detected. Setup will preserve the current config and update only setup fields.');
+            if (!$is_interactive && !(bool) $input->getOption('update')) {
+                $io->error('Refusing to update an existing config non-interactively without --update.');
+                return Command::FAILURE;
+            }
+            if ($is_interactive && !$io->confirm('Continue and update setup fields?', false)) {
+                $io->note('Setup aborted. No files were changed.');
+                return Command::SUCCESS;
+            }
+        }
+
+        $preflight = $this->runPreflight();
+        $io->section('Preflight');
+        $io->table(['Check', 'Status'], $preflight['rows']);
+        if (!$preflight['ok']) {
+            $io->error('Fix the failed preflight checks and run setup again.');
+            return Command::FAILURE;
+        }
+
+        try {
+            $config = loadSetupConfigArray($config_filename);
+            if (!isset($config['site']) || !is_array($config['site'])) {
+                $config['site'] = [];
+            }
+            if (!isset($config['locale']) || !is_array($config['locale'])) {
+                $config['locale'] = [];
+            }
+
+            $setup_values = $this->collectSetupValues($input, $io, $config);
+            $password = $this->collectSetupPassword($input, $io, (string) $setup_values['admin_user']);
+
+            $config['site']['name'] = $setup_values['site_name'];
+            $config['site']['base_url'] = $setup_values['base_url'];
+            $config['site']['default_language'] = $setup_values['language'];
+            $config['site']['admin_email'] = $setup_values['admin_email'];
+            $config['site']['is_public'] = $setup_values['is_public'];
+            $config['locale']['timezone'] = $setup_values['timezone'];
+
+            writeSetupConfigArray($config_filename, $config);
+            $this->saveSetupSuperadmin((string) $setup_values['admin_user'], (string) $setup_values['admin_email'], $password);
+        } catch (\Throwable $e) {
+            $io->error($e->getMessage());
+            return Command::FAILURE;
+        }
+
+        $admin_url = rtrim((string) $setup_values['base_url'], '/') . '/admin/login';
+        $io->success('tinymash setup complete.');
+        $io->table(
+            ['Setting', 'Value'],
+            [
+                ['Config', 'app/config/tinymash.json'],
+                ['Site', (string) $setup_values['site_name']],
+                ['Base URL', (string) $setup_values['base_url']],
+                ['Admin user', (string) $setup_values['admin_user']],
+                ['Admin login', $admin_url],
+            ]
+        );
+        $io->writeln('Next: log in, review System settings, then enable housekeeping from cron.');
+
+        return Command::SUCCESS;
+    }
+
+    protected function runPreflight(): array {
+        $checks = [
+            'PHP 8.4.1+' => PHP_VERSION_ID >= 80401,
+            'Extension mbstring' => extension_loaded('mbstring'),
+            'Extension json' => extension_loaded('json'),
+            'Extension dom' => extension_loaded('dom'),
+            'Extension session' => extension_loaded('session'),
+            'Extension openssl' => extension_loaded('openssl'),
+            'Extension fileinfo' => extension_loaded('fileinfo'),
+            'Directory data/' => ensureSetupDirectory(dirname(__DIR__) . '/data'),
+            'Directory users/' => ensureSetupDirectory(TINYMASH_USERS_DIR),
+            'Directory tmp/' => ensureSetupDirectory(dirname(__DIR__) . '/tmp'),
+            'Directory data/runtime/' => ensureSetupDirectory(TINYMASH_RUNTIME_DIR),
+            'Config directory' => is_writable(dirname(dirname(__DIR__) . '/app/config/tinymash.json')),
+        ];
+
+        $rows = [];
+        $ok = true;
+        foreach ($checks as $label => $passed) {
+            $passed = (bool) $passed;
+            $ok = $ok && $passed;
+            $rows[] = [$label, $passed ? '<info>ok</info>' : '<error>failed</error>'];
+        }
+
+        return ['ok' => $ok, 'rows' => $rows];
+    }
+
+    protected function collectSetupValues(InputInterface $input, SymfonyStyle $io, array $config): array {
+        $site = is_array($config['site'] ?? null) ? $config['site'] : [];
+        $locale = is_array($config['locale'] ?? null) ? $config['locale'] : [];
+        $existing_admin = getSetupExistingSuperadmin();
+
+        $default_site_name = trim((string) ($site['name'] ?? 'tinymash'));
+        $default_base_url = trim((string) ($site['base_url'] ?? ''));
+        $default_language = normalizeSetupLanguage((string) ($site['default_language'] ?? $input->getOption('language') ?? 'en'));
+        $default_timezone = normalizeSetupTimezone((string) ($locale['timezone'] ?? $input->getOption('timezone') ?? 'UTC'));
+        $default_admin_user = trim((string) ($existing_admin['username'] ?? $input->getOption('admin-user') ?? 'admin'));
+        $default_admin_email = trim((string) ($existing_admin['email'] ?? $site['admin_email'] ?? $input->getOption('admin-email') ?? ''));
+        $default_public = array_key_exists('is_public', $site) ? (bool) $site['is_public'] : true;
+
+        $site_name = $this->resolveStringValue($input, $io, 'site-name', 'Site name', $default_site_name, static function (string $value): string {
+            $value = trim($value);
+            if ($value === '') {
+                throw new \InvalidArgumentException('Site name must not be empty.');
+            }
+            return $value;
+        });
+        $base_url = $this->resolveStringValue($input, $io, 'base-url', 'Base URL', $default_base_url, 'normalizeSetupBaseUrl');
+        $language = $this->resolveStringValue($input, $io, 'language', 'Default language', $default_language, 'normalizeSetupLanguage');
+        $timezone = $this->resolveStringValue($input, $io, 'timezone', 'Timezone', $default_timezone, 'normalizeSetupTimezone');
+        $admin_user = $this->resolveStringValue($input, $io, 'admin-user', 'Superadmin username', $default_admin_user, static function (string $value): string {
+            $value = strtolower(trim($value));
+            if (!preg_match('/^[a-z0-9_]{1,64}$/', $value)) {
+                throw new \InvalidArgumentException('Use a lowercase username with letters, numbers, and underscores.');
+            }
+            return $value;
+        });
+        $admin_email = $this->resolveStringValue($input, $io, 'admin-email', 'Admin e-mail (optional)', $default_admin_email, static function (string $value): string {
+            $value = trim($value);
+            if ($value !== '' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
+                throw new \InvalidArgumentException('Enter a valid e-mail address or leave it empty.');
+            }
+            return $value;
+        });
+
+        if ((bool) $input->getOption('public') && (bool) $input->getOption('private')) {
+            throw new \InvalidArgumentException('Use either --public or --private, not both.');
+        }
+        if ((bool) $input->getOption('public')) {
+            $is_public = true;
+        } elseif ((bool) $input->getOption('private')) {
+            $is_public = false;
+        } elseif ($input->isInteractive()) {
+            $is_public = $io->ask(
+                'Make the site public now? (yes/no)',
+                $default_public ? 'yes' : 'no',
+                static function (?string $value) use ($default_public): bool {
+                    return normalizeSetupYesNoAnswer($value, $default_public);
+                }
+            );
+        } else {
+            $is_public = $default_public;
+        }
+
+        return [
+            'site_name' => $site_name,
+            'base_url' => $base_url,
+            'language' => $language,
+            'timezone' => $timezone,
+            'admin_user' => $admin_user,
+            'admin_email' => $admin_email,
+            'is_public' => $is_public,
+        ];
+    }
+
+    protected function resolveStringValue(InputInterface $input, SymfonyStyle $io, string $option_name, string $question, string $default, callable $normalizer): string {
+        $option_value = $input->getOption($option_name);
+        if (is_string($option_value) && trim($option_value) !== '') {
+            return $normalizer($option_value);
+        }
+
+        if (!$input->isInteractive()) {
+            return $normalizer($default);
+        }
+
+        return $io->ask($question, $default, static function (?string $value) use ($normalizer): string {
+            return $normalizer((string) $value);
+        });
+    }
+
+    protected function collectSetupPassword(InputInterface $input, SymfonyStyle $io, string $admin_user): string {
+        $existing_admin = getSetupExistingSuperadmin($admin_user);
+        $password = readSetupPasswordFromInput($input);
+        if ($password !== '') {
+            return validateSetupPassword($password);
+        }
+
+        if (!$input->isInteractive()) {
+            if (is_array($existing_admin)) {
+                return '';
+            }
+            throw new \InvalidArgumentException('A superadmin password is required. Use interactive setup, --password-stdin, or --password-file.');
+        }
+
+        $question = is_array($existing_admin)
+            ? 'Superadmin password (leave blank to keep current password)'
+            : 'Superadmin password';
+        $password = (string) $io->askHidden($question);
+        if ($password === '' && is_array($existing_admin)) {
+            return '';
+        }
+        validateSetupPassword($password);
+        $confirmation = (string) $io->askHidden('Confirm superadmin password');
+        if ($password !== $confirmation) {
+            throw new \InvalidArgumentException('Superadmin passwords did not match.');
+        }
+
+        return $password;
+    }
+
+    protected function saveSetupSuperadmin(string $username, string $email, string $password): void {
+        $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+        $existing = $repository->getUserByUsername($username);
+        $repository->saveUser(
+            [
+                'original_username' => is_array($existing) ? $username : '',
+                'username' => $username,
+                'email' => $email,
+                'role' => 'superadmin',
+                'password' => $password,
+                'confirm_password' => $password,
+                'active' => true,
+                'content_active' => is_array($existing) ? !empty($existing['content_active']) : true,
+            ]
+        );
+    }
+}
+
+function getTinymashRootGuardArguments(string $command_name, array $arguments, bool $read_only): array {
+    if ($read_only) {
+        return ['help'];
+    }
+
+    return array_merge([$command_name], $arguments);
+}
+
+function buildTinymashConsoleApplication(): Application {
+    $application = new Application('tinymash', APP_VERSION);
+    $application->getDefinition()->addOption(new InputOption('allow-root', null, InputOption::VALUE_NONE, 'Allow mutating commands to run as root without confirmation.'));
+    $application->addCommand(new TinymashSetupCommand());
+
+    $commands = [
+        new TinymashLegacyCommand('system:status', 'Show runtime status.', static fn() => printSystemStatus(), true, 'system:status', ['system-status']),
+        new TinymashLegacyCommand('system:plugins', 'Show plugin diagnostics.', static fn() => printSystemPluginDiagnostics(), true, 'system:plugins'),
+        new TinymashLegacyCommand('maintenance:status', 'Show maintenance mode.', static fn() => printMaintenanceStatus(), true, 'maintenance:status'),
+        new TinymashLegacyCommand('maintenance:on', 'Enable maintenance mode.', static fn() => setMaintenance(true), false, 'maintenance:on'),
+        new TinymashLegacyCommand('maintenance:off', 'Disable maintenance mode.', static fn() => setMaintenance(false), false, 'maintenance:off'),
+        new TinymashLegacyCommand('cache:clear', 'Clear compiled and persistent runtime caches.', static fn() => clearCache(), false, 'cache:clear'),
+        new TinymashLegacyCommand('cache:warm', 'Warm content, media, and public-page caches.', static fn(array $arguments) => warmCache($arguments), false, 'cache:warm [--base-url=<url>] [--userpass=<user:pass>] [--author=<slug>] [--entries] [--entry-limit=<n>]'),
+        new TinymashLegacyCommand('housekeeping:status', 'Show housekeeping state.', static fn() => printHousekeepingStatus(), true, 'housekeeping:status'),
+        new TinymashLegacyCommand('housekeeping:run', 'Run housekeeping tasks.', static fn(array $arguments) => runHousekeeping(!in_array('--no-plugins', $arguments, true)), false, 'housekeeping:run [--no-plugins]'),
+        new TinymashLegacyCommand('media:usage', 'Report media usage.', static fn(array $arguments) => runMediaUsage($arguments), true, 'media:usage [--owner=<root-or-author>] [--unused-only] [--limit=<n>]'),
+        new TinymashLegacyCommand('media:cleanup', 'Report unused media or generate missing derivatives.', static fn(array $arguments) => runMediaCleanup($arguments), false, 'media:cleanup [--dry-run] [--generate-missing-derivatives] [--report-unused] [--owner=<root-or-author>] [--limit=<n>]'),
+        new TinymashLegacyCommand('benchmark:public', 'Benchmark public routes.', static fn(array $arguments) => runPublicBenchmark($arguments), true, 'benchmark:public [--base-url=<url>] [--userpass=<user:pass>] [--login-user=<username>] [--login-pass=<password>] [--author=<slug>] [--entry=<slug>] [--repeat=<n>]'),
+        new TinymashLegacyCommand('audit:remote-media', 'Scan content for remote image references.', static fn(array $arguments) => runRemoteMediaAudit($arguments), true, 'audit:remote-media [--author=<slug>] [--include-unpublished]'),
+        new TinymashLegacyCommand('check-updates', 'Check Composer package updates and advisories.', static fn(array $arguments) => runCheckUpdates(in_array('--notify', $arguments, true)), false, 'check-updates [--notify]'),
+        new TinymashLegacyCommand('deploy', 'Build a deployable runtime tree.', static function(array $arguments): void {
+            $target_directory = (string) ($arguments[0] ?? '');
+            if ($target_directory === '') {
+                fail('usage: tinymash deploy <target-directory>');
+            }
+            runDeploy($target_directory);
+        }, false, 'deploy <target-directory>'),
+        new TinymashLegacyCommand('export:site', 'Export a site bundle.', static function(array $arguments): void {
+            $target_directory = (string) ($arguments[0] ?? '');
+            if ($target_directory === '') {
+                fail('usage: tinymash export:site <target-directory> [--with-plugins]');
+            }
+            runExportSite($target_directory, in_array('--with-plugins', $arguments, true));
+        }, false, 'export:site <target-directory> [--with-plugins]'),
+        new TinymashLegacyCommand('export:author', 'Export one author bundle.', static function(array $arguments): void {
+            $username = (string) ($arguments[0] ?? '');
+            $target_directory = (string) ($arguments[1] ?? '');
+            if ($username === '' || $target_directory === '') {
+                fail('usage: tinymash export:author <username> <target-directory> [--with-plugins]');
+            }
+            runExportAuthor($username, $target_directory, in_array('--with-plugins', $arguments, true));
+        }, false, 'export:author <username> <target-directory> [--with-plugins]'),
+        new TinymashLegacyCommand('import:site', 'Import a site export bundle.', static function(array $arguments): void {
+            $source_directory = (string) ($arguments[0] ?? '');
+            if ($source_directory === '') {
+                fail('usage: tinymash import:site <source-directory> [--replace-existing] [--with-plugins]');
+            }
+            runImportSite($source_directory, in_array('--replace-existing', $arguments, true), in_array('--with-plugins', $arguments, true));
+        }, false, 'import:site <source-directory> [--replace-existing] [--with-plugins]'),
+        new TinymashLegacyCommand('import:author', 'Import one author export bundle.', static function(array $arguments): void {
+            $source_directory = (string) ($arguments[0] ?? '');
+            $new_password = (string) ($arguments[1] ?? '');
+            if ($source_directory === '' || $new_password === '') {
+                fail('usage: tinymash import:author <source-directory> <new-password> [--replace-existing] [--with-plugins]');
+            }
+            runImportAuthor($source_directory, $new_password, in_array('--replace-existing', $arguments, true), in_array('--with-plugins', $arguments, true));
+        }, false, 'import:author <source-directory> <new-password> [--replace-existing] [--with-plugins]'),
+        new TinymashLegacyCommand('user:list', 'List local users.', static fn() => listUsers(), true, 'user:list'),
+        new TinymashLegacyCommand('user:set-password', 'Create or update a local user password.', static function(array $arguments): void {
+            $username = (string) ($arguments[0] ?? '');
+            $password = (string) ($arguments[1] ?? '');
+            $role = (string) ($arguments[2] ?? 'superadmin');
+            if ($username === '' || $password === '') {
+                fail('usage: tinymash user:set-password <username> <password> [role]');
+            }
+            setUserPassword($username, $password, $role);
+        }, false, 'user:set-password <username> <password> [role]'),
+    ];
+
+    foreach ($commands as $command) {
+        $application->addCommand($command);
+    }
+
+    foreach (getPluginCliCommands() as $plugin_command) {
+        if (is_array($plugin_command) && !empty($plugin_command['command'])) {
+            $application->addCommand(new TinymashPluginBridgeCommand($plugin_command));
+        }
+    }
+
+    return $application;
+}
+
 if (PHP_SAPI !== 'cli') {
     fail('this command must be run from the CLI');
 }
 
-$args = $argv;
-array_shift($args);
-$global_options = stripGlobalCliOptions($args);
-$args = $global_options['arguments'];
-$allow_root = !empty($global_options['allow_root']);
-
-guardRootUserForCliCommand($args, $allow_root);
-
-if ($args === [] || $args[0] === 'help' || $args[0] === '--help' || $args[0] === '-h') {
-    showHelp();
-    exit(0);
-}
-
-$command = array_shift($args);
-
-switch ($command) {
-    case 'system':
-        if (($args[0] ?? '') === 'status') {
-            printSystemStatus();
-            exit(0);
-        }
-        if (($args[0] ?? '') === 'plugins') {
-            printSystemPluginDiagnostics();
-            exit(0);
-        }
-        fail('usage: tinymash system <status|plugins>');
-
-    case 'maintenance':
-        $action = $args[0] ?? '';
-        if ($action === 'status') {
-            printMaintenanceStatus();
-            exit(0);
-        }
-        if ($action === 'on') {
-            setMaintenance(true);
-            exit(0);
-        }
-        if ($action === 'off') {
-            setMaintenance(false);
-            exit(0);
-        }
-        fail('usage: tinymash maintenance <status|on|off>');
-
-    case 'cache':
-        $action = $args[0] ?? '';
-        if ($action === 'clear') {
-            clearCache();
-            exit(0);
-        }
-        if ($action === 'warm') {
-            array_shift($args);
-            warmCache($args);
-            exit(0);
-        }
-        fail('usage: tinymash cache <clear|warm [--base-url=<url>] [--userpass=<user:pass>] [--author=<slug>] [--entries] [--entry-limit=<n>]>');
-
-    case 'housekeeping':
-        $action = $args[0] ?? '';
-        if ($action === 'status') {
-            printHousekeepingStatus();
-            exit(0);
-        }
-        if ($action === 'run') {
-            $run_plugins = !in_array('--no-plugins', $args, true);
-            runHousekeeping($run_plugins);
-            exit(0);
-        }
-        fail('usage: tinymash housekeeping <status|run [--no-plugins]>');
-
-    case 'media':
-        $action = $args[0] ?? '';
-        if ($action === 'usage') {
-            array_shift($args);
-            runMediaUsage($args);
-            exit(0);
-        }
-        if ($action === 'cleanup') {
-            array_shift($args);
-            runMediaCleanup($args);
-            exit(0);
-        }
-        fail('usage: tinymash media <usage|cleanup>');
-
-    case 'benchmark':
-        $action = $args[0] ?? '';
-        if ($action === 'public') {
-            array_shift($args);
-            runPublicBenchmark($args);
-            exit(0);
-        }
-        fail('usage: tinymash benchmark public [--base-url=<url>] [--userpass=<user:pass>] [--login-user=<username>] [--login-pass=<password>] [--author=<slug>] [--entry=<slug>] [--repeat=<n>]');
-
-    case 'audit':
-        $action = $args[0] ?? '';
-        if ($action === 'remote-media') {
-            array_shift($args);
-            runRemoteMediaAudit($args);
-            exit(0);
-        }
-        fail('usage: tinymash audit remote-media [--author=<slug>] [--include-unpublished]');
-
-    case 'check-updates':
-        $notify = in_array('--notify', $args, true);
-        runCheckUpdates($notify);
-        exit(0);
-
-    case 'deploy':
-        $target_directory = $args[0] ?? '';
-        if ($target_directory === '') {
-            fail('usage: tinymash deploy <target-directory>');
-        }
-        runDeploy($target_directory);
-        exit(0);
-
-    case 'export':
-        $action = $args[0] ?? '';
-        if ($action === 'site') {
-            $target_directory = $args[1] ?? '';
-            if ($target_directory === '') {
-                fail('usage: tinymash export site <target-directory> [--with-plugins]');
-            }
-            $with_plugins = in_array('--with-plugins', $args, true);
-            runExportSite($target_directory, $with_plugins);
-            exit(0);
-        }
-        if ($action === 'author') {
-            $username = $args[1] ?? '';
-            $target_directory = $args[2] ?? '';
-            if ($username === '' || $target_directory === '') {
-                fail('usage: tinymash export author <username> <target-directory> [--with-plugins]');
-            }
-            $with_plugins = in_array('--with-plugins', $args, true);
-            runExportAuthor($username, $target_directory, $with_plugins);
-            exit(0);
-        }
-        fail('usage: tinymash export <site|author> ...');
-
-    case 'import':
-        $action = $args[0] ?? '';
-        if ($action === 'site') {
-            $source_directory = $args[1] ?? '';
-            if ($source_directory === '') {
-                fail('usage: tinymash import site <source-directory> [--replace-existing] [--with-plugins]');
-            }
-            $replace_existing = in_array('--replace-existing', $args, true);
-            $with_plugins = in_array('--with-plugins', $args, true);
-            runImportSite($source_directory, $replace_existing, $with_plugins);
-            exit(0);
-        }
-        if ($action === 'author') {
-            $source_directory = $args[1] ?? '';
-            $new_password = $args[2] ?? '';
-            if ($source_directory === '' || $new_password === '') {
-                fail('usage: tinymash import author <source-directory> <new-password> [--replace-existing] [--with-plugins]');
-            }
-            $replace_existing = in_array('--replace-existing', $args, true);
-            $with_plugins = in_array('--with-plugins', $args, true);
-            runImportAuthor($source_directory, $new_password, $replace_existing, $with_plugins);
-            exit(0);
-        }
-        fail('usage: tinymash import <site|author> ...');
-
-    case 'user':
-        $action = $args[0] ?? '';
-        if ($action === 'list') {
-            listUsers();
-            exit(0);
-        }
-        if ($action === 'set-password') {
-            $username = $args[1] ?? '';
-            $password = $args[2] ?? '';
-            $role = $args[3] ?? 'superadmin';
-            if ($username === '' || $password === '') {
-                fail('usage: tinymash user set-password <username> <password> [role]');
-            }
-            setUserPassword($username, $password, $role);
-            exit(0);
-        }
-        fail('usage: tinymash user <list|set-password ...>');
-
-    default:
-        if (runPluginCliCommand($command, $args)) {
-            exit(0);
-        }
-        fail('unknown command "' . $command . '"');
-}
+$_SERVER['argv'] = transformLegacyCliArgv($_SERVER['argv'] ?? []);
+$application = buildTinymashConsoleApplication();
+$application->run(new ArgvInput($_SERVER['argv']));

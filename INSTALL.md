@@ -2,20 +2,19 @@
 
 This document covers the normal way to install tinymash on a server.
 
-tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It does not need a database server, but it does need a working PHP runtime, a web server pointed at `public/`, and writable runtime directories.
+tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It does not need a database server, but it does need a working PHP runtime, a web server pointed at `public/`, and writable runtime directories. The current development line is also smoke-tested with PHP 8.5.x.
 
 The usual production path is:
 
 1. start from a prepared tinymash runtime tree
 2. copy it to the server
 3. point the web server at `public/`
-4. configure the site
-5. create the first admin user
-6. enable housekeeping from cron
+4. run `setup`
+5. enable housekeeping from cron
 
 ## What you need
 
-- PHP `8.4.1` or newer
+- PHP `8.4.1` or newer; PHP `8.5.x` is also smoke-tested
 - a web server such as Nginx or Apache
 - PHP-FPM or another supported PHP SAPI
 - local filesystem write access for runtime data
@@ -95,49 +94,46 @@ The PHP/web-server user must be able to write to:
 
 If login works but saving drafts, uploads, cache writes, or housekeeping fail, treat it as a filesystem-permissions problem first.
 
-## 5. Create and review the main config
+## 5. Run setup
 
-The main runtime config file is:
+From the tinymash runtime root:
 
-```text
-app/config/tinymash.json
+```bash
+php8.4 bin/tinymash.php setup
 ```
 
-Prepared deploy packages ship a sample config at:
+The setup command asks for the baseline required values and creates the first superadmin user. It writes:
+
+- `app/config/tinymash.json`
+- `users/<admin>.json`
+
+For unattended setup:
+
+```bash
+printf '%s' "$PASSWORD" | php8.4 bin/tinymash.php setup \
+  --site-name="My Site" \
+  --base-url=https://example.com \
+  --timezone=Europe/Stockholm \
+  --language=en \
+  --admin-user=admin \
+  --admin-email=admin@example.com \
+  --password-stdin \
+  --no-interaction
+```
+
+If `app/config/tinymash.json` already exists, setup warns. Interactive reruns ask for confirmation. Non-interactive reruns require `--update`. Existing config is preserved; setup updates only setup fields.
+
+Leave SMTP/mail setup to the admin UI after login.
+
+Prepared deploy packages still include:
 
 ```text
 app/config/tinymash.json.example
 ```
 
-For a new install, copy the example to the runtime config path:
+Use it as reference only; do not overwrite an existing `app/config/tinymash.json` during upgrades or redeploys.
 
-```bash
-cp app/config/tinymash.json.example app/config/tinymash.json
-```
-
-Do not overwrite an existing `app/config/tinymash.json` during upgrades or redeploys. That file is site-local runtime state.
-
-Check at least:
-
-- `site.base_url`
-- `site.name`
-- `site.default_language`
-- `locale.timezone`
-- `smtp` settings if you want password reset, notifications, or plugin mail
-
-If the tree was created with `tinymash deploy`, expect `tinymash.json.example` to contain a sanitized empty-site config. That is deliberate.
-
-## 6. Create the first admin user
-
-Before you can use `/admin/login`, create at least one local admin user:
-
-```bash
-php8.4 bin/tinymash.php user set-password admin strong-password-here superadmin
-```
-
-The command creates the user if it does not exist, or updates the password if it does.
-
-## 7. Reload PHP-FPM
+## 6. Reload PHP-FPM
 
 After copying new code or changing PHP-FPM pool settings, reload PHP-FPM.
 
@@ -147,14 +143,16 @@ Example:
 sudo systemctl reload php8.4-fpm
 ```
 
-## 8. Set up housekeeping from cron
+Use the matching service name when running a different PHP branch, for example `php8.5-fpm`.
+
+## 7. Set up housekeeping from cron
 
 tinymash has a web-cron fallback, but real cron is still the better operational path.
 
 Example:
 
 ```cron
-*/15 * * * * cd /path/to/tinymash && /usr/bin/php8.4 bin/tinymash.php housekeeping run >/dev/null 2>&1
+*/15 * * * * cd /path/to/tinymash && /usr/bin/php8.4 bin/tinymash.php housekeeping:run >/dev/null 2>&1
 ```
 
 If you use the Fediverse plugin actively, also schedule:
@@ -167,7 +165,7 @@ There is also a sample cron file at `samples/cron/tinymash.cron`.
 
 Run these cron entries as the tinymash runtime user. Running mutating CLI commands as `root` requires confirmation or `--allow-root` and can leave runtime files owned by root.
 
-## 9. First checks
+## 8. First checks
 
 Before you call the installation done, check these things:
 
@@ -176,7 +174,7 @@ Before you call the installation done, check these things:
 3. the first admin user can log in
 4. saving a draft works
 5. uploaded media lands in `data/media/`
-6. `php8.4 bin/tinymash.php housekeeping status` runs cleanly
+6. `php8.4 bin/tinymash.php housekeeping:status` runs cleanly
 
 ## Common mistakes
 
@@ -199,8 +197,7 @@ composer install --no-dev --prefer-dist
 After that, the runtime setup is the same:
 
 - point the web server at `public/`
-- copy `app/config/tinymash.json.example` to `app/config/tinymash.json` if needed, then configure it
-- create an admin user
+- run `php8.4 bin/tinymash.php setup`
 - set write permissions
 - enable housekeeping
 

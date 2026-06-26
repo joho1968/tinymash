@@ -1,7 +1,7 @@
 {
     "key": "backup",
     "name": "Backup",
-    "version": "0.92.2",
+    "version": "0.93.0",
     "description": "Adds downloadable author exports and site backups on top of the core export bridge.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

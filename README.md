@@ -1,6 +1,6 @@
 # tinymash
 
-tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It stores content on disk, does not require a database server, and ships with both a public site and an admin interface.
+tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It stores content on disk, does not require a database server, and ships with both a public site and an admin interface. The current development line is also smoke-tested with PHP 8.5.x.
 
 It is built for self-hosted publishing: pages, posts, author spaces, themes, plugins, media, tags, feeds, maintenance tasks, and a CLI for day-to-day operations.
 
@@ -35,15 +35,15 @@ If you are holding a tinymash deploy package, the short version is:
 1. copy the runtime tree to the server
 2. point the web root at `public/`
 3. make `data/`, `users/`, and `tmp/` writable by the PHP/web-server user
-4. create `app/config/tinymash.json` from `app/config/tinymash.json.example` if it does not already exist, then review it
-5. create the first admin user
+4. run `php8.4 bin/tinymash.php setup`
+5. review system settings in the admin UI
 6. set up housekeeping from cron
 
 The full step-by-step version is in `INSTALL.md`.
 
 ## Runtime requirements
 
-- PHP `8.4.1` or newer
+- PHP `8.4.1` or newer; PHP `8.5.x` is also smoke-tested
 - a web server such as Nginx or Apache
 - PHP-FPM or another supported PHP SAPI
 - writable `data/`, `users/`, and `tmp/` directories
@@ -68,13 +68,15 @@ Recommended PHP extensions for full feature coverage:
 
 For ordinary public and admin use, tinymash can run with a small PHP memory limit; `16M` is enough for many small sites. Larger batch jobs such as imports, backups/exports, media cleanup, and big upload/import runs may need more memory. The CLI import commands also accept explicit memory-limit options where that matters.
 
-## First admin user
+## First setup
 
-Before you can use `/admin/login`, create at least one local admin user:
+After copying a prepared runtime tree and pointing the web server at `public/`, run setup from the tinymash root:
 
 ```bash
-php8.4 bin/tinymash.php user set-password admin strong-password-here superadmin
+php8.4 bin/tinymash.php setup
 ```
+
+Setup creates `app/config/tinymash.json` when needed and creates the first superadmin user. Existing configs are preserved on reruns.
 
 ## Command line
 

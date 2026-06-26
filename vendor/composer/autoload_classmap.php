@@ -8,6 +8,9 @@ $baseDir = dirname($vendorDir);
 return array(
     'Attribute' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
+    'DelayedTargetValidation' => $vendorDir . '/symfony/polyfill-php85/Resources/stubs/DelayedTargetValidation.php',
+    'Filter\\FilterException' => $vendorDir . '/symfony/polyfill-php85/Resources/stubs/Filter/FilterException.php',
+    'Filter\\FilterFailedException' => $vendorDir . '/symfony/polyfill-php85/Resources/stubs/Filter/FilterFailedException.php',
     'Latte\\Attributes\\TemplateFilter' => $vendorDir . '/latte/latte/src/Latte/attributes.php',
     'Latte\\Attributes\\TemplateFunction' => $vendorDir . '/latte/latte/src/Latte/attributes.php',
     'Latte\\Bridges\\Tracy\\BlueScreenPanel' => $vendorDir . '/latte/latte/src/Bridges/Tracy/BlueScreenPanel.php',
@@ -296,6 +299,7 @@ return array(
     'Nette\\Utils\\Type' => $vendorDir . '/nette/utils/src/Utils/Type.php',
     'Nette\\Utils\\UnknownImageFileException' => $vendorDir . '/nette/utils/src/Utils/exceptions.php',
     'Nette\\Utils\\Validators' => $vendorDir . '/nette/utils/src/Utils/Validators.php',
+    'NoDiscard' => $vendorDir . '/symfony/polyfill-php85/Resources/stubs/NoDiscard.php',
     'Normalizer' => $vendorDir . '/symfony/polyfill-intl-normalizer/Resources/stubs/Normalizer.php',
     'PhpToken' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/PhpToken.php',
     'Stringable' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
