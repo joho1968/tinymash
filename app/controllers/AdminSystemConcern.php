@@ -232,6 +232,8 @@ trait AdminSystemConcern {
             $message = 'Locale settings were saved.';
         } elseif ( $settings_group === 'smtp' ) {
             $message = 'SMTP settings were saved.';
+        } elseif ( $settings_group === 'head_tags' ) {
+            $message = 'Head tags were saved.';
         }
         $this->clearPublicPageCache();
         $this->setSystemNoticeFlash( 'success', $message );
@@ -883,6 +885,18 @@ trait AdminSystemConcern {
         $system_notifications_view = $this->getSystemNotificationsViewData( $system_section === 'notifications' );
         $system_notifications_unread_count = (int) ( $system_notifications_view['summary']['unread'] ?? 0 );
         $system_users = $this->getSystemUsers();
+        $system_head_tag_rows = [ 'meta' => [], 'link' => [] ];
+        foreach ( $this->config->getPublicHeadTags() as $head_tag ) {
+            $type = (string) ( $head_tag['type'] ?? '' );
+            if ( isset( $system_head_tag_rows[$type] ) ) {
+                $system_head_tag_rows[$type][] = $head_tag;
+            }
+        }
+        foreach ( [ 'meta', 'link' ] as $type ) {
+            while ( count( $system_head_tag_rows[$type] ) < 6 ) {
+                $system_head_tag_rows[$type][] = [];
+            }
+        }
         $admin_theme_info = $this->getSystemAdminThemeInfo();
         $system_plugin_settings_section = is_array( $overrides['system_plugin_settings_section'] ?? null ) ? $overrides['system_plugin_settings_section'] : [];
         $system_plugin_settings_page = ! empty( $overrides['system_plugin_settings_page'] );
@@ -908,6 +922,7 @@ trait AdminSystemConcern {
             'admin_profile_url' => $this->app->get( 'admin.url' ) . '/profile',
             'entries_url' => $this->app->get( 'admin.url' ) . '/content',
             'system_settings' => $this->config->getSystemSettings(),
+            'system_head_tag_rows' => $system_head_tag_rows,
             'system_timezone_options' => timezone_identifiers_list(),
             'system_content_image_mime_options' => $this->getContentImageMimeOptions(),
             'system_media_metadata_group_options' => $this->getMediaMetadataGroupOptions(),
@@ -1044,7 +1059,7 @@ trait AdminSystemConcern {
 
     protected function normalizeSystemSection( string $section ) : string {
         $section = strtolower( trim( $section ) );
-        return( in_array( $section, [ 'site', 'security', 'content-media', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans' ], true ) ? $section : 'site' );
+        return( in_array( $section, [ 'site', 'security', 'content-media', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans' ], true ) ? $section : 'site' );
     }
 
     protected function getSystemSectionUrls() : array {
@@ -1053,6 +1068,7 @@ trait AdminSystemConcern {
                 'site' => $this->getSystemSectionUrl( 'site' ),
                 'security' => $this->getSystemSectionUrl( 'security' ),
                 'content_media' => $this->getSystemSectionUrl( 'content-media' ),
+                'head_tags' => $this->getSystemSectionUrl( 'head-tags' ),
                 'media' => $this->getSystemSectionUrl( 'media' ),
                 'media_library' => $this->getSystemSectionUrl( 'media-library' ),
                 'locale' => $this->getSystemSectionUrl( 'locale' ),

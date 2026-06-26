@@ -6,6 +6,11 @@ use flight\net\Router;
 
 class TinyMashConfig {
 
+    public const PUBLIC_HEAD_LINK_RELS = [
+        'alternate', 'author', 'authorization_endpoint', 'license', 'me', 'micropub',
+        'openid.delegate', 'openid.server', 'pingback', 'search', 'token_endpoint', 'webmention',
+    ];
+
     protected Engine $app;
     protected Router $router;
     protected string $config_json_filename = '';
@@ -139,6 +144,10 @@ class TinyMashConfig {
                 if ( ! isset( $this->config['site']['login_message'] ) ) {
                     $this->config['site']['login_message'] = '';
                 }
+                if ( ! isset( $this->config['site']['head_tags'] ) ) {
+                    $this->config['site']['head_tags'] = [];
+                }
+                $this->config['site']['head_tags'] = self::normalizePublicHeadTags( $this->config['site']['head_tags'] );
                 if ( empty( $this->config['site']['images'] ) || ! is_array( $this->config['site']['images'] ) ) {
                     $this->config['site']['images'] = [];
                 }
@@ -492,6 +501,97 @@ class TinyMashConfig {
         }
 
         return( '' );
+    }
+
+    public function getPublicHeadTags() : array {
+        if ( ! $this->config_read ) {
+            return( [] );
+        }
+
+        return( self::normalizePublicHeadTags( $this->config['site']['head_tags'] ?? [] ) );
+    }
+
+    public static function normalizePublicHeadTags( mixed $tags ) : array {
+        if ( ! is_array( $tags ) ) {
+            return( [] );
+        }
+
+        $normalized_tags = [];
+        $seen_tags = [];
+        foreach ( $tags as $tag ) {
+            $normalized_tag = self::normalizePublicHeadTag( $tag );
+            if ( $normalized_tag === null ) {
+                continue;
+            }
+
+            $tag_key = json_encode( $normalized_tag, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+            if ( ! is_string( $tag_key ) || isset( $seen_tags[$tag_key] ) ) {
+                continue;
+            }
+
+            $seen_tags[$tag_key] = true;
+            $normalized_tags[] = $normalized_tag;
+            if ( count( $normalized_tags ) >= 12 ) {
+                break;
+            }
+        }
+
+        return( $normalized_tags );
+    }
+
+    public static function normalizePublicHeadTag( mixed $tag ) : ?array {
+        if ( ! is_array( $tag ) ) {
+            return( null );
+        }
+
+        $type = strtolower( trim( (string) ( $tag['type'] ?? '' ) ) );
+        if ( $type === 'meta' ) {
+            $name = strtolower( trim( (string) ( $tag['name'] ?? '' ) ) );
+            $property = strtolower( trim( (string) ( $tag['property'] ?? '' ) ) );
+            $content = function_exists( 'mb_trim' ) ? mb_trim( (string) ( $tag['content'] ?? '' ) ) : trim( (string) ( $tag['content'] ?? '' ) );
+            if (
+                ( $name === '' && $property === '' )
+                || ( $name !== '' && $property !== '' )
+                || $content === ''
+                || mb_strlen( $content ) > 1000
+            ) {
+                return( null );
+            }
+
+            $key = $name !== '' ? $name : $property;
+            if ( preg_match( '/^[a-z][a-z0-9:._-]{0,100}$/', $key ) !== 1 ) {
+                return( null );
+            }
+
+            return( $name !== ''
+                ? [ 'type' => 'meta', 'name' => $name, 'content' => $content ]
+                : [ 'type' => 'meta', 'property' => $property, 'content' => $content ]
+            );
+        }
+
+        if ( $type !== 'link' ) {
+            return( null );
+        }
+
+        $rel = strtolower( trim( (string) ( $tag['rel'] ?? '' ) ) );
+        $href = trim( (string) ( $tag['href'] ?? '' ) );
+        if ( ! in_array( $rel, self::PUBLIC_HEAD_LINK_RELS, true ) || ! self::isValidPublicHeadLinkUrl( $href ) ) {
+            return( null );
+        }
+
+        return( [ 'type' => 'link', 'rel' => $rel, 'href' => $href ] );
+    }
+
+    protected static function isValidPublicHeadLinkUrl( string $url ) : bool {
+        if ( $url === '' || mb_strlen( $url ) > 2000 || preg_match( '/[\x00-\x1F\x7F]/', $url ) === 1 ) {
+            return( false );
+        }
+
+        if ( str_starts_with( $url, '/' ) && ! str_starts_with( $url, '//' ) ) {
+            return( true );
+        }
+
+        return( filter_var( $url, FILTER_VALIDATE_URL ) !== false && preg_match( '/^https?:\/\//i', $url ) === 1 );
     }
 
     public function getDefaultLanguage() : string {
@@ -1057,6 +1157,7 @@ class TinyMashConfig {
                 'public_cache_warm_basic_auth_password' => $this->getPublicPageCacheWarmBasicAuthPassword(),
                 'public_cache_warm_insecure_tls' => $this->allowsInsecureTlsForPublicPageCacheWarm(),
                 'login_message' => (string) ( $this->config['site']['login_message'] ?? '' ),
+                'head_tags' => $this->getPublicHeadTags(),
                 'site_banner_image' => $this->getSiteBannerImage(),
                 'site_favicon_png_image' => $this->getSiteFaviconPngImage(),
                 'site_favicon_ico_image' => $this->getSiteFaviconIcoImage(),

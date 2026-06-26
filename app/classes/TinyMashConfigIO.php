@@ -295,6 +295,7 @@ class TinyMashConfigIO {
                 'public_cache_warm_basic_auth_password' => (string) ( $this->config['site']['public_cache_warm_basic_auth_password'] ?? '' ),
                 'public_cache_warm_insecure_tls' => $this->normalizeBoolean( $this->config['site']['public_cache_warm_insecure_tls'] ?? false ),
                 'login_message' => (string) ( $this->config['site']['login_message'] ?? '' ),
+                'head_tags' => TinyMashConfig::normalizePublicHeadTags( $this->config['site']['head_tags'] ?? [] ),
                 'site_banner_image' => $this->normalizeSiteImage( $this->config['site']['images']['banner'] ?? [] ),
                 'site_favicon_png_image' => $this->normalizeSiteImage( $this->config['site']['images']['favicon_png'] ?? [] ),
                 'site_favicon_ico_image' => $this->normalizeSiteImage( $this->config['site']['images']['favicon_ico'] ?? [] ),
@@ -393,6 +394,8 @@ class TinyMashConfigIO {
             $this->config['editor']['autosave_enabled'] = (bool) ( $settings['editor_autosave_enabled'] ?? true );
             $this->config['editor']['autosave_interval_seconds'] = $this->normalizeAutosaveIntervalSeconds( $settings['editor_autosave_interval_seconds'] ?? $this->config['editor']['autosave_interval_seconds'] ?? 120 );
             $this->config['editor']['classic_smileys_enabled'] = (bool) ( $settings['editor_classic_smileys_enabled'] ?? true );
+        } elseif ( $settings_group === 'head_tags' ) {
+            $this->config['site']['head_tags'] = TinyMashConfig::normalizePublicHeadTags( $settings['head_tags'] ?? [] );
         } elseif ( $settings_group === 'media' ) {
             $this->config['media']['content_images_mode'] = (string) ( $settings['content_images_mode'] ?? $this->config['media']['content_images_mode'] ?? 'authenticated' );
             $this->config['media']['image_driver'] = (string) ( $settings['content_image_driver'] ?? $this->config['media']['image_driver'] ?? 'auto' );
@@ -633,6 +636,7 @@ class TinyMashConfigIO {
         }
         $this->config['site']['public_cache_warm_insecure_tls'] = $this->normalizeBoolean( $this->config['site']['public_cache_warm_insecure_tls'] ?? false );
         $this->config['site']['login_message'] = (string) ( $this->config['site']['login_message'] ?? '' );
+        $this->config['site']['head_tags'] = TinyMashConfig::normalizePublicHeadTags( $this->config['site']['head_tags'] ?? [] );
         $this->config['site']['images']['banner'] = $this->normalizeSiteImage( $this->config['site']['images']['banner'] ?? [] );
         $this->config['site']['images']['favicon_png'] = $this->normalizeSiteImage( $this->config['site']['images']['favicon_png'] ?? [] );
         $this->config['site']['images']['favicon_ico'] = $this->normalizeSiteImage( $this->config['site']['images']['favicon_ico'] ?? [] );

@@ -3,7 +3,7 @@
 {var $system_notifications_unread_count = (int) ($system_notifications_unread_count ?? 0)}
 {var $system_nav_id_prefix = trim((string) ($system_nav_id_prefix ?? 'tm-system-sections-nav'))}
 {var $system_group_general_open = in_array($system_section, ['site', 'locale', 'information'], true)}
-{var $system_group_content_open = in_array($system_section, ['content-media', 'menus', 'themes', 'themes-settings', 'plugins'], true)}
+{var $system_group_content_open = in_array($system_section, ['content-media', 'head-tags', 'menus', 'themes', 'themes-settings', 'plugins'], true)}
 {var $system_group_media_open = true}
 {var $system_group_media_force_open = in_array($system_section, ['media', 'media-library'], true)}
 {var $system_group_operations_open = in_array($system_section, ['security', 'notifications', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'components'], true)}
@@ -35,6 +35,7 @@
         <div id="{$system_nav_id_prefix}-content" class="tm-section-nav-panel" data-tm-section-panel aria-labelledby="{$system_nav_id_prefix}-content-heading" n:attr="hidden => ! $system_group_content_open ? true : null">
             <div class="tm-section-nav-items">
                 <a class="tm-section-nav-link link-offset-2{if $system_section === 'content-media'} active{/if}" n:attr="aria-current => $system_section === 'content-media' ? 'page' : null" href="{$system_section_urls['content_media']}"><span class="tm-section-nav-link-label">Content</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'head-tags'} active{/if}" n:attr="aria-current => $system_section === 'head-tags' ? 'page' : null" href="{$system_section_urls['head_tags']}"><span class="tm-section-nav-link-label">Head tags</span></a>
                 <a class="tm-section-nav-link link-offset-2{if $system_section === 'menus'} active{/if}" n:attr="aria-current => $system_section === 'menus' ? 'page' : null" href="{$system_section_urls['menus']}"><span class="tm-section-nav-link-label">Menus</span></a>
                 <a class="tm-section-nav-link link-offset-2{if in_array($system_section, ['themes', 'themes-settings'], true)} active{/if}" n:attr="aria-current => in_array($system_section, ['themes', 'themes-settings'], true) ? 'page' : null" href="{$system_section_urls['themes']}"><span class="tm-section-nav-link-label">Themes</span></a>
                 <a class="tm-section-nav-link link-offset-2{if $system_section === 'plugins'} active{/if}" n:attr="aria-current => $system_section === 'plugins' ? 'page' : null" href="{$system_section_urls['plugins']}"><span class="tm-section-nav-link-label">Plugins</span></a>

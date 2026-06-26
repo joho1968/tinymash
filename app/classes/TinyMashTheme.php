@@ -116,6 +116,7 @@ class TinyMashTheme {
                 'theme_screen_mode' => $this->resolveScreenMode( $page_context ),
                 'theme_public_sidebar_fragments' => $this->getPublicSidebarFragments( $context_entry, $context_author_slug ),
                 'theme_public_footer_fragments' => $this->getPublicFooterFragments( $context_entry, $context_author_slug ),
+                'theme_public_head_tags' => $this->config instanceof TinyMashConfig ? $this->config->getPublicHeadTags() : [],
                 'theme_search' => $this->getPublicSearchViewData( $page_context['scope'] === 'author' ? (string) ( $page_context['author_slug'] ?? '' ) : '', $theme_settings ),
                 'theme_syntax_highlighting' => $syntax_highlighting,
                 'theme_tags' => $tags,

@@ -1,7 +1,7 @@
 {
     "key": "font-manager",
     "name": "Font manager",
-    "version": "0.92.1",
+    "version": "0.92.2",
     "description": "Manages local font files and theme font-role assignments.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

@@ -1,0 +1,59 @@
+{var $head_tag_rows = is_array($system_head_tag_rows ?? null) ? $system_head_tag_rows : ['meta' => [], 'link' => []]}
+{var $head_meta_rows = is_array($head_tag_rows['meta'] ?? null) ? $head_tag_rows['meta'] : []}
+{var $head_link_rows = is_array($head_tag_rows['link'] ?? null) ? $head_tag_rows['link'] : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Content</div>
+    <div class="fw-semibold mb-1">Head tags</div>
+    <p class="small text-body-secondary mb-3">Add validated metadata and discovery links to every public page. These records are not arbitrary HTML and cannot load scripts, stylesheets, or other frontend assets.</p>
+    <form method="post" action="{$system_settings_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <input type="hidden" name="settings_group" value="head_tags">
+
+        <div class="rounded-3 p-3 bg-body-secondary mb-3">
+            <div class="fw-semibold mb-1">Meta tags</div>
+            <div class="form-text mb-3">Use either <code>name</code> or <code>property</code> for each row, plus a content value. This suits site-verification records and other document metadata.</div>
+            <div class="vstack gap-2">
+                {foreach $head_meta_rows as $head_tag_index => $head_meta_row}
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small mb-1" for="tm-head-meta-name-{$head_tag_index}">Name</label>
+                            <input class="form-control form-control-sm font-monospace" id="tm-head-meta-name-{$head_tag_index}" name="head_meta[{$head_tag_index}][name]" maxlength="101" value="{$head_meta_row['name'] ?? ''}" placeholder="site-verification">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small mb-1" for="tm-head-meta-property-{$head_tag_index}">Property</label>
+                            <input class="form-control form-control-sm font-monospace" id="tm-head-meta-property-{$head_tag_index}" name="head_meta[{$head_tag_index}][property]" maxlength="101" value="{$head_meta_row['property'] ?? ''}" placeholder="fediverse:creator">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small mb-1" for="tm-head-meta-content-{$head_tag_index}">Content</label>
+                            <input class="form-control form-control-sm" id="tm-head-meta-content-{$head_tag_index}" name="head_meta[{$head_tag_index}][content]" maxlength="1000" value="{$head_meta_row['content'] ?? ''}" placeholder="Verification token or value">
+                        </div>
+                    </div>
+                {/foreach}
+            </div>
+        </div>
+
+        <div class="rounded-3 p-3 bg-body-secondary mb-3">
+            <div class="fw-semibold mb-1">Discovery links</div>
+            <div class="form-text mb-3">Supported relations: <code>alternate</code>, <code>author</code>, <code>license</code>, <code>me</code>, <code>webmention</code>, <code>micropub</code>, <code>authorization_endpoint</code>, <code>token_endpoint</code>, <code>openid.delegate</code>, <code>openid.server</code>, <code>pingback</code>, and <code>search</code>. URLs must use <code>https://</code>, <code>http://</code>, or a root-relative path.</div>
+            <div class="vstack gap-2">
+                {foreach $head_link_rows as $head_tag_index => $head_link_row}
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small mb-1" for="tm-head-link-rel-{$head_tag_index}">Relation</label>
+                            <input class="form-control form-control-sm font-monospace" id="tm-head-link-rel-{$head_tag_index}" name="head_link[{$head_tag_index}][rel]" maxlength="64" value="{$head_link_row['rel'] ?? ''}" placeholder="webmention">
+                        </div>
+                        <div class="col-12 col-md-8">
+                            <label class="form-label small mb-1" for="tm-head-link-href-{$head_tag_index}">URL</label>
+                            <input class="form-control form-control-sm font-monospace" id="tm-head-link-href-{$head_tag_index}" name="head_link[{$head_tag_index}][href]" maxlength="2000" value="{$head_link_row['href'] ?? ''}" placeholder="https://example.com/webmention">
+                        </div>
+                    </div>
+                {/foreach}
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end">
+            <button class="btn btn-primary" type="submit">Save head tags</button>
+        </div>
+    </form>
+</section>

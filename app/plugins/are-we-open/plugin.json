@@ -1,7 +1,7 @@
 {
     "key": "are-we-open",
     "name": "Are we open",
-    "version": "0.92.1",
+    "version": "0.92.2",
     "description": "Displays local open or closed availability from configured hours.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

@@ -1,7 +1,7 @@
 {
     "key": "blogger-import",
     "name": "Blogger Import",
-    "version": "0.92.1",
+    "version": "0.92.2",
     "description": "Imports posts and pages from a Blogger export into an author space.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

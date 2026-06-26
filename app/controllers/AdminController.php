@@ -632,7 +632,7 @@ class AdminController extends BaseController {
 
     protected function normalizeSystemSettingsGroup( string $group ) : string {
         $group = strtolower( trim( $group ) );
-        return( in_array( $group, [ 'site', 'security', 'content_media', 'media', 'locale', 'menus', 'themes', 'plugins', 'moderation', 'smtp', 'notifications' ], true ) ? $group : 'site' );
+        return( in_array( $group, [ 'site', 'security', 'content_media', 'head_tags', 'media', 'locale', 'menus', 'themes', 'plugins', 'moderation', 'smtp', 'notifications' ], true ) ? $group : 'site' );
     }
 
     protected function validateSystemSettings( array $data, string $settings_group = 'site' ) : array {
@@ -850,6 +850,34 @@ class AdminController extends BaseController {
                     'editor_classic_smileys_enabled' => $editor_classic_smileys_enabled,
                 ]
             );
+        }
+
+        if ( $settings_group === 'head_tags' ) {
+            $head_tags = [];
+            foreach ( [ 'head_meta' => 'meta', 'head_link' => 'link' ] as $field_name => $type ) {
+                $rows = is_array( $data[$field_name] ?? null ) ? $data[$field_name] : [];
+                foreach ( array_slice( $rows, 0, 6 ) as $row ) {
+                    if ( ! is_array( $row ) ) {
+                        continue;
+                    }
+
+                    $record = $type === 'meta'
+                        ? [ 'type' => 'meta', 'name' => $row['name'] ?? '', 'property' => $row['property'] ?? '', 'content' => $row['content'] ?? '' ]
+                        : [ 'type' => 'link', 'rel' => $row['rel'] ?? '', 'href' => $row['href'] ?? '' ];
+                    if ( ! array_filter( $record, static fn( mixed $value, string $key ) : bool => $key !== 'type' && trim( (string) $value ) !== '', ARRAY_FILTER_USE_BOTH ) ) {
+                        continue;
+                    }
+
+                    $normalized_record = TinyMashConfig::normalizePublicHeadTags( [ $record ] );
+                    if ( count( $normalized_record ) !== 1 ) {
+                        throw new \InvalidArgumentException( 'head_tags' );
+                    }
+
+                    $head_tags[] = $normalized_record[0];
+                }
+            }
+
+            return( [ 'head_tags' => TinyMashConfig::normalizePublicHeadTags( $head_tags ) ] );
         }
 
         if ( $settings_group === 'media' ) {
@@ -1373,6 +1401,9 @@ class AdminController extends BaseController {
         if ( $settings_group !== 'plugins' ) {
             if ( $settings_group === 'content_media' ) {
                 return( $this->getSystemSectionUrl( 'content-media' ) );
+            }
+            if ( $settings_group === 'head_tags' ) {
+                return( $this->getSystemSectionUrl( 'head-tags' ) );
             }
             if ( $settings_group === 'media' ) {
                 return( $this->getSystemSectionUrl( 'media' ) );

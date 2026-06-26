@@ -1,7 +1,7 @@
 {
     "key": "feeds",
     "name": "Feeds",
-    "version": "0.92.1",
+    "version": "0.92.2",
     "description": "Adds RSS 2.0, Atom 1.0, and JSON Feed endpoints for the front page and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

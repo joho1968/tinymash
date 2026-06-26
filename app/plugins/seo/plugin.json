@@ -1,7 +1,7 @@
 {
     "key": "seo",
     "name": "SEO",
-    "version": "0.92.1",
+    "version": "0.92.2",
     "description": "Adds generated robots.txt and sitemap.xml output plus AI crawler advisory rules.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

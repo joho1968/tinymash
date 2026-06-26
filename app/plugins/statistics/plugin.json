@@ -1,7 +1,7 @@
 {
     "key": "statistics",
     "name": "Statistics",
-    "version": "0.92.1",
+    "version": "0.92.2",
     "description": "Collects public page views and shows sitewide and author-scoped reports in admin.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

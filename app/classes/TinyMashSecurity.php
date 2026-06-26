@@ -7,6 +7,7 @@ use app\classes\TinyMashConfig;
 
 class TinyMashSecurity {
 
+    protected const DEFAULT_SESSION_NAME = 'tinymash';
     protected const SESSION_USER_KEY = 'tinymash.auth.username';
     protected const SESSION_ROLE_KEY = 'tinymash.auth.role';
     protected const SESSION_CSRF_KEY = 'tinymash.csrf.token';
@@ -40,8 +41,11 @@ class TinyMashSecurity {
             return;
         }
 
+        $session_name = self::resolveSessionName( ini_get( 'session.name' ) );
+        $this->prepareSessionRuntime( $session_name );
+
         $secure_cookie = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on';
-        session_name( 'tinymash' );
+        session_name( $session_name );
         session_cache_limiter( '' );
         session_set_cookie_params(
             [
@@ -299,6 +303,68 @@ class TinyMashSecurity {
         }
     }
 
+    public static function resolveSessionName( mixed $configured_session_name ) : string {
+        $session_name = is_string( $configured_session_name ) ? trim( $configured_session_name ) : '';
+        if ( $session_name === '' || $session_name === 'PHPSESSID' ) {
+            return( self::DEFAULT_SESSION_NAME );
+        }
+
+        if ( preg_match( '/^[A-Za-z][A-Za-z0-9_-]{0,63}$/', $session_name ) !== 1 ) {
+            return( self::DEFAULT_SESSION_NAME );
+        }
+
+        return( $session_name );
+    }
+
+    public static function buildRedisSessionPrefix( string $session_name ) : string {
+        $session_name = self::resolveSessionName( $session_name );
+        return( $session_name . ':' );
+    }
+
+    public static function isFilesystemSessionSavePath( string $save_path ) : bool {
+        $save_path = trim( $save_path );
+        if ( $save_path === '' ) {
+            return( false );
+        }
+
+        if ( str_starts_with( $save_path, 'unix://' ) ) {
+            return( false );
+        }
+
+        return(
+            str_starts_with( $save_path, '/' ) ||
+            str_starts_with( $save_path, './' ) ||
+            str_starts_with( $save_path, '../' ) ||
+            preg_match( '/^[A-Za-z]:[\/\\\\]/', $save_path ) === 1
+        );
+    }
+
+    public static function redisSessionSavePathHasPrefix( string $save_path ) : bool {
+        return( preg_match( '/(?:^|[?&])prefix=/', $save_path ) === 1 );
+    }
+
+    public static function appendRedisSessionPrefixToSavePath( string $save_path, string $session_name ) : string {
+        $save_path = trim( $save_path );
+        if ( $save_path === '' || self::isFilesystemSessionSavePath( $save_path ) || self::redisSessionSavePathHasPrefix( $save_path ) ) {
+            return( $save_path );
+        }
+
+        $prefix = self::buildRedisSessionPrefix( $session_name );
+        $servers = explode( ',', $save_path );
+        foreach ( $servers as $index => $server ) {
+            $server = trim( $server );
+            if ( $server === '' || self::redisSessionSavePathHasPrefix( $server ) ) {
+                $servers[$index] = $server;
+                continue;
+            }
+
+            $separator = str_contains( $server, '?' ) ? '&' : '?';
+            $servers[$index] = $server . $separator . 'prefix=' . $prefix;
+        }
+
+        return( implode( ',', $servers ) );
+    }
+
     public function validateCsrfToken( ?string $csrf_token ) : bool {
         $this->startSession();
         if ( ! is_string( $csrf_token ) || $csrf_token === '' ) {
@@ -407,12 +473,35 @@ class TinyMashSecurity {
             return( false );
         }
 
-        $session_cookie_name = session_name();
-        if ( ! is_string( $session_cookie_name ) || $session_cookie_name === '' || $session_cookie_name === 'PHPSESSID' ) {
-            $session_cookie_name = 'tinymash';
-        }
+        $session_cookie_name = self::resolveSessionName( session_name() );
 
         return( isset( $_COOKIE[$session_cookie_name] ) && is_string( $_COOKIE[$session_cookie_name] ) && trim( $_COOKIE[$session_cookie_name] ) !== '' );
+    }
+
+    protected function prepareSessionRuntime( string $session_name ) : void {
+        if ( strtolower( (string) ini_get( 'session.save_handler' ) ) !== 'redis' ) {
+            return;
+        }
+
+        $save_path = (string) ini_get( 'session.save_path' );
+        if ( self::isFilesystemSessionSavePath( $save_path ) ) {
+            throw new \RuntimeException( 'Redis session handler is active, but session.save_path points to a filesystem path. Configure session.save_path as a Redis connection string such as tcp://127.0.0.1:6379?prefix=' . self::buildRedisSessionPrefix( $session_name ) );
+        }
+
+        $configured_prefix = ini_get( 'redis.session.prefix' );
+        if ( is_string( $configured_prefix ) && trim( $configured_prefix ) !== '' ) {
+            return;
+        }
+
+        $prefix = self::buildRedisSessionPrefix( $session_name );
+        if ( is_string( $configured_prefix ) ) {
+            @ ini_set( 'redis.session.prefix', $prefix );
+        }
+
+        $prefixed_save_path = self::appendRedisSessionPrefixToSavePath( $save_path, $session_name );
+        if ( $prefixed_save_path !== $save_path ) {
+            @ ini_set( 'session.save_path', $prefixed_save_path );
+        }
     }
 
     public function setFlash( string $key, mixed $value ) : void {

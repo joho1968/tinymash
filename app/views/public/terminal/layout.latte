@@ -150,6 +150,14 @@
         {if ! empty( $theme_seo['json_ld'] )}
             <script type="application/ld+json">{=json_encode($theme_seo['json_ld'], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)|noescape}</script>
         {/if}
+        {foreach ($theme_public_head_tags ?? []) as $theme_public_head_tag}
+            {if ($theme_public_head_tag['type'] ?? '') === 'meta'}
+                {if ! empty($theme_public_head_tag['name'])}<meta name="{$theme_public_head_tag['name']}" content="{$theme_public_head_tag['content'] ?? ''}">{/if}
+                {if ! empty($theme_public_head_tag['property'])}<meta property="{$theme_public_head_tag['property']}" content="{$theme_public_head_tag['content'] ?? ''}">{/if}
+            {elseif ($theme_public_head_tag['type'] ?? '') === 'link'}
+                <link rel="{$theme_public_head_tag['rel'] ?? ''}" href="{$theme_public_head_tag['href'] ?? ''}">
+            {/if}
+        {/foreach}
     </head>
     <body class="tm-terminal-shell tm-terminal-palette-{$theme_terminal_palette} {$theme_body_classes ?? ''}">
         <a class="tm-skip-link" href="#tm-main-content">Skip to main content</a>

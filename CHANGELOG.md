@@ -2,10 +2,14 @@
 
 Notable changes in tinymash
 
+## 0.92.2 - 2026-06-26
+
+- Improved PHP session handling, and checking for invalid PHP session handling when using redis
+
 ## 0.92.1 - 2026-06-24
 
 - Fixed regression/issue with `bin/tinymash.php user set-password` CLI command.
-- Added rendering of :emoji: to Site title, Site slogan, and Login screen message.
+- Added rendering of `:emoji:` to Site title, Site slogan, and Login screen message.
 
 ## 0.92.0 - 2026-06-18
 
