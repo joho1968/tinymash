@@ -41,6 +41,7 @@ require_once dirname(__FILE__ ) . '/AdminEditorStateConcern.php';
 require_once dirname(__FILE__ ) . '/AdminProfileConcern.php';
 require_once dirname(__FILE__ ) . '/AdminProfilePublishingConcern.php';
 require_once dirname(__FILE__ ) . '/AdminProfileSettingsConcern.php';
+require_once dirname(__FILE__ ) . '/AdminStaticExportConcern.php';
 require_once dirname(__FILE__ ) . '/AdminSystemConcern.php';
 require_once dirname(__FILE__ ) . '/AdminThemeConcern.php';
 
@@ -53,6 +54,7 @@ class AdminController extends BaseController {
     use AdminProfileConcern;
     use AdminProfilePublishingConcern;
     use AdminProfileSettingsConcern;
+    use AdminStaticExportConcern;
     use AdminSystemConcern;
     use AdminThemeConcern;
 

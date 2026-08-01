@@ -3,6 +3,10 @@
     "name": "Baseline Admin",
     "description": "Default admin theme",
     "version": "1.0.0",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
     "template_root": "admin/baseline",
     "css_urls": [
         "/ext/bs/css/bootstrap.min.css",

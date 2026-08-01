@@ -296,7 +296,9 @@ class TinyMashHelpCatalog {
                 'admin-profile-account',
                 'admin-profile-editor',
                 'admin-profile-publishing',
+                'admin-profile-static-export',
                 'admin-system',
+                'admin-media-library',
             ]
         );
     }

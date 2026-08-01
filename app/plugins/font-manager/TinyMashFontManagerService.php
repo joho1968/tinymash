@@ -1,5 +1,7 @@
 <?php
 
+use app\classes\TinyMashFilesystem;
+
 class TinyMashFontManagerService {
 
     protected const MAX_FONT_SIZE = 5242880;
@@ -393,8 +395,9 @@ class TinyMashFontManagerService {
                     continue;
                 }
                 $stored_filename = (string) ( $font_file['stored_filename'] ?? '' );
-                $path = $this->files_directory . DIRECTORY_SEPARATOR . basename( $stored_filename );
-                if ( is_file( $path ) && is_readable( $path ) ) {
+                $candidate_path = $this->files_directory . DIRECTORY_SEPARATOR . basename( $stored_filename );
+                $path = TinyMashFilesystem::resolveManagedReadableFile( $this->files_directory, $candidate_path );
+                if ( $path !== '' ) {
                     $font_file['path'] = $path;
                     return( $font_file );
                 }

@@ -20,6 +20,7 @@ class TextNode extends AreaNode
 	public function __construct(
 		public string $content,
 		public ?Position $position = null,
+		public ?Position $end = null,
 	) {
 	}
 
@@ -41,5 +42,16 @@ class TextNode extends AreaNode
 	public function &getIterator(): \Generator
 	{
 		false && yield;
+	}
+
+
+	/**
+	 * Used by the parser to drop indentation that is already in the tree.
+	 * @internal
+	 */
+	public function clear(): void
+	{
+		$this->content = '';
+		$this->end = $this->position;
 	}
 }

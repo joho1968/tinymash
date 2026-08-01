@@ -87,7 +87,7 @@ trait AdminProfileSettingsConcern {
     }
 
     protected function normalizeProfileSection( string $section ) : string {
-        return( in_array( $section, [ 'account', 'editor', 'publishing', 'appearance', 'fediverse' ], true ) ? $section : 'account' );
+        return( in_array( $section, [ 'account', 'editor', 'publishing', 'appearance', 'static-export', 'fediverse' ], true ) ? $section : 'account' );
     }
 
     protected function getProfileSectionUrls() : array {
@@ -97,6 +97,7 @@ trait AdminProfileSettingsConcern {
                 'editor' => $this->getProfileSectionUrl( 'editor' ),
                 'publishing' => $this->getProfileSectionUrl( 'publishing' ),
                 'appearance' => $this->getProfileSectionUrl( 'appearance' ),
+                'static_export' => $this->getProfileSectionUrl( 'static-export' ),
                 'fediverse' => $this->getProfileSectionUrl( 'fediverse' ),
             ]
         );
@@ -111,6 +112,7 @@ trait AdminProfileSettingsConcern {
             'editor' => 'admin-profile-editor',
             'publishing' => 'admin-profile-publishing',
             'appearance' => 'admin-profile-appearance',
+            'static-export' => 'admin-profile-static-export',
             'fediverse' => 'admin-profile-fediverse',
             default => 'admin-profile-account',
         };

@@ -3,6 +3,10 @@
     "name": "Panel Magazine",
     "description": "Magazine-style public theme with a fixed identity panel, banner masthead, and quiet secondary navigation.",
     "version": "1.0.0",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
     "template_root": "public/baseline",
     "views": {
         "home": "public/panel-magazine/home.latte",

@@ -6,7 +6,7 @@
 {var $system_group_content_open = in_array($system_section, ['content-media', 'head-tags', 'menus', 'themes', 'themes-settings', 'plugins'], true)}
 {var $system_group_media_open = true}
 {var $system_group_media_force_open = in_array($system_section, ['media', 'media-library'], true)}
-{var $system_group_operations_open = in_array($system_section, ['security', 'notifications', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'components'], true)}
+{var $system_group_operations_open = in_array($system_section, ['security', 'notifications', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'components', 'static-export'], true)}
 
 <nav class="tm-section-nav" data-tm-section-nav="system-sections" aria-label="System sections">
     <section class="tm-section-nav-group{if $system_group_general_open} is-open{/if}" data-tm-section-node data-tm-section-key="general" data-tm-section-default-open="{$system_group_general_open ? '1' : '0'}" data-tm-section-force-open="{$system_group_general_open ? '1' : '0'}">
@@ -79,6 +79,7 @@
                 <a class="tm-section-nav-link link-offset-2{if $system_section === 'smtp'} active{/if}" n:attr="aria-current => $system_section === 'smtp' ? 'page' : null" href="{$system_section_urls['smtp']}"><span class="tm-section-nav-link-label">SMTP</span></a>
                 <a class="tm-section-nav-link link-offset-2{if $system_section === 'orphans'} active{/if}" n:attr="aria-current => $system_section === 'orphans' ? 'page' : null" href="{$system_section_urls['orphans']}"><span class="tm-section-nav-link-label">Orphans</span></a>
                 <a class="tm-section-nav-link link-offset-2{if $system_section === 'components'} active{/if}" n:attr="aria-current => $system_section === 'components' ? 'page' : null" href="{$system_section_urls['components']}"><span class="tm-section-nav-link-label">Components</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $system_section === 'static-export'} active{/if}" n:attr="aria-current => $system_section === 'static-export' ? 'page' : null" href="{$system_section_urls['static_export']}"><span class="tm-section-nav-link-label">Static export</span></a>
             </div>
         </div>
     </section>

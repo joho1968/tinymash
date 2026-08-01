@@ -16,6 +16,8 @@
 {var $site_favicon_png_image = is_array($site_favicon_png_image ?? null) ? $site_favicon_png_image : []}
 {var $site_favicon_ico_image = is_array($site_favicon_ico_image ?? null) ? $site_favicon_ico_image : []}
 {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
+{var $theme_layout_hints = is_array($theme_layout_hints ?? null) ? $theme_layout_hints : []}
+{var $theme_wide_content_requested = ! empty($theme_layout_hints['wide_content'])}
 {var $theme_background_inline_style = trim((string) ($theme_background_inline_style ?? ''))}
 {var $theme_background_preload_url = trim((string) ($theme_background_preload_url ?? ''))}
 {var $theme_author_space_slug = ''}
@@ -36,6 +38,7 @@
 {var $theme_has_footer_fragments = ! empty( $theme_public_footer_fragments )}
 {var $theme_has_footer_content = ! empty( $theme_footer_menu ) || $theme_has_footer_fragments}
 {var $theme_has_sidebar_content = $theme_has_sidebar_pages || $theme_has_sidebar_navigation || $theme_has_sidebar_fragments || $theme_has_footer_content}
+{var $theme_desktop_sidebar_content = ! $theme_wide_content_requested && $theme_has_sidebar_content}
 {var $theme_has_mobile_panel = $theme_has_sidebar_content || $theme_has_header_navigation || $theme_has_search}
 <html lang="{$site_default_language ?? 'en'}" data-bs-theme="{$theme_initial_bs_theme}"{if $theme_background_inline_style !== ''}{=' style="' . $theme_background_inline_style . '"'|noescape}{/if}>
     <head>
@@ -492,7 +495,7 @@
 
         <div class="container-fluid px-0 flex-grow-1 tm-docsmatter-shell">
             <div class="row g-0 h-100">
-                <aside n:if="$theme_has_sidebar_content" class="col-lg-4 col-xl-3 d-none d-lg-block tm-docsmatter-sidebar-column bg-body-tertiary">
+                <aside n:if="$theme_desktop_sidebar_content" class="col-lg-4 col-xl-3 d-none d-lg-block tm-docsmatter-sidebar-column bg-body-tertiary">
                     <div class="tm-docsmatter-sidebar menu-area">
                         {include './partials/sidebar-content.latte',
                             sidebar_pages: $theme_sidebar_pages,
@@ -506,7 +509,7 @@
                             sidebar_navigation_collapsible: false}
                     </div>
                 </aside>
-                <main id="tm-main-content" tabindex="-1" n:class="$theme_has_sidebar_content ? 'col-12 col-lg-8 col-xl-9 tm-docsmatter-main-column content-area bg-body' : 'col-12 tm-docsmatter-main-column content-area bg-body'">
+                <main id="tm-main-content" tabindex="-1" n:class="$theme_desktop_sidebar_content ? 'col-12 col-lg-8 col-xl-9 tm-docsmatter-main-column content-area bg-body' : 'col-12 tm-docsmatter-main-column content-area bg-body'">
                     <div id="content-area-inner" n:class="$theme_content_width_class ?? 'tm-content-width-default', 'container-fluid', 'tm-docsmatter-main-inner', 'page-content'">
                         {block content}{/block}
                     </div>

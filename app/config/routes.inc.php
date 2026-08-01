@@ -322,6 +322,22 @@ $router->post( $config->configGetAdminURL() . '/profile/publishing/delete-all-co
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->deleteAllProfileContent();
 });
+$router->post( $config->configGetAdminURL() . '/profile/static-export/generate', function() use ( $app, $router, $security, $config ) {
+    if ( ! $security->isLoggedIn() ) {
+        $app->redirect( $config->configGetLoginURL() );
+        return;
+    }
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->generateProfileStaticExport();
+});
+$router->post( $config->configGetAdminURL() . '/profile/static-export/delete', function() use ( $app, $router, $security, $config ) {
+    if ( ! $security->isLoggedIn() ) {
+        $app->redirect( $config->configGetLoginURL() );
+        return;
+    }
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->deleteProfileStaticExport();
+});
 $router->get( $config->configGetAdminURL() . '/system', function() use ( $app, $router, $security, $config, $redirect_to_login ) {
     if ( ! $security->isLoggedIn() ) {
         $redirect_to_login();
@@ -400,6 +416,22 @@ $router->post( $config->configGetAdminURL() . '/system/media-library/review', fu
 $router->post( $config->configGetAdminURL() . '/system/media-library/delete', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->deleteSystemMediaLibraryItem();
+});
+$router->post( $config->configGetAdminURL() . '/system/static-export/generate', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->generateSystemStaticExport();
+});
+$router->post( $config->configGetAdminURL() . '/system/static-export/delete', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->deleteSystemStaticExport();
+});
+$router->get( $config->configGetAdminURL() . '/static-export/@artifact_id/download', function( string $artifact_id ) use ( $app, $router, $security, $config, $redirect_to_login ) {
+    if ( ! $security->isLoggedIn() ) {
+        $redirect_to_login();
+        return;
+    }
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->downloadStaticExport( $artifact_id );
 });
 // admin
 $router->get( $config->configGetAdminURL(), function() use ( $app, $router, $security, $config, $redirect_to_login) {

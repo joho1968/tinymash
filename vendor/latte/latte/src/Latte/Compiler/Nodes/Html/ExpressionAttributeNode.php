@@ -28,14 +28,20 @@ class ExpressionAttributeNode extends AreaNode
 		public ModifierNode $modifier,
 		public ?string $indentation = null,
 		public ?Position $position = null,
+		public ?Position $end = null,
 	) {
 	}
 
 
 	public function print(PrintContext $context): string
 	{
+		$modifier = clone $this->modifier;
 		if ($context->getEscaper()->getContentType() === ContentType::Html) {
-			$type = $this->modifier->removeFilter('toggle') ? 'bool' : LR\HtmlHelpers::classifyAttributeType($this->name);
+			$type = match (true) {
+				$modifier->removeFilter('toggle') !== null => 'bool',
+				$modifier->filters && end($modifier->filters)->name->name === 'json' && $modifier->removeFilter('json') => 'json',
+				default => LR\HtmlHelpers::classifyAttributeType($this->name),
+			};
 			$method = 'LR\HtmlHelpers::format' . ucfirst($type) . 'Attribute';
 		} else {
 			$method = 'LR\XmlHelpers::formatAttribute';
@@ -44,9 +50,9 @@ class ExpressionAttributeNode extends AreaNode
 			'echo %raw(%dump, %modify(%node), %dump?) %line;',
 			$method,
 			$this->indentation . $this->name,
-			$this->modifier,
+			$modifier,
 			$this->value,
-			(!$this->modifier->removeFilter('accept') && $context->hasFeature(Feature::MigrationWarnings)) ?: null,
+			(!$modifier->removeFilter('accept') && $context->hasFeature(Feature::MigrationWarnings)) ?: null,
 			$this->value->position,
 		);
 	}

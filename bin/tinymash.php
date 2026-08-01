@@ -27,6 +27,7 @@ require_once __DIR__ . '/../app/classes/TinyMashDateFormatter.php';
 require_once __DIR__ . '/../app/classes/TinyMashContentRenderer.php';
 require_once __DIR__ . '/../app/classes/TinyMashShortcodeRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashMenuService.php';
+require_once __DIR__ . '/../app/classes/TinyMashFilesystem.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaAttachmentMetadataStore.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaImportMapStore.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaService.php';
@@ -44,6 +45,8 @@ require_once __DIR__ . '/../app/classes/TinyMashTheme.php';
 require_once __DIR__ . '/../app/classes/TinyMashHelpCatalog.php';
 require_once __DIR__ . '/../app/classes/TinyMashUserRepository.php';
 require_once __DIR__ . '/../app/classes/TinyMashExportService.php';
+require_once __DIR__ . '/../app/classes/TinyMashStaticExportArtifactService.php';
+require_once __DIR__ . '/../app/classes/TinyMashStaticExportService.php';
 require_once __DIR__ . '/../app/classes/TinyMashDeployService.php';
 require_once __DIR__ . '/../app/classes/TinyMashMailer.php';
 require_once __DIR__ . '/../app/classes/TinyMashNotificationService.php';
@@ -79,6 +82,8 @@ use app\classes\TinyMashTheme;
 use app\classes\TinyMashHelpCatalog;
 use app\classes\TinyMashUserRepository;
 use app\classes\TinyMashExportService;
+use app\classes\TinyMashStaticExportArtifactService;
+use app\classes\TinyMashStaticExportService;
 use app\classes\TinyMashDeployService;
 use app\classes\TinyMashMailer;
 use app\classes\TinyMashNotificationService;
@@ -216,7 +221,7 @@ function commandIsReadOnlyForRootGuard(array $arguments): bool {
 
     $action = (string) ($arguments[1] ?? '');
     if ($command === 'system') {
-        return in_array($action, ['status', 'plugins'], true);
+        return in_array($action, ['status', 'plugins', 'themes'], true);
     }
     if ($command === 'maintenance') {
         return $action === 'status';
@@ -326,6 +331,9 @@ Runtime
   system plugins
       show plugin boot diagnostics
 
+  system themes
+      show theme manifest diagnostics
+
   maintenance status
       show current maintenance mode
 
@@ -378,6 +386,12 @@ Transfer
 
   export author <username> <target-directory> [--with-plugins]
       export one author profile plus owned content, drafts, and media
+
+  static-export author <username-or-author-slug> [--base-url=<url>] [--output=<directory>]
+      export one public author space as static HTML and local assets
+
+  static-export site [--base-url=<url>] [--exclude-author=<slug>] [--output=<directory>]
+      export root public pages and included public author spaces as static HTML and local assets
 
   import site <source-directory> [--replace-existing] [--with-plugins]
       import a site export bundle into the current runtime
@@ -569,6 +583,59 @@ function printSystemPluginDiagnostics(): void {
     }
 }
 
+function printSystemThemeDiagnostics(): void {
+    $runtime = buildCliRuntime(false);
+    $theme_registry = $runtime['theme_registry'] ?? null;
+    if (!$theme_registry instanceof TinyMashThemeRegistry || !method_exists($theme_registry, 'getThemeDiagnostics')) {
+        fail('theme registry is unavailable');
+    }
+
+    $diagnostics = $theme_registry->getThemeDiagnostics();
+    $summary = is_array($diagnostics['summary'] ?? null) ? $diagnostics['summary'] : [];
+    $themes = is_array($diagnostics['themes'] ?? null) ? $diagnostics['themes'] : [];
+
+    printCliTitle('tinymash theme diagnostics');
+    printCliSection('Summary');
+    printCliRows([
+        'Installed' => (int) ($summary['total'] ?? 0),
+        'Public' => (int) ($summary['public'] ?? 0),
+        'Admin' => (int) ($summary['admin'] ?? 0),
+        'First-party' => (int) ($summary['first_party'] ?? 0),
+        'Third-party' => (int) ($summary['third_party'] ?? 0),
+        'Warnings' => (int) ($summary['warnings'] ?? 0),
+        'First-party warnings' => (int) ($summary['first_party_warnings'] ?? 0),
+    ]);
+
+    printCliSection('Themes');
+    if ($themes === []) {
+        fwrite(STDOUT, '  None' . PHP_EOL);
+        return;
+    }
+
+    foreach ($themes as $theme) {
+        if (!is_array($theme)) {
+            continue;
+        }
+        $key = (string) ($theme['key'] ?? '');
+        $name = (string) ($theme['name'] ?? $key);
+        $type = (string) ($theme['type'] ?? 'public');
+        $source = !empty($theme['first_party']) ? 'first-party' : 'third-party';
+        $version = trim((string) ($theme['version'] ?? ''));
+        $warnings = is_array($theme['manifest_warnings'] ?? null) ? $theme['manifest_warnings'] : [];
+        $line = '  ' . $type . '  ' . $key . '  ' . $name . '  source=' . $source;
+        if ($version !== '') {
+            $line .= ' version=' . $version;
+        }
+        if ($warnings !== []) {
+            $line .= '  warnings=' . count($warnings);
+        }
+        fwrite(STDOUT, $line . PHP_EOL);
+        foreach ($warnings as $warning) {
+            fwrite(STDOUT, '    warning: ' . trim((string) $warning) . PHP_EOL);
+        }
+    }
+}
+
 function printMaintenanceStatus(): void {
     $config = new TinyMashConfigIO();
     if (!$config->getConfig()) {
@@ -705,6 +772,12 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $app->set('app.url', '');
     $app->set('admin.url', '/admin');
     $app->set('login.url', '/login');
+    if (!$app->has('view')) {
+        $app->register('view', \Latte\Engine::class, [], function($latte): void {
+            $latte->setTempDirectory(TINYMASH_RUNTIME_DIR . '/latte-cache/');
+            $latte->setLoader(new \Latte\Loaders\FileLoader(dirname(__DIR__) . '/app/views'));
+        });
+    }
 
     $router = $app->router();
     $config = new TinyMashConfig($app, $router);
@@ -787,6 +860,10 @@ function buildCliRuntime(bool $with_plugins = false): array {
         TINYMASH_DRAFTS_DIR,
         TINYMASH_MEDIA_DIR
     );
+    $static_export_artifact_service = new TinyMashStaticExportArtifactService(
+        TINYMASH_RUNTIME_DIR . '/static-exports',
+        21600
+    );
     $theme_support_registry = new TinyMashThemeSupportRegistry();
     $theme_registry = new TinyMashThemeRegistry(
         [
@@ -801,6 +878,17 @@ function buildCliRuntime(bool $with_plugins = false): array {
     );
     $menu_service = new TinyMashMenuService($config, $content_repository);
     $theme = new TinyMashTheme($app, $content_repository, $config, $theme_registry, $theme_support_registry, $user_repository, $menu_service);
+    $static_export_service = new TinyMashStaticExportService(
+        $app,
+        $config,
+        $content_repository,
+        $content_renderer,
+        $theme,
+        $user_repository,
+        $media_service,
+        $static_export_artifact_service,
+        dirname(__DIR__) . '/public'
+    );
 
     $app->set('content.repository', $content_repository);
     $app->set('content.target_picker', $content_target_picker);
@@ -824,6 +912,8 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $app->set('media.derivative_registry', $media_derivative_registry);
     $app->set('help.catalog', $help_catalog);
     $app->set('export.service', $export_service);
+    $app->set('static_export.artifacts', $static_export_artifact_service);
+    $app->set('static_export.service', $static_export_service);
     $app->set('notification.service', $notification_service);
     $app->set('password_reset.service', $password_reset_service);
     $app->set('security', $security);
@@ -852,12 +942,16 @@ function buildCliRuntime(bool $with_plugins = false): array {
         'draft_repository' => $draft_repository,
         'user_repository' => $user_repository,
         'menu_service' => $menu_service,
+        'theme_registry' => $theme_registry,
         'theme' => $theme,
+        'content_renderer' => $content_renderer,
         'media_metadata_store' => $media_metadata_store,
         'media_service' => $media_service,
         'media_import_bridge' => $media_import_bridge,
         'media_usage_reporter' => $media_usage_reporter,
         'export_service' => $export_service,
+        'static_export_artifact_service' => $static_export_artifact_service,
+        'static_export_service' => $static_export_service,
         'notification_service' => $notification_service,
         'password_reset_service' => $password_reset_service,
         'plugins' => $plugins,
@@ -1972,7 +2066,7 @@ function runCheckUpdates(bool $notify = false): void {
         return;
     }
 
-    $mailer = new TinyMashMailer();
+    $mailer = new TinyMashMailer($markdown_renderer);
     $base_url = rtrim((string) $config->configGetBaseURL(), '/');
     $admin_url = (string) $config->configGetAdminURL();
     $components_url = '';
@@ -2077,6 +2171,110 @@ function runExportAuthor(string $username, string $target_directory, bool $with_
         'Entries' => (int) ($manifest['counts']['entries'] ?? 0),
         'Drafts' => (int) ($manifest['counts']['drafts'] ?? 0),
     ]);
+}
+
+function runStaticExportAuthor(array $arguments): void {
+    $author_slug = (string) ($arguments[0] ?? '');
+    if ($author_slug === '') {
+        fail('usage: tinymash static-export:author <username-or-author-slug> [--base-url=<url>] [--output=<directory>]');
+    }
+
+    $options = parseStaticExportOptions(array_slice($arguments, 1));
+    $runtime = buildCliRuntime(true);
+    $service = $runtime['static_export_service'] ?? null;
+    if (!$service instanceof TinyMashStaticExportService) {
+        fail('static export service is unavailable');
+    }
+
+    $target_directory = (string) ($options['output'] ?? '');
+    if ($target_directory === '') {
+        $artifact = $service->createAuthorArtifact($author_slug, $author_slug, ['base_url' => (string) ($options['base_url'] ?? '')]);
+        printCliTitle('tinymash static export author');
+        printCliRows([
+            'Artifact' => (string) ($artifact['id'] ?? ''),
+            'Archive' => (string) ($artifact['download_filename'] ?? ''),
+            'Owner' => (string) ($artifact['owner_username'] ?? ''),
+            'Expires' => (string) ($artifact['expires_at_utc'] ?? ''),
+        ]);
+        return;
+    }
+
+    $report = $service->exportAuthorToDirectory($author_slug, $target_directory, ['base_url' => (string) ($options['base_url'] ?? '')]);
+    printCliTitle('tinymash static export author');
+    printCliRows([
+        'Output' => $target_directory,
+        'Routes' => (int) ($report['route_count'] ?? 0),
+        'Assets' => (int) ($report['asset_count'] ?? 0),
+        'Warnings' => count(is_array($report['warnings'] ?? null) ? $report['warnings'] : []),
+    ]);
+}
+
+function runStaticExportSite(array $arguments): void {
+    $options = parseStaticExportOptions($arguments);
+    $runtime = buildCliRuntime(true);
+    $service = $runtime['static_export_service'] ?? null;
+    if (!$service instanceof TinyMashStaticExportService) {
+        fail('static export service is unavailable');
+    }
+
+    $export_options = [
+        'base_url' => (string) ($options['base_url'] ?? ''),
+        'exclude_authors' => is_array($options['exclude_authors'] ?? null) ? $options['exclude_authors'] : [],
+    ];
+    $target_directory = (string) ($options['output'] ?? '');
+    if ($target_directory === '') {
+        $artifact = $service->createSiteArtifact('cli', $export_options);
+        printCliTitle('tinymash static export site');
+        printCliRows([
+            'Artifact' => (string) ($artifact['id'] ?? ''),
+            'Archive' => (string) ($artifact['download_filename'] ?? ''),
+            'Owner' => (string) ($artifact['owner_username'] ?? ''),
+            'Expires' => (string) ($artifact['expires_at_utc'] ?? ''),
+        ]);
+        return;
+    }
+
+    $report = $service->exportSiteToDirectory($target_directory, $export_options);
+    printCliTitle('tinymash static export site');
+    printCliRows([
+        'Output' => $target_directory,
+        'Routes' => (int) ($report['route_count'] ?? 0),
+        'Assets' => (int) ($report['asset_count'] ?? 0),
+        'Included authors' => count(is_array($report['included_authors'] ?? null) ? $report['included_authors'] : []),
+        'Excluded authors' => count(is_array($report['excluded_authors'] ?? null) ? $report['excluded_authors'] : []),
+        'Warnings' => count(is_array($report['warnings'] ?? null) ? $report['warnings'] : []),
+    ]);
+}
+
+function parseStaticExportOptions(array $arguments): array {
+    $options = [
+        'base_url' => '',
+        'output' => '',
+        'exclude_authors' => [],
+    ];
+
+    foreach ($arguments as $argument) {
+        $argument = (string) $argument;
+        if (str_starts_with($argument, '--base-url=')) {
+            $options['base_url'] = trim(substr($argument, strlen('--base-url=')));
+            continue;
+        }
+        if (str_starts_with($argument, '--output=')) {
+            $options['output'] = trim(substr($argument, strlen('--output=')));
+            continue;
+        }
+        if (str_starts_with($argument, '--exclude-author=')) {
+            $author_slug = trim(substr($argument, strlen('--exclude-author=')));
+            if ($author_slug !== '') {
+                $options['exclude_authors'][] = $author_slug;
+            }
+            continue;
+        }
+
+        fail('unknown static export option: ' . $argument);
+    }
+
+    return $options;
 }
 
 function runImportSite(string $source_directory, bool $replace_existing = false, bool $with_plugins = false): void {
@@ -2240,7 +2438,7 @@ function getTinymashRawCommandArguments(): array {
 
 function transformLegacyCliArgv(array $argv): array {
     $legacy_pairs = [
-        'system' => [ 'status' => 'system:status', 'plugins' => 'system:plugins' ],
+        'system' => [ 'status' => 'system:status', 'plugins' => 'system:plugins', 'themes' => 'system:themes' ],
         'maintenance' => [ 'status' => 'maintenance:status', 'on' => 'maintenance:on', 'off' => 'maintenance:off' ],
         'cache' => [ 'clear' => 'cache:clear', 'warm' => 'cache:warm' ],
         'housekeeping' => [ 'status' => 'housekeeping:status', 'run' => 'housekeeping:run' ],
@@ -2248,6 +2446,7 @@ function transformLegacyCliArgv(array $argv): array {
         'benchmark' => [ 'public' => 'benchmark:public' ],
         'audit' => [ 'remote-media' => 'audit:remote-media' ],
         'export' => [ 'site' => 'export:site', 'author' => 'export:author' ],
+        'static-export' => [ 'site' => 'static-export:site', 'author' => 'static-export:author' ],
         'import' => [ 'site' => 'import:site', 'author' => 'import:author' ],
         'user' => [ 'list' => 'user:list', 'set-password' => 'user:set-password' ],
     ];
@@ -2909,6 +3108,7 @@ function buildTinymashConsoleApplication(): Application {
     $commands = [
         new TinymashLegacyCommand('system:status', 'Show runtime status.', static fn() => printSystemStatus(), true, 'system:status', ['system-status']),
         new TinymashLegacyCommand('system:plugins', 'Show plugin diagnostics.', static fn() => printSystemPluginDiagnostics(), true, 'system:plugins'),
+        new TinymashLegacyCommand('system:themes', 'Show theme manifest diagnostics.', static fn() => printSystemThemeDiagnostics(), true, 'system:themes'),
         new TinymashLegacyCommand('maintenance:status', 'Show maintenance mode.', static fn() => printMaintenanceStatus(), true, 'maintenance:status'),
         new TinymashLegacyCommand('maintenance:on', 'Enable maintenance mode.', static fn() => setMaintenance(true), false, 'maintenance:on'),
         new TinymashLegacyCommand('maintenance:off', 'Disable maintenance mode.', static fn() => setMaintenance(false), false, 'maintenance:off'),
@@ -2943,6 +3143,8 @@ function buildTinymashConsoleApplication(): Application {
             }
             runExportAuthor($username, $target_directory, in_array('--with-plugins', $arguments, true));
         }, false, 'export:author <username> <target-directory> [--with-plugins]'),
+        new TinymashLegacyCommand('static-export:author', 'Export one public author space as static files.', static fn(array $arguments) => runStaticExportAuthor($arguments), false, 'static-export:author <username-or-author-slug> [--base-url=<url>] [--output=<directory>]'),
+        new TinymashLegacyCommand('static-export:site', 'Export public site pages as static files.', static fn(array $arguments) => runStaticExportSite($arguments), false, 'static-export:site [--base-url=<url>] [--exclude-author=<slug>] [--output=<directory>]'),
         new TinymashLegacyCommand('import:site', 'Import a site export bundle.', static function(array $arguments): void {
             $source_directory = (string) ($arguments[0] ?? '');
             if ($source_directory === '') {

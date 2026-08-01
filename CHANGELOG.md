@@ -2,6 +2,22 @@
 
 Notable changes in tinymash
 
+## 0.94.0 - 2026-07-27
+
+- Fixed outbound e-mail display text so site-name shortcodes such as `:coffee:` render as Unicode emoji in subjects, sender display names, and system/test notification bodies
+- Added RSS Reader plugin with superadmin-managed RSS/Atom sources
+- Added static export for author spaces and whole public sites
+- Added `tinymash system:themes` for public/admin theme manifest diagnostics
+
+## 0.93.1 - 2026-07-01
+
+- Added Links plugin for shortcode-rendered categorized link collections
+- Fixed content summary rendering so plain summaries with punctuation stay compact and literal tags such as `<head></head>` are escaped instead of being interpreted as HTML
+- Fixed duplicated content editor state so a copied post/page keeps its copied date/time initially but does not restore the original date/time if it's changed
+- Added managed-file containment checks before serving media, Downloads files, and Font manager fonts
+
+After installing, run php8.4 bin/tinymash.php cache:clear
+
 ## 0.93.0 - 2026-06-26
 
 - Reworked the CLI around Symfony Console and made `bin/tinymash.php` the only shipped CLI entrypoint

@@ -548,8 +548,9 @@ class TinyMashMediaService {
             return( null );
         }
 
-        $path = $this->media_root . DIRECTORY_SEPARATOR . $owner_username . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR . $filename;
-        if ( ! is_file( $path ) || ! is_readable( $path ) ) {
+        $candidate_path = $this->media_root . DIRECTORY_SEPARATOR . $owner_username . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $month . DIRECTORY_SEPARATOR . $filename;
+        $path = TinyMashFilesystem::resolveManagedReadableFile( $this->media_root, $candidate_path );
+        if ( $path === '' ) {
             return( null );
         }
 

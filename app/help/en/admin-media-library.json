@@ -1,0 +1,25 @@
+{
+  "group": "Administration",
+  "roles": ["admin"],
+  "order": 21,
+  "title": "Media library",
+  "summary": "Use this page to review stored media and decide what can safely stay, be marked for cleanup, or be removed.",
+  "sections": [
+    {
+      "title": "Filters",
+      "markdown": "- **Search** finds media by filename, alt text, media ID, or metadata.\n- **Owner**, **Type**, **Upload association**, **Usage**, and **Review** narrow the list when you are checking a smaller set of files."
+    },
+    {
+      "title": "Statuses",
+      "markdown": "- **In use** means the file has a known current reference.\n- **Possibly unused** means no current use was found.\n- **Upload association only** means the file was attached to an upload flow, but no current use was verified.\n- Reference counts show how many known places use the file.\n- **Unreviewed**, **Reviewed: keep**, and **Cleanup candidate** are review notes you set while working through the list."
+    },
+    {
+      "title": "Actions",
+      "markdown": "- **Details** shows file, metadata, and usage information.\n- **Keep** marks a file as reviewed and worth keeping.\n- **Cleanup candidate** marks a file for possible removal.\n- **Clear** removes the review note.\n- **Delete permanently** removes the file when it is allowed."
+    },
+    {
+      "title": "Safe cleanup",
+      "markdown": "**Delete permanently** should only appear for cleanup candidates. Before deleting, open **Details** and check the usage information. Deletion is still checked on the server before it happens, and permanent deletion cannot be undone."
+    }
+  ]
+}

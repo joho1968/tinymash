@@ -98,7 +98,10 @@ trait AdminProfileConcern {
         }
 
         require_once dirname( __FILE__, 2 ) . '/classes/TinyMashMailer.php';
-        $mailer = new \app\classes\TinyMashMailer();
+        $markdown_renderer = $this->app->has( 'markdown.renderer' ) ? $this->app->get( 'markdown.renderer' ) : null;
+        $mailer = new \app\classes\TinyMashMailer(
+            $markdown_renderer instanceof \app\classes\TinyMashMarkdownRenderer ? $markdown_renderer : null
+        );
         $base_url = rtrim( (string) ( $this->config->configGetBaseURL() ?: $this->app->get( 'app.url' ) ), '/' );
         $confirm_url = $base_url
             . $this->config->configGetAdminURL()
@@ -175,6 +178,7 @@ trait AdminProfileConcern {
             'profile_public_background_image' => $this->getCurrentProfilePublicBackgroundImage(),
             'profile_public_theme_name' => $this->theme !== null ? $this->theme->getThemeName() : 'Public theme',
             'profile_secret_links' => $this->getCurrentProfileSecretLinkViewData(),
+            'profile_static_export' => $this->getProfileStaticExportViewData(),
             'profile_plugin_settings_sections' => $profile_plugin_settings_sections,
             'profile_timezone_options' => timezone_identifiers_list(),
             'profile_site_timezone' => $this->config->getLocaleTimezone(),

@@ -3,6 +3,10 @@
     "name": "Baseline",
     "description": "Default public theme",
     "version": "1.0.0",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
     "template_root": "public/baseline",
     "views": {
         "home": "public/baseline/home.latte",

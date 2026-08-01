@@ -1,18 +1,17 @@
-<div class="d-lg-none mb-3">
+<div class="d-lg-none mb-2">
     <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#tm-editor-load-panel" aria-expanded="false" aria-controls="tm-editor-load-panel">
         Load existing
     </button>
 </div>
-<div class="p-3 bg-body border rounded-3 shadow-sm h-100 collapse d-lg-block" id="tm-editor-load-panel">
-    <div class="small text-uppercase text-body-secondary mb-2">Load</div>
-    <div class="fw-semibold mb-1">Saved content</div>
-    <div class="small text-body-secondary mb-3">Load an existing page or post into the composer for explicit editing, or open one of your drafts below.</div>
+<div class="p-3 bg-body border rounded-3 h-100 collapse d-lg-block" id="tm-editor-load-panel">
+    <div class="small text-uppercase text-body-secondary mb-2">Saved content</div>
+    <div class="small text-body-secondary mb-2">Search saved content or open a draft below.</div>
     <form class="row g-2" method="get" action="{$editor_url}">
         <div class="col-12">
             <label class="form-label small mb-1" for="tm-editor-load-filter">Filter content</label>
             <input class="form-control" id="tm-editor-load-filter" type="search" placeholder="Search saved content" autocomplete="off" aria-describedby="tm-editor-content-search-status">
             <div class="form-text" id="tm-editor-content-search-status" aria-live="polite"></div>
-            <div class="d-grid gap-2 mt-2 d-none" id="tm-editor-content-search-results" aria-live="polite"></div>
+            <div class="d-grid gap-0 mt-2 d-none" id="tm-editor-content-search-results" aria-live="polite"></div>
         </div>
         <div class="col-12" id="tm-editor-load-select-fallback">
             <label class="form-label small mb-1" for="tm-editor-load-entry">Content</label>
@@ -33,13 +32,13 @@
             <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_new_url}"><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>New content</span></a>
         </div>
     </form>
-    <div class="border-top mt-3 pt-3" id="tm-editor-drafts-panel">
-        <div class="small text-uppercase text-body-secondary mb-2">Recent drafts</div>
-        <div class="d-grid gap-2" id="tm-editor-drafts-list">
+    <div class="border-top mt-3 pt-2" id="tm-editor-drafts-panel">
+        <div class="small text-uppercase text-body-secondary fw-semibold border-bottom pb-1 mb-2">Recent drafts</div>
+        <div class="d-grid gap-0" id="tm-editor-drafts-list">
             {if ! empty( $editor_drafts )}
                 {foreach $editor_drafts as $draft}
-                    <div class="d-flex gap-2 align-items-start">
-                        <a class="btn btn-outline-secondary btn-sm text-start flex-grow-1" href="{$editor_url}?draft={$draft['draft_id']}">
+                    <div class="d-flex gap-2 align-items-start border-top py-2">
+                        <a class="text-decoration-none link-body-emphasis flex-grow-1" href="{$editor_url}?draft={$draft['draft_id']}">
                             <span class="d-block fw-semibold">{$draft['display_title']}</span>
                             <span class="d-block small text-body-secondary">{$draft['entry_type']} draft | {$draft['scope'] === 'author' ? $draft['author_slug'] : 'root'} | {$draft['slug'] !== '' ? $draft['slug'] : 'no slug yet'}</span>
                         </a>
@@ -53,16 +52,16 @@
             {/if}
         </div>
     </div>
-    <div class="border-top mt-3 pt-3" id="tm-editor-recent-entries-panel">
-        <div class="small text-uppercase text-body-secondary mb-2">Recent content</div>
-        <div class="d-grid gap-2" id="tm-editor-recent-entries-list">
+    <div class="border-top mt-3 pt-2" id="tm-editor-recent-entries-panel">
+        <div class="small text-uppercase text-body-secondary fw-semibold border-bottom pb-1 mb-2">Recent content</div>
+        <div class="d-grid gap-0 tm-editor-recent-list-scroll" id="tm-editor-recent-entries-list">
             {if ! empty( $editor_recent_entries )}
                 {foreach $editor_recent_entries as $recent_entry}
-                    <a class="btn btn-outline-secondary btn-sm text-start" href="{$editor_url}?entry={$recent_entry['id']}">
+                    <a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="{$editor_url}?entry={$recent_entry['id']}">
                         <span class="d-block fw-semibold">
                             {$recent_entry['title']}
                         </span>
-                        <span class="d-block small text-bg-body">
+                        <span class="d-block small text-body-secondary">
                             {$recent_entry['type']} | {$recent_entry['scope'] === 'author' ? $recent_entry['author_slug'] : 'root'} | {$recent_entry['path']}
                         </span>
                     </a>
@@ -72,12 +71,12 @@
             {/if}
         </div>
     </div>
-    <div class="border-top mt-3 pt-3" id="tm-editor-revisions-panel">
-        <div class="small text-uppercase text-body-secondary mb-2">Revisions</div>
-        <div class="d-grid gap-2" id="tm-editor-revisions-list">
+    <div class="border-top mt-3 pt-2" id="tm-editor-revisions-panel">
+        <div class="small text-uppercase text-body-secondary fw-semibold border-bottom pb-1 mb-2">Revisions</div>
+        <div class="d-grid gap-0 tm-editor-revisions-list-scroll" id="tm-editor-revisions-list">
             {if ! empty( $editor_revisions )}
                 {foreach $editor_revisions as $revision}
-                    <a class="btn btn-outline-secondary btn-sm text-start" href="{$revision['open_url']}">
+                    <a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="{$revision['open_url']}">
                         <span class="d-block fw-semibold">{$revision['title']}</span>
                         <span class="d-block small text-body-secondary">{$revision['status']} | saved {$revision['saved_at_display']}</span>
                     </a>

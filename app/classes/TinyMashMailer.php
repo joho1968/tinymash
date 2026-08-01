@@ -10,6 +10,12 @@ use Symfony\Component\Mime\Email;
 
 class TinyMashMailer {
 
+    protected ?TinyMashMarkdownRenderer $markdown_renderer = null;
+
+    public function __construct( ?TinyMashMarkdownRenderer $markdown_renderer = null ) {
+        $this->markdown_renderer = $markdown_renderer;
+    }
+
     public function sendSystemNotificationEmail( array $settings, string $recipient_email, string $subject, string $text_body, string $site_name = 'tinymash' ) : void {
         $smtp_settings = $this->normalizeSettings( $settings );
         if ( ! $smtp_settings['enabled'] ) {
@@ -30,6 +36,10 @@ class TinyMashMailer {
         if ( $smtp_settings['from_email'] === '' || filter_var( $smtp_settings['from_email'], FILTER_VALIDATE_EMAIL ) === false ) {
             throw new \InvalidArgumentException( 'smtp_from_email' );
         }
+
+        $site_name = $this->normalizeSiteName( $site_name );
+        $subject = $this->normalizeMailText( $subject );
+        $text_body = $this->replaceMailEmojiShortcodes( $text_body );
 
         $transport = Transport::fromDsn( $this->buildDsn( $smtp_settings ) );
         $mailer = new Mailer( $transport );
@@ -79,14 +89,16 @@ class TinyMashMailer {
             throw new \InvalidArgumentException( 'smtp_from_email' );
         }
 
+        $site_name = $this->normalizeSiteName( $site_name );
+
         $transport = Transport::fromDsn( $this->buildDsn( $smtp_settings ) );
         $mailer = new Mailer( $transport );
-        $from_address = $this->buildAddress( $smtp_settings['from_email'], $smtp_settings['from_name'] );
+        $from_address = $this->buildAddress( $smtp_settings['from_email'], $smtp_settings['from_name'] !== '' ? $smtp_settings['from_name'] : $site_name );
         $envelope_sender_email = $smtp_settings['reply_to_email'] !== '' ? $smtp_settings['reply_to_email'] : $smtp_settings['from_email'];
 
         $message = ( new Email() )
             ->to( $recipient_email )
-            ->subject( '[' . $site_name . '] Confirm your e-mail address' )
+            ->subject( $this->buildSiteSubject( $site_name, 'Confirm your e-mail address' ) )
             ->text(
                 "A request was made to change the e-mail address on your tinymash account.\n\n" .
                 "Confirm the new address here:\n" .
@@ -135,6 +147,8 @@ class TinyMashMailer {
             throw new \InvalidArgumentException( 'smtp_from_email' );
         }
 
+        $site_name = $this->normalizeSiteName( $site_name );
+
         $transport = Transport::fromDsn( $this->buildDsn( $smtp_settings ) );
         $mailer = new Mailer( $transport );
         $from_address = $this->buildAddress( $smtp_settings['from_email'], $smtp_settings['from_name'] !== '' ? $smtp_settings['from_name'] : $site_name );
@@ -142,7 +156,7 @@ class TinyMashMailer {
 
         $message = ( new Email() )
             ->to( $recipient_email )
-            ->subject( '[' . $site_name . '] Reset your password' )
+            ->subject( $this->buildSiteSubject( $site_name, 'Reset your password' ) )
             ->text(
                 "A request was made to reset the password for your tinymash account.\n\n"
                 . "Reset your password here:\n"
@@ -188,15 +202,17 @@ class TinyMashMailer {
             throw new \InvalidArgumentException( 'smtp_from_email' );
         }
 
+        $site_name = $this->normalizeSiteName( $site_name );
+
         $transport = Transport::fromDsn( $this->buildDsn( $smtp_settings ) );
         $mailer = new Mailer( $transport );
         $timestamp_utc = gmdate( 'Y-m-d H:i:s T' );
-        $from_address = $this->buildAddress( $smtp_settings['from_email'], $smtp_settings['from_name'] );
+        $from_address = $this->buildAddress( $smtp_settings['from_email'], $smtp_settings['from_name'] !== '' ? $smtp_settings['from_name'] : $site_name );
         $envelope_sender_email = $smtp_settings['reply_to_email'] !== '' ? $smtp_settings['reply_to_email'] : $smtp_settings['from_email'];
 
         $message = ( new Email() )
             ->to( $recipient_email )
-            ->subject( '[' . $site_name . '] SMTP test e-mail' )
+            ->subject( $this->buildSiteSubject( $site_name, 'SMTP test e-mail' ) )
             ->text(
                 "This is a tinymash SMTP test e-mail.\n\n" .
                 'Site: ' . $site_name . "\n" .
@@ -273,11 +289,54 @@ class TinyMashMailer {
     }
 
     protected function buildAddress( string $email, string $name = '' ) : Address {
+        $name = $this->normalizeMailText( $name );
         if ( $name !== '' ) {
             return( new Address( $email, $name ) );
         }
 
         return( new Address( $email ) );
+    }
+
+    protected function buildSiteSubject( string $site_name, string $suffix ) : string {
+        return( '[' . $this->normalizeSiteName( $site_name ) . '] ' . $this->normalizeMailText( $suffix ) );
+    }
+
+    protected function normalizeSiteName( string $site_name ) : string {
+        $site_name = $this->normalizeMailText( $site_name );
+        return( $site_name !== '' ? $site_name : 'tinymash' );
+    }
+
+    protected function normalizeMailText( string $text ) : string {
+        $text = function_exists( 'mb_trim' ) ? mb_trim( $text ) : trim( $text );
+        if ( $text === '' ) {
+            return( '' );
+        }
+
+        return( $this->replaceMailEmojiShortcodes( $text ) );
+    }
+
+    protected function replaceMailEmojiShortcodes( string $text ) : string {
+        if ( $text === '' ) {
+            return( '' );
+        }
+
+        $markdown_renderer = $this->getMarkdownRenderer();
+        if ( $markdown_renderer instanceof TinyMashMarkdownRenderer ) {
+            return( $markdown_renderer->replaceEmojiShortcodes( $text ) );
+        }
+
+        return( $text );
+    }
+
+    protected function getMarkdownRenderer() : ?TinyMashMarkdownRenderer {
+        if ( $this->markdown_renderer instanceof TinyMashMarkdownRenderer ) {
+            return( $this->markdown_renderer );
+        }
+        if ( class_exists( TinyMashMarkdownRenderer::class ) ) {
+            $this->markdown_renderer = new TinyMashMarkdownRenderer();
+        }
+
+        return( $this->markdown_renderer );
     }
 
 }// TinyMashMailer

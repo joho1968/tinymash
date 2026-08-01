@@ -1,0 +1,25 @@
+{
+  "group": "Profile",
+  "roles": ["author", "admin"],
+  "order": 70,
+  "title": "Profile: Static export",
+  "summary": "Download a static ZIP of your public author space.",
+  "sections": [
+    {
+      "title": "What is included",
+      "markdown": "Static export creates a ZIP of your published author-space pages and referenced local public assets. Drafts, private account data, admin routes, users, config, runtime files, and other authors are not included."
+    },
+    {
+      "title": "Canonical base URL",
+      "markdown": "This optional field is for canonical and social metadata only. Use a full URL such as `https://example.com/exported_site` if the exported copy will live there. Links and assets inside the ZIP remain relative, so the ZIP can still be moved as a folder."
+    },
+    {
+      "title": "Archive lifetime",
+      "markdown": "Generated ZIP files are stored privately and expire after 6 hours. Only your account can download or delete your author-space exports; superadmins can manage site-level exports."
+    },
+    {
+      "title": "Static limits",
+      "markdown": "A static export cannot run PHP, login sessions, forms, provider refreshes, admin routes, or other live server behavior. Dynamic public output is captured as it rendered at export time."
+    }
+  ]
+}

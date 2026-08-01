@@ -327,6 +327,7 @@ class ContentController extends BaseController {
                 'entry_edit_url' => $this->buildEntryEditUrl( $entry ),
             ]
         );
+        $view_data = $this->applyShortcodePageHints( $view_data );
         if ( (string) ( $entry['scope'] ?? '' ) === 'author' ) {
             $view_data = $this->applyPrivateAuthorSpaceViewRestrictions( $view_data, (string) ( $entry['author_slug'] ?? '' ) );
         }
@@ -942,6 +943,27 @@ class ContentController extends BaseController {
 
         $shortcode_registry = $this->app->get( 'shortcode.registry' );
         return( $shortcode_registry instanceof \app\classes\TinyMashShortcodeRegistry && $shortcode_registry->hasDynamicRenderForRequest() );
+    }
+
+    protected function applyShortcodePageHints( array $view_data ) : array {
+        if ( ! $this->app->has( 'shortcode.registry' ) ) {
+            return( $view_data );
+        }
+
+        $shortcode_registry = $this->app->get( 'shortcode.registry' );
+        if ( ! $shortcode_registry instanceof \app\classes\TinyMashShortcodeRegistry || ! method_exists( $shortcode_registry, 'getRequestPageHints' ) ) {
+            return( $view_data );
+        }
+
+        $hints = $shortcode_registry->getRequestPageHints();
+        if ( empty( $hints['wide_content'] ) ) {
+            return( $view_data );
+        }
+
+        $layout_hints = is_array( $view_data['theme_layout_hints'] ?? null ) ? $view_data['theme_layout_hints'] : [];
+        $layout_hints['wide_content'] = true;
+        $view_data['theme_layout_hints'] = $layout_hints;
+        return( $view_data );
     }
 
     protected function applyPublicPageResponseHeaders() : void {

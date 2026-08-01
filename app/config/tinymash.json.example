@@ -101,6 +101,7 @@
             "footer": true,
             "notes": true,
             "redirects": true,
+            "rss-reader": true,
             "search": true,
             "seo": true,
             "statistics": true,

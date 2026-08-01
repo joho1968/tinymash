@@ -134,36 +134,131 @@ class TinyMashThemeRegistry {
                 'theme_directory' => dirname( $manifest_filename ),
                 'manifest_filename' => $manifest_filename,
                 'first_party' => $first_party,
-                'manifest_warnings' => $this->validateThemeManifestWarnings( $type, $manifest, $key, dirname( $manifest_filename ) ),
+                'manifest_warnings' => $this->validateThemeManifestWarnings( $type, $manifest, $key, dirname( $manifest_filename ), $first_party ),
             ]
         );
     }
 
-    protected function validateThemeManifestWarnings( string $type, array $manifest, string $theme_key, string $theme_directory ) : array {
+    public function getThemeDiagnostics() : array {
+        $themes = array_merge( $this->listPublicThemes(), $this->listAdminThemes() );
+        $summary = [
+            'total' => 0,
+            'public' => 0,
+            'admin' => 0,
+            'first_party' => 0,
+            'third_party' => 0,
+            'warnings' => 0,
+            'first_party_warnings' => 0,
+        ];
         $warnings = [];
 
-        foreach ( [ 'name', 'version', 'description' ] as $field ) {
+        foreach ( $themes as $theme ) {
+            if ( ! is_array( $theme ) ) {
+                continue;
+            }
+
+            $type = (string) ( $theme['type'] ?? 'public' );
+            $theme_warnings = is_array( $theme['manifest_warnings'] ?? null ) ? $theme['manifest_warnings'] : [];
+            $summary['total']++;
+            $summary[$type === 'admin' ? 'admin' : 'public']++;
+            if ( ! empty( $theme['first_party'] ) ) {
+                $summary['first_party']++;
+                $summary['first_party_warnings'] += count( $theme_warnings );
+            } else {
+                $summary['third_party']++;
+            }
+            $summary['warnings'] += count( $theme_warnings );
+            if ( $theme_warnings !== [] ) {
+                $warnings[] = $theme;
+            }
+        }
+
+        return(
+            [
+                'summary' => $summary,
+                'themes' => $themes,
+                'warnings' => $warnings,
+            ]
+        );
+    }
+
+    protected function validateThemeManifestWarnings( string $type, array $manifest, string $theme_key, string $theme_directory, bool $first_party ) : array {
+        $warnings = [];
+
+        foreach ( [ 'key', 'name', 'version', 'description', 'author_name', 'author_email', 'website', 'license' ] as $field ) {
             if ( trim( (string) ( $manifest[$field] ?? '' ) ) === '' ) {
                 $warnings[] = 'Missing recommended manifest field: ' . $field . '.';
             }
         }
 
+        if ( isset( $manifest['key'] ) && $this->normalizeThemeKey( (string) $manifest['key'] ) !== $theme_key ) {
+            $warnings[] = 'Manifest key normalizes to a different theme key.';
+        }
+
+        $license = trim( (string) ( $manifest['license'] ?? '' ) );
+        if ( $first_party && $license !== 'AGPL-3.0-or-later' ) {
+            $warnings[] = 'First-party themes should declare AGPL-3.0-or-later.';
+        }
+
         $template_root = trim( (string) ( $manifest['template_root'] ?? '' ) );
         if ( $template_root === '' ) {
             $warnings[] = 'Missing template_root; using the default ' . $type . '/' . $theme_key . '.';
+        } elseif ( ! $this->isValidThemeTemplatePath( $template_root, false ) ) {
+            $warnings[] = 'template_root should be a safe relative view path.';
         }
 
         if ( array_key_exists( 'views', $manifest ) && ! is_array( $manifest['views'] ) ) {
             $warnings[] = 'Views should be an object of view keys and template paths.';
+        } elseif ( $type === 'public' ) {
+            $views = is_array( $manifest['views'] ?? null ) ? $manifest['views'] : [];
+            foreach ( [ 'home', 'author-home', 'entry-post', 'entry-page', '404' ] as $required_view ) {
+                if ( trim( (string) ( $views[$required_view] ?? '' ) ) === '' ) {
+                    $warnings[] = 'Missing required public view: ' . $required_view . '.';
+                }
+            }
+            foreach ( $views as $view_key => $view_path ) {
+                $view_key = is_string( $view_key ) || is_int( $view_key ) ? (string) $view_key : '';
+                if ( ! is_string( $view_path ) || trim( $view_key ) === '' || trim( $view_path ) === '' ) {
+                    $warnings[] = 'Views should contain non-empty string keys and template paths.';
+                    break;
+                }
+                $view_path = trim( $view_path );
+                if ( ! $this->isValidThemeTemplatePath( $view_path, true ) ) {
+                    $warnings[] = 'View "' . $view_key . '" should point at a safe .latte template path.';
+                    continue;
+                }
+            }
         }
         if ( array_key_exists( 'slots', $manifest ) && ! is_array( $manifest['slots'] ) ) {
             $warnings[] = 'Slots should be an object of slot keys and template paths.';
+        } elseif ( is_array( $manifest['slots'] ?? null ) ) {
+            foreach ( $manifest['slots'] as $slot_key => $slot_path ) {
+                if ( ! is_string( $slot_key ) || ! is_string( $slot_path ) || trim( $slot_key ) === '' || trim( $slot_path ) === '' ) {
+                    $warnings[] = 'Slots should contain non-empty string keys and template paths.';
+                    break;
+                }
+                if ( ! str_ends_with( trim( $slot_path ), '.latte' ) ) {
+                    $warnings[] = 'Slot "' . $slot_key . '" should point at a .latte template path.';
+                }
+            }
         }
         if ( array_key_exists( 'supports', $manifest ) && ! is_array( $manifest['supports'] ) ) {
             $warnings[] = 'Supports should be an object of feature flags.';
+        } elseif ( is_array( $manifest['supports'] ?? null ) ) {
+            foreach ( $manifest['supports'] as $support_key => $support_value ) {
+                if ( ! is_string( $support_key ) || trim( $support_key ) === '' ) {
+                    $warnings[] = 'Supports should use non-empty string feature keys.';
+                    break;
+                }
+                if ( ! is_bool( $support_value ) ) {
+                    $warnings[] = 'Support "' . $support_key . '" should be true or false.';
+                }
+            }
         }
         if ( array_key_exists( 'settings_schema', $manifest ) && ! is_array( $manifest['settings_schema'] ) ) {
             $warnings[] = 'Settings schema should be an array.';
+        } elseif ( is_array( $manifest['settings_schema'] ?? null ) ) {
+            $warnings = array_merge( $warnings, $this->validateThemeSettingsSchemaWarnings( $manifest['settings_schema'] ) );
         }
 
         foreach ( [ 'css_urls', 'js_urls' ] as $field ) {
@@ -181,17 +276,123 @@ class TinyMashThemeRegistry {
                     $warnings[] = $field . ' must use local assets only: ' . $asset_url;
                     break;
                 }
-            }
-        }
-
-        foreach ( (array) ( $manifest['settings_schema'] ?? [] ) as $setting_definition ) {
-            if ( ! is_array( $setting_definition ) || trim( (string) ( $setting_definition['key'] ?? '' ) ) === '' ) {
-                $warnings[] = 'Settings schema contains an item without a key.';
-                break;
+                if ( parse_url( $asset_url, PHP_URL_SCHEME ) !== null ) {
+                    $warnings[] = $field . ' must not use URL schemes: ' . $asset_url;
+                    break;
+                }
+                if ( ! str_starts_with( $asset_url, '/' ) ) {
+                    $warnings[] = $field . ' should use root-relative local URLs: ' . $asset_url;
+                    break;
+                }
+                if ( $this->public_root !== '' ) {
+                    $asset_path = (string) ( parse_url( $asset_url, PHP_URL_PATH ) ?? '' );
+                    if ( $asset_path !== '' && ! $this->isPublicAssetFile( $asset_path ) ) {
+                        $warnings[] = $field . ' points at a missing public asset: ' . $asset_url;
+                        break;
+                    }
+                }
             }
         }
 
         return( array_values( array_unique( $warnings ) ) );
+    }
+
+    protected function validateThemeSettingsSchemaWarnings( array $settings_schema ) : array {
+        $warnings = [];
+        $setting_keys = [];
+
+        foreach ( $settings_schema as $setting_definition ) {
+            if ( ! is_array( $setting_definition ) ) {
+                $warnings[] = 'Settings schema contains a non-object item.';
+                continue;
+            }
+
+            $setting_key = trim( (string) ( $setting_definition['key'] ?? '' ) );
+            if ( $setting_key === '' ) {
+                $warnings[] = 'Settings schema contains an item without a key.';
+                continue;
+            }
+            if ( ! preg_match( '/^[a-z0-9_][a-z0-9_-]*$/', $setting_key ) ) {
+                $warnings[] = 'Setting "' . $setting_key . '" should use a safe lowercase key.';
+            }
+            if ( isset( $setting_keys[$setting_key] ) ) {
+                $warnings[] = 'Settings schema contains a duplicate key: ' . $setting_key . '.';
+            }
+            $setting_keys[$setting_key] = true;
+
+            if ( trim( (string) ( $setting_definition['label'] ?? '' ) ) === '' ) {
+                $warnings[] = 'Setting "' . $setting_key . '" is missing a label.';
+            }
+
+            $type = strtolower( trim( (string) ( $setting_definition['type'] ?? '' ) ) );
+            if ( ! in_array( $type, [ 'select', 'text' ], true ) ) {
+                $warnings[] = 'Setting "' . $setting_key . '" uses an unsupported type.';
+                continue;
+            }
+
+            if ( array_key_exists( 'author_override', $setting_definition ) && ! is_bool( $setting_definition['author_override'] ) ) {
+                $warnings[] = 'Setting "' . $setting_key . '" author_override should be true or false.';
+            }
+
+            if ( $type === 'select' ) {
+                if ( ! is_array( $setting_definition['options'] ?? null ) || empty( $setting_definition['options'] ) ) {
+                    $warnings[] = 'Select setting "' . $setting_key . '" should declare options.';
+                    continue;
+                }
+
+                $option_values = [];
+                foreach ( $setting_definition['options'] as $option ) {
+                    if ( ! is_array( $option ) || trim( (string) ( $option['value'] ?? '' ) ) === '' || trim( (string) ( $option['label'] ?? '' ) ) === '' ) {
+                        $warnings[] = 'Select setting "' . $setting_key . '" contains an option without value and label.';
+                        continue;
+                    }
+                    $option_values[] = (string) $option['value'];
+                }
+
+                if ( array_key_exists( 'default', $setting_definition ) && ! in_array( (string) $setting_definition['default'], $option_values, true ) ) {
+                    $warnings[] = 'Select setting "' . $setting_key . '" default should match one of its options.';
+                }
+            }
+        }
+
+        return( $warnings );
+    }
+
+    protected function isValidThemeTemplatePath( string $path, bool $require_latte ) : bool {
+        $path = str_replace( '\\', '/', trim( $path ) );
+        $path = trim( $path, '/' );
+        if ( $path === '' || str_contains( $path, "\0" ) || str_contains( $path, '..' ) ) {
+            return( false );
+        }
+        if ( $require_latte && ! str_ends_with( $path, '.latte' ) ) {
+            return( false );
+        }
+        foreach ( explode( '/', $path ) as $part ) {
+            if ( $part === '' || $part === '.' || ! preg_match( '/^[A-Za-z0-9_.-]+$/', $part ) ) {
+                return( false );
+            }
+        }
+
+        return( true );
+    }
+
+    protected function isPublicAssetFile( string $asset_path ) : bool {
+        $asset_path = str_replace( '\\', '/', trim( $asset_path ) );
+        if ( $asset_path === '' || ! str_starts_with( $asset_path, '/' ) || str_contains( $asset_path, "\0" ) || str_contains( $asset_path, '..' ) ) {
+            return( false );
+        }
+
+        $public_root = realpath( $this->public_root );
+        if ( ! is_string( $public_root ) || $public_root === '' ) {
+            return( false );
+        }
+
+        $filename = realpath( $public_root . str_replace( '/', DIRECTORY_SEPARATOR, $asset_path ) );
+        if ( ! is_string( $filename ) || ! is_file( $filename ) ) {
+            return( false );
+        }
+
+        return( str_starts_with( $filename, rtrim( $public_root, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR ) );
     }
 
     protected function normalizeRootDirectories( string|array $root_directories ) : array {

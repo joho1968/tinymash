@@ -737,11 +737,19 @@ class TinyMashMarkdownRenderer {
 
     protected function isUnsafeUrl( string $value ) : bool {
         $value = trim( $value );
-        if ( $value === '' || str_starts_with( $value, '#' ) || str_starts_with( $value, '/' ) ) {
+        if ( $value === '' || str_starts_with( $value, '#' ) ) {
             return( false );
         }
 
         $normalized_value = strtolower( preg_replace( '/\s+/', '', $value ) ?? $value );
+        if ( str_starts_with( $normalized_value, '//' ) ) {
+            return( true );
+        }
+
+        if ( str_starts_with( $value, '/' ) ) {
+            return( false );
+        }
+
         if ( str_starts_with( $normalized_value, 'javascript:' ) || str_starts_with( $normalized_value, 'vbscript:' ) ) {
             return( true );
         }

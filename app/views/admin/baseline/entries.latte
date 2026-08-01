@@ -49,61 +49,31 @@
                 </div>
             </div>
         {/if}
-        <div class="col-12 col-xl-7">
-            <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
-                <div class="small text-uppercase text-body-secondary mb-2">Manage</div>
-                <div class="fw-semibold mb-1">Drafts and saved content</div>
-                <div class="small text-body-secondary mb-3">Use this area to move between drafts, saved content, and moderation without relying on the composer load pane.</div>
-                <div class="d-flex flex-wrap gap-2">
-                    <a class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}?new=1"><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>New content</span></a>
-                    <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}"><span class="bi bi-pencil-square" aria-hidden="true"></span><span>Open composer</span></a>
-                </div>
-                {if ! empty( $content_moderation_required )}
-                    <div class="alert alert-warning mt-3 mb-0 py-2" role="alert">
-                        Moderation is enabled. Published saves may flow into review instead of going live immediately.
-                    </div>
-                {/if}
-            </div>
-        </div>
-        <div class="col-12 col-xl-5">
-            <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
-                <div class="small text-uppercase text-body-secondary mb-2">Metrics</div>
-                <div class="row g-2">
-                    <div class="col-6">
-                        <div class="rounded-3 p-2 bg-body-secondary h-100">
-                            <div class="small text-body-secondary">Drafts</div>
-                            <div class="fs-4 fw-semibold">{$entry_counts['drafts'] ?? 0}</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="rounded-3 p-2 bg-body-secondary h-100">
-                            <div class="small text-body-secondary">Content</div>
-                            <div class="fs-4 fw-semibold">{$entry_counts['entries'] ?? 0}</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="rounded-3 p-2 bg-body-secondary h-100">
-                            <div class="small text-body-secondary">Published</div>
-                            <div class="fs-4 fw-semibold">{$entry_counts['published'] ?? 0}</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="rounded-3 p-2 bg-body-secondary h-100">
-                            <div class="small text-body-secondary">Pending review</div>
-                            <div class="fs-4 fw-semibold">{$entry_counts['pending_review'] ?? 0}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="col-12">
-            <div class="bg-body border rounded-3 shadow-sm overflow-hidden">
-                <div class="p-3 border-bottom">
-                    <div class="small text-uppercase text-body-secondary mb-2">Library</div>
-                    <div class="fw-semibold">Content management</div>
+            <div class="bg-body border rounded-3 p-3 overflow-hidden" style="min-width: 0;">
+                <div class="mb-3 pb-3 border-bottom">
+                    <div class="d-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-start align-items-lg-center justify-content-between">
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}?new=1"><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>New content</span></a>
+                            <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}"><span class="bi bi-pencil-square" aria-hidden="true"></span><span>Open composer</span></a>
+                        </div>
+                        <div class="small text-body-secondary d-flex flex-wrap gap-1 align-items-center">
+                            <span>{$entry_counts['entries'] ?? 0} content</span>
+                            <span aria-hidden="true">&middot;</span>
+                            <span>{$entry_counts['drafts'] ?? 0} drafts</span>
+                            <span aria-hidden="true">&middot;</span>
+                            <span>{$entry_counts['pending_review'] ?? 0} pending review</span>
+                            <span aria-hidden="true">&middot;</span>
+                            <span>{$entry_counts['trash'] ?? 0} trash</span>
+                        </div>
+                    </div>
+                    {if ! empty( $content_moderation_required )}
+                        <div class="small text-warning-emphasis mt-2">
+                            Moderation is enabled. Published saves may flow into review instead of going live immediately.
+                        </div>
+                    {/if}
                 </div>
-                <ul class="nav nav-tabs px-3 pt-3" id="tm-entry-tabs" role="tablist">
+                <ul class="nav nav-tabs flex-nowrap mb-3 pb-1 pb-md-0 tm-content-tabs" id="tm-entry-tabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button n:class="'nav-link', $content_active_tab === 'entries' ? 'active'" id="tm-entry-tab-entries" data-bs-toggle="tab" data-bs-target="#tm-entry-pane-entries" type="button" role="tab" aria-controls="tm-entry-pane-entries" n:attr="aria-selected => $content_active_tab === 'entries' ? 'true' : 'false'">
                             Content <span class="badge text-bg-secondary ms-1">{$entry_counts['entries'] ?? 0}</span>
@@ -127,9 +97,9 @@
                         </button>
                     </li>
                 </ul>
-                <div class="tab-content p-3" id="tm-entry-tabs-content">
+                <div class="tab-content" id="tm-entry-tabs-content">
                     <div n:class="'tab-pane fade', $content_active_tab === 'entries' ? 'show active'" id="tm-entry-pane-entries" role="tabpanel" aria-labelledby="tm-entry-tab-entries" tabindex="0">
-                            <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                            <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3 pe-2">
                                 <input type="hidden" name="tab" value="entries">
                                 <input type="hidden" name="drafts_owner" value="{$drafts_owner_filter}">
                                 <input type="hidden" name="drafts_title" value="{$drafts_title_filter}">
@@ -195,7 +165,7 @@
                                 <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
                                 <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
                                 <input type="hidden" name="moderation_page" value="{$moderation_page}">
-                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div class="d-flex flex-wrap gap-2 align-items-center pe-2">
                                     <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Content batch action">
                                         <option value="">Batch action</option>
                                         <option value="publish">Publish</option>
@@ -232,7 +202,7 @@
                                         </nav>
                                     {/if}
                                 </div>
-                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                <div class="table-responsive overflow-auto pe-2 position-relative" style="max-height: 34rem;">
                                 <table class="table table-hover table-sm align-middle mb-0">
                                     <thead class="tm-sticky-divider">
                                         <tr>
@@ -321,7 +291,7 @@
                         {/if}
                     </div>
                     <div n:class="'tab-pane fade', $content_active_tab === 'drafts' ? 'show active'" id="tm-entry-pane-drafts" role="tabpanel" aria-labelledby="tm-entry-tab-drafts" tabindex="0">
-                            <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                            <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3 pe-2">
                                 <input type="hidden" name="tab" value="drafts">
                                 <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
                                 <input type="hidden" name="entries_title" value="{$entries_title_filter}">
@@ -381,7 +351,7 @@
                                 <input type="hidden" name="moderation_title" value="{$moderation_title_filter}">
                                 <input type="hidden" name="moderation_type" value="{$moderation_type_filter}">
                                 <input type="hidden" name="moderation_page" value="{$moderation_page}">
-                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div class="d-flex flex-wrap gap-2 align-items-center pe-2">
                                     <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Draft batch action">
                                         <option value="">Batch action</option>
                                         <option value="delete">Delete</option>
@@ -416,7 +386,7 @@
                                         </nav>
                                     {/if}
                                 </div>
-                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                <div class="table-responsive overflow-auto pe-2 position-relative" style="max-height: 34rem;">
                                 <table class="table table-sm align-middle mb-0">
                                     <thead>
                                         <tr>
@@ -460,7 +430,7 @@
                     </div>
                     {if ! empty( $content_moderation_required )}
                         <div n:class="'tab-pane fade', $content_active_tab === 'moderation' ? 'show active'" id="tm-entry-pane-moderation" role="tabpanel" aria-labelledby="tm-entry-tab-moderation" tabindex="0">
-                                <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                                <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3 pe-2">
                                     <input type="hidden" name="tab" value="moderation">
                                     <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
                                     <input type="hidden" name="entries_title" value="{$entries_title_filter}">
@@ -533,7 +503,7 @@
                                         </nav>
                                     </div>
                                 {/if}
-                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                <div class="table-responsive overflow-auto pe-2 position-relative" style="max-height: 34rem;">
                                     <table class="table table-sm align-middle mb-0">
                                         <thead>
                                             <tr>
@@ -587,7 +557,7 @@
                         </div>
                     {/if}
                     <div n:class="'tab-pane fade', $content_active_tab === 'trash' ? 'show active'" id="tm-entry-pane-trash" role="tabpanel" aria-labelledby="tm-entry-tab-trash" tabindex="0">
-                        <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3">
+                        <form method="get" action="{$entries_url}" class="row g-2 align-items-end mb-3 pe-2">
                             <input type="hidden" name="tab" value="trash">
                             <input type="hidden" name="entries_owner" value="{$entries_owner_filter}">
                             <input type="hidden" name="entries_title" value="{$entries_title_filter}">
@@ -655,7 +625,7 @@
                                 <input type="hidden" name="trash_title" value="{$trash_title_filter}">
                                 <input type="hidden" name="trash_type" value="{$trash_type_filter}">
                                 <input type="hidden" name="trash_page" value="{$trash_page}">
-                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div class="d-flex flex-wrap gap-2 align-items-center pe-2">
                                     <select class="form-select form-select-sm w-auto" name="batch_action" aria-label="Trash batch action">
                                         <option value="">Batch action</option>
                                         <option value="restore">Restore as unpublished</option>
@@ -677,7 +647,7 @@
                                         </nav>
                                     {/if}
                                 </div>
-                                <div class="table-responsive overflow-auto pe-2" style="max-height: 34rem;">
+                                <div class="table-responsive overflow-auto pe-2 position-relative" style="max-height: 34rem;">
                                     <table class="table table-sm align-middle mb-0">
                                         <thead>
                                             <tr>

@@ -1,6 +1,7 @@
 <?php
 
 use app\classes\TinyMashLockedJsonFile;
+use app\classes\TinyMashFilesystem;
 use app\classes\TinyMashUserRepository;
 
 class TinyMashDownloadsService {
@@ -1092,7 +1093,8 @@ class TinyMashDownloadsService {
             return( '' );
         }
 
-        return( $this->files_directory . DIRECTORY_SEPARATOR . $id . DIRECTORY_SEPARATOR . $stored_filename );
+        $candidate_path = $this->files_directory . DIRECTORY_SEPARATOR . $id . DIRECTORY_SEPARATOR . $stored_filename;
+        return( TinyMashFilesystem::resolveManagedReadableFile( $this->files_directory, $candidate_path ) );
     }
 
     protected function recordDownload( string $id ) : void {

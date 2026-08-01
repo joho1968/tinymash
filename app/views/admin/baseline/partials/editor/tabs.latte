@@ -18,6 +18,11 @@
 
 <div id="tm-editor-write-pane" role="tabpanel" aria-labelledby="tm-tab-write" tabindex="0">
     {$editor_markdown_component_html|noescape}
+    {if ! empty( $editor_image_upload['enabled'] ) && (string) ( $editor_image_upload['message'] ?? '' ) !== ''}
+        <div class="form-text small mt-1">
+            {$editor_image_upload['message'] ?? ''}
+        </div>
+    {/if}
 </div>
 
 <div id="tm-editor-preview-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-preview" aria-live="polite" aria-hidden="true" tabindex="0">

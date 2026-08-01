@@ -275,7 +275,7 @@ HTML;
                 'current_section' => 'font-manager',
                 'current_location' => 'font-manager',
                 'plugin_page_kicker' => 'Font manager',
-                'plugin_page_title' => 'Font manager',
+                'plugin_page_title' => 'Fonts and roles',
                 'plugin_page_summary' => 'Local font files and public theme typography roles.',
                 'plugin_page_notice' => $notice,
                 'plugin_page_body_html' => $body_html,

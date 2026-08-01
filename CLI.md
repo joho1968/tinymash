@@ -78,6 +78,12 @@ Show a small runtime summary:
 php8.4 bin/tinymash.php system:status
 ```
 
+Show theme manifest diagnostics:
+
+```bash
+php8.4 bin/tinymash.php system:themes
+```
+
 Check maintenance mode:
 
 ```bash

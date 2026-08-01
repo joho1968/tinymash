@@ -1,0 +1,19 @@
+{
+    "key": "directory",
+    "name": "Links",
+    "version": "0.94.0",
+    "description": "Creates categorized link collections rendered through content shortcodes.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.admin",
+        "admin.navigation",
+        "content.shortcodes",
+        "storage.private"
+    ],
+    "default_active": true,
+    "stage": "early"
+}

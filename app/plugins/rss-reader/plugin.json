@@ -1,0 +1,20 @@
+{
+    "key": "rss-reader",
+    "name": "RSS Reader",
+    "version": "0.94.0",
+    "description": "Displays cached recent items from superadmin-approved RSS and Atom sources.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.admin",
+        "shortcodes",
+        "slots.public",
+        "housekeeping",
+        "cli"
+    ],
+    "default_active": false,
+    "stage": "early"
+}

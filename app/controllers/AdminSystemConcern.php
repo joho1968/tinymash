@@ -978,13 +978,14 @@ trait AdminSystemConcern {
             'system_moderation_reject_url' => $this->app->get( 'admin.url' ) . '/system/moderation/reject',
             'system_reassign_users' => $this->getSystemReassignUsers( $system_users ),
             'system_components_report' => $this->getSystemComponentsReport(),
+            'system_static_export' => $this->getSystemStaticExportViewData(),
             'system_notifications_view' => $system_notifications_view,
             'system_notifications_unread_count' => $system_notifications_unread_count,
             'system_notification_dismiss_url' => $this->app->get( 'admin.url' ) . '/system/notifications/dismiss',
             'system_section' => $system_section,
             'system_section_urls' => $this->getSystemSectionUrls(),
             'csrf_token' => $this->security->getCsrfToken(),
-            'help_contexts' => [ 'admin-system' ],
+            'help_contexts' => $system_section === 'media-library' ? [ 'admin-media-library' ] : [ 'admin-system' ],
         ];
 
         return( array_merge( $view_data, $overrides ) );
@@ -1059,7 +1060,7 @@ trait AdminSystemConcern {
 
     protected function normalizeSystemSection( string $section ) : string {
         $section = strtolower( trim( $section ) );
-        return( in_array( $section, [ 'site', 'security', 'content-media', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans' ], true ) ? $section : 'site' );
+        return( in_array( $section, [ 'site', 'security', 'content-media', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'static-export' ], true ) ? $section : 'site' );
     }
 
     protected function getSystemSectionUrls() : array {
@@ -1085,6 +1086,7 @@ trait AdminSystemConcern {
                 'smtp' => $this->getSystemSectionUrl( 'smtp' ),
                 'orphans' => $this->getSystemSectionUrl( 'orphans' ),
                 'components' => $this->getSystemSectionUrl( 'components' ),
+                'static_export' => $this->getSystemSectionUrl( 'static-export' ),
             ]
         );
     }

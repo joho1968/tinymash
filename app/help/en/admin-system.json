@@ -22,6 +22,10 @@
       "markdown": "- **Notifications** keeps in-app operational notices and dismissible events.\n- **SMTP** stores outbound mail settings, including test send.\n- **Components** shows dependency update and audit status.\n- **Information** is the runtime/reference page."
     },
     {
+      "title": "Static export",
+      "markdown": "Static export creates a ZIP of root public pages and selected public author spaces. Excluded author spaces are left out of whole-site exports. The optional canonical base URL is for canonical and social metadata only; links and assets inside the ZIP remain relative."
+    },
+    {
       "title": "People and moderation",
       "markdown": "- **Moderation** controls review policy. When moderation is required, lower-privilege saves go to **Pending review** instead of going live immediately.\n- **Users** manages accounts, locks, and roles.\n- **Orphans** holds content from deleted users so it can be reviewed, reassigned, or deleted explicitly."
     }

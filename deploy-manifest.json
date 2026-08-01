@@ -1,7 +1,7 @@
 {
     "format": "tinymash-deploy",
     "format_version": 1,
-    "built_at_utc": "2026-06-26T14:04:33Z",
+    "built_at_utc": "2026-08-01T08:32:32Z",
     "site": {
         "name": "tinymash",
         "base_url": "",
@@ -65,6 +65,7 @@
             "backup",
             "blogger-import",
             "bludit-import",
+            "directory",
             "downloads",
             "fediverse",
             "feeds",
@@ -73,6 +74,7 @@
             "notes",
             "photos",
             "redirects",
+            "rss-reader",
             "search",
             "seo",
             "signage",
@@ -88,7 +90,7 @@
         "example_config_path": "app/config/tinymash.json.example"
     },
     "counts": {
-        "copied_files": 1797,
+        "copied_files": 1816,
         "copied_directories": 11
     },
     "warnings": []

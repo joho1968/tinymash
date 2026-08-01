@@ -210,6 +210,78 @@ class TinyMashTheme {
         return( $this->getTemplate( (string) ( ( $entry['type'] ?? 'post' ) === 'page' ? 'entry-page' : 'entry-post' ) ) );
     }
 
+    public function renderFirstExistingThemeTemplate( array $relative_templates, array $data = [] ) : string {
+        foreach ( $relative_templates as $relative_template ) {
+            $template = $this->resolveThemeRelativeTemplate( (string) $relative_template );
+            if ( $template === '' ) {
+                continue;
+            }
+
+            try {
+                return( (string) $this->app->view()->renderToString( $template, $data ) );
+            } catch ( \Throwable $e ) {
+                error_log( basename( __FILE__ ) . ': Theme template render failed for "' . $template . '" (' . $e->getMessage() . ')' );
+                return( '' );
+            }
+        }
+
+        return( '' );
+    }
+
+    protected function resolveThemeRelativeTemplate( string $relative_template ) : string {
+        $relative_template = $this->normalizeTemplatePath( $relative_template );
+        if ( $relative_template === '' || ! str_ends_with( $relative_template, '.latte' ) ) {
+            return( '' );
+        }
+
+        $template_root = $this->normalizeTemplatePath( $this->getTemplateRoot() );
+        if ( $template_root === '' ) {
+            return( '' );
+        }
+
+        $views_root = realpath( dirname( __DIR__ ) . DIRECTORY_SEPARATOR . 'views' );
+        if ( ! is_string( $views_root ) || $views_root === '' ) {
+            return( '' );
+        }
+
+        $theme_root = realpath( $views_root . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, $template_root ) );
+        if ( ! is_string( $theme_root ) || $theme_root === '' ) {
+            return( '' );
+        }
+
+        $filename = realpath( $theme_root . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, $relative_template ) );
+        if ( ! is_string( $filename ) || ! is_file( $filename ) || ! is_readable( $filename ) ) {
+            return( '' );
+        }
+
+        $theme_root_prefix = rtrim( $theme_root, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR;
+        if ( ! str_starts_with( $filename, $theme_root_prefix ) ) {
+            return( '' );
+        }
+
+        $resolved_relative = str_replace( DIRECTORY_SEPARATOR, '/', substr( $filename, strlen( rtrim( $views_root, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR ) ) );
+        return( $resolved_relative !== '' ? $resolved_relative : '' );
+    }
+
+    protected function normalizeTemplatePath( string $path ) : string {
+        $path = str_replace( '\\', '/', trim( $path ) );
+        $path = trim( $path, '/' );
+        if ( $path === '' || str_contains( $path, "\0" ) || str_contains( $path, '..' ) ) {
+            return( '' );
+        }
+
+        $parts = [];
+        foreach ( explode( '/', $path ) as $part ) {
+            $part = trim( $part );
+            if ( $part === '' || $part === '.' || ! preg_match( '/^[A-Za-z0-9_.-]+$/', $part ) ) {
+                return( '' );
+            }
+            $parts[] = $part;
+        }
+
+        return( implode( '/', $parts ) );
+    }
+
     public function getCssUrls() : array {
         $css_urls = (array) ( $this->getThemeDefinition()['css_urls'] ?? [] );
         if ( ! empty( $this->getSyntaxHighlightingViewData()['enabled'] ) ) {

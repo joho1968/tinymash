@@ -288,7 +288,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
         return( $html . '<form method="post" action="' . $escape( $slide_copy_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="loop_id" value="' . $escape( $loop_id ) . '"><input type="hidden" name="slide_id" value="' . $escape( $slide_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit" title="Copy slide"><span class="bi bi-copy" aria-hidden="true"></span></button></form><form method="post" action="' . $escape( $slide_delete_url ) . '"' . $confirmation_attributes( 'Delete slide?', 'Delete this slide permanently? Composed content will not be retained.', 'Delete slide', 'btn-danger' ) . '><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="loop_id" value="' . $escape( $loop_id ) . '"><input type="hidden" name="slide_id" value="' . $escape( $slide_id ) . '"><button class="btn btn-outline-danger btn-sm" type="submit" title="Delete slide"><span class="bi bi-trash" aria-hidden="true"></span></button></form></div>' );
     };
-    $render_admin = static function( array $notice = [] ) use ( $plugins, $security, $service, $plugin_url, $settings_save_url, $loop_copy_url, $loop_delete_url, $loop_key_url, $media_picker_url, $media_upload_url, $app_url, $escape, $media_field_html, $page_options_html, $slide_form, $slide_actions_html, $loop_form, $scale_control_html, $confirmation_attributes, $config ) : void {
+    $loop_actions_html = static function( string $loop_id, bool $mobile = false ) use ( $security, $escape, $plugin_url, $loop_copy_url ) : string {
+        $edit_label = $mobile ? '<span class="bi bi-pencil me-1" aria-hidden="true"></span>Edit' : '<span class="bi bi-pencil" aria-hidden="true"></span><span class="visually-hidden">Edit loop</span>';
+        $copy_label = $mobile ? '<span class="bi bi-copy me-1" aria-hidden="true"></span>Copy' : '<span class="bi bi-copy" aria-hidden="true"></span><span class="visually-hidden">Copy loop</span>';
+        $edit_action = $mobile
+            ? '<a class="btn btn-outline-secondary btn-sm" href="#tm-signage-loop-edit-' . $escape( $loop_id ) . '" data-bs-toggle="modal" title="Edit loop">' . $edit_label . '</a>'
+            : '<button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#tm-signage-loop-edit-' . $escape( $loop_id ) . '" title="Edit loop">' . $edit_label . '</button>';
+        return( '<div class="d-flex flex-wrap gap-2 ' . ( $mobile ? 'justify-content-start' : 'justify-content-end' ) . '"><a class="btn btn-outline-primary btn-sm" href="' . $escape( $plugin_url . '?loop=' . rawurlencode( $loop_id ) ) . '">Slides</a>' . $edit_action . '<form method="post" action="' . $escape( $loop_copy_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="loop_id" value="' . $escape( $loop_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit" title="Copy loop">' . $copy_label . '</button></form></div>' );
+    };
+    $render_admin = static function( array $notice = [] ) use ( $plugins, $security, $service, $plugin_url, $settings_save_url, $loop_delete_url, $loop_key_url, $media_picker_url, $media_upload_url, $app_url, $escape, $media_field_html, $page_options_html, $slide_form, $slide_actions_html, $loop_actions_html, $loop_form, $scale_control_html, $confirmation_attributes, $config ) : void {
         if ( empty( $notice ) ) {
             $flash = $security->pullFlash( 'signage.notice', [] );
             $notice = is_array( $flash ) ? $flash : [];
@@ -316,14 +324,21 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( empty( $loops ) ) {
             $body .= '<p class="text-body-secondary mb-0">No signage loops have been created.</p>';
         } else {
-            $body .= '<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th scope="col">Loop</th><th scope="col">Status</th><th scope="col">Slides</th><th class="text-end" scope="col">Actions</th></tr></thead><tbody>';
+            $body .= '<div class="table-responsive d-none d-lg-block"><table class="table table-hover align-middle mb-0"><thead><tr><th scope="col">Loop</th><th scope="col">Status</th><th scope="col">Slides</th><th class="text-end" scope="col">Actions</th></tr></thead><tbody>';
             foreach ( $loops as $loop ) {
                 $loop_id = (string) $loop['id'];
                 $loop_launch_url = trim( (string) ( $loop['access_key'] ?? '' ) ) !== '' ? $service->buildLaunchUrl( $loop, $app_url ) : '';
                 $loop_name_html = ! empty( $loop['enabled'] ) && $loop_launch_url !== '' ? '<a href="' . $escape( $loop_launch_url ) . '" target="_blank" rel="noreferrer" title="View loop" data-tm-signage-loop-launch>' . $escape( (string) $loop['name'] ) . '</a>' : $escape( (string) $loop['name'] );
-                $body .= '<tr' . ( $selected_loop_id === $loop_id ? ' class="table-active"' : '' ) . ' data-tm-signage-loop-row="' . $escape( $loop_id ) . '"><td><div class="fw-semibold" data-tm-signage-loop-name>' . $loop_name_html . '</div><div class="small text-body-secondary font-monospace" data-tm-signage-loop-path>/signage/' . $escape( (string) $loop['slug'] ) . '</div></td><td><span class="badge text-bg-' . ( ! empty( $loop['enabled'] ) ? 'success' : 'secondary' ) . '" data-tm-signage-loop-state>' . ( ! empty( $loop['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></td><td>' . count( (array) $loop['slides'] ) . '</td><td><div class="d-flex flex-wrap gap-2 justify-content-end"><a class="btn btn-outline-primary btn-sm" href="' . $escape( $plugin_url . '?loop=' . rawurlencode( $loop_id ) ) . '">Slides</a><button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#tm-signage-loop-edit-' . $escape( $loop_id ) . '" title="Edit loop"><span class="bi bi-pencil" aria-hidden="true"></span></button><form method="post" action="' . $escape( $loop_copy_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="loop_id" value="' . $escape( $loop_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit" title="Copy loop"><span class="bi bi-copy" aria-hidden="true"></span></button></form></div></td></tr>';
+                $body .= '<tr' . ( $selected_loop_id === $loop_id ? ' class="table-active"' : '' ) . ' data-tm-signage-loop-row="' . $escape( $loop_id ) . '"><td><div class="fw-semibold" data-tm-signage-loop-name>' . $loop_name_html . '</div><div class="small text-body-secondary font-monospace" data-tm-signage-loop-path>/signage/' . $escape( (string) $loop['slug'] ) . '</div></td><td><span class="badge text-bg-' . ( ! empty( $loop['enabled'] ) ? 'success' : 'secondary' ) . '" data-tm-signage-loop-state>' . ( ! empty( $loop['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></td><td>' . count( (array) $loop['slides'] ) . '</td><td>' . $loop_actions_html( $loop_id ) . '</td></tr>';
             }
-            $body .= '</tbody></table></div>';
+            $body .= '</tbody></table></div><div class="list-group d-lg-none" data-tm-signage-loop-mobile-list>';
+            foreach ( $loops as $loop ) {
+                $loop_id = (string) $loop['id'];
+                $loop_launch_url = trim( (string) ( $loop['access_key'] ?? '' ) ) !== '' ? $service->buildLaunchUrl( $loop, $app_url ) : '';
+                $loop_name_html = ! empty( $loop['enabled'] ) && $loop_launch_url !== '' ? '<a href="' . $escape( $loop_launch_url ) . '" target="_blank" rel="noreferrer" title="View loop" data-tm-signage-loop-launch>' . $escape( (string) $loop['name'] ) . '</a>' : $escape( (string) $loop['name'] );
+                $body .= '<div class="list-group-item d-grid gap-2" data-tm-signage-loop-row="' . $escape( $loop_id ) . '"' . ( $selected_loop_id === $loop_id ? ' aria-current="true"' : '' ) . '><div class="d-flex align-items-start justify-content-between gap-2"><div class="text-break"><div class="fw-semibold" data-tm-signage-loop-name>' . $loop_name_html . '</div><div class="small text-body-secondary font-monospace" data-tm-signage-loop-path>/signage/' . $escape( (string) $loop['slug'] ) . '</div></div><span class="badge text-bg-' . ( ! empty( $loop['enabled'] ) ? 'success' : 'secondary' ) . ' flex-shrink-0" data-tm-signage-loop-state>' . ( ! empty( $loop['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></div><div class="small text-body-secondary">' . count( (array) $loop['slides'] ) . ' slides</div>' . $loop_actions_html( $loop_id, true ) . '</div>';
+            }
+            $body .= '</div>';
         }
         $body .= '</section>';
         if ( is_array( $selected_loop ) ) {
@@ -803,32 +818,32 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     });
                 }
                 if (form.getAttribute("data-tm-signage-inline-save") === "loop") {
-                    var row = payload.loop ? document.querySelector('[data-tm-signage-loop-row="' + payload.loop.id + '"]') : null;
-                    var state = row ? row.querySelector("[data-tm-signage-loop-state]") : null;
-                    var name = row ? row.querySelector("[data-tm-signage-loop-name]") : null;
-                    var launch = row ? row.querySelector("[data-tm-signage-loop-launch]") : null;
-                    var path = row ? row.querySelector("[data-tm-signage-loop-path]") : null;
-                    if (state && payload.loop) {
-                        state.textContent = payload.loop.enabled ? "Enabled" : "Disabled";
-                        state.className = "badge text-bg-" + (payload.loop.enabled ? "success" : "secondary");
-                    }
-                    if (name && payload.loop) {
-                        name.textContent = "";
-                        if (payload.loop.enabled && payload.loop.launch_url) {
-                            launch = document.createElement("a");
-                            launch.href = payload.loop.launch_url;
-                            launch.target = "_blank";
-                            launch.rel = "noreferrer";
-                            launch.title = "View loop";
-                            launch.setAttribute("data-tm-signage-loop-launch", "");
-                            launch.textContent = payload.loop.name || "";
-                            name.appendChild(launch);
-                        } else {
-                            name.textContent = payload.loop.name || "";
-                        }
-                    }
-	                    if (path && payload.loop) { path.textContent = "/signage/" + (payload.loop.slug || ""); }
 	                    if (payload.loop) {
+                        document.querySelectorAll('[data-tm-signage-loop-row="' + payload.loop.id + '"]').forEach(function (row) {
+                            var state = row.querySelector("[data-tm-signage-loop-state]");
+                            var name = row.querySelector("[data-tm-signage-loop-name]");
+                            var path = row.querySelector("[data-tm-signage-loop-path]");
+                            if (state) {
+                                state.textContent = payload.loop.enabled ? "Enabled" : "Disabled";
+                                state.className = "badge text-bg-" + (payload.loop.enabled ? "success" : "secondary") + (state.classList.contains("flex-shrink-0") ? " flex-shrink-0" : "");
+                            }
+                            if (name) {
+                                name.textContent = "";
+                                if (payload.loop.enabled && payload.loop.launch_url) {
+                                    var launch = document.createElement("a");
+                                    launch.href = payload.loop.launch_url;
+                                    launch.target = "_blank";
+                                    launch.rel = "noreferrer";
+                                    launch.title = "View loop";
+                                    launch.setAttribute("data-tm-signage-loop-launch", "");
+                                    launch.textContent = payload.loop.name || "";
+                                    name.appendChild(launch);
+                                } else {
+                                    name.textContent = payload.loop.name || "";
+                                }
+                            }
+                            if (path) { path.textContent = "/signage/" + (payload.loop.slug || ""); }
+                        });
 	                        document.querySelectorAll('[data-tm-signage-selected-loop-name][data-tm-signage-selected-loop-id="' + payload.loop.id + '"]').forEach(function (heading) {
 	                            heading.textContent = payload.loop.name || "";
 	                        });

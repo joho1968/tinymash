@@ -5,6 +5,7 @@ class TinyMashShortcodeRegistry {
 
     protected array $shortcodes = [];
     protected bool $dynamic_rendered = false;
+    protected array $request_page_hints = [];
     protected string $unknown_shortcode_mode = 'code';
 
     public function __construct( string $unknown_shortcode_mode = 'code' ) {
@@ -98,10 +99,15 @@ class TinyMashShortcodeRegistry {
 
     public function resetRequestState() : void {
         $this->dynamic_rendered = false;
+        $this->request_page_hints = [];
     }
 
     public function hasDynamicRenderForRequest() : bool {
         return( $this->dynamic_rendered );
+    }
+
+    public function getRequestPageHints() : array {
+        return( $this->request_page_hints );
     }
 
     protected function renderShortcodeFragment( string $source, array $context, int $depth ) : string {
@@ -181,10 +187,19 @@ class TinyMashShortcodeRegistry {
             if ( ! empty( $rendered['dynamic'] ) ) {
                 $this->dynamic_rendered = true;
             }
+            if ( is_array( $rendered['page_hints'] ?? null ) ) {
+                $this->mergePageHints( $rendered['page_hints'] );
+            }
             return( (string) ( $rendered['markdown'] ?? $rendered['html'] ?? '' ) );
         }
 
         return( is_string( $rendered ) ? $rendered : '' );
+    }
+
+    protected function mergePageHints( array $hints ) : void {
+        if ( ! empty( $hints['wide_content'] ) ) {
+            $this->request_page_hints['wide_content'] = true;
+        }
     }
 
     protected function renderUnknownShortcode( string $raw_shortcode ) : string {

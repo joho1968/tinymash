@@ -3,6 +3,10 @@
     "name": "Terminal",
     "description": "Linux-terminal inspired public theme with local-only assets and no Bootstrap dependency.",
     "version": "1.0.0",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
     "template_root": "public/terminal",
     "views": {
         "home": "public/terminal/home.latte",

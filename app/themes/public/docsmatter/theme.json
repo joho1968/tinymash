@@ -3,6 +3,10 @@
     "name": "DocsMatter",
     "description": "Documentation-oriented public theme with Bootstrap-based layout, sidebar navigation, and mobile offcanvas browsing.",
     "version": "1.0.0",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
     "template_root": "public/docsmatter",
     "views": {
         "home": "public/docsmatter/home.latte",

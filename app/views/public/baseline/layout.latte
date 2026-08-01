@@ -285,6 +285,8 @@
         </script>
 
         {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
+        {var $theme_layout_hints = is_array($theme_layout_hints ?? null) ? $theme_layout_hints : []}
+        {var $theme_wide_content_requested = ! empty($theme_layout_hints['wide_content'])}
         {var $theme_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_sidebar_enabled )}
         {var $theme_page_navigation_enabled = ($theme_settings['page_sidebar_style'] ?? 'flat') !== 'disabled'}
         {var $theme_page_navigation_position = ($theme_settings['page_navigation_position'] ?? 'opposite_sidebar') === 'identity_panel' ? 'identity_panel' : 'opposite_sidebar'}
@@ -292,7 +294,7 @@
         {var $theme_identity_page_navigation = $theme_page_navigation_position === 'identity_panel' && $theme_has_page_navigation}
         {var $theme_sidebar_page_navigation = $theme_page_navigation_position !== 'identity_panel' && $theme_has_page_navigation}
         {var $theme_plugin_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_public_sidebar_fragments ) && ($theme_settings['secondary_sidebar'] ?? 'enabled') !== 'disabled'}
-        {var $theme_sidebar_rendered = ( $theme_sidebar_visible && ( $theme_sidebar_page_navigation || ! empty( $theme_sidebar_menu ) ) ) || $theme_plugin_sidebar_visible}
+        {var $theme_sidebar_rendered = ! $theme_wide_content_requested && ( ( $theme_sidebar_visible && ( $theme_sidebar_page_navigation || ! empty( $theme_sidebar_menu ) ) ) || $theme_plugin_sidebar_visible )}
         {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || $theme_has_page_navigation || $theme_plugin_sidebar_visible )}
         {var $theme_author_space_slug = ''}
         {if ! empty( $author_slug )}

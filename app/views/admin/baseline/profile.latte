@@ -492,6 +492,64 @@
                         </div>
                     </div>
                     {/if}
+
+                    {if $profile_section === 'static-export'}
+                    {var $profile_static_export = is_array($profile_static_export ?? null) ? $profile_static_export : []}
+                    {var $profile_static_export_artifacts = is_array($profile_static_export['artifacts'] ?? null) ? $profile_static_export['artifacts'] : []}
+                    <div class="p-3 bg-body border rounded-3 shadow-sm">
+                        <div class="small text-uppercase text-body-secondary mb-2">Static export</div>
+                        <div class="fw-semibold mb-1">Download your public author space</div>
+                        <div class="small text-body-secondary mb-3">Creates a ZIP of your published author-space pages and referenced local public assets. Drafts, private account data, admin routes, and other authors are not included.</div>
+
+                        {if empty($profile_static_export['available'])}
+                            <div class="alert alert-warning mb-0" role="alert">Static export needs the PHP Zip extension before archives can be generated.</div>
+                        {else}
+                            <div class="rounded-3 p-3 bg-body-secondary mb-3">
+                                <label class="form-label small mb-1" for="tm-profile-static-export-base-url">Canonical base URL</label>
+                                <div class="input-group">
+                                    <input class="form-control font-monospace" id="tm-profile-static-export-base-url" name="base_url" type="url" value="{$profile_static_export['base_url'] ?? ''}" placeholder="https://example.com/exported_site">
+                                    <button class="btn btn-success" type="submit" formaction="{$profile_static_export['generate_url'] ?? ''}" formmethod="post">Generate ZIP</button>
+                                </div>
+                                <div class="form-text">Optional full URL for canonical and social metadata, such as https://example.com/exported_site. Leave unchanged to use the configured site URL. Links inside the ZIP stay relative.</div>
+                            </div>
+
+                            {if empty($profile_static_export_artifacts)}
+                                <div class="small text-body-secondary">No static exports are currently available. Generated ZIP files expire after 6 hours.</div>
+                            {else}
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th class="fw-normal" scope="col">Archive</th>
+                                                <th class="fw-normal" scope="col">Created</th>
+                                                <th class="fw-normal" scope="col">Expires</th>
+                                                <th class="fw-normal text-end" scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="table-group-divider">
+                                            {foreach $profile_static_export_artifacts as $artifact}
+                                                <tr>
+                                                    <td>
+                                                        <div class="fw-semibold text-break">{$artifact['download_filename'] ?? ''}</div>
+                                                        <div class="small text-body-secondary">{$artifact['route_count'] ?? 0} routes | {$artifact['size_label'] ?? ''}{if ($artifact['warning_count'] ?? 0) > 0} | {$artifact['warning_count']} warnings{/if}</div>
+                                                    </td>
+                                                    <td class="small font-monospace">{$artifact['created_at'] ?? ''}</td>
+                                                    <td class="small font-monospace">{$artifact['expires_at'] ?? ''}</td>
+                                                    <td class="text-end">
+                                                        <div class="d-inline-flex flex-wrap justify-content-end gap-2">
+                                                            <a class="btn btn-outline-secondary btn-sm" href="{($profile_static_export['download_url_base'] ?? '') . '/' . ($artifact['id'] ?? '') . '/download'}">Download</a>
+                                                            <button class="btn btn-outline-danger btn-sm" type="submit" name="artifact_id" value="{$artifact['id'] ?? ''}" formaction="{$profile_static_export['delete_url'] ?? ''}" formmethod="post">Delete</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {/foreach}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {/if}
+                        {/if}
+                    </div>
+                    {/if}
                 </div>
             </form>
         </div>

@@ -4,14 +4,14 @@
 {var $media_filters = is_array($media_library['filters'] ?? null) ? $media_library['filters'] : []}
 {var $media_pagination = is_array($media_library['pagination'] ?? null) ? $media_library['pagination'] : []}
 
-<section class="p-3 bg-body border rounded-3 shadow-sm" data-tm-admin-fragment="system-media-library" data-tm-admin-fragment-url="{$system_media_library_fragment_url ?? ''}">
+<section class="p-3 bg-body border rounded-3" style="min-width: 0;" data-tm-admin-fragment="system-media-library" data-tm-admin-fragment-url="{$system_media_library_fragment_url ?? ''}">
     <div class="mb-3">
         <div class="small text-uppercase text-body-secondary mb-2">Media library</div>
         <h2 class="h5 mb-1">Uploaded media</h2>
         <p class="text-body-secondary mb-0">Inspect stored media usage and classify cleanup candidates.</p>
     </div>
 
-    <form class="rounded-3 p-3 bg-body-secondary mb-3" method="get" action="{$system_section_urls['media_library']}" data-tm-admin-fragment-form>
+    <form class="mb-3" method="get" action="{$system_section_urls['media_library']}" data-tm-admin-fragment-form>
         <div class="row g-3 align-items-end">
             <div class="col-12 col-lg-7 col-xxl-8">
                 <label class="form-label small mb-1" for="tm-system-media-library-query">Search</label>
@@ -77,7 +77,7 @@
     </form>
 
     {if empty($media_records)}
-        <div class="rounded-3 p-3 bg-body-secondary small text-body-secondary">No media records match the current filters.</div>
+        <div class="py-3 small text-body-secondary">No media records match the current filters.</div>
     {else}
         {if ($media_pagination['total_pages'] ?? 1) > 1}
             <div class="d-flex justify-content-end mb-3">
@@ -108,80 +108,78 @@
                 </nav>
             </div>
         {/if}
-        <div class="row g-3">
-            {foreach $media_records as $media_record}
+        <div class="d-grid gap-0 tm-system-media-library-scroll" tabindex="0" aria-label="Media library results" style="min-width: 0;">
+            <div class="d-grid gap-0 pe-3" style="min-width: 0;">
+                {foreach $media_records as $media_record}
                 {var $media_detail_template_id = 'tm-system-media-library-detail-' . $iterator->counter}
                 {var $usage_references = is_array($media_record['usage_references'] ?? null) ? $media_record['usage_references'] : []}
-                <div class="col-12 col-xl-6">
-                    <div class="rounded-3 p-3 bg-body-secondary h-100 overflow-hidden" style="min-width: 0;">
-                        <div class="d-flex gap-3" style="min-width: 0;">
-                            <div class="flex-shrink-0">
-                                <button class="btn p-0 border-0 bg-transparent d-block" type="button" title="View media details" aria-label="View details for {$media_record['label'] ?? $media_record['media_id']}" data-tm-media-detail-trigger data-tm-media-detail-template="{$media_detail_template_id}" data-tm-media-detail-title="{$media_record['label'] ?? $media_record['media_id']}">
-                                    {if ! empty($media_record['thumbnail_url']) || (! empty($media_record['is_image']) && ! empty($media_record['url']))}
-                                        <img class="rounded-2 border bg-body object-fit-cover" src="{$media_record['thumbnail_url'] ?: $media_record['url']}" alt="" loading="lazy" decoding="async" style="width: 5rem; height: 5rem;">
-                                    {else}
-                                        <span class="rounded-2 border bg-body d-flex align-items-center justify-content-center text-body-secondary" style="width: 5rem; height: 5rem;">
-                                            <span n:class="'bi', ! empty($media_record['is_image']) ? 'bi-image' : 'bi-file-earmark'" aria-hidden="true"></span>
-                                        </span>
-                                    {/if}
-                                </button>
-                            </div>
-                            <div class="flex-grow-1" style="min-width: 0;">
-                                <div class="fw-semibold text-truncate" title="{$media_record['filename'] ?? $media_record['media_id']}">{$media_record['label'] ?? $media_record['media_id']}</div>
-                                <div class="small text-body-secondary text-truncate" title="{$media_record['filename'] ?? ''}">{$media_record['filename'] ?? ''}</div>
-                                <div class="small font-monospace text-body-secondary text-truncate" title="{$media_record['media_id'] ?? ''}">{$media_record['media_id'] ?? ''}</div>
-                                <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
-                                    <span>{$media_record['owner_username'] ?? ''}</span>
-                                    <span>{$media_record['mime'] ?? ''}</span>
-                                    <span>{$media_record['size_label'] ?? ''}</span>
-                                    {if ! empty($media_record['dimensions'])}<span>{$media_record['dimensions']}</span>{/if}
-                                    {if ! empty($media_record['created_at_display'])}<span>{$media_record['created_at_display']}</span>{/if}
-                                </div>
-                                {if ! empty($media_record['is_image'])}
-                                    <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
-                                        {if ! empty($media_record['has_display_derivative'])}
-                                            <span class="badge text-bg-success">large display variant</span>
-                                            {if ! empty($media_record['display_dimensions'])}<span>{$media_record['display_dimensions']}</span>{/if}
-                                            {if ! empty($media_record['display_size_label'])}<span>{$media_record['display_size_label']}</span>{/if}
-                                        {elseif ! empty($media_record['display_derivative_expected'])}
-                                            <span class="badge text-bg-warning">display variant missing</span>
-                                        {else}
-                                            <span class="badge text-bg-secondary">primary display source</span>
-                                        {/if}
-                                    </div>
-                                {/if}
-                                <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
-                                    <span class="badge {$media_record['usage_badge_class'] ?? 'text-bg-secondary'}">{$media_record['usage_status_label'] ?? 'Unknown'}</span>
-                                    {if ($media_record['usage_reference_count'] ?? 0) > 0}<span>{$media_record['usage_reference_count']} reference{if ($media_record['usage_reference_count'] ?? 0) !== 1}s{/if}</span>{/if}
-                                </div>
-                                <div class="small text-body-secondary d-flex flex-wrap gap-2 align-items-center mt-2">
-                                    <span class="badge {$media_record['review_badge_class'] ?? 'text-bg-secondary'}">{$media_record['review_status_label'] ?? 'Unreviewed'}</span>
-                                    {if ! empty($media_record['reviewed_at_display'])}<span>{$media_record['reviewed_at_display']}</span>{/if}
-                                    {if ! empty($media_record['reviewed_by'])}<span>by {$media_record['reviewed_by']}</span>{/if}
-                                </div>
-                                {if ! empty($usage_references)}
-                                    <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-2">
-                                        <span>Used by:</span>
-                                        {foreach array_slice($usage_references, 0, 2) as $reference}
-                                            <span class="text-break">{$reference['label'] ?? 'Reference'}</span>
-                                        {/foreach}
-                                        {if count($usage_references) > 2}<span>+{count($usage_references) - 2} more</span>{/if}
-                                    </div>
-                                {elseif ($media_record['usage_status'] ?? '') === 'direct_marker_only'}
-                                    <div class="small text-body-secondary mt-2">Upload association recorded, but no current use was verified.</div>
+                {var $media_usage_status = $media_record['usage_status'] ?? ''}
+                {var $media_review_status = $media_record['review_status'] ?? 'unreviewed'}
+                <article class="border-top py-2" style="min-width: 0;">
+                    <div class="d-flex flex-column flex-lg-row gap-2 gap-lg-3 align-items-stretch align-items-lg-start" style="min-width: 0;">
+                        <div class="d-flex gap-2 align-items-start flex-grow-1" style="min-width: 0;">
+                            <button class="btn p-0 border-0 bg-transparent flex-shrink-0 d-block" type="button" title="View media details" aria-label="View details for {$media_record['label'] ?? $media_record['media_id']}" data-tm-media-detail-trigger data-tm-media-detail-template="{$media_detail_template_id}" data-tm-media-detail-title="{$media_record['label'] ?? $media_record['media_id']}">
+                                {if ! empty($media_record['thumbnail_url']) || (! empty($media_record['is_image']) && ! empty($media_record['url']))}
+                                    <img class="rounded-2 border bg-body object-fit-cover" src="{$media_record['thumbnail_url'] ?: $media_record['url']}" alt="" loading="lazy" decoding="async" style="width: 3.5rem; height: 3.5rem;">
                                 {else}
-                                    <div class="small text-body-secondary mt-2">No known use found.</div>
+                                    <span class="rounded-2 border bg-body d-flex align-items-center justify-content-center text-body-secondary" style="width: 3.5rem; height: 3.5rem;">
+                                        <span n:class="'bi', ! empty($media_record['is_image']) ? 'bi-image' : 'bi-file-earmark'" aria-hidden="true"></span>
+                                    </span>
                                 {/if}
-                                <div class="d-flex flex-wrap gap-2 mt-3">
-                                    {if ($media_record['review_status'] ?? 'unreviewed') !== 'keep'}
+                            </button>
+                            <div class="flex-grow-1" style="min-width: 0;">
+                                <div class="d-flex flex-column flex-md-row gap-1 gap-md-2 align-items-md-baseline" style="min-width: 0;">
+                                    <div class="fw-semibold text-truncate" title="{$media_record['filename'] ?? $media_record['media_id']}" style="min-width: 0;">{$media_record['label'] ?? $media_record['media_id']}</div>
+                                    <div class="small font-monospace text-body-secondary text-truncate" title="{$media_record['media_id'] ?? ''}" style="min-width: 0;">{$media_record['media_id'] ?? ''}</div>
+                                </div>
+                                <div class="small text-body-secondary d-flex flex-wrap gap-2 mt-1">
+                                    <span>{$media_record['owner_username'] ?? ''}</span>
+                                    {if ! empty($media_record['created_at_display'])}<span>{$media_record['created_at_display']}</span>{/if}
+                                    {if ! empty($media_record['dimensions'])}
+                                        <span>{$media_record['dimensions']}</span>
+                                    {else}
+                                        <span>{$media_record['size_label'] ?? ''}</span>
+                                    {/if}
+                                </div>
+                                <div class="small text-body-secondary mt-1 text-break">
+                                    {if ! empty($usage_references)}
+                                        Used by: {$usage_references[0]['label'] ?? 'Reference'}{if count($usage_references) > 1} +{count($usage_references) - 1} more{/if}
+                                    {elseif $media_usage_status === 'direct_marker_only'}
+                                        Upload association recorded; no current use verified.
+                                    {else}
+                                        No known use found.
+                                    {/if}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-column gap-2 align-items-start align-items-lg-end" style="min-width: min(100%, 16rem);">
+                            <div class="d-flex flex-wrap gap-1 align-items-center justify-content-start justify-content-lg-end small w-100">
+                                {if in_array($media_usage_status, ['unreferenced', 'direct_marker_only'], true)}
+                                    <span class="badge {$media_record['usage_badge_class'] ?? 'text-bg-secondary'}">{$media_record['usage_status_label'] ?? 'Unknown'}</span>
+                                {else}
+                                    <span class="text-body-secondary">{$media_record['usage_status_label'] ?? 'Unknown'}</span>
+                                {/if}
+                                <span class="text-body-secondary" aria-hidden="true">&middot;</span>
+                                <span class="text-body-secondary">{$media_record['usage_reference_count'] ?? 0} ref{if ($media_record['usage_reference_count'] ?? 0) !== 1}s{/if}</span>
+                                <span class="text-body-secondary" aria-hidden="true">&middot;</span>
+                                {if $media_review_status === 'cleanup_candidate'}
+                                    <span class="badge {$media_record['review_badge_class'] ?? 'text-bg-secondary'}">{$media_record['review_status_label'] ?? 'Unreviewed'}</span>
+                                {else}
+                                    <span class="text-body-secondary">{$media_record['review_status_label'] ?? 'Unreviewed'}</span>
+                                {/if}
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end w-100">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" aria-label="View details for {$media_record['label'] ?? $media_record['media_id']}" data-tm-media-detail-trigger data-tm-media-detail-template="{$media_detail_template_id}" data-tm-media-detail-title="{$media_record['label'] ?? $media_record['media_id']}">Details</button>
+                                <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+                                    {if $media_review_status !== 'keep'}
                                         <form method="post" action="{$system_media_library_review_url}" class="d-inline">
                                             <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
                                             <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
                                             <input type="hidden" name="review_status" value="keep">
-                                            <button class="btn btn-sm btn-outline-primary" type="submit">Keep</button>
+                                            <button class="btn btn-sm btn-outline-secondary" type="submit">Keep</button>
                                         </form>
                                     {/if}
-                                    {if ($media_record['review_status'] ?? 'unreviewed') !== 'cleanup_candidate'}
+                                    {if $media_review_status !== 'cleanup_candidate'}
                                         <form method="post" action="{$system_media_library_review_url}" class="d-inline">
                                             <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
                                             <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
@@ -189,7 +187,7 @@
                                             <button class="btn btn-sm btn-outline-warning tm-media-review-candidate-action" type="submit">Cleanup candidate</button>
                                         </form>
                                     {/if}
-                                    {if ($media_record['review_status'] ?? 'unreviewed') !== 'unreviewed'}
+                                    {if $media_review_status !== 'unreviewed'}
                                         <form method="post" action="{$system_media_library_review_url}" class="d-inline">
                                             <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
                                             <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
@@ -197,15 +195,15 @@
                                             <button class="btn btn-sm btn-outline-secondary" type="submit">Clear</button>
                                         </form>
                                     {/if}
-                                    {if ($media_record['review_status'] ?? 'unreviewed') === 'cleanup_candidate'}
-                                        <form method="post" action="{$system_media_library_delete_url}" class="d-inline" onsubmit="return window.confirm('Delete this media item permanently? This cannot be undone.');">
-                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
-                                            <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
-                                            <input type="hidden" name="confirm_permanent_delete" value="permanent">
-                                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete permanently</button>
-                                        </form>
-                                    {/if}
                                 </div>
+                                {if $media_review_status === 'cleanup_candidate'}
+                                    <form method="post" action="{$system_media_library_delete_url}" class="d-inline ms-lg-2" onsubmit="return window.confirm('Delete this media item permanently? This cannot be undone.');">
+                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                        <input type="hidden" name="media_id" value="{$media_record['media_id'] ?? ''}">
+                                        <input type="hidden" name="confirm_permanent_delete" value="permanent">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete permanently</button>
+                                    </form>
+                                {/if}
                             </div>
                         </div>
                     </div>
@@ -365,8 +363,9 @@
                             </div>
                         </div>
                     </template>
-                </div>
-            {/foreach}
+                </article>
+                {/foreach}
+            </div>
         </div>
     {/if}
     <div class="modal fade" id="tm-system-media-library-detail-modal" tabindex="-1" aria-labelledby="tm-system-media-library-detail-title" aria-hidden="true">

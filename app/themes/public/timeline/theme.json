@@ -3,6 +3,10 @@
     "name": "Timeline",
     "description": "A modern archive-oriented public theme with a vertical date rail.",
     "version": "1.0.0",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
     "template_root": "public/timeline",
     "views": {
         "home": "public/timeline/home.latte",

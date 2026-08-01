@@ -23,6 +23,7 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashDateFormat
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentRenderer.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashShortcodeRegistry.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMenuService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashFilesystem.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaAttachmentMetadataStore.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaImportMapStore.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaService.php' );
@@ -43,6 +44,8 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashAdminTheme
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashHelpCatalog.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUserRepository.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashExportService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashStaticExportArtifactService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashStaticExportService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMailer.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashNotificationService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPasswordResetService.php' );
@@ -189,7 +192,22 @@ $export_service = new app\classes\TinyMashExportService(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'drafts',
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'media'
 );
-$mailer = new app\classes\TinyMashMailer();
+$static_export_artifact_service = new app\classes\TinyMashStaticExportArtifactService(
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'static-exports',
+    21600
+);
+$static_export_service = new app\classes\TinyMashStaticExportService(
+    $app,
+    $config,
+    $content_repository,
+    $content_renderer,
+    $theme,
+    $user_repository,
+    $media_service,
+    $static_export_artifact_service,
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'public'
+);
+$mailer = new app\classes\TinyMashMailer( $markdown_renderer );
 $notification_service = new app\classes\TinyMashNotificationService(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'notifications.json'
 );
@@ -233,6 +251,8 @@ $app->set( 'theme', $theme );
 $app->set( 'admin.theme', $admin_theme );
 $app->set( 'help.catalog', $help_catalog );
 $app->set( 'export.service', $export_service );
+$app->set( 'static_export.artifacts', $static_export_artifact_service );
+$app->set( 'static_export.service', $static_export_service );
 $app->set( 'mailer', $mailer );
 $app->set( 'notification.service', $notification_service );
 $app->set( 'password_reset.service', $password_reset_service );

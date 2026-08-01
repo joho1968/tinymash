@@ -250,6 +250,20 @@
     padding: .75rem;
 }
 
+.tm-weather-admin,
+.tm-weather-admin form,
+.tm-weather-admin section,
+.tm-weather-admin article,
+.tm-weather-admin .row,
+.tm-weather-admin [class*="col-"] {
+    min-width: 0;
+}
+
+.tm-weather-admin code {
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
 .tm-weather-admin-preview-body {
     display: grid;
     gap: .75rem;

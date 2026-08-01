@@ -1,0 +1,89 @@
+{var $system_static_export = is_array($system_static_export ?? null) ? $system_static_export : []}
+{var $static_export_authors = is_array($system_static_export['authors'] ?? null) ? $system_static_export['authors'] : []}
+{var $static_export_artifacts = is_array($system_static_export['artifacts'] ?? null) ? $system_static_export['artifacts'] : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Static export</div>
+    <div class="fw-semibold mb-1">Whole-site static ZIP</div>
+    <div class="small text-body-secondary mb-3">Creates a static archive of root public pages and selected public author spaces. Editable source data, drafts, users, config, admin routes, and private runtime files are never included.</div>
+
+    {if empty($system_static_export['available'])}
+        <div class="alert alert-warning mb-0" role="alert">Static export needs the PHP Zip extension before archives can be generated.</div>
+    {else}
+        <form class="rounded-3 p-3 bg-body-secondary mb-3" method="post" action="{$system_static_export['generate_url'] ?? ''}">
+            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label small mb-1" for="tm-system-static-export-base-url">Canonical base URL</label>
+                    <input class="form-control font-monospace" id="tm-system-static-export-base-url" name="base_url" type="url" value="{$system_static_export['base_url'] ?? ''}" placeholder="https://example.com/exported_site">
+                    <div class="form-text">Optional full URL for canonical and social metadata, such as https://example.com/exported_site. Leave unchanged to use the configured site URL. Links inside the ZIP stay relative.</div>
+                </div>
+                <div class="col-12">
+                    <div class="form-label small mb-1">Exclude author spaces</div>
+                    {if empty($static_export_authors)}
+                        <div class="small text-body-secondary">No public author spaces are available for export.</div>
+                    {else}
+                        <div class="row g-2">
+                            {foreach $static_export_authors as $author}
+                                <div class="col-12 col-md-6 col-xl-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" id="tm-system-static-export-exclude-{$author['slug'] ?? ''}" name="exclude_authors[]" type="checkbox" value="{$author['slug'] ?? ''}">
+                                        <label class="form-check-label" for="tm-system-static-export-exclude-{$author['slug'] ?? ''}">
+                                            {$author['label'] ?? ($author['slug'] ?? '')} <span class="text-body-secondary font-monospace">/{$author['slug'] ?? ''}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            {/foreach}
+                        </div>
+                    {/if}
+                    <div class="form-text">All public author spaces are included unless checked here.</div>
+                </div>
+                <div class="col-12">
+                    <button class="btn btn-success" type="submit">Generate site ZIP</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="small text-uppercase text-body-secondary mb-2">Available archives</div>
+        {if empty($static_export_artifacts)}
+            <div class="small text-body-secondary">No static exports are currently available. Generated ZIP files expire after 6 hours.</div>
+        {else}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="fw-normal" scope="col">Archive</th>
+                            <th class="fw-normal" scope="col">Scope</th>
+                            <th class="fw-normal" scope="col">Owner</th>
+                            <th class="fw-normal" scope="col">Expires</th>
+                            <th class="fw-normal text-end" scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-group-divider">
+                        {foreach $static_export_artifacts as $artifact}
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold text-break">{$artifact['download_filename'] ?? ''}</div>
+                                    <div class="small text-body-secondary">{$artifact['route_count'] ?? 0} routes | {$artifact['size_label'] ?? ''}{if ($artifact['warning_count'] ?? 0) > 0} | {$artifact['warning_count']} warnings{/if}</div>
+                                </td>
+                                <td class="font-monospace">{$artifact['scope'] ?? ''}</td>
+                                <td class="font-monospace">{$artifact['owner_username'] ?? ''}</td>
+                                <td class="small font-monospace">{$artifact['expires_at'] ?? ''}</td>
+                                <td class="text-end">
+                                    <div class="d-inline-flex flex-wrap justify-content-end gap-2">
+                                        <a class="btn btn-outline-secondary btn-sm" href="{($system_static_export['download_url_base'] ?? '') . '/' . ($artifact['id'] ?? '') . '/download'}">Download</a>
+                                        <form class="d-inline" method="post" action="{$system_static_export['delete_url'] ?? ''}">
+                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                            <input type="hidden" name="artifact_id" value="{$artifact['id'] ?? ''}">
+                                            <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {/foreach}
+                    </tbody>
+                </table>
+            </div>
+        {/if}
+    {/if}
+</section>

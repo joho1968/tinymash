@@ -199,147 +199,298 @@
             </section>
         {/if}
 
-        <section class="d-grid gap-3">
+        <section class="d-grid gap-3" data-tm-plugin-overview>
             {if empty( $system_registered_plugins )}
                 <div class="p-3 bg-body border rounded-3 shadow-sm small text-body-secondary">No plugins are currently installed.</div>
             {else}
-                {if $active_plugin_count > 0}
-                    <div>
-                        <div class="small text-uppercase text-body-secondary mb-2">Active plugins</div>
-                        <div class="row g-3">
-                    {foreach $system_registered_plugins as $registered_plugin}
-                        {if ! empty( $registered_plugin['active'] )}
-                            {var $plugin_settings_url = $system_plugin_settings_urls[$registered_plugin['key']] ?? ''}
-                            <div class="col-12 col-xl-6">
-                                <article class="border rounded-3 p-3 bg-body h-100 shadow-sm d-flex flex-column gap-3">
-                                    <div>
-                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                            <h3 class="h6 mb-0">{$registered_plugin['name']}</h3>
-                                            <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
-                                            <span class="small text-body-secondary font-monospace">{$registered_plugin['key']}</span>
-                                            {if ! empty( $registered_plugin['version'] )}
-                                                <span class="small text-body-secondary">{$registered_plugin['version']}</span>
-                                            {/if}
-                                        </div>
-                                        {if ! empty( $registered_plugin['description'] )}
-                                            <div class="small text-body-secondary">{$registered_plugin['description']}</div>
-                                        {/if}
-                                    </div>
-                                    <div class="small text-body-secondary d-flex flex-wrap gap-3">
-                                        <span>Stage: <span class="text-body">{$registered_plugin['stage'] ?? 'early'}</span></span>
-                                        {if ! empty( $registered_plugin['booted_stage'] )}
-                                            <span>Booted: <span class="text-body">{$registered_plugin['booted_stage']}</span></span>
-                                        {/if}
-                                        {if ! empty( $registered_plugin['author_name'] )}
-                                            <span>Author: <span class="text-body">{$registered_plugin['author_name']}</span></span>
-                                        {/if}
-                                        {if ! empty( $registered_plugin['license'] )}
-                                            <span>License: <span class="text-body">{$registered_plugin['license']}</span></span>
-                                        {/if}
-                                        {if ! empty( $registered_plugin['website'] )}
-                                            <span><a class="link-offset-2" href="{$registered_plugin['website']}" target="_blank" rel="noopener noreferrer">Website</a></span>
-                                        {/if}
-                                    </div>
-                                    {if ! empty( $registered_plugin['boot_error'] )}
-                                        <div class="alert alert-danger py-2 px-3 small mb-0" role="alert">
-                                            {$registered_plugin['boot_error']}
-                                        </div>
+                <ul class="nav nav-tabs" id="tm-plugin-status-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tm-plugin-active-tab" data-bs-toggle="tab" data-bs-target="#active" type="button" role="tab" aria-controls="active" aria-selected="true">
+                            Active <span class="badge text-bg-secondary ms-1">{$active_plugin_count}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tm-plugin-inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive" type="button" role="tab" aria-controls="inactive" aria-selected="false">
+                            Inactive <span class="badge text-bg-secondary ms-1">{$inactive_plugin_count}</span>
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="active" role="tabpanel" aria-labelledby="tm-plugin-active-tab" tabindex="0">
+                        {if $active_plugin_count > 0}
+                            <div class="table-responsive tm-system-plugin-table-scroll pe-2">
+                                <table class="table table-sm align-middle mb-0">
+                                    <caption class="visually-hidden">Active installed plugins</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Plugin</th>
+                                            <th scope="col">Boot</th>
+                                            <th scope="col" class="text-center">Info</th>
+                                            <th scope="col" class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                {foreach $system_registered_plugins as $registered_plugin}
+                                    {if ! empty( $registered_plugin['active'] )}
+                                        {var $plugin_settings_url = $system_plugin_settings_urls[$registered_plugin['key']] ?? ''}
+                                        {var $plugin_boot_detail = ! empty( $registered_plugin['boot_error'] ) ? ('Did not boot: ' . $registered_plugin['boot_error']) : (! empty( $registered_plugin['booted_stage'] ) ? ('Booted: ' . $registered_plugin['booted_stage']) : ($registered_plugin['boot_status_label'] ?? 'Unknown'))}
+                                        <tr>
+                                            <th scope="row">
+                                                <div class="fw-semibold">{$registered_plugin['name']}</div>
+                                                {if ! empty( $registered_plugin['description'] )}
+                                                    <div class="small text-body-secondary fw-normal">{$registered_plugin['description']}</div>
+                                                {/if}
+                                                <div class="small text-body-secondary fw-normal">
+                                                    <span class="font-monospace">{$registered_plugin['key']}</span>
+                                                    {if ! empty( $registered_plugin['version'] )}
+                                                        <span>{$registered_plugin['version']}</span>
+                                                    {/if}
+                                                </div>
+                                            </th>
+                                            <td>
+                                                <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}" tabindex="0" title="{$plugin_boot_detail}" aria-label="{$plugin_boot_detail}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-outline-secondary btn-sm tm-system-plugin-info-button d-inline-flex align-items-center justify-content-center" type="button" title="Plugin details" aria-label="Plugin details for {$registered_plugin['name']}" data-tm-plugin-detail data-plugin-name="{$registered_plugin['name']}" data-plugin-key="{$registered_plugin['key']}" data-plugin-version="{$registered_plugin['version'] ?? ''}" data-plugin-stage="{$registered_plugin['stage'] ?? 'early'}" data-plugin-booted-stage="{$registered_plugin['booted_stage'] ?? ''}" data-plugin-author="{$registered_plugin['author_name'] ?? ''}" data-plugin-license="{$registered_plugin['license'] ?? ''}" data-plugin-website="{$registered_plugin['website'] ?? ''}" data-plugin-boot-error="{$registered_plugin['boot_error'] ?? ''}" data-plugin-manifest-warnings="{implode( "\n", (array) ( $registered_plugin['manifest_warnings'] ?? [] ) )}" data-bs-toggle="modal" data-bs-target="#tm-plugin-detail-modal">
+                                                    <span class="bi bi-info-circle" aria-hidden="true"></span>
+                                                </button>
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="d-inline-flex flex-wrap justify-content-end gap-2">
+                                                    {if $plugin_settings_url !== ''}
+                                                        <a class="btn btn-outline-secondary btn-sm" href="{$plugin_settings_url}">Configure</a>
+                                                    {/if}
+                                                    <form method="post" action="{$system_plugin_toggle_url}">
+                                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                                        <input type="hidden" name="plugin_key" value="{$registered_plugin['key']}">
+                                                        <input type="hidden" name="active" value="0">
+                                                        <button class="btn btn-outline-secondary btn-sm" type="submit">Deactivate</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     {/if}
-                                    {if ! empty( $registered_plugin['manifest_warnings'] )}
-                                        <div class="alert alert-warning py-2 px-3 small mb-0" role="alert">
-                                            <div class="fw-semibold mb-1">Manifest warnings</div>
-                                            <ul class="mb-0 ps-3">
-                                                {foreach $registered_plugin['manifest_warnings'] as $plugin_manifest_warning}
-                                                    <li>{$plugin_manifest_warning}</li>
-                                                {/foreach}
-                                            </ul>
-                                        </div>
-                                    {/if}
-                                    <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions tm-system-plugin-card-actions mt-auto">
-                                        {if $plugin_settings_url !== ''}
-                                            <a class="btn btn-outline-secondary btn-sm tm-system-plugin-action tm-system-plugin-card-action" href="{$plugin_settings_url}">Configure</a>
-                                        {/if}
-                                        <form method="post" action="{$system_plugin_toggle_url}" class="tm-system-plugin-action tm-system-plugin-card-action">
-                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
-                                            <input type="hidden" name="plugin_key" value="{$registered_plugin['key']}">
-                                            <input type="hidden" name="active" value="0">
-                                            <button class="btn btn-outline-secondary btn-sm w-100" type="submit">Deactivate</button>
-                                        </form>
-                                    </div>
-                                </article>
+                                {/foreach}
+                                    </tbody>
+                                </table>
                             </div>
+                        {else}
+                            <div class="small text-body-secondary py-3">No active plugins.</div>
                         {/if}
-                    {/foreach}
+                    </div>
+                    <div class="tab-pane fade" id="inactive" role="tabpanel" aria-labelledby="tm-plugin-inactive-tab" tabindex="0">
+                        {if $inactive_plugin_count > 0}
+                            <div class="table-responsive tm-system-plugin-table-scroll pe-2">
+                                <table class="table table-sm align-middle mb-0">
+                                    <caption class="visually-hidden">Inactive installed plugins</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Plugin</th>
+                                            <th scope="col">Boot</th>
+                                            <th scope="col" class="text-center">Info</th>
+                                            <th scope="col" class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                {foreach $system_registered_plugins as $registered_plugin}
+                                    {if empty( $registered_plugin['active'] )}
+                                        {var $plugin_settings_url = $system_plugin_settings_urls[$registered_plugin['key']] ?? ''}
+                                        {var $plugin_boot_detail = ! empty( $registered_plugin['boot_error'] ) ? ('Did not boot: ' . $registered_plugin['boot_error']) : (! empty( $registered_plugin['booted_stage'] ) ? ('Booted: ' . $registered_plugin['booted_stage']) : ($registered_plugin['boot_status_label'] ?? 'Unknown'))}
+                                        <tr>
+                                            <th scope="row">
+                                                <div class="fw-semibold">{$registered_plugin['name']}</div>
+                                                {if ! empty( $registered_plugin['description'] )}
+                                                    <div class="small text-body-secondary fw-normal">{$registered_plugin['description']}</div>
+                                                {/if}
+                                                <div class="small text-body-secondary fw-normal">
+                                                    <span class="font-monospace">{$registered_plugin['key']}</span>
+                                                    {if ! empty( $registered_plugin['version'] )}
+                                                        <span>{$registered_plugin['version']}</span>
+                                                    {/if}
+                                                </div>
+                                            </th>
+                                            <td>
+                                                <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}" tabindex="0" title="{$plugin_boot_detail}" aria-label="{$plugin_boot_detail}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-outline-secondary btn-sm tm-system-plugin-info-button d-inline-flex align-items-center justify-content-center" type="button" title="Plugin details" aria-label="Plugin details for {$registered_plugin['name']}" data-tm-plugin-detail data-plugin-name="{$registered_plugin['name']}" data-plugin-key="{$registered_plugin['key']}" data-plugin-version="{$registered_plugin['version'] ?? ''}" data-plugin-stage="{$registered_plugin['stage'] ?? 'early'}" data-plugin-booted-stage="{$registered_plugin['booted_stage'] ?? ''}" data-plugin-author="{$registered_plugin['author_name'] ?? ''}" data-plugin-license="{$registered_plugin['license'] ?? ''}" data-plugin-website="{$registered_plugin['website'] ?? ''}" data-plugin-boot-error="{$registered_plugin['boot_error'] ?? ''}" data-plugin-manifest-warnings="{implode( "\n", (array) ( $registered_plugin['manifest_warnings'] ?? [] ) )}" data-bs-toggle="modal" data-bs-target="#tm-plugin-detail-modal">
+                                                    <span class="bi bi-info-circle" aria-hidden="true"></span>
+                                                </button>
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="d-inline-flex flex-wrap justify-content-end gap-2">
+                                                    {if $plugin_settings_url !== ''}
+                                                        <a class="btn btn-outline-secondary btn-sm" href="{$plugin_settings_url}">Configure</a>
+                                                    {/if}
+                                                    <form method="post" action="{$system_plugin_toggle_url}">
+                                                        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                                        <input type="hidden" name="plugin_key" value="{$registered_plugin['key']}">
+                                                        <input type="hidden" name="active" value="1">
+                                                        <button class="btn btn-primary btn-sm" type="submit">Activate</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {/if}
+                                {/foreach}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {else}
+                            <div class="small text-body-secondary py-3">No inactive plugins.</div>
+                        {/if}
+                    </div>
+                </div>
+
+                <div class="modal fade" id="tm-plugin-detail-modal" tabindex="-1" aria-labelledby="tm-plugin-detail-modal-title" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 class="modal-title fs-5" id="tm-plugin-detail-modal-title">Plugin details</h3>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <dl class="row g-2 small mb-0">
+                                    <dt class="col-4">Key</dt>
+                                    <dd class="col-8 font-monospace" data-tm-plugin-modal-field="key"></dd>
+                                    <dt class="col-4">Version</dt>
+                                    <dd class="col-8" data-tm-plugin-modal-field="version"></dd>
+                                    <dt class="col-4">Stage</dt>
+                                    <dd class="col-8" data-tm-plugin-modal-field="stage"></dd>
+                                    <dt class="col-4">Booted stage</dt>
+                                    <dd class="col-8" data-tm-plugin-modal-field="bootedStage"></dd>
+                                    <dt class="col-4">Author</dt>
+                                    <dd class="col-8" data-tm-plugin-modal-field="author"></dd>
+                                    <dt class="col-4">License</dt>
+                                    <dd class="col-8" data-tm-plugin-modal-field="license"></dd>
+                                    <dt class="col-4">Website</dt>
+                                    <dd class="col-8" data-tm-plugin-modal-field="website"></dd>
+                                </dl>
+                                <div class="small mt-3 d-none" data-tm-plugin-modal-section="bootError">
+                                    <div class="fw-semibold text-danger mb-1">Boot error</div>
+                                    <div data-tm-plugin-modal-field="bootError"></div>
+                                </div>
+                                <div class="small mt-3 d-none" data-tm-plugin-modal-section="manifestWarnings">
+                                    <div class="fw-semibold text-warning-emphasis mb-1">Manifest warnings</div>
+                                    <ul class="mb-0 ps-3" data-tm-plugin-modal-field="manifestWarnings"></ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                {/if}
-                {if $inactive_plugin_count > 0}
-                    <div id="inactive">
-                        <div class="small text-uppercase text-body-secondary mb-2">Inactive plugins</div>
-                        <div class="row g-3">
-                    {foreach $system_registered_plugins as $registered_plugin}
-                        {if empty( $registered_plugin['active'] )}
-                            {var $plugin_settings_url = $system_plugin_settings_urls[$registered_plugin['key']] ?? ''}
-                            <div class="col-12 col-xl-6">
-                                <article class="border rounded-3 p-3 bg-body h-100 shadow-sm d-flex flex-column gap-3">
-                                    <div>
-                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                            <h3 class="h6 mb-0">{$registered_plugin['name']}</h3>
-                                            <span class="badge {$registered_plugin['boot_status_badge_class'] ?? 'text-bg-secondary'}">{$registered_plugin['boot_status_label'] ?? 'Unknown'}</span>
-                                            <span class="small text-body-secondary font-monospace">{$registered_plugin['key']}</span>
-                                            {if ! empty( $registered_plugin['version'] )}
-                                                <span class="small text-body-secondary">{$registered_plugin['version']}</span>
-                                            {/if}
-                                        </div>
-                                        {if ! empty( $registered_plugin['description'] )}
-                                            <div class="small text-body-secondary">{$registered_plugin['description']}</div>
-                                        {/if}
-                                    </div>
-                                    <div class="small text-body-secondary d-flex flex-wrap gap-3">
-                                        <span>Stage: <span class="text-body">{$registered_plugin['stage'] ?? 'early'}</span></span>
-                                        {if ! empty( $registered_plugin['author_name'] )}
-                                            <span>Author: <span class="text-body">{$registered_plugin['author_name']}</span></span>
-                                        {/if}
-                                        {if ! empty( $registered_plugin['license'] )}
-                                            <span>License: <span class="text-body">{$registered_plugin['license']}</span></span>
-                                        {/if}
-                                        {if ! empty( $registered_plugin['website'] )}
-                                            <span><a class="link-offset-2" href="{$registered_plugin['website']}" target="_blank" rel="noopener noreferrer">Website</a></span>
-                                        {/if}
-                                    </div>
-                                    {if ! empty( $registered_plugin['boot_error'] )}
-                                        <div class="alert alert-danger py-2 px-3 small mb-0" role="alert">
-                                            {$registered_plugin['boot_error']}
-                                        </div>
-                                    {/if}
-                                    {if ! empty( $registered_plugin['manifest_warnings'] )}
-                                        <div class="alert alert-warning py-2 px-3 small mb-0" role="alert">
-                                            <div class="fw-semibold mb-1">Manifest warnings</div>
-                                            <ul class="mb-0 ps-3">
-                                                {foreach $registered_plugin['manifest_warnings'] as $plugin_manifest_warning}
-                                                    <li>{$plugin_manifest_warning}</li>
-                                                {/foreach}
-                                            </ul>
-                                        </div>
-                                    {/if}
-                                    <div class="d-flex flex-wrap align-items-start gap-2 tm-system-plugin-actions tm-system-plugin-card-actions mt-auto">
-                                        {if $plugin_settings_url !== ''}
-                                            <a class="btn btn-outline-secondary btn-sm tm-system-plugin-action tm-system-plugin-card-action" href="{$plugin_settings_url}">Configure</a>
-                                        {/if}
-                                        <form method="post" action="{$system_plugin_toggle_url}" class="tm-system-plugin-action tm-system-plugin-card-action">
-                                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
-                                            <input type="hidden" name="plugin_key" value="{$registered_plugin['key']}">
-                                            <input type="hidden" name="active" value="1">
-                                            <button class="btn btn-primary btn-sm w-100" type="submit">Activate</button>
-                                        </form>
-                                    </div>
-                                </article>
-                            </div>
-                        {/if}
-                    {/foreach}
-                        </div>
-                    </div>
-                {/if}
+                </div>
+
+                <script>
+                    (() => {
+                        const root = document.querySelector('[data-tm-plugin-overview]');
+                        if (!root || root.dataset.tmPluginOverviewReady === '1') {
+                            return;
+                        }
+                        root.dataset.tmPluginOverviewReady = '1';
+
+                        const modal = document.getElementById('tm-plugin-detail-modal');
+                        const title = document.getElementById('tm-plugin-detail-modal-title');
+                        const setText = (field, value) => {
+                            const node = modal ? modal.querySelector('[data-tm-plugin-modal-field="' + field + '"]') : null;
+                            if (node) {
+                                node.textContent = value || 'Not provided';
+                            }
+                        };
+
+                        root.addEventListener('click', (event) => {
+                            const button = event.target instanceof Element ? event.target.closest('[data-tm-plugin-detail]') : null;
+                            if (!button || !modal || !title) {
+                                return;
+                            }
+
+                            const data = button.dataset;
+                            title.textContent = (data.pluginName || 'Plugin') + ' details';
+                            setText('key', data.pluginKey || '');
+                            setText('version', data.pluginVersion || '');
+                            setText('stage', data.pluginStage || '');
+                            setText('bootedStage', data.pluginBootedStage || '');
+                            setText('author', data.pluginAuthor || '');
+                            setText('license', data.pluginLicense || '');
+
+                            const websiteField = modal.querySelector('[data-tm-plugin-modal-field="website"]');
+                            if (websiteField) {
+                                websiteField.textContent = '';
+                                if (data.pluginWebsite) {
+                                    const link = document.createElement('a');
+                                    link.href = data.pluginWebsite;
+                                    link.target = '_blank';
+                                    link.rel = 'noopener noreferrer';
+                                    link.textContent = data.pluginWebsite;
+                                    websiteField.appendChild(link);
+                                } else {
+                                    websiteField.textContent = 'Not provided';
+                                }
+                            }
+
+                            const bootErrorSection = modal.querySelector('[data-tm-plugin-modal-section="bootError"]');
+                            const bootErrorField = modal.querySelector('[data-tm-plugin-modal-field="bootError"]');
+                            if (bootErrorSection && bootErrorField) {
+                                bootErrorField.textContent = data.pluginBootError || '';
+                                bootErrorSection.classList.toggle('d-none', !data.pluginBootError);
+                            }
+
+                            const warningsSection = modal.querySelector('[data-tm-plugin-modal-section="manifestWarnings"]');
+                            const warningsList = modal.querySelector('[data-tm-plugin-modal-field="manifestWarnings"]');
+                            const warnings = (data.pluginManifestWarnings || '').split(/\n+/).map((warning) => warning.trim()).filter(Boolean);
+                            if (warningsSection && warningsList) {
+                                warningsList.replaceChildren();
+                                for (const warning of warnings) {
+                                    const item = document.createElement('li');
+                                    item.textContent = warning;
+                                    warningsList.appendChild(item);
+                                }
+                                warningsSection.classList.toggle('d-none', warnings.length === 0);
+                            }
+                        });
+
+                        const inactiveTab = document.getElementById('tm-plugin-inactive-tab');
+                        const activeTab = document.getElementById('tm-plugin-active-tab');
+                        const inactivePane = document.getElementById('inactive');
+                        const activePane = document.getElementById('active');
+                        const showInactiveTab = () => {
+                            if (inactiveTab && window.bootstrap && window.bootstrap.Tab) {
+                                window.bootstrap.Tab.getOrCreateInstance(inactiveTab).show();
+                                return true;
+                            }
+                            if (inactiveTab && inactivePane && activeTab && activePane) {
+                                activeTab.classList.remove('active');
+                                activeTab.setAttribute('aria-selected', 'false');
+                                activeTab.setAttribute('tabindex', '-1');
+                                activePane.classList.remove('show', 'active');
+                                inactiveTab.classList.add('active');
+                                inactiveTab.setAttribute('aria-selected', 'true');
+                                inactiveTab.removeAttribute('tabindex');
+                                inactivePane.classList.add('show', 'active');
+                                return true;
+                            }
+                            return false;
+                        };
+                        const showInactiveTabWhenReady = () => {
+                            if (showInactiveTab()) {
+                                return;
+                            }
+                            window.addEventListener('DOMContentLoaded', showInactiveTab, { once: true });
+                            window.addEventListener('load', showInactiveTab, { once: true });
+                            window.setTimeout(showInactiveTab, 150);
+                        };
+                        document.querySelectorAll('a[href="#inactive"]').forEach((link) => {
+                            link.addEventListener('click', showInactiveTabWhenReady);
+                        });
+                        const syncInactiveHash = () => {
+                            if (window.location.hash === '#inactive') {
+                                showInactiveTab();
+                            }
+                        };
+                        syncInactiveHash();
+                        window.addEventListener('DOMContentLoaded', syncInactiveHash, { once: true });
+                        window.addEventListener('load', syncInactiveHash, { once: true });
+                        window.setTimeout(syncInactiveHash, 150);
+                    })();
+                </script>
             {/if}
         </section>
     {/if}

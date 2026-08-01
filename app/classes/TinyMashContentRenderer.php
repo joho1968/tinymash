@@ -2,7 +2,7 @@
 namespace app\classes;
 
 class TinyMashContentRenderer {
-    protected const RENDER_CACHE_VERSION = '2026-05-06-1';
+    protected const RENDER_CACHE_VERSION = '2026-06-26-1';
 
     protected TinyMashMarkdownRenderer $markdown_renderer;
     protected TinyMashDateFormatter $date_formatter;
@@ -632,7 +632,13 @@ class TinyMashContentRenderer {
         }
 
         return(
-            preg_match( '/[`*_#>\[\]!|]/u', $summary_markdown ) === 1
+            preg_match( '/`[^`]+`/u', $summary_markdown ) === 1
+            || preg_match( '/(?:^|[^\*])\*\*[^*\r\n][\s\S]*?\*\*(?!\*)/u', $summary_markdown ) === 1
+            || preg_match( '/(?:^|[^_])__[^_\r\n][\s\S]*?__(?!_)/u', $summary_markdown ) === 1
+            || preg_match( '/^\s{0,3}#{1,6}\s+\S/mu', $summary_markdown ) === 1
+            || preg_match( '/^\s{0,3}>\s+\S/mu', $summary_markdown ) === 1
+            || preg_match( '/!?\[[^\]]+\]\([^)]+\)/u', $summary_markdown ) === 1
+            || preg_match( '/^\s*\|.*\|\s*$/mu', $summary_markdown ) === 1
             || preg_match( '/==[^=\r\n][^=\r\n]*==/u', $summary_markdown ) === 1
             || preg_match( '/(?<![A-Za-z0-9]):[a-z0-9_+-]+:(?![A-Za-z0-9])/iu', $summary_markdown ) === 1
             || preg_match( '/\p{Extended_Pictographic}/u', $summary_markdown ) === 1
@@ -649,18 +655,20 @@ class TinyMashContentRenderer {
             return( '' );
         }
 
-        $paragraphs = preg_split( "/\n{2,}/", $summary_markdown ) ?: [];
-        $html_paragraphs = [];
-        foreach ( $paragraphs as $paragraph ) {
-            $paragraph = trim( (string) $paragraph );
-            if ( $paragraph === '' ) {
-                continue;
+        $lines = preg_split( "/\n/", $summary_markdown ) ?: [];
+        $normalized_lines = [];
+        foreach ( $lines as $line ) {
+            $line = trim( preg_replace( '/[^\S\n]+/u', ' ', (string) $line ) ?? (string) $line );
+            if ( $line !== '' ) {
+                $normalized_lines[] = $line;
             }
-
-            $html_paragraphs[] = '<p>' . nl2br( htmlspecialchars( $paragraph, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ), false ) . '</p>';
         }
 
-        return( implode( '', $html_paragraphs ) );
+        if ( $normalized_lines === [] ) {
+            return( '' );
+        }
+
+        return( '<p>' . nl2br( htmlspecialchars( implode( "\n", $normalized_lines ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ), false ) . '</p>' );
     }
 
     protected function buildRenderedContentCacheKey( array $entry, bool $classic_smileys_enabled ) : string {

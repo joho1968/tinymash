@@ -89,6 +89,7 @@
             const previewTarget = document.getElementById('tm-editor-preview');
             const previewStatus = document.getElementById('tm-editor-status');
             const tabButtons = document.querySelectorAll('#tinymash-editor-tabs [data-mode]');
+            const editingIdentity = document.getElementById('tm-editor-editing-identity');
 
             const previewUrl = editorRoot ? (editorRoot.dataset.previewUrl || '') : '';
             const editorUrl = editorRoot ? (editorRoot.dataset.editorUrl || '') : '';
@@ -104,9 +105,9 @@
             const csrfToken = editorRoot ? (editorRoot.dataset.csrfToken || '') : '';
             const initialDraftId = editorRoot ? (editorRoot.dataset.loadedDraftId || '') : '';
             const initialRevisionId = editorRoot ? (editorRoot.dataset.loadedRevisionId || '') : '';
-            const loadedEntryType = editorRoot ? (editorRoot.dataset.loadedEntryType || '') : '';
-            const loadedEntryScope = editorRoot ? (editorRoot.dataset.loadedEntryScope || '') : '';
-            const loadedEntryAuthorSlug = editorRoot ? (editorRoot.dataset.loadedEntryAuthorSlug || '') : '';
+            let loadedEntryType = editorRoot ? (editorRoot.dataset.loadedEntryType || '') : '';
+            let loadedEntryScope = editorRoot ? (editorRoot.dataset.loadedEntryScope || '') : '';
+            let loadedEntryAuthorSlug = editorRoot ? (editorRoot.dataset.loadedEntryAuthorSlug || '') : '';
             const currentAuthorSlug = editorRoot ? (editorRoot.dataset.currentAuthorSlug || '') : '';
             const attachmentSessionId = editorRoot
                 ? (editorRoot.dataset.attachmentSessionId || ('session_' + Math.random().toString(36).slice(2, 12)))
@@ -220,6 +221,7 @@
             let draftSavePromise = null;
             let draftSaveController = null;
             let draftSaveReason = '';
+            let editorStateVersion = 0;
             let pendingDeleteDraftId = '';
             let pendingDeleteDraftTitle = '';
             let pendingDeleteIsCurrent = false;
@@ -446,7 +448,7 @@
                         .filter((value) => String(value || '').trim() !== '')
                         .join(' · ');
                     const path = result.path || '';
-                    return '<a class="btn btn-outline-secondary btn-sm text-start" href="' + escapeHtml(result.url || (editorUrl + '?entry=' + encodeURIComponent(result.id || ''))) + '">'
+                    return '<a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="' + escapeHtml(result.url || (editorUrl + '?entry=' + encodeURIComponent(result.id || ''))) + '">'
                         + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
                         + '<span class="d-block small text-body-secondary">' + escapeHtml(meta) + (path !== '' ? ' · ' + escapeHtml(path) : '') + '</span>'
                         + '</a>';
@@ -696,6 +698,17 @@
                 }
             }
 
+            function updateEditingIdentity(text) {
+                if (editingIdentity) {
+                    editingIdentity.textContent = text;
+                }
+            }
+
+            function getEditorTitleLabel(fallback = '') {
+                const title = titleField ? titleField.value.trim() : '';
+                return title !== '' ? title : fallback;
+            }
+
             function updateLoadEntryOptions(entryOptions) {
                 if (!loadEntryField) {
                     return;
@@ -726,8 +739,8 @@
                     const title = String(draft.display_title || draft.title || 'Untitled draft');
                     const scopeLabel = draft.scope === 'author' ? String(draft.author_slug || '') : 'root';
                     const slugLabel = String(draft.slug || '') !== '' ? String(draft.slug || '') : 'no slug yet';
-                    return '<div class="d-flex gap-2 align-items-start">'
-                        + '<a class="btn btn-outline-secondary btn-sm text-start flex-grow-1" href="' + escapeHtml(getDraftUrl(draftId)) + '">'
+                    return '<div class="d-flex gap-2 align-items-start border-top py-2">'
+                        + '<a class="text-decoration-none link-body-emphasis flex-grow-1" href="' + escapeHtml(getDraftUrl(draftId)) + '">'
                         + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
                         + '<span class="d-block small text-body-secondary">' + escapeHtml(String(draft.entry_type || 'post') + ' draft | ' + scopeLabel + ' | ' + slugLabel) + '</span>'
                         + '</a>'
@@ -751,7 +764,7 @@
                 recentEntriesList.innerHTML = entries.map((entry) => {
                     const title = String(entry.title || 'Untitled content');
                     const scopeLabel = entry.scope === 'author' ? String(entry.author_slug || '') : 'root';
-                    return '<a class="btn btn-outline-secondary btn-sm text-start" href="' + escapeHtml(getEntryUrl(entry.id || '')) + '">'
+                    return '<a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="' + escapeHtml(getEntryUrl(entry.id || '')) + '">'
                         + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
                         + '<span class="d-block small text-body-secondary">' + escapeHtml(String(entry.type || 'post') + ' | ' + scopeLabel + ' | ' + String(entry.path || '')) + '</span>'
                         + '</a>';
@@ -777,7 +790,7 @@
                     const title = String(revision.title || 'Untitled revision');
                     const savedAt = String(revision.saved_at_display || revision.saved_at_utc || '');
                     const status = String(revision.status || 'unpublished');
-                    return '<a class="btn btn-outline-secondary btn-sm text-start" href="' + escapeHtml(String(revision.open_url || '#')) + '">'
+                    return '<a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="' + escapeHtml(String(revision.open_url || '#')) + '">'
                         + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
                         + '<span class="d-block small text-body-secondary">' + escapeHtml(status + ' | saved ' + savedAt) + '</span>'
                         + '</a>';
@@ -1693,6 +1706,7 @@
                 draftSaveInFlight = true;
                 draftSaveReason = isAutosave ? 'autosave' : 'manual';
                 draftSaveController = new AbortController();
+                const requestStateVersion = editorStateVersion;
                 clearAutosaveTimer();
                 setTransientStatus(isAutosave ? 'Autosaving...' : 'Saving...');
                 saveButton.disabled = true;
@@ -1714,6 +1728,9 @@
                     }
 
                     const payload = await response.json();
+                    if (requestStateVersion !== editorStateVersion) {
+                        return null;
+                    }
                     loadedDraftId = payload.draft_id || (payload.draft && payload.draft.draft_id) || loadedDraftId;
                     if (editorRoot) {
                         editorRoot.dataset.loadedDraftId = loadedDraftId;
@@ -1735,7 +1752,8 @@
                     hasUnsavedChanges = false;
                     updateParentPageOptions();
                     if (payload.updated_at_display) {
-                        updateStateSummary('Draft last updated ' + payload.updated_at_display + '.');
+                        updateEditingIdentity('Editing draft for "' + getEditorTitleLabel('Untitled content') + '"');
+                        updateStateSummary('Last updated ' + payload.updated_at_display);
                     }
                     setTransientStatus(payload.updated_at_display ? ((isAutosave ? 'Autosaved ' : 'Saved ') + payload.updated_at_display) : (isAutosave ? 'Autosaved' : 'Saved'), 'text-success');
                     return payload;
@@ -1768,15 +1786,25 @@
                 const duplicatedAuthorSlug = authorSlugField ? String(authorSlugField.value || '') : '';
                 const duplicatedPublishedAtLocal = publishedAtLocalField ? String(publishedAtLocalField.value || '') : '';
                 const duplicatedTags = tagsField ? String(tagsField.value || '') : '';
+                editorStateVersion += 1;
+                if (draftSaveController) {
+                    draftSaveController.abort();
+                }
                 loadedEntryId = '';
                 loadedDraftId = '';
                 loadedRevisionId = '';
+                loadedEntryType = '';
+                loadedEntryScope = '';
+                loadedEntryAuthorSlug = '';
                 slugTouched = false;
                 lastAutoSlug = '';
                 if (editorRoot) {
                     editorRoot.dataset.loadedEntryId = '';
                     editorRoot.dataset.loadedDraftId = '';
                     editorRoot.dataset.loadedRevisionId = '';
+                    editorRoot.dataset.loadedEntryType = '';
+                    editorRoot.dataset.loadedEntryScope = '';
+                    editorRoot.dataset.loadedEntryAuthorSlug = '';
                 }
                 updateDeleteDraftVisibility();
                 updateRevisionList([]);
@@ -1810,7 +1838,8 @@
                 }
                 hasUnsavedChanges = true;
                 setTransientStatus('Duplicated as new unpublished content', 'text-success');
-                updateStateSummary('Editing new duplicated content.');
+                updateEditingIdentity(getEditorTitleLabel('') !== '' ? ('New content: "' + getEditorTitleLabel('') + '"') : 'New content');
+                updateStateSummary('No saved draft yet');
                 setMode('metadata');
                 markDirty();
             }
@@ -1907,9 +1936,15 @@
                         syncSeoSocialImageStateFromPayload(payload.entry);
                         loadedEntryId = payload.entry.id || loadedEntryId;
                         loadedRevisionId = '';
+                        loadedEntryType = entryTypeField ? entryTypeField.value : '';
+                        loadedEntryScope = scopeField ? scopeField.value : '';
+                        loadedEntryAuthorSlug = authorSlugField ? authorSlugField.value : '';
                         if (editorRoot) {
                             editorRoot.dataset.loadedEntryId = loadedEntryId;
                             editorRoot.dataset.loadedRevisionId = '';
+                            editorRoot.dataset.loadedEntryType = loadedEntryType;
+                            editorRoot.dataset.loadedEntryScope = loadedEntryScope;
+                            editorRoot.dataset.loadedEntryAuthorSlug = loadedEntryAuthorSlug;
                         }
                     }
                     loadedDraftId = payload.draft_id || '';
@@ -1921,7 +1956,8 @@
                     updateParentPageOptions();
                     setTransientStatus(payload.updated_at_display ? ((payload.message || 'Saved') + ' ' + payload.updated_at_display) : (payload.message || 'Saved'), 'text-success');
                     if (payload.updated_at_display) {
-                        updateStateSummary('Editing saved content last updated ' + payload.updated_at_display + '.');
+                        updateEditingIdentity('Editing "' + getEditorTitleLabel('Untitled content') + '"');
+                        updateStateSummary('Last updated ' + payload.updated_at_display);
                     }
                     hasUnsavedChanges = false;
                     clearAutosaveTimer();

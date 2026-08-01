@@ -2,7 +2,7 @@
 {var $profile_section_urls = is_array($profile_section_urls ?? null) ? $profile_section_urls : []}
 {var $profile_user = is_array($profile_user ?? null) ? $profile_user : []}
 {var $profile_has_fediverse_settings = ! empty( $profile_has_fediverse_settings ?? false )}
-{var $settings_group_open = in_array($profile_section, ['account', 'editor', 'publishing', 'appearance', 'fediverse'], true)}
+{var $settings_group_open = in_array($profile_section, ['account', 'editor', 'publishing', 'appearance', 'static-export', 'fediverse'], true)}
 {var $profile_nav_id_prefix = trim((string) ($profile_nav_id_prefix ?? 'tm-profile-sections-nav'))}
 {var $profile_nav_label = trim((string) ($profile_nav_label ?? 'Profile sections'))}
 
@@ -20,6 +20,7 @@
                 <a class="tm-section-nav-link link-offset-2{if $profile_section === 'editor'} active{/if}" n:attr="aria-current => $profile_section === 'editor' ? 'page' : null" href="{$profile_section_urls['editor'] ?? '/admin/profile/editor'}"><span class="tm-section-nav-link-label">Editor</span></a>
                 <a class="tm-section-nav-link link-offset-2{if $profile_section === 'publishing'} active{/if}" n:attr="aria-current => $profile_section === 'publishing' ? 'page' : null" href="{$profile_section_urls['publishing'] ?? '/admin/profile/publishing'}"><span class="tm-section-nav-link-label">Publishing</span></a>
                 <a class="tm-section-nav-link link-offset-2{if $profile_section === 'appearance'} active{/if}" n:attr="aria-current => $profile_section === 'appearance' ? 'page' : null" href="{$profile_section_urls['appearance'] ?? '/admin/profile/appearance'}"><span class="tm-section-nav-link-label">Appearance</span></a>
+                <a class="tm-section-nav-link link-offset-2{if $profile_section === 'static-export'} active{/if}" n:attr="aria-current => $profile_section === 'static-export' ? 'page' : null" href="{$profile_section_urls['static_export'] ?? '/admin/profile/static-export'}"><span class="tm-section-nav-link-label">Static export</span></a>
                 <a n:if="$profile_has_fediverse_settings" class="tm-section-nav-link link-offset-2{if $profile_section === 'fediverse'} active{/if}" n:attr="aria-current => $profile_section === 'fediverse' ? 'page' : null" href="{$profile_section_urls['fediverse'] ?? '/admin/profile/fediverse'}"><span class="tm-section-nav-link-label">Fediverse</span></a>
             </div>
         </div>
