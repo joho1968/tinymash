@@ -598,8 +598,8 @@ plugin_settings:{fediverse:{post_enabled:postEnabledField.checked?"1":"0",includ
             }
 
             $draft = [
-                'title' => trim( (string) ( $payload['title'] ?? '' ) ),
-                'summary' => trim( (string) ( $payload['summary'] ?? '' ) ),
+                'title' => mb_trim( (string) ( $payload['title'] ?? '' ) ),
+                'summary' => mb_trim( (string) ( $payload['summary'] ?? '' ) ),
                 'content' => (string) ( $payload['content'] ?? '' ),
                 'entry_type' => strtolower( trim( (string) ( $payload['entry_type'] ?? 'post' ) ) ),
                 'type' => strtolower( trim( (string) ( $payload['entry_type'] ?? 'post' ) ) ),

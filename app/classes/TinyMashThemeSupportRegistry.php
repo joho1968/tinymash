@@ -152,4 +152,4 @@ class TinyMashThemeSupportRegistry {
         return( ucwords( str_replace( [ '.', '-', '_' ], ' ', $key ) ) );
     }
 
-}// TinyMashThemeSupportRegistry
+}

@@ -1,6 +1,7 @@
 <?php
 
 use app\classes\TinyMashLockedJsonFile;
+use app\classes\TinyMashFilesystem;
 use Sabre\VObject\Reader;
 
 class TinyMashWhatsUpService {
@@ -145,9 +146,7 @@ class TinyMashWhatsUpService {
             throw new \RuntimeException( 'storage' );
         }
         $filename = $directory . DIRECTORY_SEPARATOR . $source_key . '.ics';
-        $temporary_filename = $filename . '.tmp-' . bin2hex( random_bytes( 6 ) );
-        if ( @ file_put_contents( $temporary_filename, $contents, LOCK_EX ) === false || ! @ rename( $temporary_filename, $filename ) ) {
-            @ unlink( $temporary_filename );
+        if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $contents ) ) {
             throw new \RuntimeException( 'storage' );
         }
         $this->invalidateCachedSources( [ $source_key ] );
@@ -209,7 +208,7 @@ class TinyMashWhatsUpService {
         foreach ( array_keys( $invalidated ) as $source_key ) {
             unset( $cache['sources'][$source_key] );
         }
-        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $cache ) ) {
+        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $cache, true ) ) {
             @ unlink( $this->cache_filename );
         }
     }
@@ -289,7 +288,7 @@ class TinyMashWhatsUpService {
             'sources' => $source_status,
             'events' => array_values( $events ),
         ];
-        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $next_cache ) ) {
+        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $next_cache, true ) ) {
             throw new \RuntimeException( 'cache_write' );
         }
 
@@ -471,14 +470,24 @@ class TinyMashWhatsUpService {
 
         $html = '<div class="tm-whats-up tm-whats-up-calendar-view ' . $this->displayColorClass( $settings ) . '" id="' . $calendar_id . '" data-tm-whats-up-calendar data-current-panel="' . $past_months . '">';
         if ( count( $months ) > 1 ) {
-            $html .= '<div class="tm-whats-up-calendar-tools"><button class="btn btn-outline-secondary btn-sm" type="button" data-tm-calendar-prev aria-label="Previous month"><span class="bi bi-chevron-left" aria-hidden="true"></span></button><button class="btn btn-outline-secondary btn-sm" type="button" data-tm-calendar-next aria-label="Next month"><span class="bi bi-chevron-right" aria-hidden="true"></span></button></div>';
+            $previous_is_disabled = $past_months === 0;
+            $next_is_disabled = $past_months === count( $months ) - 1;
+            $html .= '<div class="tm-whats-up-calendar-tools">';
+            $html .= '<a class="btn btn-outline-secondary btn-sm' . ( $previous_is_disabled ? ' disabled' : '' ) . '" href="#' . $calendar_id . '" role="button" data-tm-calendar-prev aria-label="Previous month" aria-disabled="' . ( $previous_is_disabled ? 'true' : 'false' ) . '" tabindex="' . ( $previous_is_disabled ? '-1' : '0' ) . '"><span class="bi bi-chevron-left" aria-hidden="true"></span></a>';
+            $html .= '<a class="btn btn-outline-secondary btn-sm' . ( $next_is_disabled ? ' disabled' : '' ) . '" href="#' . $calendar_id . '" role="button" data-tm-calendar-next aria-label="Next month" aria-disabled="' . ( $next_is_disabled ? 'true' : 'false' ) . '" tabindex="' . ( $next_is_disabled ? '-1' : '0' ) . '"><span class="bi bi-chevron-right" aria-hidden="true"></span></a>';
+            $html .= '</div>';
         }
         foreach ( $months as $panel_index => $panel ) {
             $panel_month = $panel['month'];
             $events = $panel['events'];
             $show_sources = ! empty( $settings['show_source_labels'] ) && $this->hasMultipleEventSources( $events );
-            $html .= '<section class="tm-whats-up-calendar-panel" data-tm-calendar-panel="' . $panel_index . '"' . ( $panel_index !== $past_months ? ' hidden' : '' ) . '>';
-            $html .= '<h3 class="tm-whats-up-calendar-heading">' . $this->escape( $panel_month->format( 'F Y' ) ) . '</h3>';
+            $panel_id = $calendar_id . '-panel-' . $panel_index;
+            $heading_id = $panel_id . '-heading';
+            $html .= '<div class="tm-whats-up-calendar-panel' . ( $panel_index !== $past_months ? ' d-none' : '' ) . '" id="' . $panel_id . '" role="region" aria-labelledby="' . $heading_id . '" data-tm-calendar-panel="' . $panel_index . '">';
+            $html .= '<h3 class="tm-whats-up-calendar-heading" id="' . $heading_id . '">' . $this->escape( $panel_month->format( 'F Y' ) ) . '</h3>';
+            if ( empty( $events ) ) {
+                $html .= '<p class="tm-whats-up-calendar-mobile-empty">No events this month.</p>';
+            }
             $html .= '<div class="tm-whats-up-calendar-grid">';
             foreach ( [ 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun' ] as $weekday ) {
                 $html .= '<div class="tm-whats-up-calendar-weekday">' . $weekday . '</div>';
@@ -496,7 +505,9 @@ class TinyMashWhatsUpService {
                     $day->setTime( 23, 59, 59 )->setTimezone( new \DateTimeZone( 'UTC' ) )
                 );
                 $is_today = $day->format( 'Y-m-d' ) === $now->format( 'Y-m-d' );
-                $html .= '<div class="tm-whats-up-calendar-day' . ( $is_today ? ' tm-whats-up-calendar-today' : '' ) . '"><div class="tm-whats-up-calendar-number">' . $day_number . '</div>';
+                $has_events = ! empty( $day_events );
+                $html .= '<div class="tm-whats-up-calendar-day ' . ( $has_events ? 'tm-whats-up-calendar-day-has-events' : 'tm-whats-up-calendar-day-no-events' ) . ( $is_today ? ' tm-whats-up-calendar-today' : '' ) . '">';
+                $html .= '<span class="tm-whats-up-calendar-date"><span class="tm-whats-up-calendar-weekday-mobile" aria-hidden="true">' . $day->format( 'D' ) . '</span><span class="tm-whats-up-calendar-number" aria-hidden="true">' . $day_number . '</span><span class="visually-hidden">' . $this->escape( $day->format( 'l, F j, Y' ) ) . '</span></span>';
                 foreach ( array_slice( $day_events, 0, 3 ) as $event ) {
                     $html .= $this->renderCalendarEventHtml( $event, $settings, $show_sources );
                 }
@@ -513,7 +524,7 @@ class TinyMashWhatsUpService {
             if ( $show_sources ) {
                 $html .= $this->renderSourceLegend( $events, $settings );
             }
-            $html .= '</section>';
+            $html .= '</div>';
         }
         $html .= '</div>';
         return( $html );
@@ -940,7 +951,7 @@ class TinyMashWhatsUpService {
             },
             ARRAY_FILTER_USE_BOTH
         );
-        return( TinyMashLockedJsonFile::write( $this->cache_filename, $cache ) );
+        return( TinyMashLockedJsonFile::write( $this->cache_filename, $cache, true ) );
     }
 
     protected function fetchRemoteSource( string $url ) : string {

@@ -44,7 +44,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Current limits',
-                    'markdown' => 'Photos renders an explicit gallery grid from selected tinymash media IDs. Lightbox output, virtual galleries, importer integration, EXIF/privacy policy, and map integration are planned follow-ups.',
+                    'markdown' => 'Photos renders a gallery grid from selected tinymash media IDs. Lightboxes, virtual galleries, importer integration, EXIF handling, and maps are not supported.',
                 ],
             ],
         ]

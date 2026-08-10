@@ -1,7 +1,17 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+require_once __DIR__ . '/TinyMashDeployPolicy.php';
+
 class TinyMashDeployService {
+
+    protected const INTERNAL_ONLY_DEPLOY_PATHS = [
+        '.agents', '.cache', '.codex', '.config', '.git', '.runway-config.json',
+        'AGENTS.md', 'Site', '_auth', '_cache', '_deploy', 'audit_copilot', 'docs',
+        'logs', 'node_modules', 'package-lock.json', 'package.json', 'tests',
+        'tinymash.zip', 'tmp',
+    ];
 
     protected string $project_root;
     protected TinyMashConfig $config;
@@ -16,8 +26,9 @@ class TinyMashDeployService {
     }
 
     public function deploy( string $target_directory ) : array {
-        $target_directory = $this->prepareTargetDirectory( $target_directory );
         $manifest = $this->loadManifest();
+        $target_directory = $this->prepareTargetDirectory( $target_directory );
+        $this->assertTargetDoesNotOverlapSources( $target_directory, $manifest );
         $this->exclude_paths = array_values( array_filter( array_map( fn( $path ) => $this->normalizeRelativePath( (string) $path ), (array) ( $manifest['exclude_paths'] ?? [] ) ) ) );
         $this->exclude_suffixes = array_values( array_filter( array_map( static fn( $suffix ) => trim( (string) $suffix ), (array) ( $manifest['exclude_suffixes'] ?? [] ) ) ) );
 
@@ -112,9 +123,11 @@ class TinyMashDeployService {
             $warnings[] = 'No top-level LICENSE file exists in the source tree, so none was included in the deploy build.';
         }
 
+        $file_inventory = $this->buildFileInventory( $target_directory );
+
         $deploy_manifest = [
             'format' => 'tinymash-deploy',
-            'format_version' => 1,
+            'format_version' => 2,
             'built_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
             'site' => [
                 'name' => (string) ( $sanitized_config['site']['name'] ?? 'tinymash' ),
@@ -139,6 +152,17 @@ class TinyMashDeployService {
             'counts' => [
                 'copied_files' => $copied_files,
                 'copied_directories' => count( array_unique( $copied_directories ) ),
+                'inventoried_files' => count( $file_inventory ),
+            ],
+            'inventory' => [
+                'algorithm' => 'sha256',
+                'files' => $file_inventory,
+            ],
+            'upgrade' => [
+                'strategy' => 'staged-replacement',
+                'preserve_paths' => TinyMashDeployPolicy::UPGRADE_PRESERVE_PATHS,
+                'discard_paths' => TinyMashDeployPolicy::UPGRADE_DISCARD_PATHS,
+                'review_paths' => TinyMashDeployPolicy::UPGRADE_REVIEW_PATHS,
             ],
             'warnings' => $warnings,
         ];
@@ -335,7 +359,43 @@ class TinyMashDeployService {
             throw new \RuntimeException( 'Deploy manifest is invalid.' );
         }
 
+        $this->assertManifestExcludesInternalPaths( $manifest );
+
         return( $manifest );
+    }
+
+    protected function assertManifestExcludesInternalPaths( array $manifest ) : void {
+        $manifest_paths = [];
+        foreach ( [ 'root_files', 'directories', 'optional_directories', 'empty_directories' ] as $manifest_key ) {
+            $manifest_paths = array_merge( $manifest_paths, (array) ( $manifest[$manifest_key] ?? [] ) );
+        }
+        $manifest_paths[] = (string) ( $manifest['plugin_directory'] ?? '' );
+        $manifest_paths[] = (string) ( $manifest['plugin_data_directory'] ?? '' );
+
+        foreach ( $manifest_paths as $manifest_path ) {
+            $normalized_path = $this->normalizeRelativePath( (string) $manifest_path );
+            if ( $normalized_path === '' ) {
+                continue;
+            }
+
+            $path_segments = [];
+            foreach ( explode( '/', $normalized_path ) as $path_segment ) {
+                if ( $path_segment === '' || $path_segment === '.' ) {
+                    continue;
+                }
+                if ( $path_segment === '..' ) {
+                    throw new \RuntimeException( 'Deploy manifest path traversal is not allowed: ' . $normalized_path );
+                }
+                $path_segments[] = $path_segment;
+            }
+            $normalized_path = implode( '/', $path_segments );
+
+            foreach ( self::INTERNAL_ONLY_DEPLOY_PATHS as $internal_path ) {
+                if ( $normalized_path === $internal_path || str_starts_with( $normalized_path, $internal_path . '/' ) ) {
+                    throw new \RuntimeException( 'Deploy manifest includes internal-only path: ' . $normalized_path );
+                }
+            }
+        }
     }
 
     protected function getActivePluginKeys() : array {
@@ -436,6 +496,10 @@ class TinyMashDeployService {
             throw new \InvalidArgumentException( 'target_directory' );
         }
 
+        if ( is_link( $target_directory ) ) {
+            throw new \RuntimeException( 'Target directory must not be a symbolic link.' );
+        }
+
         if ( file_exists( $target_directory ) && ! is_dir( $target_directory ) ) {
             throw new \RuntimeException( 'Target exists and is not a directory.' );
         }
@@ -450,6 +514,46 @@ class TinyMashDeployService {
         }
 
         return( rtrim( $target_directory, DIRECTORY_SEPARATOR ) );
+    }
+
+    protected function assertTargetDoesNotOverlapSources( string $target_directory, array $manifest ) : void {
+        $real_target = realpath( $target_directory );
+        $real_project_root = realpath( $this->project_root );
+        if ( ! is_string( $real_target ) || ! is_string( $real_project_root ) ) {
+            throw new \RuntimeException( 'Unable to resolve deploy source or target directory.' );
+        }
+
+        $real_target = rtrim( $real_target, DIRECTORY_SEPARATOR );
+        $real_project_root = rtrim( $real_project_root, DIRECTORY_SEPARATOR );
+        if ( $real_target === $real_project_root ) {
+            throw new \RuntimeException( 'Deploy target must not be the project root.' );
+        }
+
+        $source_directories = array_merge(
+            (array) ( $manifest['directories'] ?? [] ),
+            (array) ( $manifest['optional_directories'] ?? [] ),
+            [
+                (string) ( $manifest['plugin_directory'] ?? '' ),
+                (string) ( $manifest['plugin_data_directory'] ?? '' ),
+            ]
+        );
+        foreach ( $source_directories as $relative_path ) {
+            $relative_path = $this->normalizeRelativePath( (string) $relative_path );
+            if ( $relative_path === '' ) {
+                continue;
+            }
+
+            $source_directory = $real_project_root . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, $relative_path );
+            $real_source_directory = realpath( $source_directory );
+            if ( ! is_string( $real_source_directory ) || ! is_dir( $real_source_directory ) ) {
+                continue;
+            }
+
+            $real_source_directory = rtrim( $real_source_directory, DIRECTORY_SEPARATOR );
+            if ( $real_target === $real_source_directory || str_starts_with( $real_target, $real_source_directory . DIRECTORY_SEPARATOR ) ) {
+                throw new \RuntimeException( 'Deploy target must not be inside a copied source directory.' );
+            }
+        }
     }
 
     protected function resolveProjectPath( string $relative_path ) : string {
@@ -467,7 +571,7 @@ class TinyMashDeployService {
     }
 
     protected function copyFileToPath( string $source_file, string $target_file ) : void {
-        if ( ! is_file( $source_file ) || ! is_readable( $source_file ) ) {
+        if ( is_link( $source_file ) || ! is_file( $source_file ) || ! is_readable( $source_file ) ) {
             throw new \RuntimeException( 'Source file is not readable.' );
         }
 
@@ -478,7 +582,7 @@ class TinyMashDeployService {
     }
 
     protected function copyDirectoryRecursively( string $source_directory, string $target_directory ) : array {
-        if ( ! is_dir( $source_directory ) || ! is_readable( $source_directory ) ) {
+        if ( is_link( $source_directory ) || ! is_dir( $source_directory ) || ! is_readable( $source_directory ) ) {
             throw new \RuntimeException( 'Source directory is not readable.' );
         }
 
@@ -491,6 +595,10 @@ class TinyMashDeployService {
         );
 
         foreach ( $iterator as $item ) {
+            if ( $item->isLink() ) {
+                throw new \RuntimeException( 'Deploy sources must not contain symbolic links.' );
+            }
+
             $relative_path = $iterator->getSubPathName();
             $target_path = $target_directory . DIRECTORY_SEPARATOR . $relative_path;
             $project_relative_path = $this->buildProjectRelativePath( $item->getPathname() );
@@ -531,9 +639,57 @@ class TinyMashDeployService {
     protected function writeJsonFile( string $filename, array $payload ) : void {
         $this->ensureDirectory( dirname( $filename ) );
         $json = json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR );
-        if ( ! is_string( $json ) || ! @file_put_contents( $filename, $json . PHP_EOL ) ) {
+        if ( ! is_string( $json ) ) {
+            throw new \RuntimeException( 'Unable to encode deploy manifest.' );
+        }
+
+        $contents = $json . PHP_EOL;
+        if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $contents ) ) {
             throw new \RuntimeException( 'Unable to write deploy manifest.' );
         }
+    }
+
+    protected function buildFileInventory( string $target_directory ) : array {
+        $inventory = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator( $target_directory, \FilesystemIterator::SKIP_DOTS ),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+        foreach ( $iterator as $item ) {
+            if ( $item->isLink() ) {
+                throw new \RuntimeException( 'Deploy target must not contain symbolic links.' );
+            }
+            if ( ! $item->isFile() || ! $item->isReadable() ) {
+                continue;
+            }
+
+            $relative_path = $this->buildTargetRelativePath( $target_directory, $item->getPathname() );
+            if ( TinyMashDeployPolicy::isAuditIgnoredPath( $relative_path ) ) {
+                continue;
+            }
+            $bytes = $item->getSize();
+            $sha256 = @ hash_file( 'sha256', $item->getPathname() );
+            if ( ! is_string( $sha256 ) ) {
+                throw new \RuntimeException( 'Unable to hash deploy file: ' . $relative_path );
+            }
+            $inventory[$relative_path] = [
+                'bytes' => $bytes,
+                'sha256' => $sha256,
+            ];
+        }
+        ksort( $inventory, SORT_STRING );
+
+        return( $inventory );
+    }
+
+    protected function buildTargetRelativePath( string $target_directory, string $path ) : string {
+        $target_root = rtrim( str_replace( '\\', '/', $target_directory ), '/' ) . '/';
+        $normalized_path = str_replace( '\\', '/', $path );
+        if ( ! str_starts_with( $normalized_path, $target_root ) ) {
+            throw new \RuntimeException( 'Deploy target path escaped the target directory.' );
+        }
+
+        return( $this->normalizeRelativePath( substr( $normalized_path, strlen( $target_root ) ) ) );
     }
 
     protected function normalizeRelativePath( string $path ) : string {

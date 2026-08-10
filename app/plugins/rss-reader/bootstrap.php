@@ -140,7 +140,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Scope',
-                    'markdown' => 'This first slice displays cached feed items and links out by default. It does not import feed items as tinymash content, fetch media attachments, or combine all sources unless an author explicitly places more than one shortcode.',
+                    'markdown' => 'RSS Reader displays cached feed items and links to their sources. It does not import items as tinymash content or fetch media attachments. Multiple sources require separate shortcodes.',
                 ],
             ],
         ]

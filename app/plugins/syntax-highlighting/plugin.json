@@ -1,7 +1,7 @@
 {
     "key": "syntax-highlighting",
     "name": "Syntax Highlighting",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Adds fenced code highlighting for supported themes using local highlight.js assets.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -11,6 +11,10 @@
     "capabilities": [
         "content.workflow"
     ],
+    "static_export": {
+        "mode": "static-js",
+        "summary": "Fenced code uses local highlight.js assets copied with the exported theme output."
+    },
     "default_active": false,
     "stage": "before"
 }

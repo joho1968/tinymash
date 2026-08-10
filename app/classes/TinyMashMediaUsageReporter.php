@@ -223,7 +223,15 @@ class TinyMashMediaUsageReporter {
             }
             $draft_id = trim( (string) ( $record['attached_draft_id'] ?? '' ) );
             if ( $draft_id !== '' && isset( $known_draft_ids[$draft_id] ) ) {
-                $this->addIdReference( $records_by_id, $ignored_missing_references, (string) $media_id, 'direct_attachment', 'Upload association: draft ' . $draft_id, false );
+                $this->addIdReference(
+                    $records_by_id,
+                    $ignored_missing_references,
+                    (string) $media_id,
+                    'direct_attachment',
+                    'draft:' . $draft_id,
+                    'Upload association: draft ' . $draft_id,
+                    false
+                );
             }
         }
     }

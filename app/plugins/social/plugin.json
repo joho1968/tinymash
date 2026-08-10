@@ -1,7 +1,7 @@
 {
     "key": "social",
     "name": "Social",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Manages site and profile social links with local accessible icons.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -16,6 +16,10 @@
         "public.assets",
         "storage.private"
     ],
+    "static_export": {
+        "mode": "static",
+        "summary": "Configured social links and their local presentation assets are included in exported pages."
+    },
     "default_active": true,
     "stage": "early"
 }

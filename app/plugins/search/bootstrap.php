@@ -13,19 +13,13 @@ use app\classes\TinyMashUserRepository;
 return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $plugin_key = (string) ( $plugin['key'] ?? 'search' );
 
-    if ( $plugins->isCliRuntime() ) {
-        return;
-    }
-
     $config = $plugins->getService( 'config' );
-    $security = $plugins->getService( 'security' );
     $content_repository = $plugins->getService( 'content.repository' );
     $content_renderer = $plugins->getService( 'content.renderer' );
     $theme = $plugins->getService( 'theme' );
     $user_repository = $plugins->getService( 'user.repository' );
 
     if ( ! $config instanceof TinyMashConfig
-        || ! $security instanceof TinyMashSecurity
         || ! $content_repository instanceof TinyMashContentRepository
         || ! $content_renderer instanceof TinyMashContentRenderer
         || ! $theme instanceof TinyMashTheme
@@ -45,6 +39,82 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
         $theme->setThemeKeyOverride( $theme->resolveThemeKeyForAuthorContext( $author_slug ) );
     };
+
+    if ( $plugins->isCliRuntime() ) {
+        $plugins->registerPublicAsset( $plugin_key, 'css', '/plugins/search/search.css' );
+        $plugins->registerPublicAsset( $plugin_key, 'js', '/plugins/search/search.js' );
+        $plugins->registerStaticExportContributor(
+            $plugin_key,
+            static function( array $context ) use ( $search_service, $theme, $apply_author_theme_context ) : array {
+                $scope = (string) ( $context['scope'] ?? '' );
+                $authors = $scope === 'author'
+                    ? [ (string) ( $context['author_slug'] ?? '' ) ]
+                    : array_merge( [ '' ], is_array( $context['included_authors'] ?? null ) ? $context['included_authors'] : [] );
+                $included_authors = is_array( $context['included_authors'] ?? null ) ? $context['included_authors'] : [];
+                $artifacts = [];
+
+                try {
+                    foreach ( $authors as $author_slug ) {
+                        $author_slug = strtolower( trim( (string) $author_slug ) );
+                        $apply_author_theme_context( $author_slug );
+                        $prefix = $author_slug !== '' ? '/' . rawurlencode( $author_slug ) : '';
+                        $index = $search_service->buildStaticSearchIndex( $author_slug, $included_authors );
+                        $index_json = json_encode( $index, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+                        if ( ! is_string( $index_json ) ) {
+                            throw new \RuntimeException( 'Unable to encode the static Search index.' );
+                        }
+
+                        $view_data = array_merge(
+                            $theme->getBaseViewData(
+                                'Search',
+                                null,
+                                $author_slug !== '' ? $author_slug : null,
+                                [ 'static_export' => true ]
+                            ),
+                            [
+                                'title' => 'Search',
+                                'theme_static_search' => [
+                                    'enabled' => true,
+                                    'index_url' => '../search-index.json',
+                                    'min_query_length' => (int) ( $index['min_query_length'] ?? 2 ),
+                                ],
+                                'author_slug' => $author_slug,
+                                'author_display_name' => $author_slug !== '' ? $theme->getAuthorDisplayLabel( $author_slug ) : '',
+                                'author_url' => $author_slug !== '' ? $theme->getAuthorURL( $author_slug ) : '',
+                            ]
+                        );
+                        $html = $theme->renderFirstExistingThemeTemplate( [ 'search.static.latte' ], $view_data );
+                        if ( $html === '' ) {
+                            throw new \RuntimeException( 'The active theme does not provide search.static.latte.' );
+                        }
+
+                        $artifacts[] = [
+                            'path' => $prefix . '/search/index.html',
+                            'contents' => $html,
+                            'content_type' => 'text/html; charset=UTF-8',
+                        ];
+                        $artifacts[] = [
+                            'path' => $prefix . '/search-index.json',
+                            'contents' => $index_json . PHP_EOL,
+                            'content_type' => 'application/json; charset=UTF-8',
+                        ];
+                    }
+                } finally {
+                    $theme->clearThemeKeyOverride();
+                }
+
+                return( $artifacts );
+            },
+            'both',
+            'Static Search pages and indexes'
+        );
+        return;
+    }
+
+    $security = $plugins->getService( 'security' );
+    if ( ! $security instanceof TinyMashSecurity ) {
+        throw new \RuntimeException( 'Required services for the Search plugin are not available.' );
+    }
 
     $render_not_found = static function( string $message = 'Page not found', string $author_slug = '' ) use ( $theme ) : void {
         \Flight::response()->status( 404 );

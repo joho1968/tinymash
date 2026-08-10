@@ -1,7 +1,7 @@
 {
     "key": "font-manager",
     "name": "Font manager",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Manages local font files and theme font-role assignments.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -15,6 +15,10 @@
         "public.assets",
         "storage.private"
     ],
+    "static_export": {
+        "mode": "omit",
+        "summary": "Generated font CSS and routed font files are not currently copied; theme fallbacks remain available."
+    },
     "default_active": true,
     "stage": "early"
 }

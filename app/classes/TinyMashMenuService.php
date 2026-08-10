@@ -253,4 +253,4 @@ class TinyMashMenuService {
         return( in_array( $location, [ 'primary', 'footer' ], true ) ? $location : '' );
     }
 
-}// TinyMashMenuService
+}

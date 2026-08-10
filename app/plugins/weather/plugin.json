@@ -1,7 +1,7 @@
 {
     "key": "weather",
     "name": "Weather",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Displays cached current weather and forecast data for configured locations.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -16,6 +16,10 @@
         "storage.private",
         "housekeeping"
     ],
+    "static_export": {
+        "mode": "omit",
+        "summary": "Cached Weather shortcodes and slots are not currently rendered into static exports."
+    },
     "default_active": true,
     "stage": "early"
 }

@@ -1,6 +1,9 @@
 <?php
 
 use app\classes\TinyMashFilesystem;
+use app\classes\TinyMashLockedJsonFile;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashLockedJsonFile.php';
 
 class TinyMashFontManagerService {
 
@@ -29,22 +32,14 @@ class TinyMashFontManagerService {
     }
 
     public function getSettings() : array {
-        if ( ! is_file( $this->settings_filename ) || ! is_readable( $this->settings_filename ) ) {
-            return( $this->getDefaultSettings() );
-        }
-
-        $json = file_get_contents( $this->settings_filename );
-        $data = is_string( $json ) ? json_decode( $json, true, 32 ) : null;
-        return( $this->normalizeSettings( is_array( $data ) ? $data : [] ) );
+        return( $this->normalizeSettings( TinyMashLockedJsonFile::read( $this->settings_filename, $this->getDefaultSettings() ) ) );
     }
 
     public function saveSettings( array $settings ) : array {
         $settings = $this->normalizeSettings( $settings );
-        $directory = dirname( $this->settings_filename );
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
+        if ( ! TinyMashLockedJsonFile::write( $this->settings_filename, $settings ) ) {
+            throw new \RuntimeException( 'Unable to save font settings.' );
         }
-        file_put_contents( $this->settings_filename, json_encode( $settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n", LOCK_EX );
         return( $settings );
     }
 
@@ -334,7 +329,7 @@ class TinyMashFontManagerService {
             return( '' );
         }
 
-        $css = "/* tinymash Font manager */\n";
+        $css = '';
         foreach ( $settings['families'] as $family ) {
             $family_id = (string) ( $family['id'] ?? '' );
             if ( empty( $families[$family_id] ) ) {

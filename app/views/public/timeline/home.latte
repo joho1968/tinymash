@@ -35,10 +35,13 @@
             </div>
         </article>
     {else}
+        {if empty( $listing_context_title )}
+            <h1 class="visually-hidden">Latest posts</h1>
+        {/if}
         {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
             <section class="tm-timeline-panel tm-timeline-context mb-4">
                 {if ! empty( $listing_context_title ) }
-                    <h2 class="h5 mb-2">{$listing_context_title}</h2>
+                    <h1 class="h5 mb-2">{$listing_context_title}</h1>
                 {/if}
                 {if ! empty( $listing_context_summary ) }
                     <p class="mb-0 text-secondary">{$listing_context_summary}</p>
@@ -53,13 +56,18 @@
             <section class="tm-timeline-list d-grid gap-4">
                 {var $previous_timeline_date_key = ''}
                 {foreach $entries as $entry}
-                    {var $entry_timeline_date_key = ! empty( $entry['published_at_utc'] ) ? ($entry['published_at_utc']|date:'Y-m-d') : ( ! empty( $entry['published_at_display'] ) ? (string) $entry['published_at_display'] : '' )}
-                    {var $entry_timeline_date_day = ! empty( $entry['published_at_utc'] ) ? ($entry['published_at_utc']|date:'d-M') : ( ! empty( $entry['published_at_display'] ) ? (string) $entry['published_at_display'] : '' )}
-                    {var $entry_timeline_date_year = ! empty( $entry['published_at_utc'] ) ? ($entry['published_at_utc']|date:'Y') : '' }
-                    {var $show_timeline_date = $entry_timeline_date_key !== '' && $entry_timeline_date_key !== $previous_timeline_date_key}
-                    <article class="tm-timeline-card">
-                        <div n:class="'tm-timeline-rail', $show_timeline_date ? 'tm-timeline-rail-with-date'">
-                            <div class="tm-timeline-rail-line border-start border-secondary-subtle" aria-hidden="true"></div>
+                    {var $entry_is_pinned = ! empty( $entry['sticky'] )}
+                    {var $entry_timeline_date_key = ! empty( $entry['published_date_key'] ) ? (string) $entry['published_date_key'] : ( ! empty( $entry['published_at_display'] ) ? (string) $entry['published_at_display'] : '' )}
+                    {var $entry_timeline_date_day = (string) ( $entry['published_date_day'] ?? '' )}
+                    {var $entry_timeline_date_year = (string) ( $entry['published_date_year'] ?? '' )}
+                    {var $show_timeline_date = ! $entry_is_pinned && $entry_timeline_date_key !== '' && $entry_timeline_date_key !== $previous_timeline_date_key}
+                    <article n:class="'tm-timeline-card', $entry_is_pinned ? 'tm-timeline-card-pinned'">
+                        <div n:class="'tm-timeline-rail', $entry_is_pinned ? 'tm-timeline-rail-pinned', $show_timeline_date ? 'tm-timeline-rail-with-date'">
+                            {if $entry_is_pinned}
+                                <div class="tm-timeline-pin-label">Pinned</div>
+                            {else}
+                                <div class="tm-timeline-rail-line border-start border-secondary-subtle" aria-hidden="true"></div>
+                            {/if}
                             {if $show_timeline_date}
                                 <div class="tm-timeline-date-day p-2">
                                     <span class="tm-timeline-date-primary">{$entry_timeline_date_day}</span>
@@ -75,9 +83,6 @@
                                     <div class="me-lg-auto min-w-0">
                                         <div class="d-flex flex-wrap gap-2 align-items-center">
                                             <h2 class="h4 mb-0"><a class="link-body-emphasis link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover text-decoration-none" href="{$entry['url']}">{$entry['title_html']|noescape}</a></h2>
-                                            {if ! empty( $entry['sticky'] )}
-                                                <span class="badge text-bg-warning">Sticky</span>
-                                            {/if}
                                         </div>
                                     </div>
                                 </div>
@@ -102,7 +107,9 @@
                             </div>
                         </div>
                     </article>
-                    {var $previous_timeline_date_key = $entry_timeline_date_key}
+                    {if ! $entry_is_pinned}
+                        {var $previous_timeline_date_key = $entry_timeline_date_key}
+                    {/if}
                 {/foreach}
                 {include '../baseline/partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
             </section>

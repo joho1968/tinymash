@@ -14,7 +14,7 @@
 <section class="p-3 bg-body border rounded-3 shadow-sm">
     <div class="small text-uppercase text-body-secondary mb-2">Components</div>
     <div class="fw-semibold mb-1">Composer package update status</div>
-    <div class="small text-body-secondary mb-3">This page reads the last cached result from <span class="font-monospace">tinymash check-updates</span>. It does not run Composer in the web request.</div>
+    <div class="small text-body-secondary mb-3">Cached result from <span class="font-monospace">tinymash check-updates</span>. Composer does not run during this request.</div>
 
     {if empty($system_components_report)}
         <div class="alert alert-secondary mb-3" role="alert">

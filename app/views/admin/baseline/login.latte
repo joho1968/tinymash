@@ -26,6 +26,15 @@
                                     </div>
                                 </div>
                             {/if}
+                            {if ! empty( $login_notice )}
+                                <div class="row">
+                                    <div class="col mb-3">
+                                        <div class="alert alert-success mb-0" role="status">
+                                            {$login_notice}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/if}
                             {if ! empty( $maintenance_notice ) && empty( $login_error )}
                                 <div class="row">
                                     <div class="col mb-3">
@@ -72,20 +81,8 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col mb-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox"
-                                               id="tinymash-admin-remember" name="tinymash-admin_remember"
-                                               tabindex="3" />
-                                        <label class="form-check-label small" for="tinymash-admin-remember">
-                                            Remember me
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
                                 <div class="col my-3">
-                                    <button tabindex="4" class="form-control btn btn-success" role="button" type="submit" id="tinymash-admin-submit" name="submit">
+                                    <button tabindex="3" class="form-control btn btn-success" role="button" type="submit" id="tinymash-admin-submit" name="submit">
                                         Login<span class="bi bi-box-arrow-in-right ms-1"></span>
                                     </button>
                                 </div>

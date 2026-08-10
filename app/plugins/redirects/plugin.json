@@ -1,7 +1,7 @@
 {
     "key": "redirects",
     "name": "Redirects",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Redirects a specific /path to a page or a post.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -14,6 +14,10 @@
         "navigation.admin",
         "storage.private"
     ],
+    "static_export": {
+        "mode": "placeholder",
+        "summary": "Redirect routes stay on the live site and exported references fall back to their live URLs."
+    },
     "default_active": true,
     "stage": "early"
 }

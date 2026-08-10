@@ -415,7 +415,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
         if ( $mode === 'setup' ) {
             $body_html .= '<div class="col-12">';
-            $body_html .= '<section class="p-3 bg-body border rounded-3 shadow-sm">';
+            $body_html .= '<section class="">';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Import source</div>';
             $body_html .= '<h2 class="h5 mb-1">WordPress WXR export</h2>';
             $body_html .= '<p class="text-body-secondary mb-3">Imports WordPress posts and pages into an author space. Existing tinymash entries are never overwritten.</p>';
@@ -501,7 +501,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 : '';
 
             $body_html .= '<div class="col-12"><div class="d-flex flex-wrap gap-2 mb-3"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $plugin_url ) . '">Start over</a></div>';
-            $body_html .= '<section class="p-3 bg-body border rounded-3 shadow-sm">';
+            $body_html .= '<section class="">';
             $body_html .= '<div class="d-flex flex-wrap align-items-start justify-content-between gap-3"><div>';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Preview</div>';
             $body_html .= '<h2 class="h5 mb-1">Ready to import</h2>';
@@ -550,12 +550,12 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '</div>';
             }
             $body_html .= '<div class="row g-3 mt-1">';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Entries</div><div class="fw-semibold">' . (int) ( $counts['total'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Posts</div><div class="fw-semibold">' . (int) ( $counts['posts'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Pages</div><div class="fw-semibold">' . (int) ( $counts['pages'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Attachments</div><div class="fw-semibold">' . (int) ( $counts['attachments'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Menus</div><div class="fw-semibold">' . (int) ( $counts['menus'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Menu items</div><div class="fw-semibold">' . (int) ( $counts['menu_items'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Entries</div><div class="fw-semibold">' . (int) ( $counts['total'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Posts</div><div class="fw-semibold">' . (int) ( $counts['posts'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Pages</div><div class="fw-semibold">' . (int) ( $counts['pages'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Attachments</div><div class="fw-semibold">' . (int) ( $counts['attachments'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Menus</div><div class="fw-semibold">' . (int) ( $counts['menus'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Menu items</div><div class="fw-semibold">' . (int) ( $counts['menu_items'] ?? 0 ) . '</div></div></div>';
             $body_html .= '</div>';
 
             $progress_processed = is_array( $import_state ) ? (int) ( $import_state['counts']['processed'] ?? 0 ) : 0;
@@ -567,12 +567,12 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $spinner_hidden = $import_finished ? ' d-none' : '';
             $preview_table_hidden = $import_running || $import_finished ? ' d-none' : '';
             $progress_message = $import_finished ? 'Import finished.' : ( $import_running ? 'Import in progress. This runs in smaller batches so larger datasets do not depend on one long request.' : 'Import runs in smaller batches so larger datasets do not depend on one long request.' );
-            $body_html .= '<section class="mt-3 p-3 border rounded-3 bg-body-tertiary' . $progress_hidden . '" id="wordpress-import-progress">';
+            $body_html .= '<section class="mt-3 py-3 border-top border-bottom' . $progress_hidden . '" id="wordpress-import-progress">';
             $body_html .= '<div class="d-flex flex-wrap justify-content-between gap-2 align-items-start"><div><div class="small text-uppercase text-body-secondary mb-1">Import progress</div><div class="small text-body-secondary d-flex align-items-center gap-2"><span class="spinner-border spinner-border-sm text-secondary' . $spinner_hidden . '" id="wordpress-import-progress-spinner" aria-hidden="true"></span><span id="wordpress-import-progress-message">' . $escape( $progress_message ) . '</span></div></div><div class="small text-body-secondary"><span id="wordpress-import-progress-counts">' . $progress_imported . ' imported, ' . $progress_skipped . ' skipped, ' . $progress_processed . ' / ' . $progress_total . ' processed</span></div></div>';
             $body_html .= '<div class="progress mt-3" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' . $progress_percent . '"><div class="progress-bar" id="wordpress-import-progress-bar" style="width: ' . $progress_percent . '%">' . $progress_percent . '%</div></div>';
             $body_html .= '</section>';
 
-            $body_html .= '<div class="mt-3' . $preview_table_hidden . '" id="wordpress-import-preview-table-wrap"><div class="table-responsive border rounded-3"><div style="max-height: 32rem; overflow-y: auto;"><table class="table table-sm align-middle mb-0">';
+            $body_html .= '<div class="mt-3' . $preview_table_hidden . '" id="wordpress-import-preview-table-wrap"><div class="table-responsive"><div style="max-height: 32rem; overflow-y: auto;"><table class="table table-sm align-middle mb-0">';
             $body_html .= '<thead><tr><th class="fw-normal sticky-top bg-body">Title</th><th class="fw-normal sticky-top bg-body">Type</th><th class="fw-normal sticky-top bg-body">Status</th><th class="fw-normal sticky-top bg-body">Slug</th><th class="fw-normal sticky-top bg-body">Published</th></tr></thead><tbody>';
             foreach ( array_slice( $entries, 0, 100 ) as $entry ) {
                 if ( ! is_array( $entry ) ) {
@@ -589,7 +589,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '</div>';
 
             if ( ! empty( $adjusted_source_conflicts ) ) {
-                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">Adjusted source conflicts</div><div class="table-responsive border rounded-3"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Type</th><th class="fw-normal">Original slug</th><th class="fw-normal">Adjusted slug</th></tr></thead><tbody>';
+                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">Adjusted source conflicts</div><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Type</th><th class="fw-normal">Original slug</th><th class="fw-normal">Adjusted slug</th></tr></thead><tbody>';
                 foreach ( $adjusted_source_conflicts as $conflict ) {
                     if ( ! is_array( $conflict ) ) {
                         continue;
@@ -600,7 +600,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
 
             if ( ! empty( $available_menus ) ) {
-                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">WordPress menus</div><div class="table-responsive border rounded-3"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Menu</th><th class="fw-normal">Slug</th><th class="fw-normal">Items</th><th class="fw-normal">Recognized as</th></tr></thead><tbody>';
+                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">WordPress menus</div><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Menu</th><th class="fw-normal">Slug</th><th class="fw-normal">Items</th><th class="fw-normal">Recognized as</th></tr></thead><tbody>';
                 foreach ( $available_menus as $menu ) {
                     if ( ! is_array( $menu ) ) {
                         continue;
@@ -611,7 +611,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
 
             if ( ! empty( $unpublished_entries ) ) {
-                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">' . ( $skip_unpublished ? 'Skipped unpublished source entries' : 'Unpublished entries' ) . '</div><div class="table-responsive border rounded-3"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Type</th><th class="fw-normal">Slug</th></tr></thead><tbody>';
+                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">' . ( $skip_unpublished ? 'Skipped unpublished source entries' : 'Unpublished entries' ) . '</div><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Type</th><th class="fw-normal">Slug</th></tr></thead><tbody>';
                 foreach ( $unpublished_entries as $entry ) {
                     if ( ! is_array( $entry ) ) {
                         continue;
@@ -646,7 +646,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $report_unresolved_media = (int) ( $counts['unresolved_media'] ?? 0 );
             $unresolved_media = is_array( $import_state['unresolved_media'] ?? null ) ? array_values( array_filter( $import_state['unresolved_media'], static fn( mixed $item ) : bool => is_array( $item ) ) ) : [];
             $body_html .= '<div class="col-12"><div class="d-flex flex-wrap gap-2 mb-3"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $plugin_url ) . '">Import another export</a></div>';
-            $body_html .= '<section class="p-3 bg-body border rounded-3 shadow-sm">';
+            $body_html .= '<section class="">';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Import report</div>';
             $body_html .= '<h2 class="h5 mb-1">WordPress import finished</h2>';
             $body_html .= '<div class="text-body-secondary small">Imported into <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['author_slug'] ?? strtolower( $username ) ) ) . '</span>.</div>';
@@ -672,15 +672,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Some WordPress upload URLs could not be localized. This usually means the export had no matching attachment item, or the source file was no longer reachable during import.</div>';
             }
             $body_html .= '<div class="row g-3 mt-1">';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Imported</div><div class="fw-semibold">' . (int) ( $counts['imported'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Skipped</div><div class="fw-semibold">' . (int) ( $counts['skipped'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Duplicates</div><div class="fw-semibold">' . (int) ( $counts['skipped_duplicate'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-6 col-lg-3"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Removed first</div><div class="fw-semibold">' . (int) ( $counts['deleted_existing_posts'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Imported</div><div class="fw-semibold">' . (int) ( $counts['imported'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Skipped</div><div class="fw-semibold">' . (int) ( $counts['skipped'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Duplicates</div><div class="fw-semibold">' . (int) ( $counts['skipped_duplicate'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Removed first</div><div class="fw-semibold">' . (int) ( $counts['deleted_existing_posts'] ?? 0 ) . '</div></div></div>';
             $body_html .= '</div>';
-            $body_html .= '<div class="row g-3 mt-1"><div class="col-12 col-lg-6"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Processed</div><div class="fw-semibold">' . (int) ( $counts['processed'] ?? 0 ) . ' / ' . (int) ( $counts['total'] ?? 0 ) . '</div></div></div>';
-            $body_html .= '<div class="col-12 col-lg-6"><div class="p-3 border rounded-3 bg-body-tertiary h-100"><div class="small text-uppercase text-body-secondary mb-1">Finished</div><div class="fw-semibold">' . $escape( $date_formatter->formatUtcDateTime( (string) ( $import_state['finished_at_utc'] ?? '' ) ) ) . '</div></div></div></div>';
+            $body_html .= '<div class="row g-3 mt-1"><div class="col-12 col-lg-6"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Processed</div><div class="fw-semibold">' . (int) ( $counts['processed'] ?? 0 ) . ' / ' . (int) ( $counts['total'] ?? 0 ) . '</div></div></div>';
+            $body_html .= '<div class="col-12 col-lg-6"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Finished</div><div class="fw-semibold">' . $escape( $date_formatter->formatUtcDateTime( (string) ( $import_state['finished_at_utc'] ?? '' ) ) ) . '</div></div></div></div>';
             if ( ! empty( $unresolved_media ) ) {
-                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">Unresolved media</div><div class="table-responsive border rounded-3"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Slug</th><th class="fw-normal">URL</th></tr></thead><tbody>';
+                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">Unresolved media</div><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Slug</th><th class="fw-normal">URL</th></tr></thead><tbody>';
                 foreach ( array_slice( $unresolved_media, 0, 25 ) as $item ) {
                     if ( ! is_array( $item ) ) {
                         continue;

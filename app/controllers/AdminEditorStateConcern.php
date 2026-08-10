@@ -62,6 +62,7 @@ trait AdminEditorStateConcern {
                 'draft_url' => $this->app->get( 'admin.url' ) . '/editor/draft',
                 'draft_delete_url' => $this->app->get( 'admin.url' ) . '/editor/draft/delete',
                 'publish_url' => $this->app->get( 'admin.url' ) . '/editor/publish',
+                'editor_mode_url' => $this->app->get( 'admin.url' ) . '/editor/mode',
                 'editor_url' => $this->app->get( 'admin.url' ) . '/editor',
                 'editor_cancel_url' => $this->security->isSuperAdmin()
                     ? $this->app->get( 'admin.url' ) . '/content'
@@ -76,10 +77,8 @@ trait AdminEditorStateConcern {
                 'editor_loaded_source' => $editor_state['source'],
                 'editor_notice' => $editor_state['notice'],
                 'editor_slug_check_url' => $this->app->get( 'admin.url' ) . '/editor/slug-check',
-                'editor_content_search_url' => $this->app->get( 'admin.url' ) . '/editor/content-search',
                 'editor_media_picker_url' => $this->app->get( 'admin.url' ) . '/editor/media-picker',
                 'editor_new_url' => $this->app->get( 'admin.url' ) . '/editor?new=1',
-                'editor_entry_options' => $this->getEditorEntryOptions(),
                 'editor_linkable_entries' => $this->getEditorLinkableEntries(),
                 'editor_tag_suggestions' => $this->getEditorTagSuggestions(),
                 'editor_current_featured_image' => $this->resolveCurrentEditorMediaPickerRecord(
@@ -92,13 +91,13 @@ trait AdminEditorStateConcern {
                     'seo_social_image_media_id',
                     'seo_social_image'
                 ),
-                'editor_recent_entries' => $this->getRecentEditorEntries(),
-                'editor_drafts' => $this->getEditorDrafts(),
                 'editor_revisions' => $this->getEditorRevisions( $editor_state['loaded_entry_id'] ),
+                'editor_mode' => $this->getCurrentEditorMode(),
                 'editor_parent_page_options' => $this->getEditorParentPageOptions(),
                 'current_author_slug' => $this->getCurrentAuthorSlug(),
                 'editor_author_options' => $this->getEditorAuthorOptions(),
                 'editor_autosave' => $this->getCurrentEditorAutosaveSettings(),
+                'editor_timezone_name' => $this->getAdminDateFormatter()->getTimezoneName(),
                 'editor_image_upload' => $editor_image_upload,
                 'editor_markdown_component_html' => TinyMashMarkdownEditorComponent::render(
                     [
@@ -457,21 +456,6 @@ trait AdminEditorStateConcern {
         );
     }
 
-    protected function getRecentEditorEntries() : array {
-        if ( $this->content_repository === null ) {
-            return( [] );
-        }
-
-        return(
-            $this->content_repository->getRecentEditorEntries(
-                8,
-                null,
-                $this->security->isSuperAdmin() ? null : $this->getCurrentAuthorSlug(),
-                $this->security->isSuperAdmin()
-            )
-        );
-    }
-
     protected function getEditorParentPageOptions() : array {
         $page_options = [];
         foreach ( $this->getEditorEntryOptions() as $entry_option ) {
@@ -674,9 +658,6 @@ trait AdminEditorStateConcern {
     protected function buildEditorCollections( string $loaded_entry_id = '' ) : array {
         return(
             [
-                'entry_options' => $this->getEditorEntryOptions(),
-                'recent_entries' => $this->getRecentEditorEntries(),
-                'drafts' => $this->getEditorDrafts(),
                 'revisions' => $this->getEditorRevisions( $loaded_entry_id ),
             ]
         );
@@ -685,11 +666,21 @@ trait AdminEditorStateConcern {
     protected function buildEditorSaveCollections( string $loaded_entry_id = '' ) : array {
         return(
             [
-                'drafts' => $this->getEditorDrafts(),
-                'recent_entries' => $this->getRecentEditorEntries(),
                 'revisions' => $this->getEditorRevisions( $loaded_entry_id ),
             ]
         );
+    }
+
+    protected function getCurrentEditorMode() : string {
+        $username = $this->security->getCurrentUsername();
+        $user_repository = $this->getUserRepository();
+        if ( ! is_string( $username ) || $username === '' || $user_repository === null ) {
+            return( 'full' );
+        }
+
+        $user = $user_repository->getUserByUsername( $username );
+        $editor_mode = strtolower( trim( (string) ( $user['editor_mode'] ?? 'full' ) ) );
+        return( in_array( $editor_mode, [ 'focused', 'full' ], true ) ? $editor_mode : 'full' );
     }
 
     protected function buildEditorResponseEntry( array $entry ) : array {
@@ -748,15 +739,8 @@ trait AdminEditorStateConcern {
     }
 
     protected function formatUtcDateTimeForEditorInput( string $utc_datetime ) : string {
-        $utc_datetime = trim( $utc_datetime );
-        if ( $utc_datetime === '' ) {
-            return( '' );
-        }
-
         try {
-            $timezone = $this->getEditorDateTimezone();
-            $date_time = new \DateTimeImmutable( $utc_datetime, new \DateTimeZone( 'UTC' ) );
-            return( $date_time->setTimezone( $timezone )->format( 'Y-m-d\TH:i' ) );
+            return( $this->getAdminDateFormatter()->formatUtcDateTimeForLocalInput( $utc_datetime ) );
         } catch ( \Throwable ) {
             return( '' );
         }
@@ -769,24 +753,16 @@ trait AdminEditorStateConcern {
         }
 
         try {
-            $timezone = $this->getEditorDateTimezone();
-            $date_time = new \DateTimeImmutable( $value, $timezone );
-            return( $date_time->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d\TH:i:s\Z' ) );
-        } catch ( \Throwable ) {
-            throw new \InvalidArgumentException( 'published_at_local' );
+            return( $this->getAdminDateFormatter()->normalizeLocalDateTimeToUtc( $value ) );
+        } catch ( \InvalidArgumentException $e ) {
+            throw new \InvalidArgumentException(
+                match ( $e->getMessage() ) {
+                    'local_datetime_nonexistent' => 'published_at_local_nonexistent',
+                    'local_datetime_ambiguous' => 'published_at_local_ambiguous',
+                    default => 'published_at_local',
+                }
+            );
         }
-    }
-
-    protected function getEditorDateTimezone() : \DateTimeZone {
-        $formatter = $this->app->has( 'formatter.date' ) ? $this->app->get( 'formatter.date' ) : null;
-        if ( is_object( $formatter ) && method_exists( $formatter, 'getTimezoneName' ) ) {
-            try {
-                return( new \DateTimeZone( (string) $formatter->getTimezoneName() ) );
-            } catch ( \Throwable ) {
-            }
-        }
-
-        return( new \DateTimeZone( 'UTC' ) );
     }
 
     protected function getCurrentEditorAutosaveSettings() : array {
@@ -1177,6 +1153,8 @@ trait AdminEditorStateConcern {
                 'reserved_author_slug' => 'That root slug is reserved by an existing Username/Author.',
                 'editor_author_slug' => 'Choose an existing non-deleted Username/Author for author-scoped publishing.',
                 'published_at_local' => 'Publish date/time is not valid.',
+                'published_at_local_nonexistent' => 'Publish date/time does not exist in your timezone because the clock moves forward.',
+                'published_at_local_ambiguous' => 'Publish date/time occurs twice in your timezone because the clock moves back. Choose an unambiguous time.',
                 'editor_entry_access' => 'You cannot edit that content item in this composer.',
                 'trash_restore_slug_conflict' => 'That trashed item cannot be restored because active content already uses its slug in the same scope.',
                 'trash_restore_parent_unavailable' => 'That trashed page cannot be restored because its parent page is missing or still in Trash.',

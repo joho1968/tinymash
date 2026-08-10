@@ -149,12 +149,12 @@
             var stored = window.localStorage.getItem(storageKey);
             if (stored === "1") { return true; }
             if (stored === "0") { return false; }
-        } catch (error) { /* optional persistence */ }
+        } catch (error) { /* Storage is optional. */ }
         return Boolean(fallback);
     }
 
     function writeStickyCheckbox(storageKey, checked) {
-        try { window.localStorage.setItem(storageKey, checked ? "1" : "0"); } catch (error) { /* optional persistence */ }
+        try { window.localStorage.setItem(storageKey, checked ? "1" : "0"); } catch (error) { /* Storage is optional. */ }
     }
 
     function markdownLinkText(value) {
@@ -437,7 +437,7 @@
         root.dataset.tmMarkdownHeadingLevel = level;
         var label = root.querySelector("[data-tm-markdown-heading-label]");
         if (label) { label.textContent = "H" + level; }
-        try { window.localStorage.setItem(headingStorageKey, level); } catch (error) { /* optional persistence */ }
+        try { window.localStorage.setItem(headingStorageKey, level); } catch (error) { /* Storage is optional. */ }
         return level;
     }
 
@@ -478,7 +478,7 @@
                 }
                 autocomplete.innerHTML = autocompleteMatches.map(function (entry, index) {
                     var active = index === autocompleteIndex;
-                    return '<button class="list-group-item list-group-item-action d-flex align-items-center gap-2'
+                    return '<button class="btn btn-light border-0 border-bottom rounded-0 w-100 text-start d-flex align-items-center gap-2 tm-editor-emoji-option'
                         + (active ? ' active' : '')
                         + '" type="button" data-tm-markdown-emoji-index="' + index + '" role="option" aria-selected="' + (active ? 'true' : 'false') + '">'
                         + '<span class="tm-emoji fs-5" aria-hidden="true">' + escapeHtml(entry.emoji) + '</span>'

@@ -89,7 +89,7 @@
 }
 
 .tm-sticky-divider th {
-    /* A little fix for sticky table headings in Bootstrap ;) */
+    /* Bootstrap sticky-header correction. */
     position: sticky;
     top: 0;
     background-color: var(--bs-secondary-bg) !important;
@@ -158,18 +158,20 @@ a:hover:not(.btn):not(.tm-downloads-file-link) {
     outline: 0;
     box-shadow: none;
 }
-.tm-content-tabs {
+.tm-content-tabs,
+.tm-editor-tabs {
     overflow-x: auto;
     overflow-y: hidden;
 }
 @media (min-width: 768px) {
-    .tm-content-tabs {
+    .tm-content-tabs,
+    .tm-editor-tabs {
         flex-wrap: wrap !important;
         overflow-x: visible;
         overflow-y: visible;
     }
 }
-/* Some stuff "missing" from more recent Bootstrap versions :) */
+/* Local utility replacements. */
 .text-justify {
     text-align: justify;
     text-justify: inter-word;
@@ -177,7 +179,7 @@ a:hover:not(.btn):not(.tm-downloads-file-link) {
 .justamessage {
     height: 50vh !important;
 }
-/* Redacted text */
+/* Redaction preview. */
 .tm-cloak {
     filter: none !important;
 }
@@ -198,19 +200,10 @@ a:hover:not(.btn):not(.tm-downloads-file-link) {
 .tm-cloak-on:hover > a {
     color: #fff !important;
 }
-/* Special fields maybe */
-.tm-toggle-password {
-    /*
-    display: inline-block !important;
-    margin-left:-30px !important;
-    margin-top:6px !important;
-    color:#a0a0a0;
-    */
-}
 .tm-toggle-password:hover {
     cursor:pointer;
 }
-/* Disable transitions */
+/* Transition suppression. */
 .tm-notransition {
     transition-delay: 0ms !important;
     transition: none !important;
@@ -223,11 +216,8 @@ a:hover:not(.btn):not(.tm-downloads-file-link) {
     transition-delay: 0ms !important;
     transition: none !important;
 }
-/* Some overrides */
 .container-fluid:before { content:none; }
 .container-fluid:after { content:none; }
-body {overflow-x:hidden !important; }
-/* Some colors */
 mark, .mark {
     color: #212529 !important;
     background-color: #fff3cd !important;
@@ -1028,31 +1018,36 @@ a.tm-downloads-file-link:hover {
     overflow-y: auto;
     transform: translateY(0);
 }
-.tm-editor-emoji-autocomplete .list-group-item {
+.tm-editor-emoji-autocomplete .tm-editor-emoji-option {
     background: var(--bs-body-bg);
 }
-.tm-editor-emoji-autocomplete .list-group-item.active {
+.tm-editor-emoji-autocomplete .tm-editor-emoji-option.active {
     background: var(--bs-primary);
+    color: var(--bs-white);
 }
-.tm-editor-emoji-autocomplete .list-group-item .small {
+.tm-editor-emoji-autocomplete .tm-editor-emoji-option .small {
     color: inherit;
 }
-.tm-editor-emoji-autocomplete .list-group-item.active .small {
+.tm-editor-emoji-autocomplete .tm-editor-emoji-option.active .small {
     color: rgba(255, 255, 255, 0.82);
 }
 .tm-editor-emoji-picker {
     width: 100%;
     height: min(30rem, 60vh);
 }
-@media (min-width: 992px) {
-    .tm-editor-recent-list-scroll {
-        max-height: 20rem;
-        overflow-y: auto;
-    }
-    .tm-editor-revisions-list-scroll {
-        max-height: 12rem;
-        overflow-y: auto;
-    }
+.tm-editor-mode-focused .tm-editor-full-only {
+    display: none !important;
+}
+.tm-editor-mode-focused .tm-editor-focus-wide {
+    width: 100%;
+}
+.tm-editor-history-menu {
+    min-width: min(24rem, calc(100vw - 2rem));
+    max-height: min(24rem, 60vh);
+    overflow-y: auto;
+}
+.tm-editor-history-menu .dropdown-item {
+    white-space: normal;
 }
 #tm-editor-preview pre,
 #tm-editor-preview pre.tm-content-pre {
@@ -1069,15 +1064,19 @@ a.tm-downloads-file-link:hover {
 }
 .tm-help-content code,
 .tm-help-content kbd {
-    padding: 0.125rem 0.35rem;
-    border-radius: 0.25rem;
-    background-color: var(--bs-tertiary-bg);
+    padding: 0;
+    border-radius: 0;
+    background-color: transparent;
 }
 .tm-help-content pre {
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    background-color: var(--bs-tertiary-bg);
+    padding: 0.5rem 0.625rem;
     overflow-x: auto;
+}
+.tm-help-document {
+    padding: 0.25rem 0.125rem 0.5rem;
+}
+.tm-help-document + .tm-help-document {
+    padding-top: 1.25rem;
 }
 .tm-help-content,
 .tm-help-content *,
@@ -1091,13 +1090,17 @@ a.tm-downloads-file-link:hover {
 .tm-help-index-link {
     color: var(--bs-body-color);
     display: block;
+    border-radius: 0.25rem;
+    padding: 0.35rem 0.5rem;
 }
 .tm-help-index-link:hover,
 .tm-help-index-link:focus {
+    background-color: var(--bs-tertiary-bg);
     color: var(--bs-primary-text-emphasis);
     text-decoration: none !important;
 }
 .tm-help-index-link.active {
+    background-color: var(--bs-primary-bg-subtle);
     color: var(--bs-primary-text-emphasis);
     font-weight: 600;
 }
@@ -1111,6 +1114,16 @@ a.tm-downloads-file-link:hover {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    padding: 0.25rem 0;
+}
+.tm-help-section {
+    margin-top: 1rem;
+    padding-top: 0;
+}
+.tm-help-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.3;
 }
 .tm-help-modal-content-region {
     flex: 1 1 auto;

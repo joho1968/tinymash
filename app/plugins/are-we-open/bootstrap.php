@@ -146,7 +146,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Scope',
-                    'markdown' => 'This plugin is display-only. It does not handle bookings, reservations, ecommerce, staff scheduling, or appointments.',
+                    'markdown' => 'Display only. Bookings, reservations, ecommerce, staff scheduling, and appointments are not supported.',
                 ],
             ],
         ]
@@ -231,9 +231,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $id = 'tm-awo-day-' . $weekday;
             $body_html .= '<div class="row g-2 align-items-end">';
             $body_html .= '<div class="col-12 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="' . $escape( $id ) . '" name="weekly[' . $escape( $weekday ) . '][enabled]" type="checkbox" value="1"' . ( ! empty( $row['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="' . $escape( $id ) . '">' . $escape( ucfirst( $weekday ) ) . '</label></div></div>';
-            $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1">Opens</label><input class="form-control font-monospace" name="weekly[' . $escape( $weekday ) . '][open_time]" type="time" value="' . $escape( (string) ( $row['open_time'] ?? '09:00' ) ) . '"></div>';
-            $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1">Closes</label><input class="form-control font-monospace" name="weekly[' . $escape( $weekday ) . '][close_time]" type="time" value="' . $escape( (string) ( $row['close_time'] ?? '17:00' ) ) . '"></div>';
-            $body_html .= '<div class="col-12 col-lg-6"><label class="form-label small mb-1">Note</label><input class="form-control" name="weekly[' . $escape( $weekday ) . '][note]" type="text" maxlength="160" value="' . $escape( (string) ( $row['note'] ?? '' ) ) . '"></div>';
+            $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $id . '-opens' ) . '">Opens</label><input class="form-control font-monospace" id="' . $escape( $id . '-opens' ) . '" name="weekly[' . $escape( $weekday ) . '][open_time]" type="time" value="' . $escape( (string) ( $row['open_time'] ?? '09:00' ) ) . '"></div>';
+            $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $id . '-closes' ) . '">Closes</label><input class="form-control font-monospace" id="' . $escape( $id . '-closes' ) . '" name="weekly[' . $escape( $weekday ) . '][close_time]" type="time" value="' . $escape( (string) ( $row['close_time'] ?? '17:00' ) ) . '"></div>';
+            $body_html .= '<div class="col-12 col-lg-6"><label class="form-label small mb-1" for="' . $escape( $id . '-note' ) . '">Note</label><input class="form-control" id="' . $escape( $id . '-note' ) . '" name="weekly[' . $escape( $weekday ) . '][note]" type="text" maxlength="160" value="' . $escape( (string) ( $row['note'] ?? '' ) ) . '"></div>';
             $body_html .= '</div>';
         }
         $body_html .= '</div>';
@@ -256,13 +256,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $exceptions[] = [ 'enabled' => true, 'date' => '', 'mode' => 'closed', 'open_time' => '09:00', 'close_time' => '17:00', 'note' => '' ];
         foreach ( $exceptions as $index => $exception ) {
             $exception = is_array( $exception ) ? $exception : [];
+            $exception_id = 'tm-awo-exception-' . (int) $index;
             $body_html .= '<div class="row g-2 align-items-end mb-2">';
-            $body_html .= '<div class="col-12 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-awo-exception-enabled-' . (int) $index . '" name="exceptions[' . (int) $index . '][enabled]" type="checkbox" value="1"' . ( ! empty( $exception['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-awo-exception-enabled-' . (int) $index . '">Enabled</label></div></div>';
-            $body_html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1">Date</label><input class="form-control font-monospace" name="exceptions[' . (int) $index . '][date]" type="date" value="' . $escape( (string) ( $exception['date'] ?? '' ) ) . '"></div>';
-            $body_html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1">Mode</label>' . $render_select( 'exceptions[' . (int) $index . '][mode]', (string) ( $exception['mode'] ?? 'closed' ), [ 'closed' => 'Closed', 'open' => 'Open hours' ] ) . '</div>';
-            $body_html .= '<div class="col-6 col-lg-1"><label class="form-label small mb-1">Opens</label><input class="form-control font-monospace" name="exceptions[' . (int) $index . '][open_time]" type="time" value="' . $escape( (string) ( $exception['open_time'] ?? '09:00' ) ) . '"></div>';
-            $body_html .= '<div class="col-6 col-lg-1"><label class="form-label small mb-1">Closes</label><input class="form-control font-monospace" name="exceptions[' . (int) $index . '][close_time]" type="time" value="' . $escape( (string) ( $exception['close_time'] ?? '17:00' ) ) . '"></div>';
-            $body_html .= '<div class="col-12 col-lg-4"><label class="form-label small mb-1">Note</label><input class="form-control" name="exceptions[' . (int) $index . '][note]" type="text" maxlength="160" value="' . $escape( (string) ( $exception['note'] ?? '' ) ) . '"></div>';
+            $body_html .= '<div class="col-12 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="' . $escape( $exception_id . '-enabled' ) . '" name="exceptions[' . (int) $index . '][enabled]" type="checkbox" value="1"' . ( ! empty( $exception['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="' . $escape( $exception_id . '-enabled' ) . '">Enabled</label></div></div>';
+            $body_html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $exception_id . '-date' ) . '">Date</label><input class="form-control font-monospace" id="' . $escape( $exception_id . '-date' ) . '" name="exceptions[' . (int) $index . '][date]" type="date" value="' . $escape( (string) ( $exception['date'] ?? '' ) ) . '"></div>';
+            $body_html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $exception_id . '-mode' ) . '">Mode</label>' . $render_select( 'exceptions[' . (int) $index . '][mode]', (string) ( $exception['mode'] ?? 'closed' ), [ 'closed' => 'Closed', 'open' => 'Open hours' ], $exception_id . '-mode' ) . '</div>';
+            $body_html .= '<div class="col-6 col-lg-1"><label class="form-label small mb-1" for="' . $escape( $exception_id . '-opens' ) . '">Opens</label><input class="form-control font-monospace" id="' . $escape( $exception_id . '-opens' ) . '" name="exceptions[' . (int) $index . '][open_time]" type="time" value="' . $escape( (string) ( $exception['open_time'] ?? '09:00' ) ) . '"></div>';
+            $body_html .= '<div class="col-6 col-lg-1"><label class="form-label small mb-1" for="' . $escape( $exception_id . '-closes' ) . '">Closes</label><input class="form-control font-monospace" id="' . $escape( $exception_id . '-closes' ) . '" name="exceptions[' . (int) $index . '][close_time]" type="time" value="' . $escape( (string) ( $exception['close_time'] ?? '17:00' ) ) . '"></div>';
+            $body_html .= '<div class="col-12 col-lg-4"><label class="form-label small mb-1" for="' . $escape( $exception_id . '-note' ) . '">Note</label><input class="form-control" id="' . $escape( $exception_id . '-note' ) . '" name="exceptions[' . (int) $index . '][note]" type="text" maxlength="160" value="' . $escape( (string) ( $exception['note'] ?? '' ) ) . '"></div>';
             $body_html .= '</div>';
         }
         $body_html .= '<div class="form-text">Use the empty row to add another exception. Blank dates are ignored.</div>';

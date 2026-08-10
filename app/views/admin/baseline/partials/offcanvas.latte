@@ -128,9 +128,12 @@
                                 <span class="tm-section-nav-link-label">{$admin_plugin_nav_item['label']}</span>
                             </a>
                             {/foreach}
-                            <a href="{$admin_url}/logout" class="tm-section-nav-link link-offset-2 text-truncate user-select-none">
-                                <span class="tm-section-nav-link-label">Log out</span>
-                            </a>
+                            <form method="post" action="{$admin_url}/logout">
+                                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                <button type="submit" class="tm-section-nav-link border-0 bg-transparent w-100 text-start text-truncate user-select-none">
+                                    <span class="tm-section-nav-link-label">Log out</span>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </section>
@@ -138,7 +141,7 @@
             <div class="border-top mt-3 mb-3 w-100 p-0" aria-hidden="true"></div>
             <div aria-label="Current server time" class="text-body-secondary small text-center">
                 <span class="user-select-none">Server time</span><br/>
-                <span class="user-select-all">{date('Y-m-d H:i:s')}<br/></span>
+                <span class="user-select-all">{gmdate('Y-m-d H:i:s')}<br/></span>
                 <span class="user-select-all">UTC</span>
             </div>
         </div>

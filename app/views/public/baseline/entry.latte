@@ -29,7 +29,7 @@
         {/if}
         <div class="small text-secondary mb-2">
             {if $entry['scope'] === 'author'}
-                <span>by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a></span>
+                <span>by <a class="text-decoration-underline link-offset-2" href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a></span>
             {/if}
             {if ! empty( $entry['show_entry_timestamps'] ) && ! empty( $entry['published_at_display'] )}
                 {if $entry['scope'] === 'author'}<span class="mx-1">|</span>{/if}{$entry['published_at_display']}

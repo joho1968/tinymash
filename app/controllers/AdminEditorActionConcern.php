@@ -5,6 +5,47 @@ use app\classes\TinyMashEditorMediaPickerService;
 
 trait AdminEditorActionConcern {
 
+    public function saveEditorMode() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->json( [ 'error' => 'Authentication required.' ], 403 );
+            return;
+        }
+
+        $data = $this->getRequestDataArray();
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->json( [ 'error' => 'Invalid CSRF token.' ], 403 );
+            return;
+        }
+
+        $editor_mode = strtolower( trim( (string) ( $data['mode'] ?? '' ) ) );
+        if ( ! in_array( $editor_mode, [ 'focused', 'full' ], true ) ) {
+            $this->json( [ 'error' => 'Choose Focused or Full mode.' ], 422 );
+            return;
+        }
+
+        $username = $this->security->getCurrentUsername();
+        $user_repository = $this->getUserRepository();
+        if ( ! is_string( $username ) || $username === '' || $user_repository === null ) {
+            $this->json( [ 'error' => 'Editor preference storage is not available.' ], 500 );
+            return;
+        }
+
+        try {
+            $saved_user = $user_repository->setEditorModeForUsername( $username, $editor_mode );
+            $this->json(
+                [
+                    'mode' => (string) ( $saved_user['editor_mode'] ?? $editor_mode ),
+                    'message' => $editor_mode === 'focused' ? 'Focused mode enabled.' : 'Full mode enabled.',
+                ]
+            );
+        } catch ( \InvalidArgumentException $e ) {
+            $this->json( [ 'error' => $this->getUserValidationMessage( $e->getMessage() ) ], 422 );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to save editor mode (' . $e->getMessage() . ')' );
+            $this->json( [ 'error' => 'Editor mode could not be saved right now.' ], 500 );
+        }
+    }
+
     public function uploadEditorImage() : void {
         if ( ! $this->security->isLoggedIn() ) {
             $this->json( [ 'error' => 'Authentication required.' ], 403 );
@@ -171,86 +212,6 @@ trait AdminEditorActionConcern {
             error_log( basename( __FILE__ ) . ': Unable to check editor slug (' . $e->getMessage() . ')' );
             $this->json( [ 'error' => 'Unable to validate slug right now.' ], 500 );
         }
-    }
-
-    public function searchEditorContent() : void {
-        if ( ! $this->security->isLoggedIn() ) {
-            $this->json( [ 'error' => 'Authentication required.' ], 403 );
-            return;
-        }
-
-        $data = $this->getRequestDataArray();
-        if ( ! $this->isValidCsrfSubmission( $data ) ) {
-            $this->json( [ 'error' => 'Invalid CSRF token.' ], 403 );
-            return;
-        }
-
-        $query = mb_trim( (string) ( $data['q'] ?? '' ) );
-        if ( mb_strlen( $query, 'UTF-8' ) < 2 ) {
-            $this->json(
-                [
-                    'query' => $query,
-                    'results' => [],
-                    'message' => 'Type at least 2 characters.',
-                ]
-            );
-            return;
-        }
-
-        $limit = (int) ( $data['limit'] ?? 12 );
-        $limit = max( 1, min( 25, $limit ) );
-        $normalized_query = mb_strtolower( $query, 'UTF-8' );
-        $results = [];
-
-        foreach ( $this->getEditorEntryOptions() as $entry_option ) {
-            $haystack = mb_strtolower(
-                trim(
-                    (string) ( $entry_option['label'] ?? '' )
-                    . ' ' . (string) ( $entry_option['title'] ?? '' )
-                    . ' ' . (string) ( $entry_option['path'] ?? '' )
-                    . ' ' . (string) ( $entry_option['type'] ?? '' )
-                    . ' ' . (string) ( $entry_option['scope'] ?? '' )
-                    . ' ' . (string) ( $entry_option['author_slug'] ?? '' )
-                    . ' ' . (string) ( $entry_option['status'] ?? '' )
-                ),
-                'UTF-8'
-            );
-            if ( ! str_contains( $haystack, $normalized_query ) ) {
-                continue;
-            }
-
-            $entry_id = (string) ( $entry_option['id'] ?? '' );
-            if ( $entry_id === '' ) {
-                continue;
-            }
-
-            $scope = (string) ( $entry_option['scope'] ?? 'root' );
-            $author_slug = (string) ( $entry_option['author_slug'] ?? '' );
-            $results[] = [
-                'id' => $entry_id,
-                'title' => (string) ( $entry_option['title'] ?? 'Untitled content' ),
-                'label' => (string) ( $entry_option['label'] ?? ( $entry_option['title'] ?? 'Untitled content' ) ),
-                'path' => (string) ( $entry_option['path'] ?? '' ),
-                'type' => (string) ( $entry_option['type'] ?? '' ),
-                'scope' => $scope,
-                'scope_label' => $scope === 'author' && $author_slug !== '' ? $author_slug . ' space' : 'root',
-                'author_slug' => $author_slug,
-                'status' => (string) ( $entry_option['status'] ?? '' ),
-                'url' => $this->app->get( 'admin.url' ) . '/editor?entry=' . rawurlencode( $entry_id ),
-            ];
-
-            if ( count( $results ) >= $limit ) {
-                break;
-            }
-        }
-
-        $this->json(
-            [
-                'query' => $query,
-                'results' => $results,
-                'message' => empty( $results ) ? 'No matching content found.' : '',
-            ]
-        );
     }
 
     public function saveEditorDraft() : void {

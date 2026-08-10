@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashContentRenderer {
     protected const RENDER_CACHE_VERSION = '2026-06-26-1';
 
@@ -161,6 +163,9 @@ class TinyMashContentRenderer {
         $rendered_entry['show_entry_timestamps'] = (string) ( $entry['type'] ?? 'post' ) !== 'page' || $this->config->showsPageTimestamps();
         $published_date_started_at = microtime( true );
         $rendered_entry['published_at_display'] = $this->date_formatter->formatUtcDateTime( (string) ( $entry['published_at_utc'] ?? '' ) );
+        $rendered_entry['published_date_key'] = $this->date_formatter->formatUtcDateTimePart( (string) ( $entry['published_at_utc'] ?? '' ), 'Y-m-d' );
+        $rendered_entry['published_date_day'] = $this->date_formatter->formatUtcDateTimePart( (string) ( $entry['published_at_utc'] ?? '' ), 'd-M' );
+        $rendered_entry['published_date_year'] = $this->date_formatter->formatUtcDateTimePart( (string) ( $entry['published_at_utc'] ?? '' ), 'Y' );
         $this->recordProfilingMetric( 'decorate_published_date', $published_date_started_at );
         $updated_date_started_at = microtime( true );
         $rendered_entry['updated_at_display'] = $this->date_formatter->formatUtcDateTime( (string) ( $entry['updated_at_utc'] ?? '' ) );
@@ -758,8 +763,8 @@ class TinyMashContentRenderer {
             return;
         }
 
-        @ file_put_contents( $cache_filename, $payload, LOCK_EX );
+        TinyMashFilesystem::writeFileAtomically( $cache_filename, $payload );
         $this->render_cache_memory[$cache_filename . '|' . $cache_key] = $data;
     }
 
-}// TinyMashContentRenderer
+}

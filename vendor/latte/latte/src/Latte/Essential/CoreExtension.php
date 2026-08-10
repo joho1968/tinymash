@@ -157,6 +157,7 @@ final class CoreExtension extends Latte\Extension
 			'lower' => extension_loaded('mbstring')
 				? $this->filters->lower(...)
 				: fn() => throw new RuntimeException('Filter |lower requires mbstring extension.'),
+			'map' => $this->filters->map(...),
 			'number' => $this->filters->number(...),
 			'padLeft' => $this->filters->padLeft(...),
 			'padRight' => $this->filters->padRight(...),
@@ -219,6 +220,7 @@ final class CoreExtension extends Latte\Extension
 				}
 			},
 			'customFunctions' => $passes->customFunctionsPass(...),
+			'firstLastSep' => Nodes\FirstLastSepNode::outsideForeachPass(...),
 			'moveTemplatePrintToHead' => Nodes\TemplatePrintNode::moveToHeadPass(...),
 			'nElse' => Nodes\NElseNode::processPass(...),
 			'scriptTagQuotes' => $passes->scriptTagQuotesPass(...),

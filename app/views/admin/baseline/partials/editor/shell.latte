@@ -1,75 +1,97 @@
 {var $editor_identity_title = trim((string) ($editor_draft['title'] ?? ''))}
 {var $editor_identity_label = $editor_identity_title !== '' ? $editor_identity_title : 'Untitled content'}
-<div class="p-3 bg-body border rounded-3 h-100">
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        {if ! empty( $content_moderation_required ) && empty( $is_superadmin )}
-            <span class="badge text-bg-warning">Moderated publishing</span>
-        {/if}
-        <div class="btn-group btn-group-sm" role="group" aria-label="Save actions">
-            <button class="btn btn-success d-inline-flex align-items-center gap-1" id="tm-editor-save-entry" type="button" title="Save (Ctrl/Cmd+Enter)" data-tm-editor-save-action><span class="bi bi-check2-circle" aria-hidden="true"></span><span>Save</span></button>
-            <button class="btn btn-success dropdown-toggle dropdown-toggle-split px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-tm-editor-save-action><span class="visually-hidden">More save actions</span></button>
-            <ul class="dropdown-menu">
-                <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save" type="button"><span class="bi bi-floppy" aria-hidden="true"></span><span>Save draft</span></button></li>
-                <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save-return" type="button" data-tm-editor-save-action><span class="bi bi-box-arrow-left" aria-hidden="true"></span><span>Save and return</span></button></li>
-                <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save-new" type="button" data-tm-editor-save-action><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>Save and new</span></button></li>
-            </ul>
+{var $editor_revision_count = count(is_array($editor_revisions ?? null) ? $editor_revisions : [])}
+{var $resolved_editor_mode = in_array(($editor_mode ?? 'full'), ['focused', 'full'], true) ? (string) $editor_mode : 'full'}
+<section class="tm-editor-composer bg-body border rounded-3 p-3 overflow-hidden" style="min-width: 0;">
+    <header class="mb-3 pb-3 border-bottom">
+        <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-2 mb-3">
+            <div style="min-width: 0;">
+                <h1 class="h6 fw-semibold text-body mb-1 text-break" id="tm-editor-editing-identity">
+                    {if $editor_loaded_source === 'draft'}
+                        Editing draft for "{$editor_identity_label}"
+                    {elseif $editor_loaded_source === 'revision'}
+                        Editing revision of "{$editor_identity_label}"
+                    {elseif $editor_loaded_source === 'published'}
+                        Editing "{$editor_identity_label}"
+                    {elseif $editor_identity_title !== ''}
+                        New content: "{$editor_identity_label}"
+                    {else}
+                        New content
+                    {/if}
+                </h1>
+                <div class="small text-body-secondary">
+                    <span id="tm-editor-state-summary">
+                        {if $editor_loaded_source === 'draft' && ! empty( $editor_draft['updated_at_display'] )}
+                            Last updated {$editor_draft['updated_at_display']}
+                        {elseif $editor_loaded_source === 'revision' && ! empty( $editor_draft['updated_at_display'] )}
+                            Snapshot from {$editor_draft['updated_at_display']} loaded into composer
+                        {elseif $editor_loaded_source === 'published' && ! empty( $editor_draft['updated_at_display'] )}
+                            Last updated {$editor_draft['updated_at_display']}
+                        {else}
+                            No saved draft yet
+                        {/if}
+                    </span>
+                    <span aria-hidden="true"> · </span>
+                    {if ! empty( $editor_autosave['enabled'] )}
+                        Autosave: {$editor_autosave['interval_seconds']}s
+                    {elseif ! empty( $editor_autosave['system_enabled'] )}
+                        Autosave: off
+                    {else}
+                        Autosave: off sitewide
+                    {/if}
+                </div>
+            </div>
+            <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Composer presentation">
+                <button n:class="'btn', 'btn-outline-secondary', $resolved_editor_mode === 'focused' ? 'active'" type="button" data-editor-presentation-mode="focused" aria-pressed="{$resolved_editor_mode === 'focused' ? 'true' : 'false'}">Focused</button>
+                <button n:class="'btn', 'btn-outline-secondary', $resolved_editor_mode === 'full' ? 'active'" type="button" data-editor-presentation-mode="full" aria-pressed="{$resolved_editor_mode === 'full' ? 'true' : 'false'}">Full</button>
+            </div>
         </div>
-        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-duplicate" type="button"><span class="bi bi-copy" aria-hidden="true"></span><span>Duplicate</span></button>
-        <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-cancel" type="button"><span class="bi bi-x-circle" aria-hidden="true"></span><span>Cancel</span></button>
-        <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1{if empty( $editor_loaded_draft_id )} d-none{/if}" id="tm-editor-delete-current-draft" type="button"><span class="bi bi-trash" aria-hidden="true"></span><span>Delete draft</span></button>
-        <span id="tm-editor-save-status" class="small text-body-secondary" aria-live="polite">Ready</span>
-        <a class="small text-decoration-none d-none" id="tm-editor-published-link" href="#" target="_blank" rel="noopener">Open published content</a>
-    </div>
-    <div class="small fw-semibold text-body mb-1" id="tm-editor-editing-identity">
-        {if $editor_loaded_source === 'draft'}
-            Editing draft for "{$editor_identity_label}"
-        {elseif $editor_loaded_source === 'revision'}
-            Editing revision of "{$editor_identity_label}"
-        {elseif $editor_loaded_source === 'published'}
-            Editing "{$editor_identity_label}"
-        {elseif $editor_identity_title !== ''}
-            New content: "{$editor_identity_label}"
-        {else}
-            New content
-        {/if}
-    </div>
-    <div class="small text-body-secondary mb-1">
-        <span id="tm-editor-state-summary">
-            {if $editor_loaded_source === 'draft' && ! empty( $editor_draft['updated_at_display'] )}
-                Last updated {$editor_draft['updated_at_display']}
-            {elseif $editor_loaded_source === 'revision' && ! empty( $editor_draft['updated_at_display'] )}
-                Snapshot from {$editor_draft['updated_at_display']} loaded into composer
-            {elseif $editor_loaded_source === 'published' && ! empty( $editor_draft['updated_at_display'] )}
-                Last updated {$editor_draft['updated_at_display']}
-            {else}
-                No saved draft yet
-            {/if}
-        </span>
-        <span aria-hidden="true"> · </span>
-        One active draft per saved item
-        <span aria-hidden="true"> · </span>
-        {if ! empty( $editor_autosave['enabled'] )}
-            Autosave: {$editor_autosave['interval_seconds']}s
-        {elseif ! empty( $editor_autosave['system_enabled'] )}
-            Autosave: off
-        {else}
-            Autosave: off sitewide
-        {/if}
-    </div>
-    {if ! empty( $content_moderation_required )}
-        <div class="small mb-1 {if ! empty( $is_superadmin )}text-body-secondary{else}text-warning-emphasis{/if}">
-            {if ! empty( $is_superadmin )}
-                Moderation on: admins publish directly; other roles submit for review.
-            {else}
-                Moderation on: Save submits this content for review.
-            {/if}
+
+        <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Save actions">
+                    <button class="btn btn-success d-inline-flex align-items-center gap-1" id="tm-editor-save-entry" type="button" title="Save (Ctrl/Cmd+Enter)" data-tm-editor-save-action><span class="bi bi-check2-circle" aria-hidden="true"></span><span>Save</span></button>
+                    <button class="btn btn-success dropdown-toggle dropdown-toggle-split px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-tm-editor-save-action><span class="visually-hidden">More save actions</span></button>
+                    <ul class="dropdown-menu">
+                        <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save" type="button"><span class="bi bi-floppy" aria-hidden="true"></span><span>Save draft</span></button></li>
+                        <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save-return" type="button" data-tm-editor-save-action><span class="bi bi-box-arrow-left" aria-hidden="true"></span><span>Save and return</span></button></li>
+                        <li><button class="dropdown-item d-flex align-items-center gap-2" id="tm-editor-save-new" type="button" data-tm-editor-save-action><span class="bi bi-file-earmark-plus" aria-hidden="true"></span><span>Save and new</span></button></li>
+                    </ul>
+                </div>
+                <span id="tm-editor-save-status" class="small text-body-secondary" aria-live="polite"></span>
+                <a class="small text-decoration-none d-none" id="tm-editor-published-link" href="#" target="_blank" rel="noopener">Open published content</a>
+                <div n:class="'dropdown', $editor_revision_count === 0 ? 'd-none'" id="tm-editor-history-control">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="bi bi-clock-history" aria-hidden="true"></span>
+                        <span>History</span>
+                        <span class="small" id="tm-editor-history-count">{$editor_revision_count}</span>
+                    </button>
+                    <ul class="dropdown-menu tm-editor-history-menu" id="tm-editor-revisions-list">
+                        {foreach $editor_revisions as $revision}
+                            <li>
+                                <a class="dropdown-item" href="{$revision['open_url']}">
+                                    <span class="d-block fw-semibold">{$revision['title']}</span>
+                                    <span class="d-block small text-body-secondary">{$revision['status']} | saved {$revision['saved_at_display']}</span>
+                                </a>
+                            </li>
+                        {/foreach}
+                    </ul>
+                </div>
+                <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1{if empty( $editor_loaded_draft_id )} d-none{/if}" id="tm-editor-delete-current-draft" type="button"><span class="bi bi-trash" aria-hidden="true"></span><span>Delete draft</span></button>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-duplicate" type="button"><span class="bi bi-copy" aria-hidden="true"></span><span>Duplicate</span></button>
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-cancel" type="button"><span class="bi bi-x-circle" aria-hidden="true"></span><span>Cancel</span></button>
+                <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$entries_url}"><span class="bi bi-folder2-open" aria-hidden="true"></span><span>Content</span></a>
+            </div>
         </div>
-    {/if}
-    {if empty( $editor_image_upload['enabled'] ) && (string) ( $editor_image_upload['message'] ?? '' ) !== ''}
-        <div class="small mb-1 text-warning-emphasis">
-            {$editor_image_upload['message'] ?? ''}
-        </div>
-    {/if}
+
+        {if empty( $editor_image_upload['enabled'] ) && (string) ( $editor_image_upload['message'] ?? '' ) !== ''}
+            <div class="small text-warning-emphasis mt-2">
+                {$editor_image_upload['message'] ?? ''}
+            </div>
+        {/if}
+    </header>
 
     {include './tabs.latte'}
-</div>
+</section>

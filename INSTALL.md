@@ -133,6 +133,30 @@ app/config/tinymash.json.example
 
 Use it as reference only; do not overwrite an existing `app/config/tinymash.json` during upgrades or redeploys.
 
+## Upgrading an existing installation
+
+Do not copy a new release over the old application tree. Removed PHP, plugin, theme, vendor, or public files can remain executable after an overlay.
+
+Use a staged sibling directory:
+
+1. create and verify a site backup
+2. extract/build and audit the new release in an empty sibling directory
+3. stop PHP-FPM and cron/queue writers for the final copy
+4. copy the existing `app/config/tinymash.json`, `data/content`, `data/drafts`, `data/media`, `data/plugins`, and `users` into the staged release
+5. leave `data/runtime`, `tmp`, logs, and the config lock behind
+6. audit the staged release again
+7. rename the old directory aside, move the staged release into place, restore permissions, and reload PHP-FPM
+8. run `system:status`, clear/warm caches, and audit the final installation
+
+```bash
+php8.4 bin/tinymash.php deploy:audit /path/to/staged-release
+php8.4 bin/tinymash.php system:status
+php8.4 bin/tinymash.php cache:clear
+php8.4 bin/tinymash.php deploy:audit /path/to/tinymash
+```
+
+Review third-party `plugins/` and `themes/` separately. Prefer building compatible extensions into the new package so they are covered by its manifest. Keep the old installation and a verified backup until the upgraded site has been checked; after new writes begin, the old directory alone is no longer a complete rollback source.
+
 ## 6. Reload PHP-FPM
 
 After copying new code or changing PHP-FPM pool settings, reload PHP-FPM.

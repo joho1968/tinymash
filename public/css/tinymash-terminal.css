@@ -773,6 +773,11 @@ html[data-bs-theme="light"] body.tm-terminal-shell.tm-terminal-palette-classic-l
 }
 
 .tm-terminal-screen-mode-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
     border: 0;
     background: transparent;
     color: var(--tm-muted);
@@ -1524,7 +1529,6 @@ html[data-bs-theme="light"] .tm-terminal-rendered .table-striped tbody tr:nth-ch
 .tm-terminal-shell .tm-downloads-section-title {
     margin: 0 0 0.75rem;
     padding-bottom: 0.35rem;
-    /*border-bottom: 1px solid var(--tm-border);*/
     color: var(--tm-accent);
     font-size: 1rem;
     font-weight: 700;

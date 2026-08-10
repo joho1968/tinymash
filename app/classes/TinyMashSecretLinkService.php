@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashLockedJsonFile.php';
+
 class TinyMashSecretLinkService {
 
     public const COOKIE_NAME = 'tinymashSecretLinks';
@@ -39,23 +41,32 @@ class TinyMashSecretLinkService {
             throw new \InvalidArgumentException( 'author_slug' );
         }
 
-        $store = $this->readStore();
         $created_at_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
         $effective_expiry_days = $this->normalizeExpiryDays( $expiry_days ?? $this->getDefaultExpiryDays() );
         $expires_at_utc = gmdate( 'Y-m-d\TH:i:s\Z', time() + ( $effective_expiry_days * 86400 ) );
-        $token = $this->generateUniqueToken( $store );
         $created_by_username = $this->normalizeAuthorSlug( $created_by_username );
 
-        $record = [
-            'author_slug' => $author_slug,
-            'token' => $token,
-            'created_at_utc' => $created_at_utc,
-            'expires_at_utc' => $expires_at_utc,
-            'created_by_username' => $created_by_username,
-        ];
-        $store['authors'][$author_slug] = $record;
-
-        if ( ! $this->writeStore( $store ) ) {
+        try {
+            $record = TinyMashLockedJsonFile::mutate(
+                $this->store_filename,
+                function( array $store ) use ( $author_slug, $created_at_utc, $expires_at_utc, $created_by_username ) : array {
+                    $store = $this->normalizeStore( $store );
+                    $record = [
+                        'author_slug' => $author_slug,
+                        'token' => $this->generateUniqueToken( $store ),
+                        'created_at_utc' => $created_at_utc,
+                        'expires_at_utc' => $expires_at_utc,
+                        'created_by_username' => $created_by_username,
+                    ];
+                    $store['authors'][$author_slug] = $record;
+                    return( [ 'data' => $store, 'result' => $record ] );
+                },
+                [ 'authors' => [] ]
+            );
+        } catch ( \Throwable $e ) {
+            throw new \RuntimeException( 'Unable to save secret link.', 0, $e );
+        }
+        if ( ! is_array( $record ) ) {
             throw new \RuntimeException( 'Unable to save secret link.' );
         }
 
@@ -68,13 +79,21 @@ class TinyMashSecretLinkService {
             return( false );
         }
 
-        $store = $this->readStore();
-        if ( ! isset( $store['authors'][$author_slug] ) ) {
-            return( true );
+        try {
+            return(
+                TinyMashLockedJsonFile::mutate(
+                    $this->store_filename,
+                    function( array $store ) use ( $author_slug ) : array {
+                        $store = $this->normalizeStore( $store );
+                        unset( $store['authors'][$author_slug] );
+                        return( [ 'data' => $store, 'result' => true ] );
+                    },
+                    [ 'authors' => [] ]
+                ) === true
+            );
+        } catch ( \Throwable ) {
+            return( false );
         }
-
-        unset( $store['authors'][$author_slug] );
-        return( $this->writeStore( $store ) );
     }
 
     public function resolveToken( string $token ) : ?array {
@@ -233,34 +252,12 @@ class TinyMashSecretLinkService {
     }
 
     protected function readStore() : array {
-        $default_store = [ 'authors' => [] ];
-        if ( ! is_file( $this->store_filename ) || ! is_readable( $this->store_filename ) ) {
-            return( $default_store );
-        }
+        return( $this->normalizeStore( TinyMashLockedJsonFile::read( $this->store_filename, [ 'authors' => [] ] ) ) );
+    }
 
-        $handle = @ fopen( $this->store_filename, 'rb' );
-        if ( $handle === false ) {
-            return( $default_store );
-        }
-
-        $json = '';
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( $default_store );
-            }
-            $json = stream_get_contents( $handle ) ?: '';
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
-
-        $decoded = json_decode( $json, true, 16 );
-        if ( ! is_array( $decoded ) ) {
-            return( $default_store );
-        }
-
+    protected function normalizeStore( array $store ) : array {
         $authors = [];
-        foreach ( (array) ( $decoded['authors'] ?? [] ) as $author_slug => $record ) {
+        foreach ( (array) ( $store['authors'] ?? [] ) as $author_slug => $record ) {
             $normalized_record = $this->normalizeRecord( $record, is_string( $author_slug ) ? $author_slug : '' );
             if ( ! is_array( $normalized_record ) ) {
                 continue;
@@ -269,47 +266,6 @@ class TinyMashSecretLinkService {
         }
 
         return( [ 'authors' => $authors ] );
-    }
-
-    protected function writeStore( array $store ) : bool {
-        $directory = dirname( $this->store_filename );
-        if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
-            return( false );
-        }
-
-        $normalized_store = [ 'authors' => [] ];
-        foreach ( (array) ( $store['authors'] ?? [] ) as $author_slug => $record ) {
-            $normalized_record = $this->normalizeRecord( $record, is_string( $author_slug ) ? $author_slug : '' );
-            if ( ! is_array( $normalized_record ) ) {
-                continue;
-            }
-            $normalized_store['authors'][$normalized_record['author_slug']] = $normalized_record;
-        }
-
-        $json = json_encode( $normalized_store, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
-        if ( ! is_string( $json ) || $json === '' ) {
-            return( false );
-        }
-
-        $handle = @ fopen( $this->store_filename, 'c+' );
-        if ( $handle === false ) {
-            return( false );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                return( false );
-            }
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            $written = fwrite( $handle, $json . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
-
-        return( $written !== false );
     }
 
     protected function normalizeRecord( mixed $record, string $fallback_author_slug = '' ) : ?array {

@@ -3,12 +3,12 @@
 {block content}
     {var $message = trim((string) ($message ?? ''))}
     {var $login_url = trim((string) ($login_url ?? ''))}
-    <div class="row justify-content-center py-4">
-        <div class="col-12 col-lg-9 col-xl-8">
+    <div class="py-4">
+        <div class="w-100">
             <div class="tm-timeline-panel text-center">
-                <div class="display-6 mb-3">
+                <h1 class="tm-timeline-404-title mb-3">
                     <span class="tm-timeline-404-code">404</span> {$title}
-                </div>
+                </h1>
                 <div class="text-secondary">
                     {if $message !== ''}
                         {$message}

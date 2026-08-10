@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashStaticExportArtifactService {
 
     protected string $artifact_root;
@@ -279,12 +281,14 @@ class TinyMashStaticExportArtifactService {
         if ( ! is_string( $json ) ) {
             throw new \RuntimeException( 'Unable to encode static export metadata.' );
         }
-        file_put_contents( $filename, $json . PHP_EOL, LOCK_EX );
+        if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $json . PHP_EOL ) ) {
+            throw new \RuntimeException( 'Unable to write static export metadata.' );
+        }
     }
 
     protected function ensureDirectory( string $directory ) : void {
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
+        if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
+            throw new \RuntimeException( 'Unable to create static export directory.' );
         }
     }
 

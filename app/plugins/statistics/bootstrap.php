@@ -405,24 +405,22 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $html );
     };
 
-    $render_cards = static function( array $cards ) : string {
-        $html = '<div class="row g-3">';
-        foreach ( $cards as $card ) {
-            if ( ! is_array( $card ) ) {
+    $render_metrics = static function( array $metrics ) : string {
+        $html = '<dl class="row g-0 border-top border-bottom mb-0">';
+        foreach ( $metrics as $metric ) {
+            if ( ! is_array( $metric ) ) {
                 continue;
             }
-            $html .= '<div class="col-12 col-md-6 col-xl-3">';
-            $html .= '<section class="h-100 rounded-3 p-3 bg-body-secondary">';
-            $html .= '<div class="small text-uppercase text-body-secondary mb-2">' . htmlspecialchars( (string) ( $card['label'] ?? '' ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</div>';
-            $html .= '<div class="fs-4 fw-semibold">' . (int) ( $card['value'] ?? 0 ) . '</div>';
-            $html .= '</section>';
+            $html .= '<div class="col-6 col-xl-3 py-2 pe-3">';
+            $html .= '<dt class="small text-uppercase text-body-secondary fw-normal">' . htmlspecialchars( (string) ( $metric['label'] ?? '' ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</dt>';
+            $html .= '<dd class="fs-4 fw-semibold mb-0">' . (int) ( $metric['value'] ?? 0 ) . '</dd>';
             $html .= '</div>';
         }
-        $html .= '</div>';
+        $html .= '</dl>';
         return( $html );
     };
 
-    $render_statistics_page = static function( array $notice = [] ) use ( $plugins, $config, $security, $repository, $get_settings, $render_cards, $render_chart, $render_page_table, $render_author_table, $format_last_seen, $statistics_url, $settings_url, $escape, $resolve_author_label ) : void {
+    $render_statistics_page = static function( array $notice = [] ) use ( $plugins, $config, $security, $repository, $get_settings, $render_metrics, $render_chart, $render_page_table, $render_author_table, $format_last_seen, $statistics_url, $settings_url, $escape, $resolve_author_label ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( (string) ( $config->configGetLoginURL() ?: '/login' ) );
             return;
@@ -453,7 +451,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             : '';
 
         $body_html = '';
-        $body_html .= '<section class="rounded-3 p-3 bg-body-secondary mb-3">';
+        $body_html .= '<section class="py-2 border-top border-bottom mb-3">';
         $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Collection</div>';
         $body_html .= '<div class="d-flex flex-wrap gap-3 small text-body-secondary">';
         $body_html .= '<span>Status: <span class="text-body">' . ( $settings['collection_enabled'] ? 'Enabled' : 'Disabled' ) . '</span></span>';
@@ -479,7 +477,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<h2 class="h5 mb-1">Public page views</h2>';
             $body_html .= '<div class="small text-body-secondary">Last seen: ' . $escape( $format_last_seen( (string) ( $site_report['last_viewed_at_utc'] ?? '' ) ) ) . '</div>';
             $body_html .= '</div>';
-            $body_html .= $render_cards(
+            $body_html .= $render_metrics(
                 [
                     [ 'label' => 'All time', 'value' => (int) ( $site_report['total_views'] ?? 0 ) ],
                     [ 'label' => 'Last 7 days', 'value' => (int) ( $site_report['last_7_days'] ?? 0 ) ],
@@ -487,10 +485,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     [ 'label' => 'Author spaces', 'value' => (int) ( $site_report['tracked_authors'] ?? 0 ) ],
                 ]
             );
-            $body_html .= '<div class="row g-3">';
-            $body_html .= '<div class="col-12 col-xl-7"><section class="p-3 bg-body border rounded-3 shadow-sm"><div class="small text-uppercase text-body-secondary mb-2">Recent trend</div><h3 class="h6 mb-3">Last 14 days</h3>' . $render_chart( (array) ( $site_report['daily_series'] ?? [] ) ) . '</section></div>';
-            $body_html .= '<div class="col-12 col-xl-5"><section class="p-3 bg-body border rounded-3 shadow-sm"><div class="small text-uppercase text-body-secondary mb-2">Top author spaces</div><h3 class="h6 mb-3">By all-time views</h3>' . $render_author_table( (array) ( $site_report['top_authors'] ?? [] ) ) . '</section></div>';
-            $body_html .= '<div class="col-12"><section class="p-3 bg-body border rounded-3 shadow-sm"><div class="small text-uppercase text-body-secondary mb-2">Top content</div><h3 class="h6 mb-3">By all-time views</h3>' . $render_page_table( (array) ( $site_report['top_pages'] ?? [] ) ) . '</section></div>';
+            $body_html .= '<div class="row g-4">';
+            $body_html .= '<div class="col-12 col-xl-7"><section><div class="small text-uppercase text-body-secondary mb-2">Recent trend</div><h3 class="h6 mb-3">Last 14 days</h3>' . $render_chart( (array) ( $site_report['daily_series'] ?? [] ) ) . '</section></div>';
+            $body_html .= '<div class="col-12 col-xl-5"><section><div class="small text-uppercase text-body-secondary mb-2">Top author spaces</div><h3 class="h6 mb-3">By all-time views</h3>' . $render_author_table( (array) ( $site_report['top_authors'] ?? [] ) ) . '</section></div>';
+            $body_html .= '<div class="col-12"><section class="border-top pt-3"><div class="small text-uppercase text-body-secondary mb-2">Top content</div><h3 class="h6 mb-3">By all-time views</h3>' . $render_page_table( (array) ( $site_report['top_pages'] ?? [] ) ) . '</section></div>';
             $body_html .= '</div>';
             $body_html .= '</section>';
         }
@@ -502,7 +500,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<h2 class="h5 mb-1">Your public views</h2>';
             $body_html .= '<div class="small text-body-secondary">Current author: ' . $escape( $current_author_label !== '' ? $current_author_label : $current_username ) . ' · Last seen: ' . $escape( $format_last_seen( (string) ( $author_report['last_viewed_at_utc'] ?? '' ) ) ) . '</div>';
             $body_html .= '</div>';
-            $body_html .= $render_cards(
+            $body_html .= $render_metrics(
                 [
                     [ 'label' => 'All time', 'value' => (int) ( $author_report['total_views'] ?? 0 ) ],
                     [ 'label' => 'Last 7 days', 'value' => (int) ( $author_report['last_7_days'] ?? 0 ) ],
@@ -510,9 +508,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     [ 'label' => 'Tracked pages', 'value' => (int) ( $author_report['tracked_pages'] ?? 0 ) ],
                 ]
             );
-            $body_html .= '<div class="row g-3">';
-            $body_html .= '<div class="col-12 col-xl-7"><section class="p-3 bg-body border rounded-3 shadow-sm"><div class="small text-uppercase text-body-secondary mb-2">Recent trend</div><h3 class="h6 mb-3">Last 14 days</h3>' . $render_chart( (array) ( $author_report['daily_series'] ?? [] ), '#198754' ) . '</section></div>';
-            $body_html .= '<div class="col-12 col-xl-5"><section class="p-3 bg-body border rounded-3 shadow-sm"><div class="small text-uppercase text-body-secondary mb-2">Top content</div><h3 class="h6 mb-3">By all-time views</h3>' . $render_page_table( (array) ( $author_report['top_pages'] ?? [] ) ) . '</section></div>';
+            $body_html .= '<div class="row g-4">';
+            $body_html .= '<div class="col-12 col-xl-7"><section><div class="small text-uppercase text-body-secondary mb-2">Recent trend</div><h3 class="h6 mb-3">Last 14 days</h3>' . $render_chart( (array) ( $author_report['daily_series'] ?? [] ), '#198754' ) . '</section></div>';
+            $body_html .= '<div class="col-12 col-xl-5"><section><div class="small text-uppercase text-body-secondary mb-2">Top content</div><h3 class="h6 mb-3">By all-time views</h3>' . $render_page_table( (array) ( $author_report['top_pages'] ?? [] ) ) . '</section></div>';
             $body_html .= '</div>';
             $body_html .= '</section>';
         }

@@ -1,0 +1,95 @@
+{var $report = is_array($system_link_integrity ?? null) ? $system_link_integrity : []}
+{var $summary = is_array($report['summary'] ?? null) ? $report['summary'] : []}
+{var $findings = is_array($report['findings'] ?? null) ? $report['findings'] : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm" aria-labelledby="tm-link-integrity-heading">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+        <div>
+            <div class="small text-uppercase text-body-secondary mb-1">Content</div>
+            <h2 class="h5 mb-1" id="tm-link-integrity-heading">Link integrity</h2>
+            <div class="small text-body-secondary">Read-only checks for local links and images in rendered content and configured menus.</div>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="{$system_section_urls['link_integrity']}"><span class="bi bi-arrow-clockwise me-1" aria-hidden="true"></span>Run again</a>
+    </div>
+
+    {if ! empty($report['error_message'])}
+        <div class="alert alert-danger mb-0" role="alert">{$report['error_message']}</div>
+    {else}
+        <dl class="row g-2 mb-3 small" id="tm-link-integrity-summary">
+            <div class="col-6 col-xl-3">
+                <dt class="text-body-secondary fw-normal">Content items</dt>
+                <dd class="fs-5 mb-0">{$summary['entries'] ?? 0}</dd>
+            </div>
+            <div class="col-6 col-xl-3">
+                <dt class="text-body-secondary fw-normal">Internal targets</dt>
+                <dd class="fs-5 mb-0">{$summary['internal_targets'] ?? 0}</dd>
+            </div>
+            <div class="col-6 col-xl-3">
+                <dt class="text-body-secondary fw-normal">Errors</dt>
+                <dd class="fs-5 mb-0 text-danger">{$summary['errors'] ?? 0}</dd>
+            </div>
+            <div class="col-6 col-xl-3">
+                <dt class="text-body-secondary fw-normal">Warnings</dt>
+                <dd class="fs-5 mb-0 text-warning-emphasis">{$summary['warnings'] ?? 0}</dd>
+            </div>
+        </dl>
+
+        {if empty($findings)}
+            <div class="py-3 border-top">
+                <div class="fw-semibold">No local link problems found.</div>
+                <div class="small text-body-secondary">{$report['scope_note'] ?? ''}</div>
+            </div>
+        {else}
+            <div class="table-responsive border-top pt-2 d-none d-md-block">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Status</th>
+                            <th scope="col">Source</th>
+                            <th scope="col">Target</th>
+                            <th scope="col">Finding</th>
+                            <th scope="col" class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {foreach $findings as $finding}
+                            <tr>
+                                <td><span class="badge text-bg-{($finding['severity'] ?? '') === 'error' ? 'danger' : 'warning'}">{ucfirst((string) ($finding['severity'] ?? 'notice'))}</span></td>
+                                <td>
+                                    <div class="fw-semibold">{$finding['source_label'] ?? 'Unknown source'}</div>
+                                    <div class="small text-body-secondary">{$finding['field'] ?? ''}</div>
+                                </td>
+                                <td>
+                                    <code class="text-break">{$finding['destination'] ?? ''}</code>
+                                    {if ! empty($finding['redirect_target'])}
+                                        <div class="small text-body-secondary text-break">Redirects to <code>{$finding['redirect_target']}</code></div>
+                                    {/if}
+                                </td>
+                                <td class="small">{$finding['message'] ?? ''}</td>
+                                <td class="text-end"><a class="btn btn-outline-secondary btn-sm" href="{$finding['edit_url']}">Open</a></td>
+                            </tr>
+                        {/foreach}
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-md-none border-top">
+                {foreach $findings as $finding}
+                    <section class="py-3 border-bottom" aria-label="{$finding['source_label'] ?? 'Link finding'}">
+                        <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
+                            <span class="badge text-bg-{($finding['severity'] ?? '') === 'error' ? 'danger' : 'warning'}">{ucfirst((string) ($finding['severity'] ?? 'notice'))}</span>
+                            <a class="btn btn-outline-secondary btn-sm" href="{$finding['edit_url']}">Open</a>
+                        </div>
+                        <div class="fw-semibold">{$finding['source_label'] ?? 'Unknown source'}</div>
+                        <div class="small text-body-secondary mb-2">{$finding['field'] ?? ''}</div>
+                        <code class="d-block text-break mb-2">{$finding['destination'] ?? ''}</code>
+                        {if ! empty($finding['redirect_target'])}
+                            <div class="small text-body-secondary text-break mb-2">Redirects to <code>{$finding['redirect_target']}</code></div>
+                        {/if}
+                        <div class="small">{$finding['message'] ?? ''}</div>
+                    </section>
+                {/foreach}
+            </div>
+            <div class="small text-body-secondary mt-3">{$report['scope_note'] ?? ''}</div>
+        {/if}
+    {/if}
+</section>

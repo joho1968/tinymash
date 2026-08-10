@@ -29,6 +29,9 @@
         </article>
     {else}
         <section class="tm-panel-magazine-listing d-grid gap-4">
+            {if empty( $listing_context_title )}
+                <h1 class="visually-hidden">Latest posts</h1>
+            {/if}
             {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
                 <header class="tm-panel-magazine-listing-context px-3 py-3">
                     <h1 n:if="! empty( $listing_context_title )" class="h5 mb-2">{$listing_context_title}</h1>

@@ -6,10 +6,13 @@
     {var $blocks_featured_columns = max(1, (int) ($blocks_featured_columns ?? 1))}
     {var $blocks_general_columns = max(1, (int) ($blocks_general_columns ?? 3))}
     <section class="d-grid gap-4">
+        {if empty( $listing_context_title )}
+            <h1 class="visually-hidden">Posts by {$author_display_name ?? $author_slug ?? 'author'}</h1>
+        {/if}
         {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
             <section class="tm-blocks-panel tm-blocks-context p-4">
                 {if ! empty( $listing_context_title ) }
-                    <h2 class="h5 mb-2">{$listing_context_title}</h2>
+                    <h1 class="h5 mb-2">{$listing_context_title}</h1>
                 {/if}
                 {if ! empty( $listing_context_summary ) }
                     <p class="mb-0 text-secondary">{$listing_context_summary}</p>

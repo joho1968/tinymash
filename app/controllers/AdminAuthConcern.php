@@ -10,7 +10,7 @@ trait AdminAuthConcern {
         return( $this->security->isLoggedIn() );
     }
 
-    protected function getLoginViewData( string $admin_username = '', string $login_error = '', string $return_url = '' ) : array {
+    protected function getLoginViewData( string $admin_username = '', string $login_error = '', string $return_url = '', string $login_notice = '' ) : array {
         $system_settings = $this->config->getSystemSettings();
         $password_reset_allowed = ! empty( $system_settings['allow_admin_password_resets'] ) || ! empty( $system_settings['allow_author_password_resets'] );
         $login_screen_message = (string) ( $system_settings['login_message'] ?? '' );
@@ -30,6 +30,7 @@ trait AdminAuthConcern {
                 'login_url' => $this->app->get( 'login.url' ),
                 'admin_username' => $admin_username,
                 'login_error' => $login_error,
+                'login_notice' => $login_notice,
                 'return_url' => $return_url,
                 'maintenance_notice' => $this->config->getMaintenance() ? 'Maintenance mode is active. Only admins can log in right now.' : '',
                 'login_screen_message' => $login_screen_message,
@@ -48,7 +49,15 @@ trait AdminAuthConcern {
             $this->app->redirect( $return_url !== '' ? $return_url : $this->config->configGetAdminURL() );
             return;
         }
-        $this->renderAdmin( 'login', $this->getLoginViewData( '', '', $return_url ) );
+        $restore_notice = $this->security->pullFlash( 'backup.restore_login_notice', [] );
+        $login_notice = is_array( $restore_notice ) && array_key_exists( 'plugin_warnings', $restore_notice )
+            ? 'Site restore completed. Sign in with an account from the restored backup.'
+            : '';
+        $plugin_warning_count = max( 0, (int) ( is_array( $restore_notice ) ? ( $restore_notice['plugin_warnings'] ?? 0 ) : 0 ) );
+        if ( $plugin_warning_count > 0 ) {
+            $login_notice .= ' ' . $plugin_warning_count . ' plugin import' . ( $plugin_warning_count === 1 ? '' : 's' ) . ' reported a warning; review plugin state after login.';
+        }
+        $this->renderAdmin( 'login', $this->getLoginViewData( '', '', $return_url, $login_notice ) );
     }
 
     public function login() : void {
@@ -284,40 +293,29 @@ trait AdminAuthConcern {
     }
 
     protected function sanitizeLoginReturnUrl( string $return_url ) : string {
-        $return_url = trim( $return_url );
-        if ( $return_url === '' ) {
-            return( '' );
-        }
-
-        $parts = parse_url( $return_url );
-        if ( $parts === false ) {
-            return( '' );
-        }
-
-        if ( isset( $parts['scheme'] ) || isset( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
-            return( '' );
-        }
-
-        $path = trim( (string) ( $parts['path'] ?? '' ) );
-        if ( $path === '' ) {
-            return( '' );
-        }
-
-        if ( ! str_starts_with( $path, '/' ) ) {
-            $path = '/' . ltrim( $path, '/' );
-        }
-
-        $admin_url = (string) $this->config->configGetAdminURL();
-        $login_url = (string) $this->config->configGetLoginURL();
-        if ( ! str_starts_with( $path, $admin_url ) || $path === $login_url ) {
-            return( '' );
-        }
-
-        $query = trim( (string) ( $parts['query'] ?? '' ) );
-        return( $path . ( $query !== '' ? '?' . $query : '' ) );
+        return(
+            \app\classes\TinyMashSecurity::sanitizeAdminReturnUrl(
+                $return_url,
+                (string) $this->config->configGetAdminURL(),
+                (string) $this->config->configGetLoginURL()
+            )
+        );
     }
 
     public function logout() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->app->redirect( $this->config->configGetLoginURL() );
+            return;
+        }
+
+        $data = $this->app->request()->data->getData();
+        if ( ! is_array( $data ) || ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->app->response()->status( 403 );
+            $this->app->response()->header( 'Content-Type', 'text/plain; charset=UTF-8' );
+            $this->app->response()->write( 'Invalid session token.' );
+            return;
+        }
+
         $this->security->logout();
         $this->app->redirect( $this->config->configGetLoginURL() );
     }

@@ -15,6 +15,8 @@
 {var $social_image = is_array($theme_seo['social_image'] ?? null) ? $theme_seo['social_image'] : $meta_image}
 {var $site_favicon_png_image = is_array($site_favicon_png_image ?? null) ? $site_favicon_png_image : []}
 {var $site_favicon_ico_image = is_array($site_favicon_ico_image ?? null) ? $site_favicon_ico_image : []}
+{var $theme_color_light = '#f8f9fa'}
+{var $theme_color_dark = '#212529'}
 {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
 {var $theme_layout_hints = is_array($theme_layout_hints ?? null) ? $theme_layout_hints : []}
 {var $theme_wide_content_requested = ! empty($theme_layout_hints['wide_content'])}
@@ -45,9 +47,15 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
+        <meta name="theme-color" content="{$theme_initial_bs_theme === 'dark' ? $theme_color_dark : $theme_color_light}" data-tm-theme-color>
         <script>
             (() => {
                 const root = document.documentElement;
+                const themeColorMeta = document.querySelector('meta[data-tm-theme-color]');
+                const themeColors = {
+                    light: {=json_encode($theme_color_light)|noescape},
+                    dark: {=json_encode($theme_color_dark)|noescape},
+                };
                 const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
                 const screenModeStorageKey = screenModeCookieName;
                 const cookieMatch = document.cookie.match(new RegExp('(?:^|;\\s*)' + screenModeCookieName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + '=([^;]+)'));
@@ -70,8 +78,11 @@
                 root.setAttribute('data-tm-screen-mode-script', '1');
                 root.setAttribute('data-bs-theme', resolvedMode);
                 root.style.colorScheme = resolvedMode;
-                root.style.backgroundColor = resolvedMode === 'dark' ? '#212529' : '#f8f9fa';
+                root.style.backgroundColor = themeColors[resolvedMode];
                 root.style.color = resolvedMode === 'dark' ? '#dee2e6' : '#212529';
+                if (themeColorMeta) {
+                    themeColorMeta.setAttribute('content', themeColors[resolvedMode]);
+                }
                 root.setAttribute('data-tm-screen-mode-ready', '1');
             })();
         </script>
@@ -158,19 +169,19 @@
         </script>
         <style>
             html {
-                background-color: #f8f9fa;
+                background-color: {$theme_color_light};
                 color: #212529;
             }
 
             @media (prefers-color-scheme: dark) {
                 html {
-                    background-color: #212529;
+                    background-color: {$theme_color_dark};
                     color: #dee2e6;
                 }
             }
 
             html[data-bs-theme="dark"] {
-                background-color: #212529;
+                background-color: {$theme_color_dark};
                 color: #dee2e6;
             }
 
@@ -195,7 +206,6 @@
         {if ! empty( $site_favicon_ico_image['url'] )}
             <link rel="icon" type="image/x-icon" href="{$site_favicon_ico_image['url']}">
         {/if}
-        <meta name="title" content="{$meta_title}">
         {if ! empty( $theme_seo['canonical_url'] )}
             <link rel="canonical" href="{$theme_seo['canonical_url']}">
         {/if}
@@ -236,6 +246,7 @@
             {/if}
             {if ! empty( $social_image['alt_text'] )}
                 <meta property="og:image:alt" content="{$social_image['alt_text']}">
+                <meta name="twitter:image:alt" content="{$social_image['alt_text']}">
             {/if}
         {else}
             <meta name="twitter:card" content="summary">
@@ -251,7 +262,7 @@
                 {if ! empty($theme_public_head_tag['name'])}<meta name="{$theme_public_head_tag['name']}" content="{$theme_public_head_tag['content'] ?? ''}">{/if}
                 {if ! empty($theme_public_head_tag['property'])}<meta property="{$theme_public_head_tag['property']}" content="{$theme_public_head_tag['content'] ?? ''}">{/if}
             {elseif ($theme_public_head_tag['type'] ?? '') === 'link'}
-                <link rel="{$theme_public_head_tag['rel'] ?? ''}" href="{$theme_public_head_tag['href'] ?? ''}">
+                <link rel="{$theme_public_head_tag['rel'] ?? ''}" href="{$theme_public_head_tag['href'] ?? ''}"{if ! empty($theme_public_head_tag['mime'])} type="{$theme_public_head_tag['mime']}"{/if}{if ! empty($theme_public_head_tag['title'])} title="{$theme_public_head_tag['title']}"{/if}>
             {/if}
         {/foreach}
     </head>
@@ -262,6 +273,11 @@
                 'use strict';
                 const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
                 const screenModeStorageKey = screenModeCookieName;
+                const themeColorMeta = document.querySelector('meta[data-tm-theme-color]');
+                const themeColors = {
+                    light: {=json_encode($theme_color_light)|noescape},
+                    dark: {=json_encode($theme_color_dark)|noescape},
+                };
 
                 function getPreferredTheme() {
                     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -308,8 +324,11 @@
                     const effectiveMode = mode === 'auto' ? getPreferredTheme() : mode;
                     document.documentElement.setAttribute('data-bs-theme', effectiveMode);
                     document.documentElement.style.colorScheme = effectiveMode;
-                    document.documentElement.style.backgroundColor = effectiveMode === 'dark' ? '#212529' : '#f8f9fa';
+                    document.documentElement.style.backgroundColor = themeColors[effectiveMode];
                     document.documentElement.style.color = effectiveMode === 'dark' ? '#dee2e6' : '#212529';
+                    if (themeColorMeta) {
+                        themeColorMeta.setAttribute('content', themeColors[effectiveMode]);
+                    }
                     updateScreenModeMenu(mode);
                 }
 

@@ -10,11 +10,11 @@
                 <div>
                     <div class="small text-uppercase text-body-secondary mb-2">Active public theme settings</div>
                     <h3 class="h5 mb-1">{$system_theme_name} settings</h3>
-                    <p class="text-body-secondary mb-0">These settings apply to the currently active public theme only.</p>
+                    <p class="text-body-secondary mb-0">Applies only to the active public theme.</p>
                 </div>
             </div>
             {if empty( $system_theme_settings_schema )}
-                <div class="small text-body-secondary">This theme does not currently expose any configurable settings.</div>
+                <div class="small text-body-secondary">No configurable settings.</div>
             {else}
                 <div class="row g-3  bg-body-secondary m-1 p-1 rounded-3">
                     {foreach $system_theme_settings_schema as $theme_setting}

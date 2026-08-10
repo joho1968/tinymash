@@ -3,12 +3,8 @@
   "roles": ["author", "admin"],
   "order": 70,
   "title": "Markdown reference",
-  "summary": "Reference for the Markdown syntax and extensions supported by tinymash.",
+  "summary": "Reference for the Markdown syntax and extensions supported by tinymash. tinymash renders CommonMark with the GitHub-flavored features already in use in the composer, including tables, task lists, strikethrough, fenced code blocks, and inline code.",
   "sections": [
-    {
-      "title": "Supported baseline",
-      "markdown": "tinymash renders CommonMark with the GitHub-flavored features already in use in the composer. That includes tables, task lists, strikethrough, fenced code blocks, and inline code."
-    },
     {
       "title": "Headings",
       "markdown": "Use `#` through `######` for `H1` through `H6`.\n\n```md\n# H1\n## H2\n### H3\n```"
@@ -28,6 +24,10 @@
     {
       "title": "Blank lines",
       "markdown": "A normal blank line separates blocks. Extra blank lines between blocks are preserved as visible vertical spacing in public rendering. Blank lines inside fenced code blocks stay part of the code block."
+    },
+    {
+      "title": "Horizontal rules",
+      "markdown": "Put three hyphens on their own line to create a horizontal rule.\n\n```md\nText above\n\n---\n\nText below\n```"
     },
     {
       "title": "Tables",

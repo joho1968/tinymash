@@ -271,7 +271,7 @@ class TinyMashRssReaderService {
             'refreshed_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
             'sources' => $next_sources,
         ];
-        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $this->normalizeCache( $cache ) ) ) {
+        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $this->normalizeCache( $cache ), true ) ) {
             throw new \RuntimeException( 'cache_write' );
         }
 
@@ -945,7 +945,7 @@ class TinyMashRssReaderService {
         }
         $cache = $this->getCache();
         $cache['sources'] = array_intersect_key( $cache['sources'], $source_keys );
-        TinyMashLockedJsonFile::write( $this->cache_filename, $cache );
+        TinyMashLockedJsonFile::write( $this->cache_filename, $cache, true );
     }
 
     protected function renderUnavailableHtml( string $message ) : string {

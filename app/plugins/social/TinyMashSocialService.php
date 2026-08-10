@@ -1,5 +1,9 @@
 <?php
 
+use app\classes\TinyMashLockedJsonFile;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashLockedJsonFile.php';
+
 class TinyMashSocialService {
 
     protected string $site_settings_filename;
@@ -30,27 +34,14 @@ class TinyMashSocialService {
     }
 
     public function getSiteSettings() : array {
-        if ( ! is_file( $this->site_settings_filename ) || ! is_readable( $this->site_settings_filename ) ) {
-            return( $this->getDefaultSettings() );
-        }
-
-        $json = file_get_contents( $this->site_settings_filename );
-        $data = is_string( $json ) ? json_decode( $json, true, 16 ) : null;
-        return( $this->normalizeSettings( is_array( $data ) ? $data : [] ) );
+        return( $this->normalizeSettings( TinyMashLockedJsonFile::read( $this->site_settings_filename, $this->getDefaultSettings() ) ) );
     }
 
     public function saveSiteSettings( array $input ) : array {
         $settings = $this->normalizeSettings( $input );
-        $directory = dirname( $this->site_settings_filename );
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
+        if ( ! TinyMashLockedJsonFile::write( $this->site_settings_filename, $settings ) ) {
+            throw new \RuntimeException( 'Unable to save social-link settings.' );
         }
-
-        file_put_contents(
-            $this->site_settings_filename,
-            json_encode( $settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n",
-            LOCK_EX
-        );
 
         return( $settings );
     }
@@ -99,7 +90,7 @@ class TinyMashSocialService {
                 continue;
             }
 
-            $label = trim( (string) ( $link['label'] ?? '' ) );
+            $label = mb_trim( (string) ( $link['label'] ?? '' ) );
             $normalized[] = [
                 'enabled' => array_key_exists( 'enabled', $link ) ? ! empty( $link['enabled'] ) : true,
                 'type' => $type,
@@ -148,7 +139,7 @@ class TinyMashSocialService {
             if ( $url === '' ) {
                 continue;
             }
-            $address = trim( (string) ( $link['address'] ?? '' ) );
+            $address = mb_trim( (string) ( $link['address'] ?? '' ) );
             $items[] = [
                 'type' => $type,
                 'type_label' => $this->getTypeLabel( $type ),
@@ -230,7 +221,7 @@ class TinyMashSocialService {
         };
 
         $html = '<div class="row g-3 mb-3">';
-        $html .= '<div class="col-12 col-lg-6"><div class="h-100 p-3 bg-body-tertiary rounded-3">';
+        $html .= '<div class="col-12 col-lg-6"><div class="h-100 py-2">';
         $html .= '<div class="d-grid gap-2">';
         $html .= '<div class="form-check"><input class="form-check-input" id="tm-social-enabled" name="' . $this->escape( $name( 'enabled' ) ) . '" type="checkbox" value="1"' . ( ! empty( $settings['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-social-enabled">Enable Social output</label></div>';
         $html .= '<div class="form-check"><input class="form-check-input" id="tm-social-footer" name="' . $this->escape( $name( 'show_in_footer' ) ) . '" type="checkbox" value="1"' . ( ! empty( $settings['show_in_footer'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-social-footer">Show in footer slot</label></div>';
@@ -239,7 +230,7 @@ class TinyMashSocialService {
             $html .= '<div class="form-check"><input class="form-check-input" id="tm-social-fallback-to-site-for-author" name="' . $this->escape( $name( 'fallback_to_site_for_author' ) ) . '" type="checkbox" value="1"' . ( ! empty( $settings['fallback_to_site_for_author'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-social-fallback-to-site-for-author">Use site links when profile links are empty</label></div>';
         }
         $html .= '</div></div></div>';
-        $html .= '<div class="col-12 col-lg-6"><div class="h-100 p-3 bg-body-tertiary rounded-3">';
+        $html .= '<div class="col-12 col-lg-6"><div class="h-100 py-2">';
         $html .= '<div class="d-grid gap-3">';
         $html .= '<div><label class="form-label small mb-1" for="tm-social-section-label">Section label</label><input class="form-control" id="tm-social-section-label" name="' . $this->escape( $name( 'section_label' ) ) . '" type="text" maxlength="80" placeholder="Find me" value="' . $this->escape( (string) ( $settings['section_label'] ?? '' ) ) . '"><div class="form-text">Optional label shown above the links.</div></div>';
         if ( $submit_label !== '' ) {
@@ -252,7 +243,7 @@ class TinyMashSocialService {
         $html .= '<div class="row row-cols-1 row-cols-lg-2 row-cols-xxl-3 g-2" data-tm-social-link-list data-tm-reorder-list data-tm-reorder-name="' . $this->escape( $links_name ) . '" data-tm-reorder-id-prefix="tm-social-link" data-tm-reorder-swap-threshold="0.65">';
         foreach ( $links as $index => $link ) {
             $field_prefix = $links_name . '[' . (int) $index . ']';
-            $html .= '<div class="col" data-tm-social-link-row data-tm-reorder-item draggable="false"><div class="h-100 p-2 bg-body-secondary rounded-3">';
+            $html .= '<div class="col" data-tm-social-link-row data-tm-reorder-item draggable="false"><div class="h-100 pt-2 border-top">';
             $html .= '<div class="d-flex justify-content-end gap-1 mb-2"><button class="btn btn-outline-secondary btn-sm" type="button" data-tm-social-link-move="up" data-tm-reorder-move="up" title="Move earlier" aria-label="Move social link earlier"><span class="bi bi-arrow-up" aria-hidden="true"></span></button><button class="btn btn-outline-secondary btn-sm" type="button" data-tm-social-link-move="down" data-tm-reorder-move="down" title="Move later" aria-label="Move social link later"><span class="bi bi-arrow-down" aria-hidden="true"></span></button><button class="btn btn-outline-secondary btn-sm" type="button" data-tm-social-link-drag-handle data-tm-reorder-handle title="Drag to reorder" aria-label="Drag to reorder social link"><span class="bi bi-grip-vertical" aria-hidden="true"></span></button></div>';
             $html .= '<div class="row g-2 align-items-end">';
             $html .= '<div class="col-12 col-sm-4"><div class="form-check mb-sm-2"><input class="form-check-input" id="tm-social-link-enabled-' . (int) $index . '" name="' . $this->escape( $field_prefix . '[enabled]' ) . '" type="checkbox" value="1" data-tm-social-link-field="enabled" data-tm-reorder-field="enabled"' . ( ! empty( $link['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-social-link-enabled-' . (int) $index . '">Active</label></div></div>';

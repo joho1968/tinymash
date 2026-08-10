@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashMediaAttachmentMetadataStore {
     protected const INDEX_VERSION = '2026-03-30-1';
 
@@ -49,6 +51,9 @@ class TinyMashMediaAttachmentMetadataStore {
         }
 
         $metadata_path = $this->buildMetadataPath( $owner_username, $year, $month, $filename );
+        if ( is_file( $metadata_path ) && ! is_array( $this->readMetadataFile( $metadata_path ) ) ) {
+            throw new \RuntimeException( 'Unable to replace malformed media metadata.' );
+        }
         $metadata_directory = dirname( $metadata_path );
         if ( ! is_dir( $metadata_directory ) && ! @ mkdir( $metadata_directory, 0775, true ) && ! is_dir( $metadata_directory ) ) {
             throw new \RuntimeException( 'Unable to create media metadata directory.' );
@@ -65,24 +70,8 @@ class TinyMashMediaAttachmentMetadataStore {
             throw new \RuntimeException( 'Unable to encode media metadata.' );
         }
 
-        $handle = @ fopen( $metadata_path, 'c+' );
-        if ( $handle === false ) {
-            throw new \RuntimeException( 'Unable to open media metadata.' );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                throw new \RuntimeException( 'Unable to lock media metadata.' );
-            }
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            if ( fwrite( $handle, $encoded_metadata . PHP_EOL ) === false ) {
-                throw new \RuntimeException( 'Unable to write media metadata.' );
-            }
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
+        if ( ! TinyMashFilesystem::writeFileAtomically( $metadata_path, $encoded_metadata . PHP_EOL ) ) {
+            throw new \RuntimeException( 'Unable to write media metadata.' );
         }
 
         $this->invalidatePersistentCache();
@@ -99,35 +88,7 @@ class TinyMashMediaAttachmentMetadataStore {
         }
 
         $metadata_path = $this->buildMetadataPath( $owner_username, $year, $month, $filename );
-        if ( ! is_file( $metadata_path ) || ! is_readable( $metadata_path ) ) {
-            return( null );
-        }
-
-        $handle = @ fopen( $metadata_path, 'rb' );
-        if ( $handle === false ) {
-            return( null );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( null );
-            }
-            $metadata_json = stream_get_contents( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
-
-        if ( ! is_string( $metadata_json ) || trim( $metadata_json ) === '' ) {
-            return( null );
-        }
-
-        $metadata = json_decode( $metadata_json, true, 16 );
-        if ( ! is_array( $metadata ) || empty( $metadata ) ) {
-            return( null );
-        }
-
-        return( $this->normalizeMetadata( $metadata ) );
+        return( $this->readMetadataFile( $metadata_path ) );
     }
 
     public function getMetadataByMediaId( string $media_id, array $owner_usernames = [] ) : ?array {
@@ -475,20 +436,7 @@ class TinyMashMediaAttachmentMetadataStore {
             return( null );
         }
 
-        $handle = @ fopen( $this->metadata_index_filename, 'rb' );
-        if ( $handle === false ) {
-            return( null );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( null );
-            }
-            $index_json = stream_get_contents( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
+        $index_json = @ file_get_contents( $this->metadata_index_filename );
 
         if ( ! is_string( $index_json ) || trim( $index_json ) === '' ) {
             return( null );
@@ -526,41 +474,35 @@ class TinyMashMediaAttachmentMetadataStore {
             return;
         }
 
-        $handle = @ fopen( $this->metadata_index_filename, 'c+' );
-        if ( $handle === false ) {
-            return;
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                return;
-            }
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            fwrite( $handle, $encoded_index . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
+        TinyMashFilesystem::writeFileAtomically( $this->metadata_index_filename, $encoded_index . PHP_EOL );
     }
 
     protected function readMetadataFile( string $metadata_path ) : ?array {
-        if ( ! is_file( $metadata_path ) || ! is_readable( $metadata_path ) ) {
+        if ( ! is_file( $metadata_path ) ) {
+            return( null );
+        }
+        if ( ! is_readable( $metadata_path ) ) {
+            $this->logInvalidMetadataFile( $metadata_path );
             return( null );
         }
 
         $metadata_json = file_get_contents( $metadata_path );
         if ( ! is_string( $metadata_json ) || trim( $metadata_json ) === '' ) {
+            $this->logInvalidMetadataFile( $metadata_path );
             return( null );
         }
 
         $metadata = json_decode( $metadata_json, true, 16 );
         if ( ! is_array( $metadata ) || empty( $metadata ) ) {
+            $this->logInvalidMetadataFile( $metadata_path );
             return( null );
         }
 
         return( $this->normalizeMetadata( $metadata ) );
+    }
+
+    protected function logInvalidMetadataFile( string $metadata_path ) : void {
+        error_log( basename( __FILE__ ) . ': Ignoring invalid media metadata "' . basename( $metadata_path ) . '"' );
     }
 
     protected function normalizeMetadata( array $metadata ) : array {
@@ -784,4 +726,4 @@ class TinyMashMediaAttachmentMetadataStore {
         return( basename( trim( $filename ) ) );
     }
 
-}// TinyMashMediaAttachmentMetadataStore
+}

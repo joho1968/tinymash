@@ -1,7 +1,7 @@
 {
     "key": "directory",
     "name": "Links",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Creates categorized link collections rendered through content shortcodes.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -14,6 +14,10 @@
         "content.shortcodes",
         "storage.private"
     ],
+    "static_export": {
+        "mode": "omit",
+        "summary": "Links shortcodes and plugin presentation are not currently included in static exports."
+    },
     "default_active": true,
     "stage": "early"
 }

@@ -46,6 +46,19 @@
                         });
                     }
 
+                    function resetHelpContentScroll() {
+                        const documentsScroll = helpModalContent.querySelector('.tm-help-documents-scroll');
+                        const scrollContainers = [helpModalBody, helpModalContent, documentsScroll]
+                            .filter((container) => container instanceof HTMLElement);
+                        const reset = () => {
+                            scrollContainers.forEach((container) => {
+                                container.scrollTop = 0;
+                            });
+                        };
+                        reset();
+                        window.requestAnimationFrame(reset);
+                    }
+
                     function renderCachedHelpContent(helpContexts, options = {}) {
                         const cachedHtml = helpContentCache.get(helpContexts) || '';
                         if (cachedHtml === '') {
@@ -57,10 +70,7 @@
                             helpModalLoading.classList.remove('d-flex');
                         }
                         helpModalStatus.textContent = 'Loaded';
-                        const documentsScroll = helpModalContent.querySelector('.tm-help-documents-scroll');
-                        if (documentsScroll) {
-                            documentsScroll.scrollTop = 0;
-                        }
+                        resetHelpContentScroll();
                         restoreHelpIndexState({
                             activeContexts: options.activeContexts || helpContexts,
                             keepTocOpen: !!options.keepTocOpen,
@@ -139,6 +149,7 @@
                                 helpModalLoading.classList.remove('d-flex');
                             }
                             helpModalStatus.textContent = 'Unavailable';
+                            resetHelpContentScroll();
                             console.error('[tinymash] help load error', error);
                         }
                     }

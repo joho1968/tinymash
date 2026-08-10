@@ -6,6 +6,18 @@
 {var $theme_background_preload_url = trim((string) ($theme_background_preload_url ?? ''))}
 {var $theme_banner_preload_url = trim((string) ($theme_banner_preload_url ?? ''))}
 {var $theme_terminal_palette = in_array(($theme_settings['terminal_palette'] ?? 'green'), ['green', 'amber', 'ice', 'campbell', 'solarized', 'paper', 'monokai', 'classic-linux'], true) ? (string) ($theme_settings['terminal_palette'] ?? 'green') : 'green'}
+{var $theme_terminal_colors = [
+    'green' => ['light' => '#f3efe3', 'dark' => '#08110c'],
+    'amber' => ['light' => '#f3efe3', 'dark' => '#08110c'],
+    'ice' => ['light' => '#f3efe3', 'dark' => '#08110c'],
+    'campbell' => ['light' => '#f7f7f7', 'dark' => '#0c0c0c'],
+    'solarized' => ['light' => '#fdf6e3', 'dark' => '#002b36'],
+    'paper' => ['light' => '#f6f0e5', 'dark' => '#111315'],
+    'monokai' => ['light' => '#fbfaf4', 'dark' => '#272822'],
+    'classic-linux' => ['light' => '#f4f4f4', 'dark' => '#000000'],
+]}
+{var $theme_color_light = $theme_terminal_colors[$theme_terminal_palette]['light']}
+{var $theme_color_dark = $theme_terminal_colors[$theme_terminal_palette]['dark']}
 {var $document_title = trim((string) ($document_title ?? $title ?? $site_name ?? 'tinymash'))}
 {var $meta_title = trim((string) ($meta_title ?? $document_title))}
 {var $meta_description = trim((string) ($meta_description ?? ''))}
@@ -24,9 +36,15 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
+        <meta name="theme-color" content="{$theme_initial_mode === 'dark' ? $theme_color_dark : $theme_color_light}" data-tm-theme-color>
         <script>
             (() => {
                 const root = document.documentElement;
+                const themeColorMeta = document.querySelector('meta[data-tm-theme-color]');
+                const themeColors = {
+                    light: {=json_encode($theme_color_light)|noescape},
+                    dark: {=json_encode($theme_color_dark)|noescape},
+                };
                 const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
                 const screenModeStorageKey = screenModeCookieName;
                 const cookieMatch = document.cookie.match(new RegExp('(?:^|;\\s*)' + screenModeCookieName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&') + '=([^;]+)'));
@@ -49,8 +67,11 @@
                 root.setAttribute('data-tm-screen-mode-script', '1');
                 root.setAttribute('data-bs-theme', resolvedMode);
                 root.style.colorScheme = resolvedMode;
-                root.style.backgroundColor = resolvedMode === 'dark' ? '#08110c' : '#f4efe2';
+                root.style.backgroundColor = themeColors[resolvedMode];
                 root.style.color = resolvedMode === 'dark' ? '#95f59b' : '#1d2c1f';
+                if (themeColorMeta) {
+                    themeColorMeta.setAttribute('content', themeColors[resolvedMode]);
+                }
                 root.setAttribute('data-tm-screen-mode-ready', '1');
             })();
         </script>
@@ -62,19 +83,19 @@
         {/if}
         <style>
             html {
-                background-color: #f4efe2;
+                background-color: {$theme_color_light};
                 color: #1d2c1f;
             }
 
             @media (prefers-color-scheme: dark) {
                 html {
-                    background-color: #08110c;
+                    background-color: {$theme_color_dark};
                     color: #95f59b;
                 }
             }
 
             html[data-bs-theme="dark"] {
-                background-color: #08110c;
+                background-color: {$theme_color_dark};
                 color: #95f59b;
             }
 
@@ -99,7 +120,6 @@
         {if ! empty( $site_favicon_ico_image['url'] )}
             <link rel="icon" type="image/x-icon" href="{$site_favicon_ico_image['url']}">
         {/if}
-        <meta name="title" content="{$meta_title}">
         {if ! empty( $theme_seo['canonical_url'] )}
             <link rel="canonical" href="{$theme_seo['canonical_url']}">
         {/if}
@@ -140,6 +160,7 @@
             {/if}
             {if ! empty( $social_image['alt_text'] )}
                 <meta property="og:image:alt" content="{$social_image['alt_text']}">
+                <meta name="twitter:image:alt" content="{$social_image['alt_text']}">
             {/if}
         {else}
             <meta name="twitter:card" content="summary">
@@ -155,7 +176,7 @@
                 {if ! empty($theme_public_head_tag['name'])}<meta name="{$theme_public_head_tag['name']}" content="{$theme_public_head_tag['content'] ?? ''}">{/if}
                 {if ! empty($theme_public_head_tag['property'])}<meta property="{$theme_public_head_tag['property']}" content="{$theme_public_head_tag['content'] ?? ''}">{/if}
             {elseif ($theme_public_head_tag['type'] ?? '') === 'link'}
-                <link rel="{$theme_public_head_tag['rel'] ?? ''}" href="{$theme_public_head_tag['href'] ?? ''}">
+                <link rel="{$theme_public_head_tag['rel'] ?? ''}" href="{$theme_public_head_tag['href'] ?? ''}"{if ! empty($theme_public_head_tag['mime'])} type="{$theme_public_head_tag['mime']}"{/if}{if ! empty($theme_public_head_tag['title'])} title="{$theme_public_head_tag['title']}"{/if}>
             {/if}
         {/foreach}
     </head>
@@ -166,6 +187,11 @@
                 'use strict';
                 const screenModeCookieName = {=json_encode($theme_screen_cookie_name)|noescape};
                 const screenModeStorageKey = screenModeCookieName;
+                const themeColorMeta = document.querySelector('meta[data-tm-theme-color]');
+                const themeColors = {
+                    light: {=json_encode($theme_color_light)|noescape},
+                    dark: {=json_encode($theme_color_dark)|noescape},
+                };
 
                 function getPreferredTheme() {
                     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -212,8 +238,11 @@
                     const effectiveMode = mode === 'auto' ? getPreferredTheme() : mode;
                     document.documentElement.setAttribute('data-bs-theme', effectiveMode);
                     document.documentElement.style.colorScheme = effectiveMode;
-                    document.documentElement.style.backgroundColor = effectiveMode === 'dark' ? '#08110c' : '#f4efe2';
+                    document.documentElement.style.backgroundColor = themeColors[effectiveMode];
                     document.documentElement.style.color = effectiveMode === 'dark' ? '#95f59b' : '#1d2c1f';
+                    if (themeColorMeta) {
+                        themeColorMeta.setAttribute('content', themeColors[effectiveMode]);
+                    }
                     updateScreenModeMenu(mode);
                 }
 

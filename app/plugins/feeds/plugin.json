@@ -1,7 +1,7 @@
 {
     "key": "feeds",
     "name": "Feeds",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Adds RSS 2.0, Atom 1.0, and JSON Feed endpoints for the front page and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -10,9 +10,15 @@
     "bootstrap": "bootstrap.php",
     "capabilities": [
         "routes.public",
+        "metadata.public",
+        "export.static",
         "settings.system",
         "settings.profile"
     ],
+    "static_export": {
+        "mode": "static",
+        "summary": "Enabled RSS, Atom, and JSON feeds are emitted as scoped static files with discovery links."
+    },
     "default_active": false,
     "stage": "before"
 }

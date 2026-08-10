@@ -171,12 +171,121 @@ class TinyMashSearchService {
         return( $query !== '' ? 'No matches for "' . $query . '".' : 'No matches.' );
     }
 
+    public function buildStaticSearchIndex( string $author_slug = '', array $included_authors = [] ) : array {
+        $author_slug = $this->resolveAuthorSlug( [ 'author' => $author_slug ] );
+        $included_authors = array_values(
+            array_filter(
+                array_map( fn( mixed $value ) : string => $this->resolveAuthorSlug( [ 'author' => (string) $value ] ), $included_authors )
+            )
+        );
+        $entries = $this->content_repository->getEntriesForAudit(
+            $this->config->getDefaultLanguage(),
+            $author_slug !== '' ? $author_slug : null,
+            $author_slug === '',
+            true
+        );
+        $items = [];
+
+        foreach ( $entries as $entry ) {
+            if ( ! is_array( $entry ) ) {
+                continue;
+            }
+
+            $entry_author_slug = $this->resolveAuthorSlug( [ 'author' => (string) ( $entry['author_slug'] ?? '' ) ] );
+            if ( $author_slug === '' && (string) ( $entry['scope'] ?? 'root' ) === 'author' && ! in_array( $entry_author_slug, $included_authors, true ) ) {
+                continue;
+            }
+
+            $rendered = $this->content_renderer->renderEntrySummary( $entry, $this->theme );
+            $title = $this->plainText( (string) ( $rendered['title_html'] ?? $entry['title'] ?? '' ) );
+            $summary = $this->plainText( (string) ( $rendered['summary_html'] ?? $entry['summary'] ?? '' ) );
+            $content = $this->plainText( (string) ( $entry['content'] ?? '' ) );
+            if ( $summary === '' ) {
+                $summary = $this->truncateText( $content, 240 );
+            }
+
+            $tags = array_values( array_filter( (array) ( $entry['tags'] ?? [] ), 'is_string' ) );
+            $labels = array_values( array_filter( (array) ( $entry['labels'] ?? [] ), 'is_string' ) );
+            $author_label = $entry_author_slug !== '' ? $this->theme->getAuthorDisplayLabel( $entry_author_slug ) : '';
+            $items[] = [
+                'title' => $title,
+                'summary' => $summary,
+                'url' => $this->buildStaticResultUrl( (string) ( $entry['path'] ?? '' ), $author_slug ),
+                'type' => (string) ( $entry['type'] ?? 'post' ),
+                'scope' => (string) ( $entry['scope'] ?? 'root' ),
+                'author_slug' => $entry_author_slug,
+                'author_label' => $author_label,
+                'published_at' => (string) ( $rendered['published_at_display'] ?? '' ),
+                'published_at_utc' => (string) ( $entry['published_at_utc'] ?? '' ),
+                'sticky' => ! empty( $entry['sticky'] ),
+                'search_text' => $this->normalizeStaticSearchText( implode( "\n", [ $title, $summary, $content, implode( ' ', $tags ), implode( ' ', $labels ), $author_label ] ) ),
+            ];
+        }
+
+        usort(
+            $items,
+            static function( array $left, array $right ) : int {
+                if ( ! empty( $left['sticky'] ) !== ! empty( $right['sticky'] ) ) {
+                    return( ! empty( $left['sticky'] ) ? -1 : 1 );
+                }
+                if ( (string) ( $left['published_at_utc'] ?? '' ) !== (string) ( $right['published_at_utc'] ?? '' ) ) {
+                    return( strcmp( (string) ( $right['published_at_utc'] ?? '' ), (string) ( $left['published_at_utc'] ?? '' ) ) );
+                }
+                return( strcmp( (string) ( $left['title'] ?? '' ), (string) ( $right['title'] ?? '' ) ) );
+            }
+        );
+
+        return(
+            [
+                'version' => 1,
+                'scope' => $author_slug !== '' ? 'author' : 'site',
+                'author_slug' => $author_slug,
+                'min_query_length' => self::MIN_QUERY_LENGTH,
+                'results_per_page' => self::RESULTS_PER_PAGE,
+                'items' => $items,
+            ]
+        );
+    }
+
     protected function getQueryLength( string $query ) : int {
         if ( function_exists( 'mb_strlen' ) ) {
             return( (int) mb_strlen( $query, 'UTF-8' ) );
         }
 
         return( strlen( $query ) );
+    }
+
+    protected function plainText( string $value ) : string {
+        $value = html_entity_decode( strip_tags( $value ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        $value = preg_replace( '/[`*_>#~\[\](){|}]+/u', ' ', $value ) ?? $value;
+        return( trim( preg_replace( '/\s+/u', ' ', $value ) ?? $value ) );
+    }
+
+    protected function truncateText( string $value, int $length ) : string {
+        if ( $this->getQueryLength( $value ) <= $length ) {
+            return( $value );
+        }
+
+        $truncated = function_exists( 'mb_substr' )
+            ? mb_substr( $value, 0, max( 1, $length - 1 ), 'UTF-8' )
+            : substr( $value, 0, max( 1, $length - 1 ) );
+        return( rtrim( $truncated ) . '...' );
+    }
+
+    protected function normalizeStaticSearchText( string $value ) : string {
+        $value = $this->plainText( $value );
+        return( function_exists( 'mb_strtolower' ) ? mb_strtolower( $value, 'UTF-8' ) : strtolower( $value ) );
+    }
+
+    protected function buildStaticResultUrl( string $path, string $author_slug ) : string {
+        $path_segments = array_values( array_filter( explode( '/', trim( $path, '/' ) ), static fn( string $part ) : bool => $part !== '' ) );
+        $search_segments = $author_slug !== '' ? [ $author_slug, 'search' ] : [ 'search' ];
+        while ( $path_segments !== [] && $search_segments !== [] && $path_segments[0] === $search_segments[0] ) {
+            array_shift( $path_segments );
+            array_shift( $search_segments );
+        }
+
+        return( str_repeat( '../', count( $search_segments ) ) . ( $path_segments !== [] ? implode( '/', array_map( 'rawurlencode', $path_segments ) ) . '/' : '' ) );
     }
 
     public function highlightHtmlForQuery( string $html, string $query ) : string {

@@ -48,6 +48,9 @@ trait AdminProfileSettingsConcern {
                 $validated_profile,
                 $this->security->isSuperAdmin() || $this->config->canUsersChangeEmail()
             );
+            if ( (string) ( $validated_profile['password'] ?? '' ) !== '' ) {
+                $this->security->refreshAuthenticatedSession();
+            }
             if ( $profile_section === 'account' && $requested_email === '' ) {
                 $user_repository->clearPendingEmailChange( $current_username );
             }

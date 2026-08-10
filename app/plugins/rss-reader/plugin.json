@@ -1,7 +1,7 @@
 {
     "key": "rss-reader",
     "name": "RSS Reader",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Displays cached recent items from superadmin-approved RSS and Atom sources.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -15,6 +15,10 @@
         "housekeeping",
         "cli"
     ],
+    "static_export": {
+        "mode": "omit",
+        "summary": "Cached RSS Reader shortcodes and slots are not currently rendered into static exports."
+    },
     "default_active": false,
     "stage": "early"
 }

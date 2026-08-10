@@ -339,4 +339,4 @@ class TinyMashMailer {
         return( $this->markdown_renderer );
     }
 
-}// TinyMashMailer
+}

@@ -1,0 +1,8 @@
+<section class="tm-static-search" data-tm-static-search data-index-url="{$theme_static_search['index_url']}" data-min-query-length="{$theme_static_search['min_query_length'] ?? 2}">
+    <header class="mb-4">
+        <h1 class="h4 mb-2">Search</h1>
+        <p class="mb-0 text-body-secondary" data-tm-static-search-status aria-live="polite">Enter at least {$theme_static_search['min_query_length'] ?? 2} characters to search.</p>
+    </header>
+    <div class="tm-static-search-results" data-tm-static-search-results></div>
+    <nav class="tm-static-search-pagination mt-4" data-tm-static-search-pagination aria-label="Search results pages" hidden></nav>
+</section>

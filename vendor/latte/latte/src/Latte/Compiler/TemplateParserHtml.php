@@ -482,7 +482,7 @@ final class TemplateParserHtml
 		$tokens ??= [new Token(Token::End, '', $pos)];
 
 		$elem->nAttributes[$name] = new Tag(
-			name: preg_replace('~(inner-|tag-|)~', '', $name),
+			name: preg_replace('~^(inner-|tag-)~', '', $name),
 			tokens: $tokens,
 			position: $nameToken->position,
 			end: $endToken->end,
@@ -524,7 +524,7 @@ final class TemplateParserHtml
 			}
 			if ($stream->tryConsume(Token::Latte_CommentOpen)) {
 				$lexer->pushState(TemplateLexer::StateLatteComment);
-				$stream->consume(Token::Text);
+				$stream->tryConsume(Token::Text);
 				$stream->consume(Token::Latte_CommentClose);
 				$lexer->popState();
 				$stream->tryConsume(Token::Newline);
@@ -601,11 +601,16 @@ final class TemplateParserHtml
 	{
 		while ([$gen, $tag] = array_pop($toClose)) {
 			$gen->send([$node, null]);
+			$gen->valid() && throw new \LogicException("Incorrect behavior of {$tag->getNotation()} parser, more yield calls than expected (on line {$tag->position->line})");
 			$node = $gen->getReturn();
+			if (!$node instanceof AreaNode) {
+				throw new CompileException("Unexpected value returned by {$tag->getNotation()} parser.", $tag->position);
+			}
+
 			$node->position = $tag->position;
 			$node->end ??= $tag->end;
-			$this->parser->popTag();
 			$this->parser->ensureIsConsumed($tag);
+			$this->parser->popTag();
 		}
 
 		return $node;

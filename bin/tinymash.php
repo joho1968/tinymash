@@ -48,6 +48,7 @@ require_once __DIR__ . '/../app/classes/TinyMashExportService.php';
 require_once __DIR__ . '/../app/classes/TinyMashStaticExportArtifactService.php';
 require_once __DIR__ . '/../app/classes/TinyMashStaticExportService.php';
 require_once __DIR__ . '/../app/classes/TinyMashDeployService.php';
+require_once __DIR__ . '/../app/classes/TinyMashDeployAuditService.php';
 require_once __DIR__ . '/../app/classes/TinyMashMailer.php';
 require_once __DIR__ . '/../app/classes/TinyMashNotificationService.php';
 require_once __DIR__ . '/../app/classes/TinyMashPasswordResetService.php';
@@ -85,6 +86,7 @@ use app\classes\TinyMashExportService;
 use app\classes\TinyMashStaticExportArtifactService;
 use app\classes\TinyMashStaticExportService;
 use app\classes\TinyMashDeployService;
+use app\classes\TinyMashDeployAuditService;
 use app\classes\TinyMashMailer;
 use app\classes\TinyMashNotificationService;
 use app\classes\TinyMashPasswordResetService;
@@ -380,6 +382,9 @@ Transfer
 --------
   deploy <target-directory>
       build a deployable runtime tree from the explicit include-only deploy manifest
+
+  deploy audit <deployed-directory> [--manifest=<file>]
+      compare deployed application files with a version-2 deploy manifest without reading runtime state
 
   export site <target-directory> [--with-plugins]
       export config, users, content, drafts, and media into a portable directory
@@ -1515,10 +1520,12 @@ function runPublicBenchmark(array $arguments): void {
     try {
         foreach ($targets as $label => $path) {
             $samples = [];
+            $cache_states = [];
             $http_code = 0;
             $downloaded_bytes = 0;
             $effective_url = '';
             $error_message = '';
+            $server_timing = '';
 
             for ($index = 0; $index < $options['repeat']; $index++) {
                 $result = benchmarkPublicUrl($base_url . $path, $options['userpass'], $cookie_file);
@@ -1526,12 +1533,14 @@ function runPublicBenchmark(array $arguments): void {
                 $downloaded_bytes = (int) ($result['size_download'] ?? 0);
                 $effective_url = (string) ($result['effective_url'] ?? '');
                 $error_message = trim((string) ($result['error'] ?? ''));
+                $server_timing = trim((string) ($result['server_timing'] ?? ''));
 
                 if ($error_message !== '') {
                     break;
                 }
 
                 $samples[] = (float) ($result['time_total_ms'] ?? 0.0);
+                $cache_states[] = (string) ($result['cache_state'] ?? 'none');
             }
 
             printCliSection($label);
@@ -1552,10 +1561,21 @@ function runPublicBenchmark(array $arguments): void {
             $average = $sample_count > 0 ? array_sum($samples) / $sample_count : 0.0;
             $minimum = $sample_count > 0 ? min($samples) : 0.0;
             $maximum = $sample_count > 0 ? max($samples) : 0.0;
+            $cache_state_counts = array_count_values($cache_states);
+            ksort($cache_state_counts, SORT_STRING);
 
             $target_rows['Average ms'] = number_format($average, 2, '.', '');
+            $target_rows['P50 ms'] = number_format(calculateBenchmarkPercentile($samples, 50), 2, '.', '');
+            $target_rows['P95 ms'] = number_format(calculateBenchmarkPercentile($samples, 95), 2, '.', '');
             $target_rows['Minimum ms'] = number_format($minimum, 2, '.', '');
             $target_rows['Maximum ms'] = number_format($maximum, 2, '.', '');
+            $target_rows['Samples ms'] = implode(', ', array_map(static fn(float $sample): string => number_format($sample, 2, '.', ''), $samples));
+            $target_rows['Cache states'] = $cache_state_counts === []
+                ? 'none'
+                : implode(', ', array_map(static fn(string $state, int $count): string => $state . '=' . $count, array_keys($cache_state_counts), array_values($cache_state_counts)));
+            if ($server_timing !== '') {
+                $target_rows['Server-Timing'] = $server_timing;
+            }
             $target_rows['Bytes'] = $downloaded_bytes;
             printCliRows($target_rows);
         }
@@ -1827,6 +1847,7 @@ function benchmarkPublicUrl(string $url, string $userpass = '', string $cookie_f
         ];
     }
 
+    $response_headers = [];
     curl_setopt_array(
         $curl,
         [
@@ -1840,6 +1861,30 @@ function benchmarkPublicUrl(string $url, string $userpass = '', string $cookie_f
                 'Cache-Control: no-cache',
                 'Pragma: no-cache',
             ],
+            CURLOPT_HEADERFUNCTION => static function ($curl_handle, string $header_line) use (&$response_headers): int {
+                $header_length = strlen($header_line);
+                $trimmed_line = trim($header_line);
+                if ($trimmed_line === '') {
+                    return $header_length;
+                }
+                if (str_starts_with(strtoupper($trimmed_line), 'HTTP/')) {
+                    $response_headers = [];
+                    return $header_length;
+                }
+
+                $separator_position = strpos($trimmed_line, ':');
+                if ($separator_position === false) {
+                    return $header_length;
+                }
+                $name = strtolower(trim(substr($trimmed_line, 0, $separator_position)));
+                $value = trim(substr($trimmed_line, $separator_position + 1));
+                if ($name !== '') {
+                    $response_headers[$name] = isset($response_headers[$name])
+                        ? $response_headers[$name] . ', ' . $value
+                        : $value;
+                }
+                return $header_length;
+            },
         ]
     );
 
@@ -1856,6 +1901,7 @@ function benchmarkPublicUrl(string $url, string $userpass = '', string $cookie_f
     $error = curl_error($curl);
     $info = curl_getinfo($curl);
     curl_close($curl);
+    $server_timing = trim((string) ($response_headers['server-timing'] ?? ''));
 
     return [
         'error' => $error,
@@ -1863,7 +1909,41 @@ function benchmarkPublicUrl(string $url, string $userpass = '', string $cookie_f
         'size_download' => (int) ($info['size_download'] ?? (is_string($body) ? strlen($body) : 0)),
         'effective_url' => (string) ($info['url'] ?? $url),
         'time_total_ms' => round(((float) ($info['total_time'] ?? 0.0)) * 1000, 2),
+        'server_timing' => $server_timing,
+        'cache_state' => classifyBenchmarkCacheState($server_timing),
     ];
+}
+
+function classifyBenchmarkCacheState(string $server_timing): string {
+    if (preg_match('/(?:^|,\s*)cache_hit(?:;|,|$)/i', $server_timing) === 1) {
+        return 'hit';
+    }
+    if (preg_match('/(?:^|,\s*)cache_write(?:;|,|$)/i', $server_timing) === 1) {
+        return 'miss/write';
+    }
+    if (preg_match('/(?:^|,\s*)cache_miss(?:;|,|$)/i', $server_timing) === 1) {
+        return 'miss';
+    }
+    return 'none';
+}
+
+function calculateBenchmarkPercentile(array $samples, int $percentile): float {
+    $samples = array_values(array_filter($samples, 'is_numeric'));
+    if ($samples === []) {
+        return 0.0;
+    }
+
+    sort($samples, SORT_NUMERIC);
+    $percentile = max(0, min(100, $percentile));
+    $position = ($percentile / 100) * (count($samples) - 1);
+    $lower_index = (int) floor($position);
+    $upper_index = (int) ceil($position);
+    if ($lower_index === $upper_index) {
+        return (float) $samples[$lower_index];
+    }
+
+    $weight = $position - $lower_index;
+    return ((float) $samples[$lower_index] * (1 - $weight)) + ((float) $samples[$upper_index] * $weight);
 }
 
 function loginForBenchmarkSession(string $login_url, string $userpass, string $username, string $password): string {
@@ -2066,7 +2146,7 @@ function runCheckUpdates(bool $notify = false): void {
         return;
     }
 
-    $mailer = new TinyMashMailer($markdown_renderer);
+    $mailer = new TinyMashMailer(new TinyMashMarkdownRenderer());
     $base_url = rtrim((string) $config->configGetBaseURL(), '/');
     $admin_url = (string) $config->configGetAdminURL();
     $components_url = '';
@@ -2110,6 +2190,7 @@ function runDeploy(string $target_directory): void {
         'Public theme' => (string) ($manifest['site']['public_theme'] ?? '-'),
         'Active plugins' => count((array) ($manifest['includes']['active_plugins'] ?? [])),
         'Copied files' => (int) ($manifest['counts']['copied_files'] ?? 0),
+        'Inventoried files' => (int) ($manifest['counts']['inventoried_files'] ?? 0),
         'Copied directories' => (int) ($manifest['counts']['copied_directories'] ?? 0),
         'Manifest' => rtrim($target_directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'deploy-manifest.json',
     ];
@@ -2126,6 +2207,75 @@ function runDeploy(string $target_directory): void {
             continue;
         }
         fwrite(STDOUT, '  Warning: ' . $warning . PHP_EOL);
+    }
+}
+
+function runDeployAudit(array $arguments): void {
+    $target_directory = '';
+    $manifest_filename = '';
+    foreach ($arguments as $argument) {
+        if (str_starts_with($argument, '--manifest=')) {
+            $manifest_filename = trim(substr($argument, strlen('--manifest=')));
+            continue;
+        }
+        if (str_starts_with($argument, '--')) {
+            fail('unknown deploy:audit option: ' . $argument, 2);
+        }
+        if ($target_directory === '') {
+            $target_directory = $argument;
+            continue;
+        }
+        fail('usage: tinymash deploy:audit <deployed-directory> [--manifest=<file>]', 2);
+    }
+    if ($target_directory === '') {
+        fail('usage: tinymash deploy:audit <deployed-directory> [--manifest=<file>]', 2);
+    }
+
+    try {
+        $report = (new TinyMashDeployAuditService($target_directory, $manifest_filename))->audit();
+    } catch (\Throwable $exception) {
+        fail($exception->getMessage());
+    }
+
+    printCliTitle('tinymash deploy audit');
+    printCliRows([
+        'Target' => (string) ($report['target_directory'] ?? $target_directory),
+        'Manifest' => (string) ($report['manifest_filename'] ?? $manifest_filename),
+        'Built UTC' => (string) ($report['manifest_built_at_utc'] ?? '-'),
+        'Status' => (string) ($report['status'] ?? 'differences'),
+        'Expected files' => (int) ($report['expected_files'] ?? 0),
+        'Checked files' => (int) ($report['checked_files'] ?? 0),
+        'Ignored state paths' => (int) ($report['ignored_paths'] ?? 0),
+        'Missing files' => count((array) ($report['missing_files'] ?? [])),
+        'Missing directories' => count((array) ($report['missing_directories'] ?? [])),
+        'Changed files' => count((array) ($report['changed_files'] ?? [])),
+        'Unknown files' => count((array) ($report['unknown_files'] ?? [])),
+        'Unsafe paths' => count((array) ($report['unsafe_paths'] ?? [])),
+    ]);
+
+    $sections = [
+        'Missing files' => (array) ($report['missing_files'] ?? []),
+        'Missing directories' => (array) ($report['missing_directories'] ?? []),
+        'Changed files' => (array) ($report['changed_files'] ?? []),
+        'Unknown files' => (array) ($report['unknown_files'] ?? []),
+        'Unsafe paths' => (array) ($report['unsafe_paths'] ?? []),
+    ];
+    foreach ($sections as $title => $paths) {
+        if ($paths === []) {
+            continue;
+        }
+        printCliSection($title);
+        foreach (array_slice($paths, 0, 100) as $path) {
+            fwrite(STDOUT, '  ' . (string) $path . PHP_EOL);
+        }
+        if (count($paths) > 100) {
+            fwrite(STDOUT, '  ... ' . (count($paths) - 100) . ' more' . PHP_EOL);
+        }
+    }
+
+    if (empty($report['ok'])) {
+        fflush(STDOUT);
+        fail('deploy audit found differences');
     }
 }
 
@@ -2636,7 +2786,11 @@ function writeSetupConfigArray(string $config_filename, array $config): void {
         throw new \RuntimeException('Unable to encode config JSON.');
     }
 
-    if (file_put_contents($config_filename, $json . PHP_EOL, LOCK_EX) === false) {
+    $payload = $json . PHP_EOL;
+    $temporary_filename = $config_filename . '.tmp-' . bin2hex(random_bytes(6));
+    $written = file_put_contents($temporary_filename, $payload, LOCK_EX);
+    if ($written !== strlen($payload) || !rename($temporary_filename, $config_filename)) {
+        @unlink($temporary_filename);
         throw new \RuntimeException('Unable to write config file.');
     }
 }
@@ -3128,6 +3282,7 @@ function buildTinymashConsoleApplication(): Application {
             }
             runDeploy($target_directory);
         }, false, 'deploy <target-directory>'),
+        new TinymashLegacyCommand('deploy:audit', 'Compare deployed files with a deploy manifest.', static fn(array $arguments) => runDeployAudit($arguments), true, 'deploy:audit <deployed-directory> [--manifest=<file>]'),
         new TinymashLegacyCommand('export:site', 'Export a site bundle.', static function(array $arguments): void {
             $target_directory = (string) ($arguments[0] ?? '');
             if ($target_directory === '') {

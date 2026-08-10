@@ -559,4 +559,4 @@ class TinyMashThemeRegistry {
         );
     }
 
-}// TinyMashThemeRegistry
+}

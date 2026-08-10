@@ -3,6 +3,58 @@ namespace app\classes;
 
 class TinyMashFilesystem {
 
+    public static function writeFileAtomically( string $filename, string $contents ) : bool {
+        $directory = dirname( $filename );
+        if ( ! is_dir( $directory ) ) {
+            return( false );
+        }
+
+        try {
+            $temporary_filename = $filename . '.tmp-' . bin2hex( random_bytes( 8 ) );
+        } catch ( \Throwable ) {
+            return( false );
+        }
+
+        $handle = @ fopen( $temporary_filename, 'xb' );
+        if ( $handle === false ) {
+            return( false );
+        }
+
+        $complete = false;
+        try {
+            $length = strlen( $contents );
+            $offset = 0;
+            while ( $offset < $length ) {
+                $remaining_contents = $offset === 0 ? $contents : substr( $contents, $offset );
+                $written = @ fwrite( $handle, $remaining_contents );
+                if ( ! is_int( $written ) || $written < 1 ) {
+                    break;
+                }
+                $offset += $written;
+            }
+            $complete = $offset === $length && @ fflush( $handle );
+        } finally {
+            fclose( $handle );
+        }
+
+        if ( ! $complete ) {
+            @ unlink( $temporary_filename );
+            return( false );
+        }
+
+        $existing_permissions = @ fileperms( $filename );
+        if ( is_int( $existing_permissions ) ) {
+            @ chmod( $temporary_filename, $existing_permissions & 0777 );
+        }
+
+        if ( ! @ rename( $temporary_filename, $filename ) ) {
+            @ unlink( $temporary_filename );
+            return( false );
+        }
+
+        return( true );
+    }
+
     public static function resolveManagedReadableFile( string $root_directory, string $candidate_path, bool $reject_symlinks = true ) : string {
         $root_directory = rtrim( $root_directory, DIRECTORY_SEPARATOR );
         if ( $root_directory === '' || $candidate_path === '' || str_contains( $root_directory, "\0" ) || str_contains( $candidate_path, "\0" ) ) {

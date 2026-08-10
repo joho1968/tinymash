@@ -3,7 +3,8 @@
 {block content}
     {var $editor_plugin_tabs = is_array($editor_plugin_tabs ?? null) ? $editor_plugin_tabs : []}
     {var $editor_json_flags = \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT}
-    <div id="tm-editor-root" data-editor-url="{$editor_url}" data-preview-url="{$preview_url}" data-draft-url="{$draft_url}" data-draft-delete-url="{$draft_delete_url}" data-save-entry-url="{$publish_url}" data-cancel-url="{$editor_cancel_url}" data-slug-check-url="{$editor_slug_check_url}" data-content-search-url="{$editor_content_search_url}" data-media-picker-url="{$editor_media_picker_url}" data-image-upload-url="{$editor_image_upload['upload_url'] ?? ''}" data-images-enabled="{if ! empty( $editor_image_upload['enabled'] )}1{else}0{/if}" data-csrf-token="{$csrf_token}" data-current-author-slug="{$current_author_slug ?? ''}" data-loaded-entry-id="{$editor_loaded_entry_id}" data-loaded-entry-type="{$editor_draft['entry_type'] ?? ''}" data-loaded-entry-scope="{$editor_draft['scope'] ?? ''}" data-loaded-entry-author-slug="{$editor_draft['author_slug'] ?? ''}" data-loaded-draft-id="{$editor_loaded_draft_id}" data-loaded-revision-id="{$editor_loaded_revision_id}" data-attachment-session-id="{$editor_attachment_session_id ?? ''}" data-autosave-enabled="{if ! empty( $editor_autosave['enabled'] )}1{else}0{/if}" data-autosave-interval-seconds="{$editor_autosave['interval_seconds'] ?? 120}" data-emoji-data-url="/ext/emoji-picker-data/en/github/data" data-revisions-json='{json_encode($editor_revisions ?? [], $editor_json_flags)}' data-linkable-entries-json='{json_encode($editor_linkable_entries ?? [], $editor_json_flags)}' data-tag-suggestions-json='{json_encode($editor_tag_suggestions ?? [], $editor_json_flags)}' data-current-featured-image-json='{json_encode($editor_current_featured_image ?? [], $editor_json_flags)}' data-current-social-image-json='{json_encode($editor_current_social_image ?? [], $editor_json_flags)}'>
+    {var $resolved_editor_mode = in_array(($editor_mode ?? 'full'), ['focused', 'full'], true) ? (string) $editor_mode : 'full'}
+    <div class="tm-editor-mode-{$resolved_editor_mode}" id="tm-editor-root" data-editor-url="{$editor_url}" data-editor-mode="{$resolved_editor_mode}" data-editor-mode-url="{$editor_mode_url}" data-preview-url="{$preview_url}" data-draft-url="{$draft_url}" data-draft-delete-url="{$draft_delete_url}" data-save-entry-url="{$publish_url}" data-cancel-url="{$editor_cancel_url}" data-slug-check-url="{$editor_slug_check_url}" data-media-picker-url="{$editor_media_picker_url}" data-image-upload-url="{$editor_image_upload['upload_url'] ?? ''}" data-images-enabled="{if ! empty( $editor_image_upload['enabled'] )}1{else}0{/if}" data-csrf-token="{$csrf_token}" data-current-author-slug="{$current_author_slug ?? ''}" data-loaded-entry-id="{$editor_loaded_entry_id}" data-loaded-entry-type="{$editor_draft['entry_type'] ?? ''}" data-loaded-entry-scope="{$editor_draft['scope'] ?? ''}" data-loaded-entry-author-slug="{$editor_draft['author_slug'] ?? ''}" data-loaded-draft-id="{$editor_loaded_draft_id}" data-loaded-revision-id="{$editor_loaded_revision_id}" data-attachment-session-id="{$editor_attachment_session_id ?? ''}" data-autosave-enabled="{if ! empty( $editor_autosave['enabled'] )}1{else}0{/if}" data-autosave-interval-seconds="{$editor_autosave['interval_seconds'] ?? 120}" data-emoji-data-url="/ext/emoji-picker-data/en/github/data" data-revisions-json='{json_encode($editor_revisions ?? [], $editor_json_flags)}' data-linkable-entries-json='{json_encode($editor_linkable_entries ?? [], $editor_json_flags)}' data-tag-suggestions-json='{json_encode($editor_tag_suggestions ?? [], $editor_json_flags)}' data-current-featured-image-json='{json_encode($editor_current_featured_image ?? [], $editor_json_flags)}' data-current-social-image-json='{json_encode($editor_current_social_image ?? [], $editor_json_flags)}'>
         {if ! empty( $editor_notice )}
             <div class="alert alert-{$editor_notice['type']} mb-3" role="alert">
                 <div>{$editor_notice['message']}</div>
@@ -16,15 +17,7 @@
                 {/if}
             </div>
         {/if}
-        <div class="row g-3">
-            <div class="col-12 col-lg-5 col-xl-4 order-1 order-lg-1">
-                {include './partials/editor/sidebar.latte'}
-            </div>
-
-            <div class="col-12 col-lg-7 col-xl-8 order-2 order-lg-2">
-                {include './partials/editor/shell.latte'}
-            </div>
-        </div>
+        {include './partials/editor/shell.latte'}
     </div>
 
     {include './partials/editor/modals.latte'}
@@ -36,10 +29,10 @@
             'use strict';
 
             const editorRoot = document.getElementById('tm-editor-root');
+            const editorModeUrl = editorRoot ? (editorRoot.dataset.editorModeUrl || '') : '';
+            const editorModeButtons = Array.from(document.querySelectorAll('[data-editor-presentation-mode]'));
             const markdownField = document.getElementById('tm-editor-markdown');
             const titleField = document.getElementById('tm-editor-title');
-            const loadFilterField = document.getElementById('tm-editor-load-filter');
-            const loadEntryField = document.getElementById('tm-editor-load-entry');
             const entryTypeField = document.getElementById('tm-editor-entry-type');
             const scopeField = document.getElementById('tm-editor-scope');
             const slugField = document.getElementById('tm-editor-slug');
@@ -56,20 +49,19 @@
             const seoRobotsField = document.getElementById('tm-editor-seo-robots');
             const seoExcludeFromSitemapField = document.getElementById('tm-editor-seo-exclude-from-sitemap');
             const sortOrderField = document.getElementById('tm-editor-sort-order');
-            const sortOrderFieldContainer = sortOrderField ? sortOrderField.closest('.col-12') : null;
+            const sortOrderFieldContainer = document.getElementById('tm-editor-sort-order-field');
             const sortOrderHint = document.getElementById('tm-editor-sort-order-hint');
             const aggregateField = document.getElementById('tm-editor-aggregate');
-            const aggregateFieldWrapper = aggregateField ? aggregateField.closest('.form-check') : null;
             const stickyField = document.getElementById('tm-editor-sticky');
             const featuredField = document.getElementById('tm-editor-featured');
-            const featuredFieldWrapper = featuredField ? featuredField.closest('.form-check') : null;
+            const postListingOptions = document.getElementById('tm-editor-post-listing-options');
             const fallbackCoverColorField = document.getElementById('tm-editor-fallback-cover-color');
-            const fallbackCoverColorFieldContainer = fallbackCoverColorField ? fallbackCoverColorField.closest('.col-12') : null;
+            const fallbackCoverColorFieldContainer = document.getElementById('tm-editor-fallback-cover-color-field');
             const fallbackCoverColorCustomWrap = document.getElementById('tm-editor-fallback-cover-color-custom-wrap');
             const fallbackCoverColorCustomField = document.getElementById('tm-editor-fallback-cover-color-custom');
             const fallbackCoverColorRecentContainer = document.getElementById('tm-editor-fallback-cover-color-recent');
             const navigationField = document.getElementById('tm-editor-nav');
-            const navigationFieldWrapper = navigationField ? navigationField.closest('.form-check') : null;
+            const navigationFieldWrapper = document.getElementById('tm-editor-navigation-field');
             const saveButton = document.getElementById('tm-editor-save');
             const saveEntryButton = document.getElementById('tm-editor-save-entry');
             const saveReturnButton = document.getElementById('tm-editor-save-return');
@@ -98,7 +90,6 @@
             const saveEntryUrl = editorRoot ? (editorRoot.dataset.saveEntryUrl || '') : '';
             const cancelUrl = editorRoot ? (editorRoot.dataset.cancelUrl || '') : '';
             const slugCheckUrl = editorRoot ? (editorRoot.dataset.slugCheckUrl || '') : '';
-            const contentSearchUrl = editorRoot ? (editorRoot.dataset.contentSearchUrl || '') : '';
             const mediaPickerUrl = editorRoot ? (editorRoot.dataset.mediaPickerUrl || '') : '';
             const imageUploadUrl = editorRoot ? (editorRoot.dataset.imageUploadUrl || '') : '';
             const imagesEnabled = editorRoot ? (editorRoot.dataset.imagesEnabled === '1') : false;
@@ -146,13 +137,9 @@
             const slugStatus = document.getElementById('tm-editor-slug-status');
             const stateSummary = document.getElementById('tm-editor-state-summary');
             const currentDraftDeleteButton = document.getElementById('tm-editor-delete-current-draft');
-            const draftsList = document.getElementById('tm-editor-drafts-list');
-            const recentEntriesList = document.getElementById('tm-editor-recent-entries-list');
             const revisionsList = document.getElementById('tm-editor-revisions-list');
-            const contentSearchStatus = document.getElementById('tm-editor-content-search-status');
-            const contentSearchResults = document.getElementById('tm-editor-content-search-results');
-            const loadSelectFallback = document.getElementById('tm-editor-load-select-fallback');
-            const loadSelectActions = document.getElementById('tm-editor-load-select-actions');
+            const historyControl = document.getElementById('tm-editor-history-control');
+            const historyCount = document.getElementById('tm-editor-history-count');
             const deleteDraftModalElement = document.getElementById('tm-editor-delete-draft-modal');
             const deleteDraftName = document.getElementById('tm-editor-delete-draft-name');
             const confirmDeleteDraftButton = document.getElementById('tm-editor-confirm-delete-draft');
@@ -202,6 +189,8 @@
             const tagsAutocomplete = document.getElementById('tm-editor-tags-autocomplete');
             const emojiPickerModalElement = document.getElementById('tm-editor-emoji-modal');
             const emojiPickerElement = document.getElementById('tm-editor-emoji-picker');
+            let editorPresentationMode = editorRoot && editorRoot.dataset.editorMode === 'focused' ? 'focused' : 'full';
+            let activeEditorTabMode = 'write';
             const externalLinkNewTabStorageKey = 'tinymash.editor.externalLinkNewTab';
             const internalLinkNewTabStorageKey = 'tinymash.editor.internalLinkNewTab';
             const fallbackCoverColorStorageKey = 'tinymash.editor.blocksRecentCoverColors';
@@ -235,9 +224,6 @@
             let tagAutocompleteMatches = [];
             let tagAutocompleteIndex = -1;
             let internalLinkFilterTouched = false;
-            let loadEntryOptionRecords = [];
-            let contentSearchTimer = null;
-            let contentSearchController = null;
             let featuredImageSource = 'attached';
             let imagePickerTarget = 'featured';
             let lastSuggestedSortOrder = null;
@@ -297,7 +283,7 @@
                 try {
                     window.localStorage.setItem(fallbackCoverColorStorageKey, JSON.stringify(colors));
                 } catch (error) {
-                    // Ignore storage failures.
+                    // Storage is optional.
                 }
             }
 
@@ -379,186 +365,6 @@
                 }
 
                 return window.bootstrap.Modal.getOrCreateInstance(modalElement);
-            }
-
-            function getLoadEntryOptionRecordsFromDom() {
-                if (!loadEntryField) {
-                    return [];
-                }
-
-                return Array.from(loadEntryField.options).slice(1).map((option) => ({
-                    id: option.value || '',
-                    label: option.textContent || 'Untitled content',
-                    filterText: option.dataset.filterText || option.textContent || '',
-                })).filter((option) => option.id !== '');
-            }
-
-            function renderLoadEntryOptions(entryOptions, selectedId = '') {
-                if (!loadEntryField) {
-                    return;
-                }
-
-                const normalizedSelectedId = String(selectedId || '');
-                const optionMarkup = ['<option value="">Keep current composer state</option>'];
-                (entryOptions || []).forEach((entryOption) => {
-                    const optionId = String(entryOption.id || '');
-                    if (optionId === '') {
-                        return;
-                    }
-
-                    const selected = normalizedSelectedId !== '' && normalizedSelectedId === optionId ? ' selected' : '';
-                    const label = entryOption.label || 'Untitled content';
-                    const filterText = entryOption.filterText || label;
-                    optionMarkup.push(
-                        '<option value="' + escapeHtml(optionId) + '" data-filter-text="' + escapeHtml(filterText) + '"' + selected + '>' + escapeHtml(label) + '</option>'
-                    );
-                });
-                loadEntryField.innerHTML = optionMarkup.join('');
-            }
-
-            function setContentSearchStatus(message, className = 'form-text') {
-                if (!contentSearchStatus) {
-                    return;
-                }
-
-                contentSearchStatus.className = className;
-                contentSearchStatus.textContent = message;
-            }
-
-            function clearContentSearchResults() {
-                if (contentSearchResults) {
-                    contentSearchResults.innerHTML = '';
-                    contentSearchResults.classList.add('d-none');
-                }
-            }
-
-            function renderContentSearchResults(results) {
-                if (!contentSearchResults) {
-                    return;
-                }
-
-                if (!Array.isArray(results) || results.length === 0) {
-                    clearContentSearchResults();
-                    return;
-                }
-
-                contentSearchResults.innerHTML = results.map((result) => {
-                    const title = result.title || result.label || 'Untitled content';
-                    const meta = [result.type || '', result.scope_label || result.scope || '', result.status || '']
-                        .filter((value) => String(value || '').trim() !== '')
-                        .join(' · ');
-                    const path = result.path || '';
-                    return '<a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="' + escapeHtml(result.url || (editorUrl + '?entry=' + encodeURIComponent(result.id || ''))) + '">'
-                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
-                        + '<span class="d-block small text-body-secondary">' + escapeHtml(meta) + (path !== '' ? ' · ' + escapeHtml(path) : '') + '</span>'
-                        + '</a>';
-                }).join('');
-                contentSearchResults.classList.remove('d-none');
-            }
-
-            function searchEditorContentNow() {
-                if (!loadFilterField || !contentSearchUrl || !csrfToken) {
-                    return;
-                }
-
-                const query = loadFilterField.value.trim();
-                if (query.length < 2) {
-                    if (contentSearchController) {
-                        contentSearchController.abort();
-                        contentSearchController = null;
-                    }
-                    clearContentSearchResults();
-                    setContentSearchStatus(query === '' ? '' : 'Type one more character.');
-                    return;
-                }
-
-                if (contentSearchController) {
-                    contentSearchController.abort();
-                }
-                contentSearchController = new AbortController();
-                setContentSearchStatus('Searching...');
-
-                const body = new URLSearchParams();
-                body.set('tinymash_csrf', csrfToken);
-                body.set('q', query);
-                body.set('limit', '12');
-
-                fetch(contentSearchUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: body.toString(),
-                    signal: contentSearchController.signal
-                })
-                    .then((response) => response.json().then((payload) => ({ response, payload })))
-                    .then(({ response, payload }) => {
-                        if (!response.ok) {
-                            throw new Error(payload && payload.error ? payload.error : 'Content search failed.');
-                        }
-                        const results = Array.isArray(payload.results) ? payload.results : [];
-                        renderContentSearchResults(results);
-                        if (results.length === 0) {
-                            setContentSearchStatus(payload.message || 'No matching content found.', 'form-text text-body-secondary');
-                            return;
-                        }
-                        setContentSearchStatus(results.length + ' matching item' + (results.length === 1 ? '' : 's') + '.', 'form-text text-body-secondary');
-                    })
-                    .catch((error) => {
-                        if (error && error.name === 'AbortError') {
-                            return;
-                        }
-                        clearContentSearchResults();
-                        setContentSearchStatus(error && error.message ? error.message : 'Content search failed.', 'form-text text-danger');
-                    });
-            }
-
-            function queueContentSearch() {
-                if (contentSearchTimer) {
-                    window.clearTimeout(contentSearchTimer);
-                }
-                contentSearchTimer = window.setTimeout(searchEditorContentNow, 250);
-            }
-
-            function initializeContentSearch() {
-                if (!loadFilterField || !contentSearchUrl || !contentSearchResults) {
-                    return;
-                }
-
-                if (loadSelectFallback) {
-                    loadSelectFallback.classList.add('d-none');
-                }
-                if (loadSelectActions) {
-                    loadSelectActions.classList.add('d-none');
-                }
-                loadFilterField.addEventListener('input', queueContentSearch);
-                loadFilterField.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter') {
-                        event.preventDefault();
-                    }
-                });
-                setContentSearchStatus('');
-            }
-
-            function filterLoadOptions() {
-                if (!loadFilterField || !loadEntryField) {
-                    return;
-                }
-
-                if (loadEntryOptionRecords.length === 0) {
-                    loadEntryOptionRecords = getLoadEntryOptionRecordsFromDom();
-                }
-
-                const needle = loadFilterField.value.trim().toLowerCase();
-                const selectedId = loadEntryField.value || '';
-                const matchingOptions = needle === ''
-                    ? loadEntryOptionRecords
-                    : loadEntryOptionRecords.filter((option) => String(option.filterText || option.label || '').toLowerCase().includes(needle));
-                const selectedStillVisible = selectedId !== '' && matchingOptions.some((option) => String(option.id || '') === selectedId);
-                renderLoadEntryOptions(matchingOptions, selectedStillVisible ? selectedId : '');
             }
 
             function getTagAutocompleteContext() {
@@ -659,13 +465,6 @@
                     .replace(/'/g, '&#039;');
             }
 
-            function getDraftUrl(draftId) {
-                return editorUrl + '?draft=' + encodeURIComponent(draftId);
-            }
-
-            function getEntryUrl(entryId) {
-                return editorUrl + '?entry=' + encodeURIComponent(entryId);
-            }
             {{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/editor/media.js.latte')|noescape}}
 
             function getEditorExitUrl() {
@@ -709,106 +508,37 @@
                 return title !== '' ? title : fallback;
             }
 
-            function updateLoadEntryOptions(entryOptions) {
-                if (!loadEntryField) {
-                    return;
-                }
-
-                const selectedId = loadedEntryId;
-                loadEntryOptionRecords = (entryOptions || []).map((entryOption) => ({
-                    id: String(entryOption.id || ''),
-                    label: entryOption.label || 'Untitled content',
-                    filterText: (entryOption.label || '') + ' ' + (entryOption.path || '') + ' ' + (entryOption.type || '') + ' ' + (entryOption.scope || '') + ' ' + (entryOption.author_slug || ''),
-                })).filter((entryOption) => entryOption.id !== '');
-                renderLoadEntryOptions(loadEntryOptionRecords, selectedId);
-                filterLoadOptions();
-            }
-
-            function updateDraftList(drafts) {
-                if (!draftsList) {
-                    return;
-                }
-
-                if (!drafts || drafts.length === 0) {
-                    draftsList.innerHTML = '<div class="small text-body-secondary">No drafts yet.</div>';
-                    return;
-                }
-
-                draftsList.innerHTML = drafts.map((draft) => {
-                    const draftId = String(draft.draft_id || '');
-                    const title = String(draft.display_title || draft.title || 'Untitled draft');
-                    const scopeLabel = draft.scope === 'author' ? String(draft.author_slug || '') : 'root';
-                    const slugLabel = String(draft.slug || '') !== '' ? String(draft.slug || '') : 'no slug yet';
-                    return '<div class="d-flex gap-2 align-items-start border-top py-2">'
-                        + '<a class="text-decoration-none link-body-emphasis flex-grow-1" href="' + escapeHtml(getDraftUrl(draftId)) + '">'
-                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
-                        + '<span class="d-block small text-body-secondary">' + escapeHtml(String(draft.entry_type || 'post') + ' draft | ' + scopeLabel + ' | ' + slugLabel) + '</span>'
-                        + '</a>'
-                        + '<button class="btn btn-outline-danger btn-sm tm-editor-delete-draft" type="button" data-draft-id="' + escapeHtml(draftId) + '" data-draft-title="' + escapeHtml(title) + '" title="Delete draft" aria-label="Delete draft">'
-                        + '<span class="bi bi-trash" aria-hidden="true"></span>'
-                        + '</button>'
-                        + '</div>';
-                }).join('');
-            }
-
-            function updateRecentEntries(entries) {
-                if (!recentEntriesList) {
-                    return;
-                }
-
-                if (!entries || entries.length === 0) {
-                    recentEntriesList.innerHTML = '<div class="small text-body-secondary">No saved content yet.</div>';
-                    return;
-                }
-
-                recentEntriesList.innerHTML = entries.map((entry) => {
-                    const title = String(entry.title || 'Untitled content');
-                    const scopeLabel = entry.scope === 'author' ? String(entry.author_slug || '') : 'root';
-                    return '<a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="' + escapeHtml(getEntryUrl(entry.id || '')) + '">'
-                        + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
-                        + '<span class="d-block small text-body-secondary">' + escapeHtml(String(entry.type || 'post') + ' | ' + scopeLabel + ' | ' + String(entry.path || '')) + '</span>'
-                        + '</a>';
-                }).join('');
-            }
-
             function updateRevisionList(revisions) {
                 if (!revisionsList) {
                     return;
                 }
 
-                if (!loadedEntryId) {
-                    revisionsList.innerHTML = '<div class="small text-body-secondary">Load saved content to browse its revisions.</div>';
+                const revisionItems = loadedEntryId && Array.isArray(revisions) ? revisions : [];
+                if (historyControl) {
+                    historyControl.classList.toggle('d-none', revisionItems.length === 0);
+                }
+                if (historyCount) {
+                    historyCount.textContent = String(revisionItems.length);
+                }
+                if (revisionItems.length === 0) {
+                    revisionsList.innerHTML = '';
                     return;
                 }
 
-                if (!revisions || revisions.length === 0) {
-                    revisionsList.innerHTML = '<div class="small text-body-secondary">No saved revisions yet for this content item.</div>';
-                    return;
-                }
-
-                revisionsList.innerHTML = revisions.map((revision) => {
+                revisionsList.innerHTML = revisionItems.map((revision) => {
                     const title = String(revision.title || 'Untitled revision');
                     const savedAt = String(revision.saved_at_display || revision.saved_at_utc || '');
                     const status = String(revision.status || 'unpublished');
-                    return '<a class="d-block text-decoration-none link-body-emphasis border-top py-2" href="' + escapeHtml(String(revision.open_url || '#')) + '">'
+                    return '<li><a class="dropdown-item" href="' + escapeHtml(String(revision.open_url || '#')) + '">'
                         + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
                         + '<span class="d-block small text-body-secondary">' + escapeHtml(status + ' | saved ' + savedAt) + '</span>'
-                        + '</a>';
+                        + '</a></li>';
                 }).join('');
             }
 
             function refreshCollections(collections) {
                 if (!collections) {
                     return;
-                }
-                if (Object.prototype.hasOwnProperty.call(collections, 'entry_options')) {
-                    updateLoadEntryOptions(collections.entry_options || []);
-                }
-                if (Object.prototype.hasOwnProperty.call(collections, 'drafts')) {
-                    updateDraftList(collections.drafts || []);
-                }
-                if (Object.prototype.hasOwnProperty.call(collections, 'recent_entries')) {
-                    updateRecentEntries(collections.recent_entries || []);
                 }
                 if (Object.prototype.hasOwnProperty.call(collections, 'revisions')) {
                     updateRevisionList(collections.revisions || []);
@@ -844,6 +574,10 @@
             }
 
             function setMode(mode) {
+                if (editorPresentationMode === 'focused' && (mode === 'seo' || String(mode || '').startsWith('plugin-'))) {
+                    mode = 'write';
+                }
+                activeEditorTabMode = mode;
                 const isPreview = mode === 'preview';
                 const isMetadata = mode === 'metadata';
                 const isSeo = mode === 'seo';
@@ -889,6 +623,61 @@
                     }
                 } else if (!isMetadata) {
                     markdownField.focus();
+                }
+            }
+
+            function applyEditorPresentationMode(mode) {
+                const normalizedMode = mode === 'focused' ? 'focused' : 'full';
+                editorPresentationMode = normalizedMode;
+                if (editorRoot) {
+                    editorRoot.dataset.editorMode = normalizedMode;
+                    editorRoot.classList.toggle('tm-editor-mode-focused', normalizedMode === 'focused');
+                    editorRoot.classList.toggle('tm-editor-mode-full', normalizedMode === 'full');
+                }
+                editorModeButtons.forEach((button) => {
+                    const active = button.dataset.editorPresentationMode === normalizedMode;
+                    button.classList.toggle('active', active);
+                    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+                });
+                if (normalizedMode === 'focused' && (activeEditorTabMode === 'seo' || activeEditorTabMode.startsWith('plugin-'))) {
+                    setMode('write');
+                }
+            }
+
+            async function saveEditorPresentationMode(mode) {
+                const previousMode = editorPresentationMode;
+                applyEditorPresentationMode(mode);
+                if (!editorModeUrl || !csrfToken) {
+                    return;
+                }
+
+                editorModeButtons.forEach((button) => {
+                    button.disabled = true;
+                });
+                try {
+                    const response = await fetch(editorModeUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: new URLSearchParams({ mode, tinymash_csrf: csrfToken })
+                    });
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload && payload.error ? payload.error : 'Editor mode could not be saved.');
+                    }
+                    applyEditorPresentationMode(payload.mode || mode);
+                    setTransientStatus(payload.message || 'Editor mode saved', 'text-success');
+                } catch (error) {
+                    applyEditorPresentationMode(previousMode);
+                    setTransientStatus(error && error.message ? error.message : 'Editor mode could not be saved.', 'text-danger');
+                } finally {
+                    editorModeButtons.forEach((button) => {
+                        button.disabled = false;
+                    });
                 }
             }
 
@@ -1386,14 +1175,14 @@
                 if (aggregateField) {
                     aggregateField.disabled = isPage;
                 }
-                if (aggregateFieldWrapper) {
-                    aggregateFieldWrapper.classList.toggle('d-none', isPage);
+                if (stickyField) {
+                    stickyField.disabled = isPage;
                 }
                 if (featuredField) {
                     featuredField.disabled = isPage;
                 }
-                if (featuredFieldWrapper) {
-                    featuredFieldWrapper.classList.toggle('d-none', isPage);
+                if (postListingOptions) {
+                    postListingOptions.classList.toggle('d-none', isPage);
                 }
                 if (fallbackCoverColorField) {
                     fallbackCoverColorField.disabled = isPage;
@@ -2193,6 +1982,14 @@
                     setMode(button.getAttribute('data-mode'));
                 });
             });
+            editorModeButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const requestedMode = button.dataset.editorPresentationMode === 'focused' ? 'focused' : 'full';
+                    if (requestedMode !== editorPresentationMode) {
+                        void saveEditorPresentationMode(requestedMode);
+                    }
+                });
+            });
 
             [
                 markdownField,
@@ -2502,9 +2299,6 @@
             if (cancelDiscardButton) {
                 cancelDiscardButton.addEventListener('click', discardDraftAndLeave);
             }
-            if (loadFilterField && !contentSearchUrl) {
-                loadFilterField.addEventListener('input', filterLoadOptions);
-            }
             if (tagsField && tagsAutocomplete) {
                 tagsField.addEventListener('input', updateTagAutocomplete);
                 tagsField.addEventListener('focus', updateTagAutocomplete);
@@ -2546,19 +2340,6 @@
                     }
 
                     applyTagSuggestion(tagAutocompleteMatches[selectedIndex]);
-                });
-            }
-            if (draftsList) {
-                draftsList.addEventListener('click', (event) => {
-                    const button = event.target.closest('.tm-editor-delete-draft');
-                    if (!button) {
-                        return;
-                    }
-                    requestDraftDeletion(
-                        button.getAttribute('data-draft-id') || '',
-                        button.getAttribute('data-draft-title') || 'Untitled draft',
-                        loadedDraftId !== '' && (button.getAttribute('data-draft-id') || '') === loadedDraftId
-                    );
                 });
             }
             if (confirmDeleteDraftButton) {
@@ -2786,6 +2567,7 @@
                 triggerSaveEntryShortcut();
             });
 
+            applyEditorPresentationMode(editorPresentationMode);
             updateFieldVisibility();
             updateParentPageOptions();
             seedSelectedImageRecords();
@@ -2794,14 +2576,10 @@
             void loadMediaPickerSource('attached').catch((error) => {
                 setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
             });
-            if (!contentSearchUrl) {
-                filterLoadOptions();
-            }
             updateDeleteDraftVisibility();
             updateRevisionList(editorRevisions);
             syncEmojiPickerTheme();
             applyFallbackCoverColorValue(getFallbackCoverColorValue());
-            initializeContentSearch();
             queueSlugCheck();
         })();
     </script>

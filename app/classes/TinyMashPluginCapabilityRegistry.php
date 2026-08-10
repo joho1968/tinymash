@@ -77,6 +77,20 @@ class TinyMashPluginCapabilityRegistry {
             ]
         );
         $this->registerCapabilityDefinition(
+            'export.static',
+            [
+                'label' => 'Static export',
+                'description' => 'The plugin contributes public files to static site exports.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
+            'metadata.public',
+            [
+                'label' => 'Public metadata',
+                'description' => 'The plugin contributes validated metadata records to public document heads.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
             'theme.slots',
             [
                 'label' => 'Theme slots',
@@ -148,4 +162,4 @@ class TinyMashPluginCapabilityRegistry {
         return( ucwords( str_replace( [ '.', '-', '_' ], ' ', $key ) ) );
     }
 
-}// TinyMashPluginCapabilityRegistry
+}

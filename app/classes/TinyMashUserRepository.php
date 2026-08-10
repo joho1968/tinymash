@@ -1,16 +1,22 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashUserRepository {
 
     protected string $users_directory;
+    protected string $users_lock_filename;
+    protected string $users_data_generation = '';
+    protected array $invalid_user_files = [];
 
     public function __construct( string $users_directory ) {
         $this->users_directory = rtrim( $users_directory, DIRECTORY_SEPARATOR );
+        $this->users_lock_filename = $this->users_directory . DIRECTORY_SEPARATOR . '.users.lock';
     }
 
     public function getAllUsers() : array {
-        $data = $this->readUsersData();
+        $data = $this->readUsersData( false );
         $users = [];
         foreach ( $data['users'] as $user ) {
             if ( ! is_array( $user ) ) {
@@ -56,6 +62,7 @@ class TinyMashUserRepository {
 
         $normalized_user = $this->normalizeStoredUser( $user );
         if ( empty( $normalized_user['username'] ) || $normalized_user['username'] !== $username ) {
+            $this->logInvalidUserFile( $user_filename );
             return( null );
         }
 
@@ -207,6 +214,7 @@ class TinyMashUserRepository {
                 'autosave_mode' => $autosave_mode,
                 'autosave_interval_seconds' => $autosave_interval_seconds,
                 'classic_smileys_mode' => $classic_smileys_mode,
+                'editor_mode' => $role === 'superadmin' ? 'full' : 'focused',
                 'theme_mode' => 'auto',
                 'timezone' => '',
                 'default_entry_type' => 'post',
@@ -247,6 +255,43 @@ class TinyMashUserRepository {
         }
 
         $this->writeUsersData( $data );
+        $saved_user = $this->getUserByUsername( $username );
+        if ( ! is_array( $saved_user ) ) {
+            throw new \RuntimeException( 'Unable to reload saved user.' );
+        }
+
+        return( $saved_user );
+    }
+
+    public function setEditorModeForUsername( string $username, string $editor_mode ) : array {
+        $data = $this->readUsersData();
+        $username = $this->normalizeUsername( $username );
+        $editor_mode = $this->normalizeEditorMode( $editor_mode );
+        if ( $username === '' ) {
+            throw new \InvalidArgumentException( 'username' );
+        }
+        if ( $editor_mode === '' ) {
+            throw new \InvalidArgumentException( 'editor_mode' );
+        }
+
+        $user_index = null;
+        foreach ( $data['users'] as $index => $user ) {
+            if ( ! is_array( $user ) ) {
+                continue;
+            }
+            if ( $this->normalizeUsername( (string) ( $user['username'] ?? '' ) ) === $username ) {
+                $user_index = $index;
+                break;
+            }
+        }
+
+        if ( $user_index === null ) {
+            throw new \InvalidArgumentException( 'username' );
+        }
+
+        $data['users'][$user_index]['editor_mode'] = $editor_mode;
+        $this->writeUsersData( $data );
+
         $saved_user = $this->getUserByUsername( $username );
         if ( ! is_array( $saved_user ) ) {
             throw new \RuntimeException( 'Unable to reload saved user.' );
@@ -779,15 +824,39 @@ class TinyMashUserRepository {
         return( true );
     }
 
-    protected function readUsersData() : array {
+    protected function readUsersData( bool $require_complete = true ) : array {
+        $this->ensureUsersDirectory();
+        $this->invalid_user_files = [];
+        $result = $this->withUsersLock(
+            LOCK_SH,
+            function() : array {
+                $data = $this->readUsersDataUnlocked();
+                $this->users_data_generation = $this->buildUsersStoreGenerationUnlocked();
+                return( $data );
+            }
+        );
+        if ( ! is_array( $result ) ) {
+            throw new \RuntimeException( 'Unable to lock user store for reading.' );
+        }
+        if ( $require_complete && $this->invalid_user_files !== [] ) {
+            throw new \RuntimeException( 'User store contains malformed records.' );
+        }
+        return( $result );
+    }
+
+    protected function readUsersDataUnlocked() : array {
         $users = [];
         foreach ( $this->getUserFiles() as $user_file ) {
             $user = $this->readUserFile( $user_file );
             if ( ! is_array( $user ) ) {
+                $this->invalid_user_files[] = $user_file;
                 continue;
             }
             $normalized_user = $this->normalizeStoredUser( $user );
-            if ( empty( $normalized_user['username'] ) ) {
+            $filename_username = $this->normalizeUsername( basename( $user_file, '.json' ) );
+            if ( empty( $normalized_user['username'] ) || $normalized_user['username'] !== $filename_username ) {
+                $this->invalid_user_files[] = $user_file;
+                $this->logInvalidUserFile( $user_file );
                 continue;
             }
             $users[] = $normalized_user;
@@ -798,38 +867,92 @@ class TinyMashUserRepository {
 
     protected function writeUsersData( array $data ) : void {
         $this->ensureUsersDirectory();
+        $written = $this->withUsersLock(
+            LOCK_EX,
+            function() use ( $data ) : bool {
+                $current_generation = $this->buildUsersStoreGenerationUnlocked();
+                if ( $this->users_data_generation !== '' && ! hash_equals( $current_generation, $this->users_data_generation ) ) {
+                    throw new \RuntimeException( 'User store changed while the update was being prepared.' );
+                }
 
-        $desired_usernames = [];
-        foreach ( $data['users'] as $user ) {
-            if ( ! is_array( $user ) ) {
-                continue;
-            }
-            $normalized_user = $this->normalizeStoredUser( $user );
-            if ( empty( $normalized_user['username'] ) ) {
-                continue;
-            }
+                $desired_payloads = [];
+                foreach ( $data['users'] as $user ) {
+                    if ( ! is_array( $user ) ) {
+                        continue;
+                    }
+                    $normalized_user = $this->normalizeStoredUser( $user );
+                    if ( empty( $normalized_user['username'] ) ) {
+                        continue;
+                    }
 
-            $desired_usernames[] = $normalized_user['username'];
-            $user_payload = $normalized_user;
-            unset( $user_payload['author_slug'] );
+                    $user_payload = $normalized_user;
+                    unset( $user_payload['author_slug'] );
+                    $user_json = json_encode( $user_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+                    if ( ! is_string( $user_json ) || $user_json === '' ) {
+                        throw new \RuntimeException( 'Unable to encode user data.' );
+                    }
+                    $desired_payloads[$normalized_user['username']] = $user_json . PHP_EOL;
+                }
 
-            $user_json = json_encode( $user_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
-            if ( ! is_string( $user_json ) || $user_json === '' ) {
-                throw new \RuntimeException( 'Unable to encode user data.' );
-            }
+                foreach ( $desired_payloads as $username => $payload ) {
+                    $user_filename = $this->getUserFilename( $username );
+                    $current_payload = is_file( $user_filename ) ? @ file_get_contents( $user_filename ) : false;
+                    if ( is_string( $current_payload ) && hash_equals( $current_payload, $payload ) ) {
+                        continue;
+                    }
+                    $this->writeUserFileAtomically( $user_filename, $payload, $username );
+                }
 
-            if ( file_put_contents( $this->getUserFilename( $normalized_user['username'] ), $user_json . PHP_EOL, LOCK_EX ) === false ) {
-                throw new \RuntimeException( 'Unable to write user file for "' . $normalized_user['username'] . '"' );
+                foreach ( $this->getUserFiles() as $user_file ) {
+                    $username = $this->normalizeUsername( basename( $user_file, '.json' ) );
+                    if ( $username === '' || array_key_exists( $username, $desired_payloads ) ) {
+                        continue;
+                    }
+                    if ( ! @ unlink( $user_file ) && file_exists( $user_file ) ) {
+                        throw new \RuntimeException( 'Unable to remove user file for "' . $username . '"' );
+                    }
+                }
+
+                $this->users_data_generation = $this->buildUsersStoreGenerationUnlocked();
+                return( true );
             }
+        );
+        if ( $written !== true ) {
+            throw new \RuntimeException( 'Unable to lock user store for writing.' );
         }
+    }
 
-        $desired_usernames = array_values( array_unique( $desired_usernames ) );
+    protected function writeUserFileAtomically( string $filename, string $payload, string $username ) : void {
+        if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $payload ) ) {
+            throw new \RuntimeException( 'Unable to write user file for "' . $username . '"' );
+        }
+    }
+
+    protected function buildUsersStoreGenerationUnlocked() : string {
+        $hash_context = hash_init( 'sha256' );
         foreach ( $this->getUserFiles() as $user_file ) {
-            $username = $this->normalizeUsername( basename( $user_file, '.json' ) );
-            if ( $username === '' || in_array( $username, $desired_usernames, true ) ) {
+            $contents = @ file_get_contents( $user_file );
+            if ( ! is_string( $contents ) ) {
                 continue;
             }
-            unlink( $user_file );
+            hash_update( $hash_context, basename( $user_file ) . "\0" . $contents . "\0" );
+        }
+        return( hash_final( $hash_context ) );
+    }
+
+    protected function withUsersLock( int $operation, callable $callback ) : mixed {
+        $lock_handle = @ fopen( $this->users_lock_filename, 'c+' );
+        if ( $lock_handle === false ) {
+            return( null );
+        }
+        try {
+            if ( ! @ flock( $lock_handle, $operation ) ) {
+                return( null );
+            }
+            return( $callback() );
+        } finally {
+            @ flock( $lock_handle, LOCK_UN );
+            fclose( $lock_handle );
         }
     }
 
@@ -860,17 +983,35 @@ class TinyMashUserRepository {
     }
 
     protected function readUserFile( string $user_file ) : ?array {
-        if ( ! is_file( $user_file ) || ! is_readable( $user_file ) ) {
+        if ( ! is_file( $user_file ) ) {
+            return( null );
+        }
+        if ( ! is_readable( $user_file ) ) {
+            $this->logInvalidUserFile( $user_file );
             return( null );
         }
 
-        $json = file_get_contents( $user_file );
-        if ( ! is_string( $json ) || $json === '' ) {
+        $json = @ file_get_contents( $user_file );
+        if ( ! is_string( $json ) || trim( $json ) === '' ) {
+            $this->logInvalidUserFile( $user_file );
             return( null );
         }
 
-        $user = json_decode( $json, true, 16, JSON_THROW_ON_ERROR );
-        return( is_array( $user ) ? $user : null );
+        try {
+            $user = json_decode( $json, true, 16, JSON_THROW_ON_ERROR );
+        } catch ( \JsonException ) {
+            $this->logInvalidUserFile( $user_file );
+            return( null );
+        }
+        if ( ! is_array( $user ) || empty( $user ) ) {
+            $this->logInvalidUserFile( $user_file );
+            return( null );
+        }
+        return( $user );
+    }
+
+    protected function logInvalidUserFile( string $user_file ) : void {
+        error_log( basename( __FILE__ ) . ': Ignoring invalid user record "' . basename( $user_file ) . '"' );
     }
 
     protected function ensureUsersDirectory() : void {
@@ -901,6 +1042,7 @@ class TinyMashUserRepository {
                 'autosave_mode' => $this->normalizeAutosaveMode( (string) ( $user['autosave_mode'] ?? 'inherit' ) ) ?: 'inherit',
                 'autosave_interval_seconds' => $this->normalizeAutosaveIntervalSeconds( $user['autosave_interval_seconds'] ?? null ),
                 'classic_smileys_mode' => $this->normalizeClassicSmileysMode( (string) ( $user['classic_smileys_mode'] ?? 'inherit' ) ) ?: 'inherit',
+                'editor_mode' => $this->normalizeEditorMode( (string) ( $user['editor_mode'] ?? 'full' ) ) ?: 'full',
                 'theme_mode' => $this->normalizeThemeMode( (string) ( $user['theme_mode'] ?? 'auto' ) ) ?: 'auto',
                 'timezone' => ! empty( $user['timezone'] ) ? (string) $user['timezone'] : '',
                 'default_entry_type' => $this->normalizeDefaultEntryType( (string) ( $user['default_entry_type'] ?? 'post' ) ) ?: 'post',
@@ -1127,6 +1269,15 @@ class TinyMashUserRepository {
         return( '' );
     }
 
+    protected function normalizeEditorMode( string $editor_mode ) : string {
+        $editor_mode = strtolower( trim( $editor_mode ) );
+        if ( in_array( $editor_mode, [ 'focused', 'full' ], true ) ) {
+            return( $editor_mode );
+        }
+
+        return( '' );
+    }
+
     protected function normalizeThemeMode( string $theme_mode ) : string {
         $theme_mode = strtolower( trim( $theme_mode ) );
         if ( in_array( $theme_mode, [ 'auto', 'light', 'dark' ], true ) ) {
@@ -1194,4 +1345,4 @@ class TinyMashUserRepository {
         return( $interval_seconds );
     }
 
-}// TinyMashUserRepository
+}

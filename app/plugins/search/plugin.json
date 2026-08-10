@@ -1,7 +1,7 @@
 {
     "key": "search",
     "name": "Search",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Adds public content search for root and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -9,8 +9,14 @@
     "license": "AGPL-3.0-or-later",
     "bootstrap": "bootstrap.php",
     "capabilities": [
-        "routes.public"
+        "routes.public",
+        "public.assets",
+        "export.static"
     ],
+    "static_export": {
+        "mode": "static-js",
+        "summary": "Scoped Search pages use local JavaScript and exported JSON indexes without live requests."
+    },
     "default_active": false,
     "stage": "before"
 }

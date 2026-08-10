@@ -1,4 +1,7 @@
 {
+    "name": "tinymash/tinymash",
+    "description": "A lightweight flat-file CMS and publishing platform.",
+    "type": "project",
     "license": "AGPL-3.0-or-later",
     "require": {
         "flightphp/core": "^3.15",

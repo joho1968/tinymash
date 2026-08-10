@@ -20,7 +20,6 @@ class ComposerStaticInitd61a0cb6fcf6ab3ffe7746c206409094
         'a4a119a56e50fbb293281d9a48007e0e' => __DIR__ . '/..' . '/symfony/polyfill-php80/bootstrap.php',
         '606a39d89246991a373564698c2d8383' => __DIR__ . '/..' . '/symfony/polyfill-php85/bootstrap.php',
         'b6b991a57620e2fb6b2f66f03fe9ddc2' => __DIR__ . '/..' . '/symfony/string/Resources/functions.php',
-        '4cdafd4a5191caf078235e7dd119fdaf' => __DIR__ . '/..' . '/flightphp/core/flight/autoload.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -83,6 +82,7 @@ class ComposerStaticInitd61a0cb6fcf6ab3ffe7746c206409094
         'flight\\' =>
         array (
             0 => __DIR__ . '/..' . '/flightphp/runway/src',
+            1 => __DIR__ . '/..' . '/flightphp/core/flight',
         ),
         'Symfony\\Polyfill\\Php85\\' =>
         array (
@@ -206,6 +206,7 @@ class ComposerStaticInitd61a0cb6fcf6ab3ffe7746c206409094
         'DelayedTargetValidation' => __DIR__ . '/..' . '/symfony/polyfill-php85/Resources/stubs/DelayedTargetValidation.php',
         'Filter\\FilterException' => __DIR__ . '/..' . '/symfony/polyfill-php85/Resources/stubs/Filter/FilterException.php',
         'Filter\\FilterFailedException' => __DIR__ . '/..' . '/symfony/polyfill-php85/Resources/stubs/Filter/FilterFailedException.php',
+        'Flight' => __DIR__ . '/..' . '/flightphp/core/flight/Flight.php',
         'Latte\\Attributes\\TemplateFilter' => __DIR__ . '/..' . '/latte/latte/src/Latte/attributes.php',
         'Latte\\Attributes\\TemplateFunction' => __DIR__ . '/..' . '/latte/latte/src/Latte/attributes.php',
         'Latte\\Bridges\\Tracy\\BlueScreenPanel' => __DIR__ . '/..' . '/latte/latte/src/Bridges/Tracy/BlueScreenPanel.php',

@@ -214,7 +214,17 @@ php8.4 bin/tinymash.php deploy /path/to/deploy-tree
 
 The deploy command builds from the explicit deploy manifest. It creates a safe `app/config/tinymash.json.example` in the target tree and does not write a live `app/config/tinymash.json`.
 
-See `docs/DEPLOY.md` for deployment details.
+Audit a deploy package or installed tree without inspecting runtime state:
+
+```bash
+php8.4 bin/tinymash.php deploy:audit /path/to/deploy-tree
+php8.4 bin/tinymash.php deploy:audit /path/to/installed-tinymash \
+  --manifest=/path/to/release/deploy-manifest.json
+```
+
+The audit compares managed files with the version-2 SHA-256 inventory and reports missing, changed, unknown, or unsafe application paths. Live config, content, media, plugin state, users, caches, workspace files, and logs are ignored. Any managed difference returns a non-zero exit status.
+
+See `INSTALL.md` for the staged existing-installation upgrade procedure.
 
 ## Export And Import
 

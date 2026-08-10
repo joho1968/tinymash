@@ -138,4 +138,4 @@ class TinyMashMediaCapabilityRegistry {
         return( ucwords( str_replace( [ '.', '-', '_' ], ' ', $key ) ) );
     }
 
-}// TinyMashMediaCapabilityRegistry
+}

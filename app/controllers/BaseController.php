@@ -1,13 +1,10 @@
 <?php
-// app/controllers/BaseController.php
 declare(strict_types=1);
 namespace app\controllers;
 
 use flight\Engine;
 
-/*
- * Borrowed from https://dev.to/n0nag0n/building-a-simple-blog-with-flight-part-2-5acb
- */
+// Adapted from FlightPHP's controller example: https://dev.to/n0nag0n/building-a-simple-blog-with-flight-part-2-5acb
 
 abstract class BaseController {
 
@@ -201,16 +198,9 @@ abstract class BaseController {
         $this->render( $view_name, $data );
     }
 
-    /**
-     * Call method to create a shortcut to the $app property
-     *
-     * @param string $name The method name
-     * @param array $arguments The method arguments
-     *
-     * @return mixed
-     */
+    /** @return mixed */
     public function __call(string $name, array $arguments) {
         return( $this->app->$name(...$arguments) );
     }
 
-}// BaseController
+}

@@ -1,8 +1,11 @@
 <?php
 
 use app\classes\TinyMashContentRepository;
+use app\classes\TinyMashFilesystem;
 use app\classes\TinyMashImportLockService;
 use app\classes\TinyMashMediaImportBridge;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashFilesystem.php';
 
 class TinyMashBloggerImportService {
 
@@ -883,6 +886,10 @@ class TinyMashBloggerImportService {
         } catch ( \Throwable ) {
             return( '' );
         }
+        $errors = \DateTimeImmutable::getLastErrors();
+        if ( is_array( $errors ) && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) {
+            return( '' );
+        }
 
         return( $normalized->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d\TH:i:s\Z' ) );
     }
@@ -1440,7 +1447,7 @@ class TinyMashBloggerImportService {
         }
 
         $encoded = json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
-        if ( @ file_put_contents( $filename, $encoded . PHP_EOL, LOCK_EX ) === false ) {
+        if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $encoded . PHP_EOL ) ) {
             throw new \RuntimeException( 'The Blogger import preview could not be written.' );
         }
     }

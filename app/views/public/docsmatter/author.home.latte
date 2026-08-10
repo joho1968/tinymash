@@ -4,12 +4,17 @@
     {var $docs_pages = ! empty($theme_page_structure) ? $theme_page_structure : []}
     {var $landing_entry = is_array($docs_landing_entry ?? null) ? $docs_landing_entry : null}
     {var $search_query = trim((string) ($theme_search['query'] ?? ''))}
-    {var $show_listing_results = ! empty( $force_listing_results ) || $search_query !== ''}
+    {var $show_author_post_fallback = empty($docs_pages) && ! is_array($landing_entry) && ! empty($posts) && ! empty($theme_author_inherits_site_theme)}
+    {var $show_listing_results = ! empty( $force_listing_results ) || $search_query !== '' || $show_author_post_fallback}
 
     {if $show_listing_results}
-        <section class="d-grid gap-4">
+        <section class="d-grid gap-4"{if $show_author_post_fallback} data-tm-docsmatter-author-post-fallback{/if}>
             <div>
-                <h2 class="h4 mb-0">{$listing_heading ?? 'Search results'}</h2>
+                {if $show_author_post_fallback}
+                    <h1 class="mb-0">{$author_display_name ?? $author_slug ?? $site_name}</h1>
+                {else}
+                    <h1 class="h4 mb-0">{$listing_heading ?? 'Search results'}</h1>
+                {/if}
                 {if ! empty( $listing_context_summary ) }
                     <p class="small text-body-secondary mb-0 mt-2">{$listing_context_summary}</p>
                 {/if}
@@ -22,7 +27,7 @@
                 {foreach $posts as $entry}
                     <article class="tm-docsmatter-panel p-4">
                         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                            <h3 class="h5 mb-0"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h3>
+                            <h2 class="h5 mb-0"><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h2>
                             {if ! empty( $entry['sticky'] )}
                                 <span class="badge text-bg-warning">Sticky</span>
                             {/if}

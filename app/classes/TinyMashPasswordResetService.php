@@ -5,6 +5,7 @@ class TinyMashPasswordResetService {
 
     protected const REQUEST_TTL_SECONDS = 3600;
     protected const THROTTLE_WINDOW_SECONDS = 3600;
+    protected const MAX_THROTTLE_WINDOW_SECONDS = 86400;
     protected const MAX_IP_REQUESTS = 5;
     protected const MAX_IDENTIFIER_REQUESTS = 3;
 
@@ -31,12 +32,13 @@ class TinyMashPasswordResetService {
 
         $throttle_state = $this->getThrottleState( $identifier, $ip_address, $system_settings );
         if ( ! empty( $throttle_state['blocked'] ) ) {
-            return( $generic_result + [ 'throttled' => true ] );
+            $generic_result['throttled'] = true;
+            return( $generic_result );
         }
 
         $requested_at_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
         $user = $this->findResettableUser( $identifier, $system_settings );
-        $this->recordAttempt( $identifier, $ip_address, $requested_at_utc );
+        $this->recordAttempt( $identifier, $ip_address, $requested_at_utc, $system_settings );
         if ( ! is_array( $user ) || empty( $user['username'] ) || empty( $user['email'] ) ) {
             return( $generic_result );
         }
@@ -115,7 +117,8 @@ class TinyMashPasswordResetService {
             if ( trim( (string) ( $request['used_at_utc'] ?? '' ) ) !== '' ) {
                 continue;
             }
-            if ( trim( (string) ( $request['token_hash'] ?? '' ) ) !== $token_hash ) {
+            $stored_token_hash = trim( (string) ( $request['token_hash'] ?? '' ) );
+            if ( $stored_token_hash === '' || ! hash_equals( $stored_token_hash, $token_hash ) ) {
                 continue;
             }
             if ( $this->isExpired( (string) ( $request['expires_at_utc'] ?? '' ) ) ) {
@@ -134,32 +137,53 @@ class TinyMashPasswordResetService {
             return( false );
         }
 
-        $request = $this->getResetRequest( $username, $token );
+        $token_hash = hash( 'sha256', trim( $token ) );
+        $request = TinyMashLockedJsonFile::mutate(
+            $this->store_filename,
+            function( array $store ) use ( $username, $token_hash ) : array {
+                $store = $this->pruneStore( $this->normalizeStore( $store ) );
+                $claimed_request = null;
+                foreach ( $store['requests'] as $candidate_request ) {
+                    if ( ! is_array( $candidate_request ) ) {
+                        continue;
+                    }
+
+                    $candidate_username = trim( (string) ( $candidate_request['username'] ?? '' ) );
+                    $candidate_hash = trim( (string) ( $candidate_request['token_hash'] ?? '' ) );
+                    $candidate_is_active = $candidate_username === $username
+                        && trim( (string) ( $candidate_request['used_at_utc'] ?? '' ) ) === ''
+                        && ! $this->isExpired( (string) ( $candidate_request['expires_at_utc'] ?? '' ) );
+                    if ( $candidate_is_active && $candidate_hash !== '' && hash_equals( $candidate_hash, $token_hash ) ) {
+                        $claimed_request = $candidate_request;
+                        break;
+                    }
+                }
+
+                if ( is_array( $claimed_request ) ) {
+                    $used_at_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
+                    foreach ( $store['requests'] as $index => $candidate_request ) {
+                        if ( is_array( $candidate_request ) && trim( (string) ( $candidate_request['username'] ?? '' ) ) === $username ) {
+                            $store['requests'][$index]['used_at_utc'] = $used_at_utc;
+                        }
+                    }
+                }
+
+                return( [ 'data' => $store, 'result' => $claimed_request ] );
+            },
+            $this->getDefaultStore()
+        );
         if ( ! is_array( $request ) ) {
             return( false );
         }
 
-        if ( ! $this->user_repository->setPasswordForUsername( $username, $new_password ) ) {
+        try {
+            if ( ! $this->user_repository->setPasswordForUsername( $username, $new_password ) ) {
+                return( false );
+            }
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to complete password reset (' . $e->getMessage() . ')' );
             return( false );
         }
-        TinyMashLockedJsonFile::mutate(
-            $this->store_filename,
-            function( array $store ) use ( $request, $username ) : array {
-                $store = $this->normalizeStore( $store );
-                foreach ( $store['requests'] as $index => $candidate_request ) {
-                    if ( ! is_array( $candidate_request ) ) {
-                        continue;
-                    }
-                    if ( trim( (string) ( $candidate_request['id'] ?? '' ) ) === trim( (string) ( $request['id'] ?? '' ) ) ) {
-                        $store['requests'][$index]['used_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
-                    } elseif ( trim( (string) ( $candidate_request['username'] ?? '' ) ) === $username ) {
-                        $store['requests'][$index]['used_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
-                    }
-                }
-                return( $store );
-            },
-            $this->getDefaultStore()
-        );
 
         return( true );
     }
@@ -245,12 +269,12 @@ class TinyMashPasswordResetService {
         );
     }
 
-    protected function recordAttempt( string $identifier, string $ip_address, string $requested_at_utc ) : void {
+    protected function recordAttempt( string $identifier, string $ip_address, string $requested_at_utc, array $system_settings ) : void {
         TinyMashLockedJsonFile::mutate(
             $this->store_filename,
-            function( array $store ) use ( $identifier, $ip_address, $requested_at_utc ) : array {
+            function( array $store ) use ( $identifier, $ip_address, $requested_at_utc, $system_settings ) : array {
                 $store = $this->normalizeStore( $store );
-                $store = $this->pruneStore( $store );
+                $store = $this->pruneStore( $store, $system_settings );
                 array_unshift(
                     $store['attempts'],
                     [
@@ -293,7 +317,10 @@ class TinyMashPasswordResetService {
     }
 
     protected function pruneStore( array $store, array $system_settings = [] ) : array {
-        $attempt_cutoff = time() - $this->getThrottleWindowSeconds( $system_settings );
+        $attempt_window_seconds = empty( $system_settings )
+            ? self::MAX_THROTTLE_WINDOW_SECONDS
+            : $this->getThrottleWindowSeconds( $system_settings );
+        $attempt_cutoff = time() - $attempt_window_seconds;
         $store['attempts'] = array_values(
             array_filter(
                 is_array( $store['attempts'] ?? null ) ? $store['attempts'] : [],

@@ -1,5 +1,10 @@
 <?php
 
+use app\classes\TinyMashFilesystem;
+use app\classes\TinyMashLockedJsonFile;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashLockedJsonFile.php';
+
 class TinyMashStatisticsRepository {
 
     protected string $storage_root;
@@ -241,10 +246,10 @@ class TinyMashStatisticsRepository {
 
         $target_directory = rtrim( $target_directory, DIRECTORY_SEPARATOR );
         $this->ensureDirectory( $target_directory );
-        file_put_contents(
-            $target_directory . DIRECTORY_SEPARATOR . 'summary.json',
-            json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . PHP_EOL
-        );
+        $payload = json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+        if ( ! is_string( $payload ) || ! TinyMashFilesystem::writeFileAtomically( $target_directory . DIRECTORY_SEPARATOR . 'summary.json', $payload . PHP_EOL ) ) {
+            throw new \RuntimeException( 'Unable to export statistics.' );
+        }
 
         return(
             [
@@ -271,19 +276,19 @@ class TinyMashStatisticsRepository {
 
         $target_directory = rtrim( $target_directory, DIRECTORY_SEPARATOR );
         $this->ensureDirectory( $target_directory . DIRECTORY_SEPARATOR . 'authors' );
-        file_put_contents(
-            $target_directory . DIRECTORY_SEPARATOR . 'authors' . DIRECTORY_SEPARATOR . $author_slug . '.json',
-            json_encode(
-                [
-                    'format' => 'tinymash-statistics',
-                    'format_version' => 1,
-                    'scope' => 'author',
-                    'author_slug' => $author_slug,
-                    'author' => $author_bucket,
-                ],
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-            ) . PHP_EOL
+        $payload = json_encode(
+            [
+                'format' => 'tinymash-statistics',
+                'format_version' => 1,
+                'scope' => 'author',
+                'author_slug' => $author_slug,
+                'author' => $author_bucket,
+            ],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
         );
+        if ( ! is_string( $payload ) || ! TinyMashFilesystem::writeFileAtomically( $target_directory . DIRECTORY_SEPARATOR . 'authors' . DIRECTORY_SEPARATOR . $author_slug . '.json', $payload . PHP_EOL ) ) {
+            throw new \RuntimeException( 'Unable to export author statistics.' );
+        }
 
         return(
             [
@@ -371,7 +376,7 @@ class TinyMashStatisticsRepository {
     }
 
     protected function loadData() : array {
-        return( $this->normalizeData( $this->readJsonFile( $this->summary_filename ) ) );
+        return( $this->normalizeData( TinyMashLockedJsonFile::read( $this->summary_filename, [] ) ) );
     }
 
     protected function readJsonFile( string $filename ) : array {
@@ -389,45 +394,30 @@ class TinyMashStatisticsRepository {
     }
 
     protected function withLockedData( callable $callback ) : mixed {
-        $this->ensureDirectory( $this->storage_root );
-        $handle = fopen( $this->summary_filename, 'c+' );
-        if ( ! is_resource( $handle ) ) {
-            throw new \RuntimeException( 'Statistics storage could not be opened.' );
-        }
+        return(
+            TinyMashLockedJsonFile::mutate(
+                $this->summary_filename,
+                function( array $stored_data ) use ( $callback ) : array {
+                    $data = $this->normalizeData( $stored_data );
+                    $response = $callback( $data );
+                    $updated_data = $data;
+                    $result = null;
 
-        if ( ! flock( $handle, LOCK_EX ) ) {
-            fclose( $handle );
-            throw new \RuntimeException( 'Statistics storage could not be locked.' );
-        }
+                    if ( is_array( $response ) && array_key_exists( 'data', $response ) ) {
+                        $updated_data = $this->normalizeData( is_array( $response['data'] ) ? $response['data'] : [] );
+                        $result = $response['result'] ?? null;
+                    } elseif ( is_array( $response ) ) {
+                        $updated_data = $this->normalizeData( $response );
+                        $result = $updated_data;
+                    } else {
+                        $result = $response;
+                    }
 
-        try {
-            rewind( $handle );
-            $json = stream_get_contents( $handle );
-            $data = $this->normalizeData( is_string( $json ) && trim( $json ) !== '' ? ( json_decode( $json, true, 32 ) ?: [] ) : [] );
-            $response = $callback( $data );
-            $updated_data = $data;
-            $result = null;
-
-            if ( is_array( $response ) && array_key_exists( 'data', $response ) ) {
-                $updated_data = $this->normalizeData( is_array( $response['data'] ) ? $response['data'] : [] );
-                $result = $response['result'] ?? null;
-            } elseif ( is_array( $response ) ) {
-                $updated_data = $this->normalizeData( $response );
-                $result = $updated_data;
-            } else {
-                $result = $response;
-            }
-
-            rewind( $handle );
-            ftruncate( $handle, 0 );
-            fwrite( $handle, json_encode( $updated_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . PHP_EOL );
-            fflush( $handle );
-        } finally {
-            flock( $handle, LOCK_UN );
-            fclose( $handle );
-        }
-
-        return( $result );
+                    return( [ 'data' => $updated_data, 'result' => $result ] );
+                },
+                []
+            )
+        );
     }
 
     protected function normalizeData( array $data ) : array {
@@ -555,7 +545,7 @@ class TinyMashStatisticsRepository {
 
             $normalized_pages[$path] = [
                 'path' => $path,
-                'title' => trim( (string) ( $page['title'] ?? $path ) ),
+                'title' => mb_trim( (string) ( $page['title'] ?? $path ) ),
                 'page_kind' => trim( (string) ( $page['page_kind'] ?? 'page' ) ),
                 'entry_type' => trim( (string) ( $page['entry_type'] ?? '' ) ),
                 'author_slug' => trim( (string) ( $page['author_slug'] ?? '' ) ),
@@ -603,7 +593,7 @@ class TinyMashStatisticsRepository {
         if ( empty( $pages[$path] ) || ! is_array( $pages[$path] ) ) {
             $pages[$path] = [
                 'path' => $path,
-                'title' => trim( (string) ( $metadata['title'] ?? $path ) ),
+                'title' => mb_trim( (string) ( $metadata['title'] ?? $path ) ),
                 'page_kind' => trim( (string) ( $metadata['page_kind'] ?? 'page' ) ),
                 'entry_type' => trim( (string) ( $metadata['entry_type'] ?? '' ) ),
                 'author_slug' => trim( (string) ( $metadata['author_slug'] ?? '' ) ),

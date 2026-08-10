@@ -1,4 +1,4 @@
-<ul class="nav nav-tabs mb-3" id="tinymash-editor-tabs" role="tablist">
+<ul class="nav nav-tabs flex-nowrap mb-3 pb-1 pb-md-0 tm-editor-tabs" id="tinymash-editor-tabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active" id="tm-tab-write" type="button" role="tab" aria-controls="tm-editor-write-pane" aria-selected="true" data-mode="write">Write</button>
     </li>
@@ -6,23 +6,43 @@
         <button class="nav-link" id="tm-tab-preview" type="button" role="tab" aria-controls="tm-editor-preview-pane" aria-selected="false" data-mode="preview">Preview</button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tm-tab-metadata" type="button" role="tab" aria-controls="tm-editor-metadata-pane" aria-selected="false" data-mode="metadata">Metadata</button>
+        <button class="nav-link" id="tm-tab-metadata" type="button" role="tab" aria-controls="tm-editor-metadata-pane" aria-selected="false" data-mode="metadata">Options</button>
     </li>
-    <li n:if="! empty( $editor_seo_enabled )" class="nav-item" role="presentation">
+    <li n:if="! empty( $editor_seo_enabled )" class="nav-item tm-editor-full-only" role="presentation">
         <button class="nav-link" id="tm-tab-seo" type="button" role="tab" aria-controls="tm-editor-seo-pane" aria-selected="false" data-mode="seo">SEO</button>
     </li>
-    <li n:foreach="$editor_plugin_tabs as $editor_plugin_tab" class="nav-item" role="presentation">
+    <li n:foreach="$editor_plugin_tabs as $editor_plugin_tab" class="nav-item tm-editor-full-only" role="presentation">
         <button class="nav-link" id="tm-tab-plugin-{$editor_plugin_tab['key']}" type="button" role="tab" aria-controls="tm-editor-plugin-pane-{$editor_plugin_tab['key']}" aria-selected="false" data-mode="plugin-{$editor_plugin_tab['key']}">{$editor_plugin_tab['label']}</button>
     </li>
 </ul>
 
 <div id="tm-editor-write-pane" role="tabpanel" aria-labelledby="tm-tab-write" tabindex="0">
-    {$editor_markdown_component_html|noescape}
-    {if ! empty( $editor_image_upload['enabled'] ) && (string) ( $editor_image_upload['message'] ?? '' ) !== ''}
-        <div class="form-text small mt-1">
-            {$editor_image_upload['message'] ?? ''}
+    <div class="row g-2 mb-3">
+        <div class="col-12">
+            <label class="form-label small mb-1" for="tm-editor-title">Title</label>
+            <input class="form-control" id="tm-editor-title" type="text" value="{$editor_draft['title']}">
         </div>
-    {/if}
+        <div class="col-12 col-sm-6">
+            <label class="form-label small mb-1" for="tm-editor-entry-type">Type</label>
+            <select class="form-select form-select-sm" id="tm-editor-entry-type">
+                <option value="post" n:attr="selected => $editor_draft['entry_type'] === 'post'">Post</option>
+                <option value="page" n:attr="selected => $editor_draft['entry_type'] === 'page'">Page</option>
+            </select>
+        </div>
+        <div class="col-12 col-sm-6">
+            <label class="form-label small mb-1" for="tm-editor-status-field">Status</label>
+            <select class="form-select form-select-sm" id="tm-editor-status-field">
+                <option value="unpublished" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'unpublished'">Unpublished</option>
+                <option value="published" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'published'">Published</option>
+            </select>
+            {if ! empty( $content_moderation_required ) && empty( $is_superadmin )}
+                <div class="form-text">
+                    Published content will be submitted for review instead of going live immediately.
+                </div>
+            {/if}
+        </div>
+    </div>
+    {$editor_markdown_component_html|noescape}
 </div>
 
 <div id="tm-editor-preview-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-preview" aria-live="polite" aria-hidden="true" tabindex="0">
@@ -35,54 +55,15 @@
 
 <div id="tm-editor-metadata-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-metadata" aria-hidden="true" tabindex="0">
     <div class="row g-3">
-        <div class="col-12">
-            <label class="form-label small mb-1" for="tm-editor-title">Title</label>
-            <input class="form-control" id="tm-editor-title" type="text" value="{$editor_draft['title']}">
-        </div>
-        <div class="col-12 col-md-6">
-            <label class="form-label small mb-1" for="tm-editor-entry-type">Type</label>
-            <select class="form-select" id="tm-editor-entry-type">
-                <option value="post" n:attr="selected => $editor_draft['entry_type'] === 'post'">Post</option>
-                <option value="page" n:attr="selected => $editor_draft['entry_type'] === 'page'">Page</option>
-            </select>
-        </div>
-        <div class="col-12 col-md-6">
-            <label class="form-label small mb-1" for="tm-editor-status-field">Status</label>
-            <select class="form-select" id="tm-editor-status-field">
-                <option value="unpublished" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'unpublished'">Unpublished</option>
-                <option value="published" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'published'">Published</option>
-            </select>
-            <div class="form-text">
-                {if ! empty( $content_moderation_required ) && empty( $is_superadmin )}
-                    Published content will be submitted for review instead of going live immediately.
-                {else}
-                    Save decides whether the content stays unpublished or goes live.
-                {/if}
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <label class="form-label small mb-1" for="tm-editor-published-at-local">Publish date/time</label>
-            <input class="form-control font-monospace" id="tm-editor-published-at-local" type="datetime-local" value="{$editor_draft['published_at_local'] ?? ''}">
-            <div class="form-text">Leave blank to use the current time the first time published.</div>
-        </div>
         {if ! empty( $is_superadmin )}
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-lg-6 tm-editor-full-only">
                 <label class="form-label small mb-1" for="tm-editor-scope">Scope</label>
                 <select class="form-select" id="tm-editor-scope">
                     <option value="root" n:attr="selected => $editor_draft['scope'] === 'root'">root</option>
                     <option value="author" n:attr="selected => $editor_draft['scope'] === 'author'">Username/Author</option>
                 </select>
             </div>
-        {else}
-            <input id="tm-editor-scope" type="hidden" value="author">
-        {/if}
-        <div n:class="'col-12', ! empty( $is_superadmin ) ? 'col-md-6' : null">
-            <label class="form-label small mb-1" for="tm-editor-slug">Slug</label>
-            <input class="form-control font-monospace" id="tm-editor-slug" type="text" value="{$editor_draft['slug']}">
-            <div class="form-text" id="tm-editor-slug-status">Slug will update from the title while creating new content.</div>
-        </div>
-        {if ! empty( $is_superadmin )}
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-lg-6 tm-editor-full-only">
                 <label class="form-label small mb-1" for="tm-editor-author-slug">Username/Author</label>
                 <input class="form-control font-monospace" id="tm-editor-author-slug" list="tm-editor-author-options" type="text" value="{$editor_draft['author_slug']}">
                 <datalist id="tm-editor-author-options">
@@ -93,9 +74,15 @@
                 <div class="form-text">Type to search an existing Username/Author. Username/Author-scoped publish requires a real non-deleted user.</div>
             </div>
         {else}
+            <input id="tm-editor-scope" type="hidden" value="author">
             <input id="tm-editor-author-slug" type="hidden" value="{$current_author_slug}">
         {/if}
-        <div class="col-12">
+        <div class="col-12 col-lg-4 flex-lg-grow-1 tm-editor-full-only">
+            <label class="form-label small mb-1" for="tm-editor-slug">Slug</label>
+            <input class="form-control font-monospace" id="tm-editor-slug" type="text" value="{$editor_draft['slug']}">
+            <div class="form-text" id="tm-editor-slug-status">Slug will update from the title while creating new content.</div>
+        </div>
+        <div class="col-12 col-lg-8 tm-editor-focus-wide" id="tm-editor-page-structure">
             <label class="form-label small mb-1" for="tm-editor-parent-slug">Parent page</label>
             <select class="form-select font-monospace" id="tm-editor-parent-slug">
                 <option value="">/ (root)</option>
@@ -115,19 +102,64 @@
                 {/foreach}
             </select>
             <div class="form-text">Pages only. Choose `/ (root)` to keep this page at the top level.</div>
-        </div>
-        <div class="col-12">
-            <label class="form-label small mb-1" for="tm-editor-summary">Summary</label>
-            <textarea class="form-control" id="tm-editor-summary" rows="4">{$editor_draft['summary']}</textarea>
-        </div>
-        <div class="col-12" n:if="$editor_tags_enabled">
-            <label class="form-label small mb-1" for="tm-editor-tags">Tags</label>
-            <div class="position-relative">
-                <input class="form-control font-monospace" id="tm-editor-tags" type="text" autocomplete="off" value="{=implode(', ', is_array($editor_draft['tags'] ?? null) ? $editor_draft['tags'] : [])}">
-                <div class="list-group shadow-sm d-none position-absolute start-0 end-0 mt-1 z-3" id="tm-editor-tags-autocomplete" role="listbox" aria-label="Tag suggestions"></div>
+            <div class="row g-2 mt-1">
+                <div class="col-12 col-md-7 tm-editor-focus-wide">
+                    <div class="form-check" id="tm-editor-navigation-field">
+                        <input class="form-check-input" id="tm-editor-nav" type="checkbox" n:attr="checked => $editor_draft['show_in_navigation']">
+                        <label class="form-check-label" for="tm-editor-nav">Show in navigation</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-5 tm-editor-full-only" id="tm-editor-sort-order-field">
+                    <label class="form-label small mb-1" for="tm-editor-sort-order">Sort order</label>
+                    <input class="form-control form-control-sm" id="tm-editor-sort-order" type="number" value="{$editor_draft['sort_order']}">
+                    <div class="form-text" id="tm-editor-sort-order-hint">Pages with the same parent are sorted by this number first.</div>
+                </div>
             </div>
-            <div class="form-text">Optional. Use comma or space-separated `#tags`. They are normalized and shown publicly.</div>
         </div>
+        <div class="col-12 tm-editor-common-options">
+            <div class="row g-3 align-items-stretch">
+                <div class="col-12 col-lg-8 d-flex flex-column tm-editor-common-summary">
+                    <label class="form-label small mb-1" for="tm-editor-summary">Summary</label>
+                    <textarea class="form-control flex-grow-1" id="tm-editor-summary" rows="4">{$editor_draft['summary']}</textarea>
+                </div>
+                <div class="col-12 col-lg-4 tm-editor-common-secondary">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-editor-published-at-local">Publish date/time <span class="text-body-secondary">({$editor_timezone_name ?? 'UTC'})</span></label>
+                            <input class="form-control form-control-sm font-monospace" id="tm-editor-published-at-local" type="datetime-local" value="{$editor_draft['published_at_local'] ?? ''}">
+                            <div class="form-text">Leave blank for first publish. Future values are metadata, not scheduling.</div>
+                        </div>
+                        <div class="col-12" n:if="$editor_tags_enabled">
+                            <label class="form-label small mb-1" for="tm-editor-tags">Tags</label>
+                            <div class="position-relative">
+                                <input class="form-control form-control-sm font-monospace" id="tm-editor-tags" type="text" autocomplete="off" value="{=implode(', ', is_array($editor_draft['tags'] ?? null) ? $editor_draft['tags'] : [])}">
+                                <div class="list-group shadow-sm d-none position-absolute start-0 end-0 mt-1 z-3" id="tm-editor-tags-autocomplete" role="listbox" aria-label="Tag suggestions"></div>
+                            </div>
+                            <div class="form-text">Optional. Use comma or space-separated `#tags`. They are normalized and shown publicly.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12" id="tm-editor-post-listing-options">
+            <div class="fw-semibold small mb-2">Post listing</div>
+            <div class="d-flex flex-wrap gap-3">
+                <div class="form-check tm-editor-full-only">
+                    <input class="form-check-input" id="tm-editor-aggregate" type="checkbox" n:attr="checked => $editor_draft['aggregate_to_root']">
+                    <label class="form-check-label" for="tm-editor-aggregate">Aggregate to root</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" id="tm-editor-sticky" type="checkbox" n:attr="checked => $editor_draft['sticky']">
+                    <label class="form-check-label" for="tm-editor-sticky">Sticky</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" id="tm-editor-featured" type="checkbox" n:attr="checked => $editor_draft['featured']">
+                    <label class="form-check-label" for="tm-editor-featured">Featured</label>
+                </div>
+            </div>
+        </div>
+        {var $editor_fallback_cover_color = strtolower(trim((string) ($editor_draft['fallback_cover_color'] ?? '')))}
+        {var $editor_fallback_cover_color_is_custom = preg_match('/^#[0-9a-f]{6}$/', $editor_fallback_cover_color) === 1}
         <div class="col-12">
             <label class="form-label small mb-1" for="tm-editor-featured-image">Featured image</label>
             {var $current_featured_image = is_array($editor_current_featured_image ?? null) ? $editor_current_featured_image : []}
@@ -145,6 +177,32 @@
                 </div>
                 <div class="form-text">{$editor_featured_image['message'] ?? 'Optional. Themes can use the selected image in lists and entry views.'}</div>
                 <div class="small text-body-secondary mt-2" id="tm-editor-featured-image-summary">{$current_featured_image_url !== '' ? ($current_featured_image_label !== '' ? $current_featured_image_label : 'Featured image selected.') : 'No featured image selected.'}</div>
+            {else}
+                <div class="form-control bg-body-tertiary text-body-secondary">{$editor_featured_image['message'] ?? 'Featured image is disabled.'}</div>
+                <input id="tm-editor-featured-image-disabled-value" type="hidden" value="{$editor_draft['featured_image_media_id'] ?? ''}">
+            {/if}
+            <div class="row g-2 mt-2 tm-editor-full-only">
+                <div class="col-12 col-md-6 col-lg-4" id="tm-editor-fallback-cover-color-field">
+                    <label class="form-label small mb-1" for="tm-editor-fallback-cover-color">Fallback cover color</label>
+                    <select class="form-select form-select-sm" id="tm-editor-fallback-cover-color">
+                        <option value="" n:attr="selected => $editor_fallback_cover_color === ''">Use theme default</option>
+                        <option value="slate" n:attr="selected => $editor_fallback_cover_color === 'slate'">Slate</option>
+                        <option value="blue" n:attr="selected => $editor_fallback_cover_color === 'blue'">Blue</option>
+                        <option value="green" n:attr="selected => $editor_fallback_cover_color === 'green'">Green</option>
+                        <option value="amber" n:attr="selected => $editor_fallback_cover_color === 'amber'">Amber</option>
+                        <option value="berry" n:attr="selected => $editor_fallback_cover_color === 'berry'">Berry</option>
+                        <option value="custom" n:attr="selected => $editor_fallback_cover_color_is_custom">Custom</option>
+                    </select>
+                    <div class="form-text">Used by Blocks when this post has no featured image.</div>
+                    <div class="mt-2" id="tm-editor-fallback-cover-color-custom-wrap">
+                        <label class="form-label small mb-1" for="tm-editor-fallback-cover-color-custom">Custom color</label>
+                        <input class="form-control form-control-color" id="tm-editor-fallback-cover-color-custom" type="color" value="{$editor_fallback_cover_color_is_custom ? $editor_fallback_cover_color : '#6c757d'}" title="Choose a custom fallback cover color">
+                        <div class="small text-body-secondary mt-2">Recent colors</div>
+                        <div class="d-flex flex-wrap gap-2 mt-2" id="tm-editor-fallback-cover-color-recent"></div>
+                    </div>
+                </div>
+            </div>
+            {if ! empty( $editor_featured_image['enabled'] )}
                 <div class="border rounded-3 bg-body-tertiary p-3 mt-2{$current_featured_image_url === '' ? ' d-none' : ''}" id="tm-editor-featured-image-preview">
                     {if $current_featured_image_url !== ''}
                         <div class="row g-3 align-items-start">
@@ -165,67 +223,16 @@
                     <div class="small text-body-secondary mb-2">Images uploaded for this content appear here first and can be promoted to featured image.</div>
                     <div class="row g-2" id="tm-editor-attached-images"></div>
                 </div>
-            {else}
-                <div class="form-control bg-body-tertiary text-body-secondary">{$editor_featured_image['message'] ?? 'Featured image is disabled.'}</div>
-                <input id="tm-editor-featured-image-disabled-value" type="hidden" value="{$editor_draft['featured_image_media_id'] ?? ''}">
-                {if ! empty( $editor_draft['featured_image']['url'] )}
-                    <div class="border rounded-3 bg-body-tertiary p-3 mt-2">
-                        <img class="img-fluid rounded border" src="{$editor_draft['featured_image']['url']}" alt="{$editor_draft['featured_image']['alt_text'] ?? ''}" decoding="async"{if ! empty( $editor_draft['featured_image']['width'] )} width="{$editor_draft['featured_image']['width']}"{/if}{if ! empty( $editor_draft['featured_image']['height'] )} height="{$editor_draft['featured_image']['height']}"{/if}>
-                    </div>
-                {/if}
+            {elseif ! empty( $editor_draft['featured_image']['url'] )}
+                <div class="border rounded-3 bg-body-tertiary p-3 mt-2">
+                    <img class="img-fluid rounded border" src="{$editor_draft['featured_image']['url']}" alt="{$editor_draft['featured_image']['alt_text'] ?? ''}" decoding="async"{if ! empty( $editor_draft['featured_image']['width'] )} width="{$editor_draft['featured_image']['width']}"{/if}{if ! empty( $editor_draft['featured_image']['height'] )} height="{$editor_draft['featured_image']['height']}"{/if}>
+                </div>
             {/if}
-        </div>
-        {var $editor_fallback_cover_color = strtolower(trim((string) ($editor_draft['fallback_cover_color'] ?? '')))}
-        {var $editor_fallback_cover_color_is_custom = preg_match('/^#[0-9a-f]{6}$/', $editor_fallback_cover_color) === 1}
-        <div class="col-12 col-md-4">
-            <label class="form-label small mb-1" for="tm-editor-fallback-cover-color">Fallback cover color</label>
-            <select class="form-select" id="tm-editor-fallback-cover-color">
-                <option value="" n:attr="selected => $editor_fallback_cover_color === ''">Use theme default</option>
-                <option value="slate" n:attr="selected => $editor_fallback_cover_color === 'slate'">Slate</option>
-                <option value="blue" n:attr="selected => $editor_fallback_cover_color === 'blue'">Blue</option>
-                <option value="green" n:attr="selected => $editor_fallback_cover_color === 'green'">Green</option>
-                <option value="amber" n:attr="selected => $editor_fallback_cover_color === 'amber'">Amber</option>
-                <option value="berry" n:attr="selected => $editor_fallback_cover_color === 'berry'">Berry</option>
-                <option value="custom" n:attr="selected => $editor_fallback_cover_color_is_custom">Custom</option>
-            </select>
-            <div class="form-text">Optional. Used by Blocks when this post has no featured image.</div>
-            <div class="mt-2" id="tm-editor-fallback-cover-color-custom-wrap">
-                <label class="form-label small mb-1" for="tm-editor-fallback-cover-color-custom">Custom color</label>
-                <input class="form-control form-control-color" id="tm-editor-fallback-cover-color-custom" type="color" value="{$editor_fallback_cover_color_is_custom ? $editor_fallback_cover_color : '#6c757d'}" title="Choose a custom fallback cover color">
-                <div class="small text-body-secondary mt-2">Recent colors</div>
-                <div class="d-flex flex-wrap gap-2 mt-2" id="tm-editor-fallback-cover-color-recent"></div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <label class="form-label small mb-1" for="tm-editor-sort-order">Sort order</label>
-            <input class="form-control" id="tm-editor-sort-order" type="number" value="{$editor_draft['sort_order']}">
-            <div class="form-text" id="tm-editor-sort-order-hint">Pages with the same parent are sorted by this number first.</div>
-        </div>
-        <div class="col-12 col-md-8">
-            <div class="small text-uppercase text-body-secondary mb-2">Flags</div>
-            <div class="d-flex flex-wrap gap-3">
-                <div class="form-check">
-                    <input class="form-check-input" id="tm-editor-aggregate" type="checkbox" n:attr="checked => $editor_draft['aggregate_to_root']">
-                    <label class="form-check-label" for="tm-editor-aggregate">Aggregate to root</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" id="tm-editor-sticky" type="checkbox" n:attr="checked => $editor_draft['sticky']">
-                    <label class="form-check-label" for="tm-editor-sticky">Sticky</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" id="tm-editor-featured" type="checkbox" n:attr="checked => $editor_draft['featured']">
-                    <label class="form-check-label" for="tm-editor-featured">Featured</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" id="tm-editor-nav" type="checkbox" n:attr="checked => $editor_draft['show_in_navigation']">
-                    <label class="form-check-label" for="tm-editor-nav">Show in navigation</label>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
-<div n:if="! empty( $editor_seo_enabled )" id="tm-editor-seo-pane" class="d-none" role="tabpanel" aria-labelledby="tm-tab-seo" aria-hidden="true" tabindex="0">
+<div n:if="! empty( $editor_seo_enabled )" id="tm-editor-seo-pane" class="d-none tm-editor-full-only" role="tabpanel" aria-labelledby="tm-tab-seo" aria-hidden="true" tabindex="0">
     <div class="row g-3">
         <div class="col-12">
             <div class="small text-uppercase text-body-secondary mb-2">Search</div>
@@ -313,6 +320,6 @@
     </div>
 </div>
 
-<div n:foreach="$editor_plugin_tabs as $editor_plugin_tab" id="tm-editor-plugin-pane-{$editor_plugin_tab['key']}" class="d-none" data-editor-plugin-pane="plugin-{$editor_plugin_tab['key']}" role="tabpanel" aria-labelledby="tm-tab-plugin-{$editor_plugin_tab['key']}" aria-hidden="true" tabindex="0">
+<div n:foreach="$editor_plugin_tabs as $editor_plugin_tab" id="tm-editor-plugin-pane-{$editor_plugin_tab['key']}" class="d-none tm-editor-full-only" data-editor-plugin-pane="plugin-{$editor_plugin_tab['key']}" role="tabpanel" aria-labelledby="tm-tab-plugin-{$editor_plugin_tab['key']}" aria-hidden="true" tabindex="0">
     {$editor_plugin_tab['html']|noescape}
 </div>

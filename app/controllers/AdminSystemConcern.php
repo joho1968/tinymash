@@ -979,6 +979,7 @@ trait AdminSystemConcern {
             'system_reassign_users' => $this->getSystemReassignUsers( $system_users ),
             'system_components_report' => $this->getSystemComponentsReport(),
             'system_static_export' => $this->getSystemStaticExportViewData(),
+            'system_link_integrity' => $system_section === 'link-integrity' ? $this->getSystemLinkIntegrityReport() : [],
             'system_notifications_view' => $system_notifications_view,
             'system_notifications_unread_count' => $system_notifications_unread_count,
             'system_notification_dismiss_url' => $this->app->get( 'admin.url' ) . '/system/notifications/dismiss',
@@ -1060,7 +1061,7 @@ trait AdminSystemConcern {
 
     protected function normalizeSystemSection( string $section ) : string {
         $section = strtolower( trim( $section ) );
-        return( in_array( $section, [ 'site', 'security', 'content-media', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'static-export' ], true ) ? $section : 'site' );
+        return( in_array( $section, [ 'site', 'security', 'content-media', 'link-integrity', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'static-export' ], true ) ? $section : 'site' );
     }
 
     protected function getSystemSectionUrls() : array {
@@ -1069,6 +1070,7 @@ trait AdminSystemConcern {
                 'site' => $this->getSystemSectionUrl( 'site' ),
                 'security' => $this->getSystemSectionUrl( 'security' ),
                 'content_media' => $this->getSystemSectionUrl( 'content-media' ),
+                'link_integrity' => $this->getSystemSectionUrl( 'link-integrity' ),
                 'head_tags' => $this->getSystemSectionUrl( 'head-tags' ),
                 'media' => $this->getSystemSectionUrl( 'media' ),
                 'media_library' => $this->getSystemSectionUrl( 'media-library' ),
@@ -1089,6 +1091,32 @@ trait AdminSystemConcern {
                 'static_export' => $this->getSystemSectionUrl( 'static-export' ),
             ]
         );
+    }
+
+    protected function getSystemLinkIntegrityReport() : array {
+        if ( ! $this->app->has( 'link_integrity.service' ) ) {
+            return( [ 'error_message' => 'Link integrity reporting is not available.' ] );
+        }
+
+        $service = $this->app->get( 'link_integrity.service' );
+        if ( ! $service instanceof \app\classes\TinyMashLinkIntegrityService ) {
+            return( [ 'error_message' => 'Link integrity reporting is not available.' ] );
+        }
+
+        $redirect_resolver = null;
+        if ( $this->app->has( 'redirects.service' ) ) {
+            $redirects_service = $this->app->get( 'redirects.service' );
+            if ( is_object( $redirects_service ) && method_exists( $redirects_service, 'resolveRequestPath' ) ) {
+                $redirect_resolver = static fn( string $path ) : mixed => $redirects_service->resolveRequestPath( $path );
+            }
+        }
+
+        try {
+            return( $service->scan( $redirect_resolver ) );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to build link integrity report (' . $e->getMessage() . ')' );
+            return( [ 'error_message' => 'The link integrity report could not be generated.' ] );
+        }
     }
 
     protected function getSystemMediaLibraryViewData() : array {

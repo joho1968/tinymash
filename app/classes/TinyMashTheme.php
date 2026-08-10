@@ -28,7 +28,7 @@ class TinyMashTheme {
         $this->menu_service = $menu_service;
     }
 
-    public function getBaseViewData( string $title, ?array $context_entry = null, ?string $context_author_slug = null ) : array {
+    public function getBaseViewData( string $title, ?array $context_entry = null, ?string $context_author_slug = null, array $render_context = [] ) : array {
         $page_context = $this->resolvePageContext( $context_entry, $context_author_slug );
         $theme_settings = $this->getThemeSettingsForAuthorContext(
             $page_context['scope'] === 'author' ? (string) ( $page_context['author_slug'] ?? '' ) : ''
@@ -103,6 +103,7 @@ class TinyMashTheme {
                 'theme_page_structure' => $this->getPageStructure( $page_context['scope'], $page_context['author_slug'], $page_context['current_path'] ),
                 'theme_page_context' => $page_context,
                 'author_display_name' => $page_context['author_display_name'],
+                'theme_author_inherits_site_theme' => $page_context['scope'] === 'author' && $this->authorInheritsSiteTheme( (string) $page_context['author_slug'] ),
                 'theme_body_classes' => $this->getBodyClasses( $page_context, $context_entry ),
                 'theme_background' => $resolved_background,
                 'theme_background_inline_style' => $this->buildBackgroundInlineStyle( $resolved_background ),
@@ -116,8 +117,8 @@ class TinyMashTheme {
                 'theme_screen_mode' => $this->resolveScreenMode( $page_context ),
                 'theme_public_sidebar_fragments' => $this->getPublicSidebarFragments( $context_entry, $context_author_slug ),
                 'theme_public_footer_fragments' => $this->getPublicFooterFragments( $context_entry, $context_author_slug ),
-                'theme_public_head_tags' => $this->config instanceof TinyMashConfig ? $this->config->getPublicHeadTags() : [],
-                'theme_search' => $this->getPublicSearchViewData( $page_context['scope'] === 'author' ? (string) ( $page_context['author_slug'] ?? '' ) : '', $theme_settings ),
+                'theme_public_head_tags' => $this->getPublicHeadTags( $page_context, $render_context, $site_name ),
+                'theme_search' => $this->getPublicSearchViewData( $page_context['scope'] === 'author' ? (string) ( $page_context['author_slug'] ?? '' ) : '', $theme_settings, $render_context ),
                 'theme_syntax_highlighting' => $syntax_highlighting,
                 'theme_tags' => $tags,
                 'theme_docs_home_url' => $this->getDocsHomeUrl( $page_context['scope'], $page_context['author_slug'], $theme_settings ),
@@ -179,6 +180,18 @@ class TinyMashTheme {
         );
 
         return( in_array( $theme_key, $available_theme_keys, true ) ? $theme_key : $this->getSiteThemeKey() );
+    }
+
+    public function authorInheritsSiteTheme( string $author_slug ) : bool {
+        $author_slug = strtolower( trim( $author_slug ) );
+        if ( $author_slug === '' ) {
+            return( false );
+        }
+        if ( ! $this->user_repository instanceof TinyMashUserRepository ) {
+            return( true );
+        }
+
+        return( $this->user_repository->getPublicThemeKey( $author_slug ) === 'inherit' );
     }
 
     public function getThemeName() : string {
@@ -711,6 +724,29 @@ class TinyMashTheme {
         return( is_array( $fragments ) ? $fragments : [] );
     }
 
+    protected function getPublicHeadTags( array $page_context, array $render_context = [], string $site_name = '' ) : array {
+        $head_tags = $this->config instanceof TinyMashConfig ? $this->config->getPublicHeadTags() : [];
+        if ( ! $this->app->has( 'plugins' ) ) {
+            return( $head_tags );
+        }
+
+        $plugins = $this->app->get( 'plugins' );
+        if ( ! is_object( $plugins ) || ! method_exists( $plugins, 'renderPublicHeadTags' ) ) {
+            return( $head_tags );
+        }
+
+        $plugin_head_tags = $plugins->renderPublicHeadTags(
+            [
+                'theme_key' => $this->getThemeKey(),
+                'site_name' => $site_name !== '' ? $site_name : (string) $this->app->get( 'site.name' ),
+                'page_context' => $page_context,
+                'static_export' => ! empty( $render_context['static_export'] ),
+                'static_export_artifacts' => is_array( $render_context['static_export_artifacts'] ?? null ) ? $render_context['static_export_artifacts'] : [],
+            ]
+        );
+        return( array_merge( $head_tags, is_array( $plugin_head_tags ) ? $plugin_head_tags : [] ) );
+    }
+
     protected function getPublicSidebarFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
         if ( ! $this->app->has( 'plugins' ) ) {
             return( [] );
@@ -739,7 +775,7 @@ class TinyMashTheme {
         return( is_array( $fragments ) ? $fragments : [] );
     }
 
-    protected function getPublicSearchViewData( string $author_slug = '', array $theme_settings = [] ) : array {
+    protected function getPublicSearchViewData( string $author_slug = '', array $theme_settings = [], array $render_context = [] ) : array {
         $search_settings = $this->app->has( 'public.search' ) ? $this->app->get( 'public.search' ) : [];
         if ( ! is_array( $search_settings ) || empty( $search_settings['enabled'] ) || empty( $search_settings['url'] ) ) {
             return(
@@ -759,10 +795,15 @@ class TinyMashTheme {
             ? mb_trim( (string) ( $_GET['q'] ?? '' ) )
             : trim( (string) ( $_GET['q'] ?? '' ) );
 
+        $search_url = trim( (string) ( $search_settings['url'] ?? '' ) );
+        if ( ! empty( $render_context['static_export'] ) && $search_url === '/search' && $author_slug !== '' ) {
+            $search_url = '/' . rawurlencode( strtolower( trim( $author_slug ) ) ) . '/search';
+        }
+
         return(
             [
                 'enabled' => $theme_search_enabled,
-                'url' => trim( (string) ( $search_settings['url'] ?? '' ) ),
+                'url' => $search_url,
                 'query' => $query,
                 'min_query_length' => max( 2, (int) ( $search_settings['min_query_length'] ?? 2 ) ),
                 'author_slug' => strtolower( trim( $author_slug ) ),
@@ -1959,4 +2000,4 @@ class TinyMashTheme {
         return( $this->housekeeping_handler_cache[$housekeeping_filename] );
     }
 
-}// TinyMashTheme
+}

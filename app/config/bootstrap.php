@@ -5,10 +5,8 @@ if ( empty( TINYMASH_RUNNING ) ) {
     die( 'We do not seem to have all the bits configured' );
 }
 
-// Some "globals"
 require_once( 'globals.inc.php' );
 require_once dirname(__FILE__, 2 ) . '/include/defines.inc.php';
-// Do the autoload thing
 $ds = DIRECTORY_SEPARATOR;
 require_once( __DIR__ . $ds . '..' . $ds . '..' . $ds . 'vendor' . $ds . 'autoload.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashConfig.php' );
@@ -51,18 +49,17 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashNotificati
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPasswordResetService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashComponentsReportService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashSecretLinkService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashLinkIntegrityService.php' );
 
 use Latte\Engine;
-// use app\classes\TinyMashSecurity;
 
-// Our common $app object
 $app = Flight::app();
 $app->path( dirname( __DIR__ ) );
 $app->path( dirname( __DIR__ ) . $ds . 'controllers' );
 $app->path( dirname( __DIR__ ) . $ds . 'classes' );
 $app->path( dirname( __DIR__, 2 ) . $ds . 'vendor' );
 
-// Some defaults
+// Runtime URL defaults.
 if ( @ php_sapi_name() === 'cli' ) {
     $app->set( 'app.url', '' );
 } else {
@@ -71,20 +68,17 @@ if ( @ php_sapi_name() === 'cli' ) {
 $app->set( 'admin.url', '/admin' );
 $app->set( 'login.url', '/login' );
 
-// Latte
+// Template engine.
 $app->register( 'view', Engine::class, [], function( $latte ) {
     $latte->setTempDirectory( dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'latte-cache' . DIRECTORY_SEPARATOR );
     $latte->setLoader( new \Latte\Loaders\FileLoader( dirname( __DIR__ ) . DIRECTORY_SEPARATOR . 'views' ) );
 });
 
-// Whip out the ol' router and we'll pass that to the routes file
 $router = $app->router();
 
-// Our common config object
 $config = new \app\classes\TinyMashConfig( $app, $router );
 $config->getConfig();
 
-// Our common security object
 $security = new app\classes\TinyMashSecurity(
     $app,
     $router,
@@ -92,16 +86,15 @@ $security = new app\classes\TinyMashSecurity(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'login-attempts.json'
 );
 
-// Shared extension registries
+// Extension registries.
 $theme_support_registry = new app\classes\TinyMashThemeSupportRegistry();
 $plugin_capability_registry = new app\classes\TinyMashPluginCapabilityRegistry();
 $media_capability_registry = new app\classes\TinyMashMediaCapabilityRegistry();
 $media_derivative_registry = new app\classes\TinyMashMediaDerivativeRegistry();
 
-// Our common plugins object
 $plugins = new app\classes\TinyMashPlugins( $app, $router, $config, $security, $plugin_capability_registry );
 
-// Our common content services
+// Content services.
 $content_repository = new app\classes\TinyMashContentRepository(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'content',
     $config->getContentRevisionRetentionLimit()
@@ -164,6 +157,14 @@ $content_renderer = new app\classes\TinyMashContentRenderer(
 );
 $shortcode_registry = new app\classes\TinyMashShortcodeRegistry( $config->getUnknownShortcodeMode() );
 $menu_service = new app\classes\TinyMashMenuService( $config, $content_repository );
+$link_integrity_service = new app\classes\TinyMashLinkIntegrityService(
+    $content_repository,
+    $config,
+    $markdown_renderer,
+    $media_service,
+    $router,
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'public'
+);
 $theme_registry = new app\classes\TinyMashThemeRegistry(
     [
         dirname( __FILE__, 2 ) . DIRECTORY_SEPARATOR . 'themes' . DIRECTORY_SEPARATOR . 'public',
@@ -233,6 +234,7 @@ $app->set( 'date.formatter', $date_formatter );
 $app->set( 'content.renderer', $content_renderer );
 $app->set( 'shortcode.registry', $shortcode_registry );
 $app->set( 'menu.service', $menu_service );
+$app->set( 'link_integrity.service', $link_integrity_service );
 $app->set( 'media.metadata_store', $media_metadata_store );
 $app->set( 'media.import_map_store', $media_import_map_store );
 $app->set( 'media.service', $media_service );
@@ -260,7 +262,7 @@ $app->set( 'components.report_service', $components_report_service );
 $app->set( 'secret_links', $secret_link_service );
 $app->set( 'security', $security );
 
-// Discover and boot staged plugins
+// Early plugin stages.
 $plugins_directories = [
     dirname( __FILE__, 2 ) . DIRECTORY_SEPARATOR . 'plugins',
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'plugins',
@@ -273,7 +275,6 @@ try {
     error_log( basename( __FILE__ ) . ': Unable to discover plugins ("' . $e->getMessage() . '")' );
 }
 
-// Load the routes file
 require_once 'routes.inc.php';
 
 try {
@@ -317,5 +318,4 @@ if ( PHP_SAPI !== 'cli' ) {
     );
 }
 
-// The show must go on
 $app->start();

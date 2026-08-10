@@ -247,7 +247,7 @@ class TinyMashMediaService {
     }
 
     public function storeUploadedImage( array $file, string $owner_username, array $options = [] ) : array {
-        if ( empty( $file['tmp_name'] ) || ! is_string( $file['tmp_name'] ) || ! is_file( $file['tmp_name'] ) ) {
+        if ( empty( $file['tmp_name'] ) || ! is_string( $file['tmp_name'] ) || is_link( $file['tmp_name'] ) || ! is_file( $file['tmp_name'] ) ) {
             throw new \InvalidArgumentException( 'content_image_file' );
         }
         if ( ! isset( $file['error'] ) || (int) $file['error'] !== UPLOAD_ERR_OK ) {
@@ -391,7 +391,7 @@ class TinyMashMediaService {
     }
 
     public function storeImportedFile( string $source_path, string $owner_username, array $options = [] ) : array {
-        if ( ! is_file( $source_path ) || ! is_readable( $source_path ) ) {
+        if ( is_link( $source_path ) || ! is_file( $source_path ) || ! is_readable( $source_path ) ) {
             throw new \InvalidArgumentException( 'content_image_file' );
         }
 
@@ -539,12 +539,20 @@ class TinyMashMediaService {
     }
 
     public function resolveMediaPath( string $owner_username, string $year, string $month, string $filename ) : ?array {
-        $owner_username = $this->normalizeOwnerUsername( $owner_username );
-        $year = preg_replace( '/[^0-9]/', '', $year ) ?? '';
-        $month = preg_replace( '/[^0-9]/', '', $month ) ?? '';
-        $filename = basename( (string) $filename );
+        $owner_username = strtolower( trim( $owner_username ) );
+        $year = trim( $year );
+        $month = trim( $month );
+        $filename = trim( $filename );
 
-        if ( $owner_username === '' || $year === '' || $month === '' || $filename === '' ) {
+        if (
+            preg_match( '/^[a-z0-9_]+$/', $owner_username ) !== 1
+            || preg_match( '/^\d{4}$/', $year ) !== 1
+            || preg_match( '/^\d{2}$/', $month ) !== 1
+            || $filename === ''
+            || basename( $filename ) !== $filename
+            || str_contains( $filename, '\\' )
+            || in_array( $filename, [ '.', '..' ], true )
+        ) {
             return( null );
         }
 
@@ -1751,7 +1759,7 @@ class TinyMashMediaService {
             return( false );
         }
 
-        return( @ file_put_contents( $target_path, $sanitized_markup ) !== false );
+        return( TinyMashFilesystem::writeFileAtomically( $target_path, $sanitized_markup ) );
     }
 
     protected function sanitizeSvgMarkup( string $svg_markup ) : string {
@@ -1923,4 +1931,4 @@ class TinyMashMediaService {
         return( trim( $filename, '-_' ) );
     }
 
-}// TinyMashMediaService
+}

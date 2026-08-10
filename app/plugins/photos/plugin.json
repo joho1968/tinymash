@@ -1,7 +1,7 @@
 {
     "key": "photos",
     "name": "Photos",
-    "version": "0.94.0",
+    "version": "0.95.0",
     "description": "Adds photo-post settings and explicit per-post gallery planning.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -11,6 +11,10 @@
     "capabilities": [
         "content.workflow"
     ],
+    "static_export": {
+        "mode": "omit",
+        "summary": "Photo gallery fragments and plugin assets are not currently added to static exports."
+    },
     "default_active": true,
     "stage": "early"
 }

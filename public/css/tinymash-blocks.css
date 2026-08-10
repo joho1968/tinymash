@@ -359,4 +359,13 @@ html[data-bs-theme="dark"] .tm-blocks-card-cover-title {
     .tm-blocks-card-featured .tm-blocks-card-body {
         padding: 0.95rem;
     }
+
+    .tm-blocks-card-cover-fallback {
+        aspect-ratio: auto;
+        min-height: 5.5rem;
+    }
+
+    .tm-blocks-card-featured .tm-blocks-card-cover-fallback {
+        min-height: 6.5rem;
+    }
 }

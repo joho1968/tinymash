@@ -27,6 +27,7 @@ class ContentController extends BaseController {
     protected TinyMashContentRenderer $content_renderer;
     protected TinyMashTheme $theme;
     protected array $server_timing = [];
+    protected string $public_page_cache_generation = '';
 
     public function __construct( $app, $router, TinyMashConfig $config, TinyMashContentRepository $content_repository, TinyMashContentRenderer $content_renderer, TinyMashTheme $theme ) {
         parent::__construct( $app, $router );
@@ -697,14 +698,53 @@ class ContentController extends BaseController {
             return;
         }
 
+        $media_size = @ filesize( $media['path'] );
+        $media_modified_at = @ filemtime( $media['path'] );
+        if ( ! is_int( $media_size ) || $media_size < 0 || ! is_int( $media_modified_at ) || $media_modified_at < 1 ) {
+            $this->app->notFound();
+            return;
+        }
+
+        $etag = '"' . hash( 'sha256', $media['path'] . '|' . $media_size . '|' . $media_modified_at ) . '"';
+        $last_modified = gmdate( 'D, d M Y H:i:s', $media_modified_at ) . ' GMT';
+        header( 'ETag: ' . $etag );
+        header( 'Last-Modified: ' . $last_modified );
+        header( 'Cache-Control: public, max-age=3600' );
+        if ( $this->mediaRequestIsNotModified( $etag, $media_modified_at ) ) {
+            $this->app->response()->status( 304 );
+            return;
+        }
+
         header( 'Content-Type: ' . $media['mime'] );
         header( 'X-Content-Type-Options: nosniff' );
         if ( (string) ( $media['mime'] ?? '' ) === 'image/svg+xml' ) {
             header( "Content-Security-Policy: default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox" );
         }
-        header( 'Content-Length: ' . (string) filesize( $media['path'] ) );
-        header( 'Cache-Control: public, max-age=3600' );
+        header( 'Content-Length: ' . $media_size );
+        if ( strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) === 'HEAD' ) {
+            return;
+        }
         readfile( $media['path'] );
+    }
+
+    protected function mediaRequestIsNotModified( string $etag, int $modified_at ) : bool {
+        $if_none_match = trim( (string) ( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) );
+        if ( $if_none_match !== '' ) {
+            foreach ( explode( ',', $if_none_match ) as $candidate ) {
+                $candidate = trim( $candidate );
+                if ( $candidate === '*' || $candidate === $etag || $candidate === 'W/' . $etag ) {
+                    return( true );
+                }
+            }
+            return( false );
+        }
+
+        $if_modified_since = trim( (string) ( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? '' ) );
+        if ( $if_modified_since === '' ) {
+            return( false );
+        }
+        $if_modified_timestamp = strtotime( $if_modified_since );
+        return( is_int( $if_modified_timestamp ) && $if_modified_timestamp >= $modified_at );
     }
 
     public function themeCustomCss( string $theme_key ) : void {
@@ -794,6 +834,10 @@ class ContentController extends BaseController {
             return;
         }
 
+        if ( $this->public_page_cache_generation === '' ) {
+            $this->public_page_cache_generation = $public_page_cache->getGenerationToken();
+        }
+
         ob_start();
         try {
             $this->resetShortcodeRequestState();
@@ -808,7 +852,7 @@ class ContentController extends BaseController {
 
         if ( ! $this->hasDynamicShortcodeRenderForRequest() ) {
             $cache_write_started_at = microtime( true );
-            $public_page_cache->write( $this->getCurrentRequestUriForPublicCache(), $this->theme->getThemeKey(), $html );
+            $public_page_cache->write( $this->getCurrentRequestUriForPublicCache(), $this->theme->getThemeKey(), $html, $this->public_page_cache_generation );
             $this->recordServerTiming( 'cache_write', $cache_write_started_at );
         }
         $this->emitServerTimingHeader();
@@ -825,8 +869,9 @@ class ContentController extends BaseController {
             return( false );
         }
 
+        $this->public_page_cache_generation = $public_page_cache->getGenerationToken();
         $cache_read_started_at = microtime( true );
-        $cached_html = $public_page_cache->read( $this->getCurrentRequestUriForPublicCache(), $this->theme->getThemeKey() );
+        $cached_html = $public_page_cache->read( $this->getCurrentRequestUriForPublicCache(), $this->theme->getThemeKey(), $this->public_page_cache_generation );
         if ( ! is_string( $cached_html ) || $cached_html === '' ) {
             $this->recordServerTiming( 'cache_miss', $cache_read_started_at );
             return( false );
@@ -1123,4 +1168,4 @@ class ContentController extends BaseController {
         return( trim( $tag, '-_' ) );
     }
 
-}// ContentController
+}

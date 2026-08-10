@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashLockedJsonFile {
 
     public static function read( string $filename, array $default = [] ) : array {
@@ -8,20 +10,7 @@ class TinyMashLockedJsonFile {
             return( $default );
         }
 
-        $handle = @ fopen( $filename, 'rb' );
-        if ( $handle === false ) {
-            return( $default );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( $default );
-            }
-            $json = stream_get_contents( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
+        $json = @ file_get_contents( $filename );
 
         if ( ! is_string( $json ) || trim( $json ) === '' ) {
             return( $default );
@@ -31,7 +20,28 @@ class TinyMashLockedJsonFile {
         return( is_array( $decoded ) ? $decoded : $default );
     }
 
-    public static function write( string $filename, array $data ) : bool {
+    public static function readStrict( string $filename, array $default = [] ) : array {
+        if ( ! is_file( $filename ) ) {
+            return( $default );
+        }
+        if ( ! is_readable( $filename ) ) {
+            throw new \RuntimeException( 'Unable to read JSON store.' );
+        }
+
+        $json = @ file_get_contents( $filename );
+        if ( ! is_string( $json ) || trim( $json ) === '' ) {
+            throw new \RuntimeException( 'JSON store is empty.' );
+        }
+
+        $decoded = json_decode( $json, true, 512 );
+        if ( ! is_array( $decoded ) ) {
+            throw new \RuntimeException( 'JSON store is malformed.' );
+        }
+
+        return( $decoded );
+    }
+
+    public static function write( string $filename, array $data, bool $replace_malformed = false ) : bool {
         $directory = dirname( $filename );
         if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
             return( false );
@@ -42,25 +52,28 @@ class TinyMashLockedJsonFile {
             return( false );
         }
 
-        $handle = @ fopen( $filename, 'c+' );
-        if ( $handle === false ) {
+        $lock_handle = @ fopen( self::getLockFilename( $filename ), 'c+' );
+        if ( $lock_handle === false ) {
             return( false );
         }
 
         try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
+            if ( ! @ flock( $lock_handle, LOCK_EX ) ) {
                 return( false );
             }
-            rewind( $handle );
-            ftruncate( $handle, 0 );
-            $written = fwrite( $handle, $encoded . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
+            if ( ! $replace_malformed && is_file( $filename ) ) {
+                try {
+                    self::readStrict( $filename );
+                } catch ( \Throwable ) {
+                    return( false );
+                }
+            }
+            $payload = $encoded . PHP_EOL;
+            return( TinyMashFilesystem::writeFileAtomically( $filename, $payload ) );
         } finally {
-            fclose( $handle );
+            @ flock( $lock_handle, LOCK_UN );
+            fclose( $lock_handle );
         }
-
-        return( $written !== false );
     }
 
     public static function mutate( string $filename, callable $callback, array $default = [] ) : mixed {
@@ -69,25 +82,17 @@ class TinyMashLockedJsonFile {
             throw new \RuntimeException( 'Unable to create JSON store directory.' );
         }
 
-        $handle = @ fopen( $filename, 'c+' );
-        if ( $handle === false ) {
+        $lock_handle = @ fopen( self::getLockFilename( $filename ), 'c+' );
+        if ( $lock_handle === false ) {
             throw new \RuntimeException( 'Unable to open JSON store.' );
         }
 
         try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
+            if ( ! @ flock( $lock_handle, LOCK_EX ) ) {
                 throw new \RuntimeException( 'Unable to lock JSON store.' );
             }
 
-            rewind( $handle );
-            $json = stream_get_contents( $handle );
-            $current = $default;
-            if ( is_string( $json ) && trim( $json ) !== '' ) {
-                $decoded = json_decode( $json, true, 512 );
-                if ( is_array( $decoded ) ) {
-                    $current = $decoded;
-                }
-            }
+            $current = self::readStrict( $filename, $default );
 
             $result = $callback( $current );
             $updated = $current;
@@ -103,15 +108,19 @@ class TinyMashLockedJsonFile {
                 throw new \RuntimeException( 'Unable to encode JSON store.' );
             }
 
-            rewind( $handle );
-            ftruncate( $handle, 0 );
-            fwrite( $handle, $encoded . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
+            $payload = $encoded . PHP_EOL;
+            if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $payload ) ) {
+                throw new \RuntimeException( 'Unable to write JSON store.' );
+            }
         } finally {
-            fclose( $handle );
+            @ flock( $lock_handle, LOCK_UN );
+            fclose( $lock_handle );
         }
 
         return( $result ?? null );
+    }
+
+    protected static function getLockFilename( string $filename ) : string {
+        return( $filename . '.lock' );
     }
 }

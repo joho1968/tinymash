@@ -143,6 +143,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( ! in_array( $target_type, [ 'content', 'path' ], true ) ) {
             $target_type = 'content';
         }
+        $form_id = 'tm-redirect-form-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $id !== '' ? $id : 'new' );
 
         $html = '<form method="post" action="' . $escape( $save_url ) . '" class="d-grid gap-3">';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
@@ -151,11 +152,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
         $html .= '<div class="small text-uppercase text-body-secondary">' . $escape( $title ) . '</div>';
         $html .= '<div class="row g-3 align-items-end">';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1">Source path</label><input class="form-control font-monospace" name="source_path" type="text" placeholder="/old-path" value="' . $escape( (string) ( $record['source_path'] ?? '' ) ) . '" required></div>';
-        $html .= '<div class="col-12 col-xl-2"><label class="form-label small mb-1">Target type</label><select class="form-select" name="target_type"><option value="content"' . ( $target_type === 'content' ? ' selected' : '' ) . '>Content</option><option value="path"' . ( $target_type === 'path' ? ' selected' : '' ) . '>Internal path</option></select></div>';
-        $html .= '<div class="col-12 col-xl-4"><label class="form-label small mb-1">Content target</label><select class="form-select" name="target_entry_id">' . $build_target_options( (string) ( $record['target_entry_id'] ?? '' ) ) . '</select></div>';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1">Internal path target</label><input class="form-control font-monospace" name="target_path" type="text" placeholder="/current-path" value="' . $escape( (string) ( $record['target_path'] ?? '' ) ) . '"></div>';
-        $html .= '<div class="col-12 col-sm-5 col-xl-3"><label class="form-label small mb-1">Status</label><select class="form-select" name="status_code">' . $build_status_options( (int) ( $record['status_code'] ?? 302 ) ) . '</select></div>';
+        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-source' ) . '">Source path</label><input class="form-control font-monospace" id="' . $escape( $form_id . '-source' ) . '" name="source_path" type="text" placeholder="/old-path" value="' . $escape( (string) ( $record['source_path'] ?? '' ) ) . '" required></div>';
+        $html .= '<div class="col-12 col-xl-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-target-type' ) . '">Target type</label><select class="form-select" id="' . $escape( $form_id . '-target-type' ) . '" name="target_type"><option value="content"' . ( $target_type === 'content' ? ' selected' : '' ) . '>Content</option><option value="path"' . ( $target_type === 'path' ? ' selected' : '' ) . '>Internal path</option></select></div>';
+        $html .= '<div class="col-12 col-xl-4"><label class="form-label small mb-1" for="' . $escape( $form_id . '-content-target' ) . '">Content target</label><select class="form-select" id="' . $escape( $form_id . '-content-target' ) . '" name="target_entry_id">' . $build_target_options( (string) ( $record['target_entry_id'] ?? '' ) ) . '</select></div>';
+        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-path-target' ) . '">Internal path target</label><input class="form-control font-monospace" id="' . $escape( $form_id . '-path-target' ) . '" name="target_path" type="text" placeholder="/current-path" value="' . $escape( (string) ( $record['target_path'] ?? '' ) ) . '"></div>';
+        $html .= '<div class="col-12 col-sm-5 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-status' ) . '">Status</label><select class="form-select" id="' . $escape( $form_id . '-status' ) . '" name="status_code">' . $build_status_options( (int) ( $record['status_code'] ?? 302 ) ) . '</select></div>';
         $html .= '<div class="col-12 col-sm-3 col-xl-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-redirect-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '" name="enabled" type="checkbox" value="1"' . ( $enabled ? ' checked' : '' ) . '><label class="form-check-label" for="tm-redirect-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '">Enabled</label></div></div>';
         $html .= '<div class="col-12 col-sm-4 col-xl-2"><button class="btn btn-primary w-100" type="submit">' . $escape( $button_label ) . '</button></div>';
         $html .= '</div>';

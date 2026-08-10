@@ -432,7 +432,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $entries = is_array( $preview['entries'] ?? null ) ? $preview['entries'] : [];
             $import_running = is_array( $import_state ) && (string) ( $import_state['status'] ?? '' ) === 'running';
             $import_finished = is_array( $import_state ) && (string) ( $import_state['status'] ?? '' ) === 'finished';
-            $body_html .= '<div class="col-12"><section class="p-3 bg-body border rounded-3 shadow-sm">';
+            $body_html .= '<div class="col-12"><section>';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Preview</div>';
             $body_html .= '<div class="d-flex flex-wrap justify-content-between gap-2 align-items-start">';
             $body_html .= '<div><h2 class="h5 mb-1">' . $escape( (string) ( $preview['source_title'] ?? 'Bludit site' ) ) . '</h2><div class="small text-body-secondary">Import into <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['target_scope'] ?? 'root' ) === 'author' ? (string) ( $preview['target_author_slug'] ?? '' ) : 'root' ) . '</span>.</div></div>';

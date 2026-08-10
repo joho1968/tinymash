@@ -66,4 +66,4 @@ class TinyMashMediaDerivativeRegistry {
         return( ucwords( str_replace( [ '.', '-', '_' ], ' ', $key ) ) );
     }
 
-}// TinyMashMediaDerivativeRegistry
+}

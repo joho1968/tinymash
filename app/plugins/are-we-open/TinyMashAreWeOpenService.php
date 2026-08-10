@@ -78,8 +78,8 @@ class TinyMashAreWeOpenService {
         $status = $this->getStatus();
         $is_open = ! empty( $status['open'] );
         $format = strtolower( trim( (string) ( $attributes['format'] ?? 'badge' ) ) );
-        $open_text = trim( (string) ( $attributes['open'] ?? $status['open_label'] ?? 'Open' ) );
-        $closed_text = trim( (string) ( $attributes['closed'] ?? $status['closed_label'] ?? 'Closed' ) );
+        $open_text = mb_trim( (string) ( $attributes['open'] ?? $status['open_label'] ?? 'Open' ) );
+        $closed_text = mb_trim( (string) ( $attributes['closed'] ?? $status['closed_label'] ?? 'Closed' ) );
         $label = $is_open ? $open_text : $closed_text;
         if ( $label === '' ) {
             $label = $is_open ? 'Open' : 'Closed';
@@ -113,8 +113,8 @@ class TinyMashAreWeOpenService {
     public function normalizeSettings( array $settings ) : array {
         $normalized = [
             'timezone' => $this->normalizeTimezone( (string) ( $settings['timezone'] ?? $this->default_timezone ) ),
-            'open_label' => mb_substr( trim( (string) ( $settings['open_label'] ?? 'Open' ) ), 0, 80 ),
-            'closed_label' => mb_substr( trim( (string) ( $settings['closed_label'] ?? 'Closed' ) ), 0, 80 ),
+            'open_label' => mb_substr( mb_trim( (string) ( $settings['open_label'] ?? 'Open' ) ), 0, 80 ),
+            'closed_label' => mb_substr( mb_trim( (string) ( $settings['closed_label'] ?? 'Closed' ) ), 0, 80 ),
             'weekly' => [],
             'exceptions' => [],
             'manual_override' => [
@@ -130,7 +130,7 @@ class TinyMashAreWeOpenService {
                 'enabled' => ! empty( $row['enabled'] ),
                 'open_time' => $this->normalizeTime( (string) ( $row['open_time'] ?? '09:00' ), '09:00' ),
                 'close_time' => $this->normalizeTime( (string) ( $row['close_time'] ?? '17:00' ), '17:00' ),
-                'note' => mb_substr( trim( (string) ( $row['note'] ?? '' ) ), 0, 160 ),
+                'note' => mb_substr( mb_trim( (string) ( $row['note'] ?? '' ) ), 0, 160 ),
             ];
         }
 
@@ -152,7 +152,7 @@ class TinyMashAreWeOpenService {
                 'mode' => $mode,
                 'open_time' => $this->normalizeTime( (string) ( $exception['open_time'] ?? '09:00' ), '09:00' ),
                 'close_time' => $this->normalizeTime( (string) ( $exception['close_time'] ?? '17:00' ), '17:00' ),
-                'note' => mb_substr( trim( (string) ( $exception['note'] ?? '' ) ), 0, 160 ),
+                'note' => mb_substr( mb_trim( (string) ( $exception['note'] ?? '' ) ), 0, 160 ),
             ];
         }
 
@@ -171,7 +171,7 @@ class TinyMashAreWeOpenService {
         $normalized['manual_override'] = [
             'mode' => $manual_mode,
             'until' => $this->normalizeLocalDateTime( (string) ( $manual['until'] ?? '' ) ),
-            'message' => mb_substr( trim( (string) ( $manual['message'] ?? '' ) ), 0, 160 ),
+            'message' => mb_substr( mb_trim( (string) ( $manual['message'] ?? '' ) ), 0, 160 ),
         ];
 
         if ( $normalized['open_label'] === '' ) {
@@ -189,7 +189,7 @@ class TinyMashAreWeOpenService {
             [
                 'open' => $open,
                 'source' => $source,
-                'message' => trim( (string) $message ),
+                'message' => mb_trim( (string) $message ),
                 'open_label' => (string) ( $settings['open_label'] ?? 'Open' ),
                 'closed_label' => (string) ( $settings['closed_label'] ?? 'Closed' ),
                 'checked_at' => $now->format( 'Y-m-d H:i:s T' ),

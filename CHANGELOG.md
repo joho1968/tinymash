@@ -2,6 +2,20 @@
 
 Notable changes in tinymash
 
+## 0.95.0 - 2026-08-10
+
+- Component updates
+- Added Markdown help for `---` (horizontal ruler)
+- Admin visual cleanup, including online help
+- Themes rendering cleanup
+- Better Light/Dark/Auto mode handling
+- HTML meta-data cleanup
+- Added Full/Focus modes for composer
+- Improved static export for author spaces and whole public site
+- Improved backup and restore functionality
+- Improved on-disk content index and cache handling
+- Improved use of accessibility elements and attributes
+
 ## 0.94.0 - 2026-07-27
 
 - Fixed outbound e-mail display text so site-name shortcodes such as `:coffee:` render as Unicode emoji in subjects, sender display names, and system/test notification bodies

@@ -6,7 +6,6 @@
                 const screenModeCookieName = {=json_encode($screen_mode_cookie_name)|noescape};
                 const screenModeStorageKey = screenModeCookieName;
 
-                // Set theme to the user's preferred color scheme
                 function updateBootstrapTheme() {
                     if (getThemeMode() === 'auto') {
                         applyThemeMode('auto');
@@ -120,19 +119,16 @@
                 function documentSetup() {
                     const breakpointBadge = document.getElementById('tm-current-breakpoint');
                     themeModeButtons = Array.from(document.querySelectorAll('[data-tm-theme-mode]'));
-                    // Update theme when the preferred scheme changes
                     const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
                     if (colorSchemeQuery && typeof colorSchemeQuery.addEventListener === 'function') {
                         colorSchemeQuery.addEventListener('change', updateBootstrapTheme);
                     } else if (colorSchemeQuery && typeof colorSchemeQuery.addListener === 'function') {
                         colorSchemeQuery.addListener(updateBootstrapTheme);
                     }
-                    // Some more BS initialization
                     const popoverTriggerList = document.querySelectorAll('[data-bs-toggle=\"popover\"]');
                     const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
                     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
                     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
-                    // Figure out light/dark mode
                     const initialThemeMode = getThemeMode();
                     updateThemeModeMenu(initialThemeMode);
                     function updateBreakpointBadge() {
@@ -159,7 +155,6 @@
                     if (helpController) {
                         helpController.bindHelpModal();
                     }
-                    // Handle password field toggles
                     let pToggles = document.getElementsByClassName('tm-password-toggle');
                     if (pToggles) {
                         Array.from(pToggles).forEach((val) => {

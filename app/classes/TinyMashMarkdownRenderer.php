@@ -459,6 +459,8 @@ class TinyMashMarkdownRenderer {
             $list_item = $input_element->parentNode instanceof \DOMElement && $input_element->parentNode->tagName === 'li' ? $input_element->parentNode : null;
             if ( $list_item instanceof \DOMElement ) {
                 $this->addClasses( $list_item, [ 'task-list-item', 'list-unstyled' ] );
+                $task_label = mb_trim( (string) $list_item->textContent );
+                $input_element->setAttribute( 'aria-label', $task_label !== '' ? $task_label : 'Task item' );
 
                 $list_container = $list_item->parentNode instanceof \DOMElement && in_array( $list_item->parentNode->tagName, [ 'ul', 'ol' ], true ) ? $list_item->parentNode : null;
                 if ( $list_container instanceof \DOMElement ) {
@@ -927,4 +929,4 @@ class TinyMashMarkdownRenderer {
         return( $html );
     }
 
-}// TinyMashMarkdownRenderer
+}

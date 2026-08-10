@@ -7,10 +7,13 @@
     {var $show_listing_results = ! empty( $force_listing_results ) || $search_query !== ''}
 
     {if $show_listing_results}
+        {if empty( $listing_context_title )}
+            <h1 class="visually-hidden">Search results</h1>
+        {/if}
         {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
             <section class="tm-docsmatter-panel p-4 mb-4">
                 {if ! empty( $listing_context_title ) }
-                    <h2 class="h4 mb-2">{$listing_context_title}</h2>
+                    <h1 class="h4 mb-2">{$listing_context_title}</h1>
                 {/if}
                 {if ! empty( $listing_context_summary ) }
                     <p class="mb-0 text-body-secondary">{$listing_context_summary}</p>

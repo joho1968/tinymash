@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashStaticExportService {
 
     protected const POSTS_PER_PAGE = 10;
@@ -16,6 +18,9 @@ class TinyMashStaticExportService {
     protected string $public_root;
     protected array $warnings = [];
     protected array $copied_assets = [];
+    protected array $exported_route_files = [];
+    protected array $static_export_artifact_paths = [];
+    protected array $unresolved_internal_urls = [];
 
     public function __construct(
         object $app,
@@ -95,30 +100,66 @@ class TinyMashStaticExportService {
         }
 
         $this->resetExportState();
-        $this->ensureDirectory( $target_directory );
-        $routes = $this->buildAuthorRoutePlan( $author_slug );
-        $this->writeRoutes( $routes, $target_directory, $this->resolveBaseUrl( $options ) );
-        return( $this->writeReport( $target_directory, 'author', [ $author_slug ], [], $routes, $options ) );
+        $target_created = $this->prepareTargetDirectory( $target_directory );
+        try {
+            $routes = $this->buildAuthorRoutePlan( $author_slug );
+            $base_url = $this->resolveBaseUrl( $options );
+            $artifacts = $this->collectStaticExportArtifacts(
+                'author',
+                [
+                    'scope' => 'author',
+                    'author_slug' => $author_slug,
+                    'included_authors' => [ $author_slug ],
+                    'excluded_authors' => [],
+                    'base_url' => $base_url,
+                ],
+                $routes
+            );
+            $this->writeRoutes( $routes, $target_directory, $base_url );
+            $this->writeStaticExportArtifacts( $artifacts, $target_directory, $base_url );
+            return( $this->writeReport( $target_directory, 'author', [ $author_slug ], [], $routes, $artifacts, $options ) );
+        } catch ( \Throwable $exception ) {
+            $this->cleanFailedExport( $target_directory, $target_created );
+            throw $exception;
+        }
     }
 
     public function exportSiteToDirectory( string $target_directory, array $options = [] ) : array {
         $this->resetExportState();
-        $this->ensureDirectory( $target_directory );
-        $excluded_authors = $this->normalizeSlugList( $options['exclude_authors'] ?? [] );
-        $included_authors = array_values(
-            array_filter(
-                $this->content_repository->getPublicAuthorSlugs(),
-                fn( string $author_slug ) : bool => $this->authorCanBeExported( $author_slug ) && ! in_array( $author_slug, $excluded_authors, true )
-            )
-        );
+        $target_created = $this->prepareTargetDirectory( $target_directory );
+        try {
+            $excluded_authors = $this->normalizeSlugList( $options['exclude_authors'] ?? [] );
+            $included_authors = array_values(
+                array_filter(
+                    $this->content_repository->getPublicAuthorSlugs(),
+                    fn( string $author_slug ) : bool => $this->authorCanBeExported( $author_slug ) && ! in_array( $author_slug, $excluded_authors, true )
+                )
+            );
 
-        $routes = $this->buildRootRoutePlan();
-        foreach ( $included_authors as $author_slug ) {
-            $routes = array_merge( $routes, $this->buildAuthorRoutePlan( $author_slug ) );
+            $routes = $this->buildRootRoutePlan();
+            foreach ( $included_authors as $author_slug ) {
+                $routes = array_merge( $routes, $this->buildAuthorRoutePlan( $author_slug ) );
+            }
+
+            $base_url = $this->resolveBaseUrl( $options );
+            $artifacts = $this->collectStaticExportArtifacts(
+                'site',
+                [
+                    'scope' => 'site',
+                    'author_slug' => '',
+                    'included_authors' => $included_authors,
+                    'excluded_authors' => $excluded_authors,
+                    'base_url' => $base_url,
+                ],
+                $routes
+            );
+            $this->writeRoutes( $routes, $target_directory, $base_url );
+            $this->writeStaticExportArtifacts( $artifacts, $target_directory, $base_url );
+            return( $this->writeReport( $target_directory, 'site', $included_authors, $excluded_authors, $routes, $artifacts, $options ) );
+        } catch ( \Throwable $exception ) {
+            $this->cleanFailedExport( $target_directory, $target_created );
+            throw $exception;
         }
-
-        $this->writeRoutes( $routes, $target_directory, $this->resolveBaseUrl( $options ) );
-        return( $this->writeReport( $target_directory, 'site', $included_authors, $excluded_authors, $routes, $options ) );
     }
 
     public function getExportableAuthors() : array {
@@ -139,6 +180,12 @@ class TinyMashStaticExportService {
 
     protected function writeRoutes( array $routes, string $target_directory, string $base_url ) : void {
         foreach ( $routes as $route ) {
+            if ( is_array( $route ) ) {
+                $this->exported_route_files[$this->getStaticFilenameForPath( (string) ( $route['path'] ?? '/' ) )] = true;
+            }
+        }
+
+        foreach ( $routes as $route ) {
             if ( ! is_array( $route ) ) {
                 continue;
             }
@@ -148,7 +195,9 @@ class TinyMashStaticExportService {
             $html = $this->rewriteHtmlForStaticExport( $html, $path, $target_directory, $base_url );
             $filename = $target_directory . DIRECTORY_SEPARATOR . $this->getStaticFilenameForPath( $path );
             $this->ensureDirectory( dirname( $filename ) );
-            file_put_contents( $filename, $html );
+            if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $html ) ) {
+                throw new \RuntimeException( 'Unable to write static route: ' . $path );
+            }
         }
     }
 
@@ -182,7 +231,7 @@ class TinyMashStaticExportService {
         $landing_entry = $this->resolveThemeLandingEntry( 'root', '' );
         $rendered_landing_entry = is_array( $landing_entry ) ? $this->content_renderer->renderEntry( $landing_entry, $this->theme ) : null;
         $view_data = array_merge(
-            $this->theme->getBaseViewData( 'Home', null, null ),
+            $this->theme->getBaseViewData( 'Home', null, null, $this->getStaticExportRenderContext() ),
             $this->buildThemeListingViewData( $rendered_entries ),
             [
                 'entries' => $rendered_entries,
@@ -214,7 +263,7 @@ class TinyMashStaticExportService {
             ? $this->resolveThemeLandingEntry( 'author', $author_slug )
             : null;
         $view_data = array_merge(
-            $this->theme->getBaseViewData( $author_display_name !== '' ? $author_display_name : ucfirst( $author_slug ), null, $author_slug ),
+            $this->theme->getBaseViewData( $author_display_name !== '' ? $author_display_name : ucfirst( $author_slug ), null, $author_slug, $this->getStaticExportRenderContext() ),
             $this->buildThemeListingViewData( $rendered_posts, $author_slug ),
             [
                 'author_slug' => $author_slug,
@@ -245,7 +294,7 @@ class TinyMashStaticExportService {
             $author_slug
         );
         $view_data = array_merge(
-            $this->theme->getBaseViewData( $rendered_entry['title'], $entry, $author_slug !== '' ? $author_slug : null ),
+            $this->theme->getBaseViewData( $rendered_entry['title'], $entry, $author_slug !== '' ? $author_slug : null, $this->getStaticExportRenderContext() ),
             [
                 'entry' => $rendered_entry,
                 'entry_breadcrumbs' => $this->theme->getEntryBreadcrumbs( $entry ),
@@ -285,7 +334,7 @@ class TinyMashStaticExportService {
                 $this->renderTemplate(
                     $this->theme->getTemplate( 'author-home' ),
                     array_merge(
-                        $this->theme->getBaseViewData( $author_display_name !== '' ? $author_display_name : ucfirst( $author_slug ), null, $author_slug ),
+                        $this->theme->getBaseViewData( $author_display_name !== '' ? $author_display_name : ucfirst( $author_slug ), null, $author_slug, $this->getStaticExportRenderContext() ),
                         [
                             'author_slug' => $author_slug,
                             'author_display_name' => $author_display_name,
@@ -317,7 +366,7 @@ class TinyMashStaticExportService {
             $this->renderTemplate(
                 $this->theme->getTemplate( 'home' ),
                 array_merge(
-                    $this->theme->getBaseViewData( 'Tagged ' . $tag_label, null, null ),
+                    $this->theme->getBaseViewData( 'Tagged ' . $tag_label, null, null, $this->getStaticExportRenderContext() ),
                     [
                         'entries' => $rendered_entries,
                         'listing_context_title' => 'Tagged ' . $tag_label,
@@ -424,38 +473,118 @@ class TinyMashStaticExportService {
             return( $html );
         }
 
-        $this->rewriteMetadataBaseUrls( $document, $base_url );
+        $this->rewriteMetadataBaseUrls( $document, $base_url, $source_path );
 
-        foreach ( [ 'a' => 'href', 'link' => 'href', 'script' => 'src', 'img' => 'src', 'source' => 'src', 'video' => 'src', 'audio' => 'src' ] as $tag => $attribute ) {
+        $url_attributes = [
+            'a' => [ 'href' ],
+            'audio' => [ 'src' ],
+            'button' => [ 'formaction' ],
+            'embed' => [ 'src' ],
+            'form' => [ 'action' ],
+            'iframe' => [ 'src' ],
+            'img' => [ 'src' ],
+            'input' => [ 'src', 'formaction' ],
+            'link' => [ 'href' ],
+            'object' => [ 'data' ],
+            'script' => [ 'src' ],
+            'source' => [ 'src' ],
+            'track' => [ 'src' ],
+            'video' => [ 'src', 'poster' ],
+        ];
+        foreach ( $url_attributes as $tag => $attributes ) {
             foreach ( iterator_to_array( $document->getElementsByTagName( $tag ) ) as $node ) {
-                if ( ! $node instanceof \DOMElement || ! $node->hasAttribute( $attribute ) ) {
+                if ( ! $node instanceof \DOMElement ) {
                     continue;
                 }
+                foreach ( $attributes as $attribute ) {
+                    if ( ! $node->hasAttribute( $attribute ) ) {
+                        continue;
+                    }
 
-                $url = trim( $node->getAttribute( $attribute ) );
-                $rewritten = $this->rewriteUrl( $url, $source_path, $target_directory, $base_url );
-                if ( $rewritten !== $url ) {
-                    $node->setAttribute( $attribute, $rewritten );
+                    $url = trim( $node->getAttribute( $attribute ) );
+                    $rewritten = $this->rewriteUrl( $url, $source_path, $target_directory, $base_url );
+                    if ( $rewritten !== $url ) {
+                        $node->setAttribute( $attribute, $rewritten );
+                    }
                 }
             }
+        }
+
+        foreach ( [ 'img', 'source' ] as $tag ) {
+            foreach ( iterator_to_array( $document->getElementsByTagName( $tag ) ) as $node ) {
+                if ( ! $node instanceof \DOMElement || ! $node->hasAttribute( 'srcset' ) ) {
+                    continue;
+                }
+                $srcset = $node->getAttribute( 'srcset' );
+                $node->setAttribute( 'srcset', $this->rewriteSrcset( $srcset, $source_path, $target_directory, $base_url ) );
+            }
+        }
+
+        foreach ( iterator_to_array( $document->getElementsByTagName( '*' ) ) as $node ) {
+            if ( ! $node instanceof \DOMElement || ! $node->hasAttribute( 'style' ) ) {
+                continue;
+            }
+            $node->setAttribute( 'style', $this->rewriteCssUrls( $node->getAttribute( 'style' ), $source_path, $target_directory, $base_url ) );
+        }
+        foreach ( iterator_to_array( $document->getElementsByTagName( 'style' ) ) as $node ) {
+            $node->nodeValue = $this->rewriteCssUrls( $node->textContent, $source_path, $target_directory, $base_url );
         }
 
         return( $document->saveHTML() ?: $html );
     }
 
-    protected function rewriteMetadataBaseUrls( \DOMDocument $document, string $base_url ) : void {
+    protected function rewriteSrcset( string $srcset, string $source_path, string $target_directory, string $base_url ) : string {
+        if ( trim( $srcset ) === '' || str_contains( strtolower( $srcset ), 'data:' ) ) {
+            return( $srcset );
+        }
+
+        $candidates = preg_split( '/\s*,\s*/', trim( $srcset ) ) ?: [];
+        foreach ( $candidates as &$candidate ) {
+            if ( preg_match( '/^(\S+)(\s+.+)?$/', $candidate, $matches ) !== 1 ) {
+                continue;
+            }
+            $candidate = $this->rewriteUrl( $matches[1], $source_path, $target_directory, $base_url ) . ( $matches[2] ?? '' );
+        }
+        unset( $candidate );
+
+        return( implode( ', ', $candidates ) );
+    }
+
+    protected function rewriteCssUrls( string $css, string $source_path, string $target_directory, string $base_url ) : string {
+        return(
+            preg_replace_callback(
+                '/url\(\s*([\'\"]?)([^\'\")]+)\1\s*\)/i',
+                function( array $matches ) use ( $source_path, $target_directory, $base_url ) : string {
+                    $url = trim( (string) ( $matches[2] ?? '' ) );
+                    if ( $url === '' || str_starts_with( $url, 'data:' ) ) {
+                        return( $matches[0] );
+                    }
+                    $quote = (string) ( $matches[1] ?? '' );
+                    return( 'url(' . $quote . $this->rewriteUrl( $url, $source_path, $target_directory, $base_url ) . $quote . ')' );
+                },
+                $css
+            ) ?? $css
+        );
+    }
+
+    protected function rewriteMetadataBaseUrls( \DOMDocument $document, string $base_url, string $source_path ) : void {
         $configured_base_url = rtrim( trim( (string) $this->config->configGetBaseURL() ), '/' );
         $base_url = rtrim( trim( $base_url ), '/' );
-        if ( $configured_base_url === '' || $base_url === '' || $configured_base_url === $base_url ) {
+        if ( $base_url === '' ) {
             return;
         }
+        $route_url = $this->buildStaticRouteUrl( $base_url, $source_path );
 
         foreach ( iterator_to_array( $document->getElementsByTagName( 'link' ) ) as $node ) {
             if ( ! $node instanceof \DOMElement || ! $node->hasAttribute( 'href' ) ) {
                 continue;
             }
             $rel = strtolower( trim( $node->getAttribute( 'rel' ) ) );
-            if ( ! in_array( $rel, [ 'canonical', 'alternate' ], true ) ) {
+            if ( $rel === 'canonical' ) {
+                $node->setAttribute( 'href', $route_url );
+                continue;
+            }
+            if ( $rel !== 'alternate' || $configured_base_url === '' || $configured_base_url === $base_url ) {
                 continue;
             }
             $node->setAttribute( 'href', $this->replaceConfiguredBaseUrl( $node->getAttribute( 'href' ), $configured_base_url, $base_url ) );
@@ -467,11 +596,31 @@ class TinyMashStaticExportService {
             }
             $property = strtolower( trim( $node->getAttribute( 'property' ) ) );
             $name = strtolower( trim( $node->getAttribute( 'name' ) ) );
-            if ( ! in_array( $property, [ 'og:url', 'og:image' ], true ) && ! in_array( $name, [ 'twitter:url', 'twitter:image' ], true ) ) {
+            if ( $property === 'og:url' || $name === 'twitter:url' ) {
+                $node->setAttribute( 'content', $route_url );
+                continue;
+            }
+            if (
+                ( $property !== 'og:image' && $name !== 'twitter:image' )
+                || $configured_base_url === ''
+                || $configured_base_url === $base_url
+            ) {
                 continue;
             }
             $node->setAttribute( 'content', $this->replaceConfiguredBaseUrl( $node->getAttribute( 'content' ), $configured_base_url, $base_url ) );
         }
+    }
+
+    protected function buildStaticRouteUrl( string $base_url, string $source_path ) : string {
+        $filename = str_replace( '\\', '/', $this->getStaticFilenameForPath( $source_path ) );
+        if ( $filename === 'index.html' ) {
+            return( rtrim( $base_url, '/' ) . '/' );
+        }
+        if ( str_ends_with( $filename, '/index.html' ) ) {
+            $filename = substr( $filename, 0, -strlen( 'index.html' ) );
+        }
+
+        return( rtrim( $base_url, '/' ) . '/' . ltrim( $filename, '/' ) );
     }
 
     protected function replaceConfiguredBaseUrl( string $value, string $configured_base_url, string $base_url ) : string {
@@ -512,11 +661,18 @@ class TinyMashStaticExportService {
         $source_dir = dirname( $this->getStaticFilenameForPath( $source_path ) );
         $public_path = parse_url( $url, PHP_URL_PATH );
         $public_path = is_string( $public_path ) ? $public_path : $url;
+        $route_file = $this->getStaticFilenameForPath( $public_path . $query );
+        if ( isset( $this->exported_route_files[$route_file] ) ) {
+            return( $this->relativePath( $source_dir, $route_file ) . $fragment );
+        }
         if ( $this->copyPublicAssetIfAvailable( $public_path, $target_directory ) ) {
             return( $this->relativePath( $source_dir, ltrim( $public_path, '/' ) ) . $query . $fragment );
         }
 
-        return( $this->relativePath( $source_dir, $this->getStaticFilenameForPath( $public_path . $query ) ) . $fragment );
+        $unresolved_url = $public_path . $query;
+        $this->unresolved_internal_urls[$unresolved_url] = true;
+        $live_base_url = rtrim( trim( (string) $this->config->configGetBaseURL() ), '/' );
+        return( $live_base_url !== '' ? $live_base_url . $unresolved_url . $fragment : $unresolved_url . $fragment );
     }
 
     protected function copyPublicAssetIfAvailable( string $public_path, string $target_directory ) : bool {
@@ -537,7 +693,20 @@ class TinyMashStaticExportService {
         $target = rtrim( $target_directory, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, $relative );
         $this->ensureDirectory( dirname( $target ) );
         if ( ! is_file( $target ) ) {
-            copy( $source, $target );
+            if ( preg_match( '/\.css$/i', $relative ) === 1 ) {
+                $css = file_get_contents( $source );
+                if ( ! is_string( $css ) ) {
+                    throw new \RuntimeException( 'Unable to read stylesheet: ' . $relative );
+                }
+                $css = $this->rewriteCssUrls( $css, '/' . $relative, $target_directory, $this->resolveBaseUrl( [] ) );
+                if ( ! TinyMashFilesystem::writeFileAtomically( $target, $css ) ) {
+                    throw new \RuntimeException( 'Unable to write stylesheet: ' . $relative );
+                }
+            } else {
+                if ( ! @ copy( $source, $target ) ) {
+                    throw new \RuntimeException( 'Unable to copy public asset: ' . $relative );
+                }
+            }
             $this->copied_assets[$relative] = true;
             if ( preg_match( '/\.css$/i', $relative ) === 1 ) {
                 $this->copyCssReferencedAssets( $source, $relative, $target_directory );
@@ -782,25 +951,204 @@ class TinyMashStaticExportService {
         return( $shortcode_registry instanceof TinyMashShortcodeRegistry && $shortcode_registry->hasDynamicRenderForRequest() );
     }
 
-    protected function writeReport( string $target_directory, string $scope, array $included_authors, array $excluded_authors, array $routes, array $options ) : array {
+    protected function collectStaticExportArtifacts( string $scope, array $context, array $routes ) : array {
+        if ( ! $this->app->has( 'plugins' ) ) {
+            return( [] );
+        }
+
+        $plugins = $this->app->get( 'plugins' );
+        if ( ! is_object( $plugins ) || ! method_exists( $plugins, 'runStaticExportContributors' ) ) {
+            return( [] );
+        }
+
+        $occupied_files = [ 'export-report.json' => true ];
+        foreach ( $routes as $route ) {
+            if ( is_array( $route ) ) {
+                $occupied_files[$this->getStaticFilenameForPath( (string) ( $route['path'] ?? '/' ) )] = true;
+            }
+        }
+
+        $artifacts = [];
+        foreach ( $plugins->runStaticExportContributors( $scope, $context ) as $contribution ) {
+            if ( ! is_array( $contribution ) ) {
+                continue;
+            }
+
+            $plugin_key = trim( (string) ( $contribution['plugin_key'] ?? '' ) );
+            if ( (string) ( $contribution['status'] ?? '' ) !== 'ran' ) {
+                $message = trim( (string) ( $contribution['message'] ?? '' ) );
+                $this->warnings[] = 'Static export contribution failed for ' . ( $plugin_key !== '' ? $plugin_key : 'a plugin' ) . ( $message !== '' ? ': ' . $message : '.' );
+                continue;
+            }
+
+            foreach ( (array) ( $contribution['result'] ?? [] ) as $artifact ) {
+                $normalized = $this->normalizeStaticExportArtifact( is_array( $artifact ) ? $artifact : [], $plugin_key );
+                if ( $normalized === null ) {
+                    continue;
+                }
+
+                $filename = (string) $normalized['filename'];
+                if ( isset( $occupied_files[$filename] ) ) {
+                    $this->warnings[] = 'Static export artifact collision at /' . $filename . ' from ' . ( $plugin_key !== '' ? $plugin_key : 'a plugin' ) . '.';
+                    continue;
+                }
+
+                $occupied_files[$filename] = true;
+                $this->exported_route_files[$filename] = true;
+                $this->static_export_artifact_paths[(string) $normalized['path']] = true;
+                $artifacts[] = $normalized;
+            }
+        }
+
+        return( $artifacts );
+    }
+
+    protected function normalizeStaticExportArtifact( array $artifact, string $plugin_key ) : ?array {
+        $path = trim( (string) ( $artifact['path'] ?? '' ) );
+        $contents = $artifact['contents'] ?? null;
+        if ( $path === '' || ! is_string( $contents ) || ! str_starts_with( $path, '/' ) || str_starts_with( $path, '//' ) ) {
+            $this->warnings[] = 'Ignored an invalid static export artifact from ' . ( $plugin_key !== '' ? $plugin_key : 'a plugin' ) . '.';
+            return( null );
+        }
+        $parsed_path = parse_url( $path, PHP_URL_PATH );
+        $path_segments = explode( '/', ltrim( $path, '/' ) );
+        if (
+            ! is_string( $parsed_path )
+            || $parsed_path !== $path
+            || preg_match( '/[\x00-\x1F\x7F]/', $path ) === 1
+            || str_contains( $path, '\\' )
+            || str_contains( $path, '%' )
+            || in_array( '', $path_segments, true )
+            || in_array( '.', $path_segments, true )
+            || in_array( '..', $path_segments, true )
+        ) {
+            $this->warnings[] = 'Ignored an unsafe static export artifact path from ' . ( $plugin_key !== '' ? $plugin_key : 'a plugin' ) . '.';
+            return( null );
+        }
+
+        $filename = $this->getStaticFilenameForPath( $path );
+        if ( pathinfo( $path, PATHINFO_EXTENSION ) === '' ) {
+            $this->warnings[] = 'Ignored a static export artifact without a file extension from ' . ( $plugin_key !== '' ? $plugin_key : 'a plugin' ) . '.';
+            return( null );
+        }
+
+        return(
+            [
+                'plugin_key' => $plugin_key,
+                'path' => '/' . ltrim( $path, '/' ),
+                'filename' => $filename,
+                'contents' => $contents,
+                'content_type' => trim( (string) ( $artifact['content_type'] ?? 'application/octet-stream' ) ),
+            ]
+        );
+    }
+
+    protected function writeStaticExportArtifacts( array $artifacts, string $target_directory, string $base_url = '' ) : void {
+        $target_root = realpath( $target_directory );
+        if ( ! is_string( $target_root ) ) {
+            throw new \RuntimeException( 'static_export_target' );
+        }
+        $target_prefix = rtrim( $target_root, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR;
+
+        foreach ( $artifacts as $artifact ) {
+            if ( ! is_array( $artifact ) ) {
+                continue;
+            }
+            $filename = rtrim( $target_directory, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, (string) ( $artifact['filename'] ?? '' ) );
+            $this->ensureDirectory( dirname( $filename ) );
+            $resolved_directory = realpath( dirname( $filename ) );
+            if ( ! is_string( $resolved_directory ) || ( $resolved_directory !== $target_root && ! str_starts_with( $resolved_directory . DIRECTORY_SEPARATOR, $target_prefix ) ) ) {
+                throw new \RuntimeException( 'static_export_artifact_path' );
+            }
+            if ( is_link( $filename ) || file_exists( $filename ) ) {
+                throw new \RuntimeException( 'static_export_artifact_collision' );
+            }
+            $contents = (string) ( $artifact['contents'] ?? '' );
+            $content_type = strtolower( trim( (string) ( $artifact['content_type'] ?? '' ) ) );
+            if ( str_starts_with( $content_type, 'text/html' ) || preg_match( '/\.html?$/i', $filename ) === 1 ) {
+                $contents = $this->rewriteHtmlForStaticExport( $contents, (string) ( $artifact['path'] ?? '' ), $target_directory, $base_url );
+            }
+            if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $contents ) ) {
+                throw new \RuntimeException( 'static_export_artifact_write' );
+            }
+        }
+    }
+
+    protected function getStaticExportRenderContext() : array {
+        return(
+            [
+                'static_export' => true,
+                'static_export_artifacts' => array_keys( $this->static_export_artifact_paths ),
+            ]
+        );
+    }
+
+    protected function writeReport( string $target_directory, string $scope, array $included_authors, array $excluded_authors, array $routes, array $artifacts, array $options ) : array {
+        $unresolved_internal_urls = array_keys( $this->unresolved_internal_urls );
+        sort( $unresolved_internal_urls, SORT_STRING );
+        if ( $unresolved_internal_urls !== [] ) {
+            $this->warnings[] = count( $unresolved_internal_urls ) . ' internal URL(s) were outside the export and now point to the live site.';
+        }
+        $plugin_export_modes = $this->getPluginStaticExportDeclarations();
+        $plugin_export_mode_counts = array_fill_keys( TinyMashPlugins::STATIC_EXPORT_MODES, 0 );
+        foreach ( $plugin_export_modes as $declaration ) {
+            $mode = (string) ( $declaration['mode'] ?? '' );
+            if ( isset( $plugin_export_mode_counts[$mode] ) ) {
+                $plugin_export_mode_counts[$mode]++;
+            }
+        }
         $report = [
             'scope' => $scope,
             'generated_at_utc' => gmdate( DATE_ATOM ),
             'base_url' => $this->resolveBaseUrl( $options ),
             'route_count' => count( $routes ),
             'asset_count' => count( $this->copied_assets ),
+            'artifact_count' => count( $artifacts ),
+            'artifacts' => array_values(
+                array_map(
+                    static fn( array $artifact ) : array => [
+                        'plugin_key' => (string) ( $artifact['plugin_key'] ?? '' ),
+                        'path' => (string) ( $artifact['path'] ?? '' ),
+                        'content_type' => (string) ( $artifact['content_type'] ?? '' ),
+                    ],
+                    $artifacts
+                )
+            ),
+            'plugin_export_mode_counts' => $plugin_export_mode_counts,
+            'plugin_export_modes' => $plugin_export_modes,
             'included_authors' => array_values( $included_authors ),
             'excluded_authors' => array_values( $excluded_authors ),
+            'unresolved_internal_urls' => $unresolved_internal_urls,
             'warnings' => array_values( array_unique( $this->warnings ) ),
-            'dynamic_policy' => 'Rendered dynamic plugin and shortcode output is snapshotted at export time.',
+            'dynamic_policy' => 'Plugin behavior follows its declared export mode; rendered dynamic output is snapshotted at export time.',
         ];
-        file_put_contents( rtrim( $target_directory, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR . 'export-report.json', json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . PHP_EOL );
+        $report_json = json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+        $report_filename = rtrim( $target_directory, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR . 'export-report.json';
+        if ( ! is_string( $report_json ) || ! TinyMashFilesystem::writeFileAtomically( $report_filename, $report_json . PHP_EOL ) ) {
+            throw new \RuntimeException( 'Unable to write static export report.' );
+        }
         return( $report );
+    }
+
+    protected function getPluginStaticExportDeclarations() : array {
+        if ( ! method_exists( $this->app, 'has' ) || ! method_exists( $this->app, 'get' ) || ! $this->app->has( 'plugins' ) ) {
+            return( [] );
+        }
+
+        $plugins = $this->app->get( 'plugins' );
+        if ( ! $plugins instanceof TinyMashPlugins ) {
+            return( [] );
+        }
+
+        return( $plugins->getStaticExportDeclarations() );
     }
 
     protected function resetExportState() : void {
         $this->warnings = [];
         $this->copied_assets = [];
+        $this->exported_route_files = [];
+        $this->static_export_artifact_paths = [];
+        $this->unresolved_internal_urls = [];
         $this->warnings[] = 'Static export does not include PHP behavior, admin routes, sessions, forms, provider refreshes, drafts, users, config, or private runtime state.';
     }
 
@@ -823,6 +1171,20 @@ class TinyMashStaticExportService {
         $base_url = trim( (string) ( $options['base_url'] ?? '' ) );
         if ( $base_url === '' ) {
             $base_url = trim( (string) $this->config->configGetBaseURL() );
+        }
+
+        $parts = parse_url( $base_url );
+        if (
+            $base_url === ''
+            || ! is_array( $parts )
+            || ! in_array( strtolower( (string) ( $parts['scheme'] ?? '' ) ), [ 'http', 'https' ], true )
+            || trim( (string) ( $parts['host'] ?? '' ) ) === ''
+            || isset( $parts['user'] )
+            || isset( $parts['pass'] )
+            || isset( $parts['query'] )
+            || isset( $parts['fragment'] )
+        ) {
+            throw new \InvalidArgumentException( 'base_url' );
         }
 
         return( rtrim( $base_url, '/' ) );
@@ -893,9 +1255,53 @@ class TinyMashStaticExportService {
         return( $path_real === $root_real || str_starts_with( $path_real, $root_prefix ) );
     }
 
+    protected function prepareTargetDirectory( string $target_directory ) : bool {
+        $target_directory = rtrim( trim( $target_directory ), DIRECTORY_SEPARATOR );
+        if ( $target_directory === '' || is_link( $target_directory ) ) {
+            throw new \InvalidArgumentException( 'target_directory' );
+        }
+        if ( file_exists( $target_directory ) && ! is_dir( $target_directory ) ) {
+            throw new \RuntimeException( 'The static export destination is not a directory.' );
+        }
+        if ( is_dir( $target_directory ) ) {
+            $items = scandir( $target_directory );
+            if ( ! is_array( $items ) || array_values( array_diff( $items, [ '.', '..' ] ) ) !== [] ) {
+                throw new \RuntimeException( 'The static export destination must be empty.' );
+            }
+            return( false );
+        }
+
+        $this->ensureDirectory( $target_directory );
+        return( true );
+    }
+
+    protected function cleanFailedExport( string $target_directory, bool $remove_target ) : void {
+        if ( ! is_dir( $target_directory ) || is_link( $target_directory ) ) {
+            return;
+        }
+
+        $items = scandir( $target_directory );
+        foreach ( is_array( $items ) ? $items : [] as $item ) {
+            if ( $item === '.' || $item === '..' ) {
+                continue;
+            }
+            $path = $target_directory . DIRECTORY_SEPARATOR . $item;
+            if ( is_dir( $path ) && ! is_link( $path ) ) {
+                $this->cleanFailedExport( $path, true );
+                continue;
+            }
+            @ unlink( $path );
+        }
+        if ( $remove_target ) {
+            @ rmdir( $target_directory );
+        }
+    }
+
     protected function ensureDirectory( string $directory ) : void {
         if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
+            if ( ! mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
+                throw new \RuntimeException( 'Unable to create static export directory.' );
+            }
         }
     }
 }

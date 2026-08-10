@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashComponentsReportService {
 
     protected string $project_root;
@@ -21,20 +23,7 @@ class TinyMashComponentsReportService {
             return( [] );
         }
 
-        $handle = @ fopen( $this->report_filename, 'rb' );
-        if ( $handle === false ) {
-            return( [] );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( [] );
-            }
-            $json = stream_get_contents( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
+        $json = @ file_get_contents( $this->report_filename );
 
         if ( ! is_string( $json ) || trim( $json ) === '' ) {
             return( [] );
@@ -200,31 +189,17 @@ class TinyMashComponentsReportService {
 
     protected function writeReport( array $report ) : void {
         $directory = dirname( $this->report_filename );
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
+        if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
+            throw new \RuntimeException( 'Unable to create component report directory.' );
         }
 
         $encoded_report = json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
         if ( ! is_string( $encoded_report ) || $encoded_report === '' ) {
-            return;
+            throw new \RuntimeException( 'Unable to encode component report.' );
         }
 
-        $handle = @ fopen( $this->report_filename, 'c+' );
-        if ( $handle === false ) {
-            return;
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                return;
-            }
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            fwrite( $handle, $encoded_report . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
+        if ( ! TinyMashFilesystem::writeFileAtomically( $this->report_filename, $encoded_report . PHP_EOL ) ) {
+            throw new \RuntimeException( 'Unable to write component report.' );
         }
     }
 

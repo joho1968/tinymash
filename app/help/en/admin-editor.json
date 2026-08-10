@@ -6,12 +6,16 @@
   "summary": "Write, preview, and save content.",
   "sections": [
     {
-      "title": "Write, Preview, and Metadata",
-      "markdown": "- **Write** edits the Markdown source.\n- **Preview** uses the same render pipeline as the public site.\n- **Metadata** controls title, slug, publish date/time, tags, hierarchy, visibility, and publishing status."
+      "title": "Focused and Full modes",
+      "markdown": "- **Focused** keeps ordinary writing and publishing controls visible while hiding advanced metadata, SEO, and plugin tabs.\n- **Full** exposes the complete composer.\n- Both modes use the same content, draft, revision, validation, and save behavior. Switching modes does not clear hidden settings."
+    },
+    {
+      "title": "Write, Preview, and Options",
+      "markdown": "- **Write** contains the title, content type, publishing status, and Markdown source.\n- **Preview** uses the same render pipeline as the public site.\n- **Options** contains common publishing metadata. Full mode also exposes advanced fields, SEO, and plugin controls."
     },
     {
       "title": "Save actions",
-      "markdown": "- **Save draft** keeps a private working copy.\n- **Save** writes the real content item using the selected status.\n- **Duplicate** starts a new copy from the current content.\n- Revisions are created by real saves, not by draft save or autosave."
+      "markdown": "- **Save draft** keeps a private working copy for the current item.\n- **Save** writes the real content item using the selected status.\n- **Duplicate** starts a new copy from the current content.\n- **History** opens revision snapshots for the current saved item.\n- Revisions are created by real saves, not by draft save or autosave.\n- Use **Content** to browse unrelated saved items and drafts."
     },
     {
       "title": "Slugs and duplicates",
@@ -19,7 +23,7 @@
     },
     {
       "title": "Links, tags, emoji, and smileys",
-      "markdown": "- The toolbar inserts common Markdown patterns, including fenced code blocks.\n- Internal and external links use dedicated pickers.\n- Tags are entered in **Metadata** and autocomplete as you type.\n- Markdown underline uses `++text++`.\n- Type `:` in the editor to autocomplete emoji shortcodes such as `:blush:`.\n- The emoji button opens the full picker, including skin-tone variants.\n- Classic smileys such as `:)`, `8-)`, and `:-\\` follow the site default and your profile override.\n- Use the **Markdown reference** for the full syntax and support list."
+      "markdown": "- The toolbar inserts common Markdown patterns, including fenced code blocks.\n- Internal and external links use dedicated pickers.\n- Tags are entered in **Options** and autocomplete as you type.\n- Markdown underline uses `++text++`.\n- Type `:` in the editor to autocomplete emoji shortcodes such as `:blush:`.\n- The emoji button opens the full picker, including skin-tone variants.\n- Classic smileys such as `:)`, `8-)`, and `:-\\` follow the site default and your profile override.\n- Use the **Markdown reference** for the full syntax and support list."
     }
   ]
 }

@@ -111,8 +111,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     'markdown' => 'Browser uploads do not provide a reliable original file modified or created time. Downloads initializes the file date to the upload time and lets admins/authors edit that date after upload.',
                 ],
                 [
-                    'title' => 'Future import',
-                    'markdown' => 'FILES.BBS-style import is planned as a future importer path. The current plugin creates managed folders directly.',
+                    'title' => 'Import limits',
+                    'markdown' => 'FILES.BBS import is not supported.',
                 ],
             ],
         ]
@@ -199,6 +199,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $scope = (string) ( $catalogue['scope'] ?? ( $is_superadmin ? 'root' : 'author' ) );
         $author_slug = (string) ( $catalogue['author_slug'] ?? ( $scope === 'author' ? $current_username() : '' ) );
         $enabled = ! array_key_exists( 'enabled', $catalogue ) || ! empty( $catalogue['enabled'] );
+        $form_id = 'tm-downloads-catalogue-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $id !== '' ? $id : 'new' );
 
         $html = '<form method="post" action="' . $escape( $catalogue_save_url ) . '" class="d-grid gap-3">';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
@@ -213,14 +214,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $html .= '<div class="small text-uppercase text-body-secondary">' . $escape( $title ) . '</div>';
         $html .= '<div class="row g-3 align-items-end">';
         if ( $is_superadmin ) {
-            $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1">Scope</label><select class="form-select" name="scope"><option value="root"' . ( $scope === 'root' ? ' selected' : '' ) . '>Root</option><option value="author"' . ( $scope === 'author' ? ' selected' : '' ) . '>Author</option></select></div>';
-            $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1">Author slug</label><input class="form-control font-monospace" name="author_slug" type="text" value="' . $escape( $author_slug ) . '"></div>';
+            $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-scope' ) . '">Scope</label><select class="form-select" id="' . $escape( $form_id . '-scope' ) . '" name="scope"><option value="root"' . ( $scope === 'root' ? ' selected' : '' ) . '>Root</option><option value="author"' . ( $scope === 'author' ? ' selected' : '' ) . '>Author</option></select></div>';
+            $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-author' ) . '">Author slug</label><input class="form-control font-monospace" id="' . $escape( $form_id . '-author' ) . '" name="author_slug" type="text" value="' . $escape( $author_slug ) . '"></div>';
         }
-        $html .= '<div class="col-12 col-lg-3"><label class="form-label small mb-1">Title</label><input class="form-control" name="title" type="text" value="' . $escape( (string) ( $catalogue['title'] ?? '' ) ) . '" required></div>';
-        $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1">Slug</label><input class="form-control font-monospace" name="slug" type="text" placeholder="auto" value="' . $escape( (string) ( $catalogue['slug'] ?? '' ) ) . '"></div>';
-        $html .= '<div class="col-12 col-lg-3"><label class="form-label small mb-1">Parent</label><select class="form-select" name="parent_id">' . $build_catalogue_options( $id, (string) ( $catalogue['parent_id'] ?? '' ), $scope, $author_slug ) . '</select></div>';
-        $html .= '<div class="col-12"><label class="form-label small mb-1">Intro text</label><textarea class="form-control" name="intro" rows="3">' . $escape( (string) ( $catalogue['intro'] ?? '' ) ) . '</textarea></div>';
-        $html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1">Order</label><input class="form-control" name="sort_order" type="number" value="' . (int) ( $catalogue['sort_order'] ?? 0 ) . '"></div>';
+        $html .= '<div class="col-12 col-lg-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-title' ) . '">Title</label><input class="form-control" id="' . $escape( $form_id . '-title' ) . '" name="title" type="text" value="' . $escape( (string) ( $catalogue['title'] ?? '' ) ) . '" required></div>';
+        $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-slug' ) . '">Slug</label><input class="form-control font-monospace" id="' . $escape( $form_id . '-slug' ) . '" name="slug" type="text" placeholder="auto" value="' . $escape( (string) ( $catalogue['slug'] ?? '' ) ) . '"></div>';
+        $html .= '<div class="col-12 col-lg-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-parent' ) . '">Parent</label><select class="form-select" id="' . $escape( $form_id . '-parent' ) . '" name="parent_id">' . $build_catalogue_options( $id, (string) ( $catalogue['parent_id'] ?? '' ), $scope, $author_slug ) . '</select></div>';
+        $html .= '<div class="col-12"><label class="form-label small mb-1" for="' . $escape( $form_id . '-intro' ) . '">Intro text</label><textarea class="form-control" id="' . $escape( $form_id . '-intro' ) . '" name="intro" rows="3">' . $escape( (string) ( $catalogue['intro'] ?? '' ) ) . '</textarea></div>';
+        $html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-order' ) . '">Order</label><input class="form-control" id="' . $escape( $form_id . '-order' ) . '" name="sort_order" type="number" value="' . (int) ( $catalogue['sort_order'] ?? 0 ) . '"></div>';
         $html .= '<div class="col-6 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-downloads-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '" name="enabled" type="checkbox" value="1"' . ( $enabled ? ' checked' : '' ) . '><label class="form-check-label" for="tm-downloads-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '">Enabled</label></div></div>';
         $html .= '<div class="col-12 col-lg-2"><button class="btn btn-primary w-100" type="submit">' . $escape( $button_label ) . '</button></div>';
         $html .= '</div>';
@@ -235,14 +236,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( $id === '' ) {
             return( '' );
         }
+        $form_id = 'tm-downloads-upload-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $id );
 
-        $html = '<form method="post" action="' . $escape( $file_upload_url ) . '" enctype="multipart/form-data" class="mt-3 p-3 rounded-3 bg-body-tertiary" data-tm-downloads-upload-form data-tm-downloads-max-file-bytes="209715200">';
+        $html = '<form method="post" action="' . $escape( $file_upload_url ) . '" enctype="multipart/form-data" class="mt-3 pt-3 border-top" data-tm-downloads-upload-form data-tm-downloads-max-file-bytes="209715200">';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
         $html .= '<input type="hidden" name="catalogue_id" value="' . $escape( $id ) . '">';
         $html .= '<div class="row g-3 align-items-end">';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1">Files</label><input class="form-control" name="download_file[]" type="file" multiple required></div>';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1">Title</label><input class="form-control" name="title" type="text" placeholder="Use filename"></div>';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1">Description</label><input class="form-control" name="description" type="text"></div>';
+        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-files' ) . '">Files</label><input class="form-control" id="' . $escape( $form_id . '-files' ) . '" name="download_file[]" type="file" multiple required></div>';
+        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-title' ) . '">Title</label><input class="form-control" id="' . $escape( $form_id . '-title' ) . '" name="title" type="text" placeholder="Use filename"></div>';
+        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-description' ) . '">Description</label><input class="form-control" id="' . $escape( $form_id . '-description' ) . '" name="description" type="text"></div>';
         $html .= '<div class="col-6 col-xl-1"><div class="form-check mb-2"><input class="form-check-input" id="tm-downloads-file-enabled-' . $escape( $id ) . '" name="enabled" type="checkbox" value="1" checked><label class="form-check-label" for="tm-downloads-file-enabled-' . $escape( $id ) . '">Enabled</label></div></div>';
         $html .= '<div class="col-6 col-xl-2"><button class="btn btn-outline-primary w-100" type="submit" data-tm-downloads-upload-submit>Upload file</button></div>';
         $html .= '</div>';
@@ -267,13 +269,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ? $date_formatter->formatUtcDateTime( (string) $file['file_date_utc'] )
                 : '';
             $file_id = (string) ( $file['id'] ?? '' );
+            $form_id = 'tm-downloads-file-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $file_id );
             $public_url = (string) ( $file['public_url'] ?? '' );
             $download_count = (int) ( $file['download_count'] ?? 0 );
-            $html .= '<article class="p-2 rounded-3 bg-body-tertiary">';
+            $html .= '<article class="pt-2 border-top">';
             $html .= '<form method="post" action="' . $escape( $file_save_url ) . '" data-tm-downloads-file-form="1" data-tm-downloads-save-url="' . $escape( $file_save_json_url ) . '" class="row g-2 align-items-start">';
             $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="id" value="' . $escape( $file_id ) . '">';
-            $html .= '<div class="col-12 col-xl-5"><label class="form-label small mb-1">Title</label><input class="form-control form-control-sm" name="title" type="text" value="' . $escape( (string) ( $file['title'] ?? '' ) ) . '"><label class="form-label small mt-2 mb-1">Description</label><textarea class="form-control form-control-sm" name="description" rows="2">' . $escape( (string) ( $file['description'] ?? '' ) ) . '</textarea></div>';
-            $html .= '<div class="col-12 col-xl-4"><div class="small text-body-secondary mb-2 text-truncate" title="' . $escape( (string) ( $file['original_filename'] ?? '' ) ) . '">' . $escape( (string) ( $file['original_filename'] ?? '' ) ) . '</div><div class="small text-body-secondary d-flex flex-wrap gap-2 mb-2"><span>' . $escape( (string) ( $file['size_label'] ?? '' ) ) . '</span>' . ( $file_date !== '' ? '<span class="text-nowrap">' . $escape( $file_date ) . '</span>' : '' ) . '<span class="text-nowrap">' . $download_count . ' downloads</span>' . ( $last_downloaded !== '' ? '<span class="text-nowrap" title="' . $escape( $last_downloaded ) . '">last ' . $escape( $last_downloaded ) . '</span>' : '' ) . '</div><label class="form-label small mb-1">File date</label><input class="form-control form-control-sm" name="file_date" type="datetime-local" value="' . $escape( (string) ( $file['file_date_input'] ?? '' ) ) . '"><div class="form-check mt-2"><input class="form-check-input" id="tm-download-file-enabled-' . $escape( $file_id ) . '" name="enabled" type="checkbox" value="1"' . ( ! empty( $file['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label small" for="tm-download-file-enabled-' . $escape( $file_id ) . '">Enabled</label></div></div>';
+            $html .= '<div class="col-12 col-xl-5"><label class="form-label small mb-1" for="' . $escape( $form_id . '-title' ) . '">Title</label><input class="form-control form-control-sm" id="' . $escape( $form_id . '-title' ) . '" name="title" type="text" value="' . $escape( (string) ( $file['title'] ?? '' ) ) . '"><label class="form-label small mt-2 mb-1" for="' . $escape( $form_id . '-description' ) . '">Description</label><textarea class="form-control form-control-sm" id="' . $escape( $form_id . '-description' ) . '" name="description" rows="2">' . $escape( (string) ( $file['description'] ?? '' ) ) . '</textarea></div>';
+            $html .= '<div class="col-12 col-xl-4"><div class="small text-body-secondary mb-2 text-truncate" title="' . $escape( (string) ( $file['original_filename'] ?? '' ) ) . '">' . $escape( (string) ( $file['original_filename'] ?? '' ) ) . '</div><div class="small text-body-secondary d-flex flex-wrap gap-2 mb-2"><span>' . $escape( (string) ( $file['size_label'] ?? '' ) ) . '</span>' . ( $file_date !== '' ? '<span class="text-nowrap">' . $escape( $file_date ) . '</span>' : '' ) . '<span class="text-nowrap">' . $download_count . ' downloads</span>' . ( $last_downloaded !== '' ? '<span class="text-nowrap" title="' . $escape( $last_downloaded ) . '">last ' . $escape( $last_downloaded ) . '</span>' : '' ) . '</div><label class="form-label small mb-1" for="' . $escape( $form_id . '-date' ) . '">File date</label><input class="form-control form-control-sm" id="' . $escape( $form_id . '-date' ) . '" name="file_date" type="datetime-local" value="' . $escape( (string) ( $file['file_date_input'] ?? '' ) ) . '"><div class="form-check mt-2"><input class="form-check-input" id="tm-download-file-enabled-' . $escape( $file_id ) . '" name="enabled" type="checkbox" value="1"' . ( ! empty( $file['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label small" for="tm-download-file-enabled-' . $escape( $file_id ) . '">Enabled</label></div></div>';
             $html .= '<div class="col-12 col-xl-3 text-xl-end"><div class="d-flex flex-wrap gap-2 justify-content-xl-end"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $public_url ) . '" title="' . $escape( $public_url ) . '" aria-label="Open public file URL"><span class="bi bi-question-circle" aria-hidden="true"></span></a><button class="btn btn-outline-primary btn-sm" type="submit" data-tm-downloads-ajax-save="1">Save</button><button class="btn btn-outline-danger btn-sm" type="submit" formaction="' . $escape( $file_delete_url ) . '">Delete</button></div><div class="small text-body-secondary mt-2" data-tm-downloads-save-status aria-live="polite"></div></div>';
             $html .= '</form>';
             $html .= '</article>';
@@ -422,18 +425,18 @@ HTML );
         $catalogues = $downloads_service->listAccessibleCatalogues( $is_superadmin, $username );
 
         $body_html = '<div class="d-grid gap-4">';
-        $body_html .= '<section class="p-3 bg-body-secondary rounded-3">';
+        $body_html .= '<section class="pb-4 border-bottom">';
         $body_html .= $build_catalogue_form( [ 'enabled' => true ], 'New download folder', 'Create folder' );
         $body_html .= '</section>';
         $body_html .= '<section class="d-grid gap-3">';
         $body_html .= '<div><div class="small text-uppercase text-body-secondary mb-1">Download folders</div><div class="text-body-secondary small">Use folder URLs in posts/pages directly; file URLs are routed and counted.</div></div>';
 
         if ( empty( $catalogues ) ) {
-            $body_html .= '<div class="p-3 rounded-3 bg-body-secondary text-body-secondary">No download folders have been created yet.</div>';
+            $body_html .= '<div class="text-body-secondary">No download folders have been created yet.</div>';
         }
 
         foreach ( $catalogues as $catalogue ) {
-            $body_html .= '<article class="p-3 bg-body-secondary rounded-3">';
+            $body_html .= '<article class="border-top pt-3">';
             $body_html .= '<div class="d-flex flex-wrap gap-2 justify-content-between align-items-start mb-3">';
             $body_html .= '<div><div class="fw-semibold">' . $escape( (string) ( $catalogue['title'] ?? '' ) ) . '</div><div class="small text-body-secondary"><code>' . $escape( (string) ( $catalogue['public_url'] ?? '' ) ) . '</code></div></div>';
             $body_html .= '<div class="d-flex flex-wrap gap-2 align-items-center"><span class="badge text-bg-' . ( ! empty( $catalogue['enabled'] ) ? 'success' : 'secondary' ) . '">' . ( ! empty( $catalogue['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span><span class="badge text-bg-secondary">' . $escape( (string) ( $catalogue['scope'] ?? 'root' ) ) . '</span></div>';

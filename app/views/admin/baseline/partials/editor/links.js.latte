@@ -18,7 +18,7 @@
                         return false;
                     }
                 } catch (error) {
-                    // Ignore storage failures and use the default.
+                    // Storage is optional.
                 }
 
                 return Boolean(defaultValue);
@@ -28,7 +28,7 @@
                 try {
                     window.localStorage.setItem(storageKey, checked ? '1' : '0');
                 } catch (error) {
-                    // Ignore storage failures.
+                    // Storage is optional.
                 }
             }
 

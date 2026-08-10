@@ -501,7 +501,7 @@ class TinyMashFediverseService {
 
         return(
             [
-                'summary' => trim( (string) ( $previous_entry['summary'] ?? '' ) ),
+                'summary' => mb_trim( (string) ( $previous_entry['summary'] ?? '' ) ),
                 'content' => (string) ( $previous_entry['content'] ?? '' ),
                 'tags' => is_array( $previous_entry['tags'] ?? null ) ? array_values( $previous_entry['tags'] ) : [],
                 'slug' => (string) ( $previous_entry['slug'] ?? '' ),
@@ -511,7 +511,7 @@ class TinyMashFediverseService {
             ]
             !==
             [
-                'summary' => trim( (string) ( $saved_entry['summary'] ?? '' ) ),
+                'summary' => mb_trim( (string) ( $saved_entry['summary'] ?? '' ) ),
                 'content' => (string) ( $saved_entry['content'] ?? '' ),
                 'tags' => is_array( $saved_entry['tags'] ?? null ) ? array_values( $saved_entry['tags'] ) : [],
                 'slug' => (string) ( $saved_entry['slug'] ?? '' ),
@@ -1350,7 +1350,7 @@ class TinyMashFediverseService {
                 'author_slug' => $this->normalizeUsername( (string) ( $history_item['author_slug'] ?? '' ) ),
                 'created_at_utc' => trim( (string) ( $history_item['created_at_utc'] ?? '' ) ),
                 'status' => in_array( (string) ( $history_item['status'] ?? '' ), [ 'sent', 'failed', 'skipped' ], true ) ? (string) $history_item['status'] : 'sent',
-                'message' => trim( (string) ( $history_item['message'] ?? '' ) ),
+                'message' => mb_trim( (string) ( $history_item['message'] ?? '' ) ),
                 'attempts' => max( 0, (int) ( $history_item['attempts'] ?? 0 ) ),
                 'context' => is_array( $history_item['context'] ?? null ) ? $history_item['context'] : [],
             ]

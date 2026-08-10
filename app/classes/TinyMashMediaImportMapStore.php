@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashLockedJsonFile.php';
+
 class TinyMashMediaImportMapStore {
 
     protected string $store_filename;
@@ -79,118 +81,25 @@ class TinyMashMediaImportMapStore {
     }
 
     protected function readStore() : array {
-        if ( ! is_file( $this->store_filename ) || ! is_readable( $this->store_filename ) ) {
-            return( [] );
-        }
-
-        $handle = @ fopen( $this->store_filename, 'rb' );
-        if ( $handle === false ) {
-            return( [] );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( [] );
-            }
-            $store_json = stream_get_contents( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
-
-        if ( ! is_string( $store_json ) || trim( $store_json ) === '' ) {
-            return( [] );
-        }
-
-        return( $this->decodeStore( $store_json ) );
-    }
-
-    protected function writeStore( array $store ) : void {
-        $directory = dirname( $this->store_filename );
-        if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
-            throw new \RuntimeException( 'Unable to create media import mapping directory.' );
-        }
-
-        ksort( $store );
-        $encoded = json_encode( $store, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
-        if ( ! is_string( $encoded ) || $encoded === '' ) {
-            throw new \RuntimeException( 'Unable to encode media import mapping store.' );
-        }
-
-        $handle = @ fopen( $this->store_filename, 'c+' );
-        if ( $handle === false ) {
-            throw new \RuntimeException( 'Unable to open media import mapping store.' );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                throw new \RuntimeException( 'Unable to lock media import mapping store.' );
-            }
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            if ( fwrite( $handle, $encoded . PHP_EOL ) === false ) {
-                throw new \RuntimeException( 'Unable to write media import mapping store.' );
-            }
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
+        return( TinyMashLockedJsonFile::read( $this->store_filename, [] ) );
     }
 
     protected function withLockedStore( callable $callback ) : void {
-        $directory = dirname( $this->store_filename );
-        if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
-            throw new \RuntimeException( 'Unable to create media import mapping directory.' );
-        }
-
-        $handle = @ fopen( $this->store_filename, 'c+' );
-        if ( $handle === false ) {
-            throw new \RuntimeException( 'Unable to open media import mapping store.' );
-        }
-
         try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                throw new \RuntimeException( 'Unable to lock media import mapping store.' );
-            }
-
-            $store_json = stream_get_contents( $handle );
-            $store = $this->decodeStore( is_string( $store_json ) ? $store_json : '' );
-            $updated_store = $callback( $store );
-            if ( ! is_array( $updated_store ) ) {
-                $updated_store = $store;
-            }
-
-            ksort( $updated_store );
-            $encoded_store = json_encode( $updated_store, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
-            if ( ! is_string( $encoded_store ) || $encoded_store === '' ) {
-                throw new \RuntimeException( 'Unable to encode media import mapping store.' );
-            }
-
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            if ( fwrite( $handle, $encoded_store . PHP_EOL ) === false ) {
-                throw new \RuntimeException( 'Unable to write media import mapping store.' );
-            }
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
+            TinyMashLockedJsonFile::mutate(
+                $this->store_filename,
+                static function( array $store ) use ( $callback ) : array {
+                    $updated_store = $callback( $store );
+                    if ( ! is_array( $updated_store ) ) {
+                        $updated_store = $store;
+                    }
+                    ksort( $updated_store );
+                    return( $updated_store );
+                }
+            );
+        } catch ( \Throwable $e ) {
+            throw new \RuntimeException( 'Unable to write media import mapping store.', 0, $e );
         }
-    }
-
-    protected function decodeStore( string $store_json ) : array {
-        if ( trim( $store_json ) === '' ) {
-            return( [] );
-        }
-
-        try {
-            $store = json_decode( $store_json, true, 512, JSON_THROW_ON_ERROR );
-        } catch ( \Throwable ) {
-            return( [] );
-        }
-
-        return( is_array( $store ) ? $store : [] );
     }
 
 }

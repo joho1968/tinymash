@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+
 class TinyMashDraftRepository {
 
     protected string $drafts_directory;
@@ -117,6 +119,11 @@ class TinyMashDraftRepository {
                 }
             }
 
+            $draft_filename = $this->getDraftFilename( $username, $normalized_draft['draft_id'] );
+            if ( is_file( $draft_filename ) && ! is_array( $this->readDraftFile( $draft_filename ) ) ) {
+                throw new \RuntimeException( 'Unable to replace malformed editor draft.' );
+            }
+
             $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
             $normalized_draft['created_at_utc'] = is_array( $existing_draft ) && ! empty( $existing_draft['created_at_utc'] )
                 ? (string) $existing_draft['created_at_utc']
@@ -133,7 +140,8 @@ class TinyMashDraftRepository {
                 throw new \RuntimeException( 'Unable to encode editor draft.' );
             }
 
-            if ( file_put_contents( $this->getDraftFilename( $username, $normalized_draft['draft_id'] ), $draft_json . PHP_EOL, LOCK_EX ) === false ) {
+            $draft_payload = $draft_json . PHP_EOL;
+            if ( ! TinyMashFilesystem::writeFileAtomically( $draft_filename, $draft_payload ) ) {
                 throw new \RuntimeException( 'Unable to write editor draft.' );
             }
 
@@ -173,6 +181,9 @@ class TinyMashDraftRepository {
                 }
 
                 $draft = $this->readDraftFile( $draft_filename );
+                if ( ! is_array( $draft ) ) {
+                    continue;
+                }
                 $draft_timestamp = $this->resolveDraftTimestamp( $draft_filename, $draft );
                 if ( $draft_timestamp === null || $draft_timestamp > $cutoff_timestamp ) {
                     continue;
@@ -198,19 +209,18 @@ class TinyMashDraftRepository {
         if ( ! is_file( $legacy_filename ) || ! is_readable( $legacy_filename ) ) {
             return;
         }
-        if ( ! empty( $this->getDraftFiles( $username ) ) ) {
-            @unlink( $legacy_filename );
-            return;
-        }
-
-        $legacy_json = file_get_contents( $legacy_filename );
+        $legacy_json = @ file_get_contents( $legacy_filename );
         if ( ! is_string( $legacy_json ) || trim( $legacy_json ) === '' ) {
-            @unlink( $legacy_filename );
+            $this->logInvalidDraftFile( $legacy_filename );
             return;
         }
 
         $legacy_draft = json_decode( $legacy_json, true, 16 );
         if ( ! is_array( $legacy_draft ) ) {
+            $this->logInvalidDraftFile( $legacy_filename );
+            return;
+        }
+        if ( ! empty( $this->getDraftFiles( $username ) ) ) {
             @unlink( $legacy_filename );
             return;
         }
@@ -236,7 +246,8 @@ class TinyMashDraftRepository {
             throw new \RuntimeException( 'Unable to encode legacy editor draft.' );
         }
 
-        if ( file_put_contents( $this->getDraftFilename( $username, $normalized_draft['draft_id'] ), $draft_json . PHP_EOL, LOCK_EX ) === false ) {
+        $draft_payload = $draft_json . PHP_EOL;
+        if ( ! TinyMashFilesystem::writeFileAtomically( $this->getDraftFilename( $username, $normalized_draft['draft_id'] ), $draft_payload ) ) {
             throw new \RuntimeException( 'Unable to write migrated editor draft.' );
         }
         @unlink( $legacy_filename );
@@ -315,21 +326,31 @@ class TinyMashDraftRepository {
     }
 
     protected function readDraftFile( string $draft_filename ) : ?array {
-        if ( ! is_file( $draft_filename ) || ! is_readable( $draft_filename ) ) {
+        if ( ! is_file( $draft_filename ) ) {
+            return( null );
+        }
+        if ( ! is_readable( $draft_filename ) ) {
+            $this->logInvalidDraftFile( $draft_filename );
             return( null );
         }
 
-        $draft_json = file_get_contents( $draft_filename );
+        $draft_json = @ file_get_contents( $draft_filename );
         if ( ! is_string( $draft_json ) || trim( $draft_json ) === '' ) {
+            $this->logInvalidDraftFile( $draft_filename );
             return( null );
         }
 
         $draft_data = json_decode( $draft_json, true, 16 );
         if ( ! is_array( $draft_data ) ) {
+            $this->logInvalidDraftFile( $draft_filename );
             return( null );
         }
 
         return( $this->normalizeDraft( $draft_data ) );
+    }
+
+    protected function logInvalidDraftFile( string $draft_filename ) : void {
+        error_log( basename( __FILE__ ) . ': Ignoring invalid draft record "' . basename( dirname( $draft_filename ) ) . '"' );
     }
 
     protected function getDefaultDraft() : array {
@@ -564,7 +585,8 @@ class TinyMashDraftRepository {
     }
 
     protected function generateDraftId() : string {
-        return( 'draft_' . gmdate( 'Ymd_His' ) . '_' . substr( sha1( uniqid( '', true ) ), 0, 8 ) );
+        $now = new \DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) );
+        return( 'draft_' . $now->format( 'Ymd_His_u' ) . '_' . bin2hex( random_bytes( 4 ) ) );
     }
 
     protected function deleteDirectoryRecursively( string $directory ) : void {

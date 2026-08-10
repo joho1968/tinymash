@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashLockedJsonFile.php';
+
 use flight\Engine;
 use flight\net\Router;
 use app\classes\TinyMashConfig;
@@ -10,6 +12,7 @@ class TinyMashSecurity {
     protected const DEFAULT_SESSION_NAME = 'tinymash';
     protected const SESSION_USER_KEY = 'tinymash.auth.username';
     protected const SESSION_ROLE_KEY = 'tinymash.auth.role';
+    protected const SESSION_AUTH_FINGERPRINT_KEY = 'tinymash.auth.fingerprint';
     protected const SESSION_CSRF_KEY = 'tinymash.csrf.token';
     protected const SESSION_FLASH_KEY = 'tinymash.flash';
     protected const SESSION_VISITOR_IP_KEY = 'tinymash.visitor.last_ip';
@@ -24,6 +27,8 @@ class TinyMashSecurity {
     protected TinyMashConfig $config;
     protected string $login_attempts_filename;
     protected array $last_login_attempt_state = [];
+    protected bool $session_auth_checked = false;
+    protected ?array $session_auth_record = null;
 
     public function __construct( Engine $app, Router $router, TinyMashConfig $config, string $login_attempts_filename = '' ) {
         $this->app = $app;
@@ -47,22 +52,41 @@ class TinyMashSecurity {
         $secure_cookie = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on';
         session_name( $session_name );
         session_cache_limiter( '' );
-        session_set_cookie_params(
-            [
-                'lifetime' => 0,
-                'path' => '/',
-                'secure' => $secure_cookie,
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]
-        );
+        $this->applySessionCookieParams( self::buildSessionCookieParams( $secure_cookie ) );
         session_start();
         $this->rememberVisitorIp();
     }
 
     public function isLoggedIn() : bool {
         $this->startSession();
-        return( ! empty( $_SESSION[self::SESSION_USER_KEY] ) && is_string( $_SESSION[self::SESSION_USER_KEY] ) );
+        if ( $this->session_auth_checked ) {
+            return( is_array( $this->session_auth_record ) );
+        }
+
+        $this->session_auth_checked = true;
+        $username = $_SESSION[self::SESSION_USER_KEY] ?? '';
+        if ( ! is_string( $username ) || $username === '' ) {
+            return( false );
+        }
+
+        $auth_record = $this->getAuthRecord( $username );
+        if ( ! is_array( $auth_record ) || $this->normalizeUsername( (string) ( $auth_record['username'] ?? '' ) ) !== $this->normalizeUsername( $username ) ) {
+            $this->clearAuthenticationState();
+            return( false );
+        }
+
+        $fingerprint = self::buildAuthenticationFingerprint( (string) ( $auth_record['hash'] ?? '' ) );
+        $session_fingerprint = $_SESSION[self::SESSION_AUTH_FINGERPRINT_KEY] ?? '';
+        if ( is_string( $session_fingerprint ) && $session_fingerprint !== '' && ! hash_equals( $fingerprint, $session_fingerprint ) ) {
+            $this->clearAuthenticationState();
+            return( false );
+        }
+
+        $_SESSION[self::SESSION_USER_KEY] = (string) $auth_record['username'];
+        $_SESSION[self::SESSION_ROLE_KEY] = (string) ( $auth_record['role'] ?: 'creator' );
+        $_SESSION[self::SESSION_AUTH_FINGERPRINT_KEY] = $fingerprint;
+        $this->session_auth_record = $auth_record;
+        return( true );
     }
 
     public function getCurrentUsername() : ?string {
@@ -78,23 +102,7 @@ class TinyMashSecurity {
             return( 'public' );
         }
 
-        $role = $_SESSION[self::SESSION_ROLE_KEY] ?? '';
-        if ( is_string( $role ) && $role !== '' ) {
-            return( $role );
-        }
-
-        $username = $this->getCurrentUsername();
-        if ( ! is_string( $username ) || $username === '' ) {
-            return( 'creator' );
-        }
-
-        $auth_record = $this->getAuthRecord( $username );
-        if ( $auth_record !== null && ! empty( $auth_record['role'] ) ) {
-            $_SESSION[self::SESSION_ROLE_KEY] = (string) $auth_record['role'];
-            return( (string) $auth_record['role'] );
-        }
-
-        return( 'creator' );
+        return( (string) ( $this->session_auth_record['role'] ?? 'creator' ) ?: 'creator' );
     }
 
     public function isSuperAdmin() : bool {
@@ -150,12 +158,16 @@ class TinyMashSecurity {
             return( false );
         }
 
-        $this->clearFailedLogins( $username, $ip_address );
+        $this->clearFailedLogins( $username );
         if ( session_status() === PHP_SESSION_ACTIVE ) {
             session_regenerate_id( true );
         }
+        unset( $_SESSION[self::SESSION_CSRF_KEY] );
         $_SESSION[self::SESSION_USER_KEY] = $auth_record['username'];
         $_SESSION[self::SESSION_ROLE_KEY] = $auth_record['role'] !== '' ? $auth_record['role'] : 'creator';
+        $_SESSION[self::SESSION_AUTH_FINGERPRINT_KEY] = self::buildAuthenticationFingerprint( (string) $auth_record['hash'] );
+        $this->session_auth_checked = true;
+        $this->session_auth_record = $auth_record;
         $this->last_login_attempt_state = [
             'status' => 'ok',
             'blocked' => false,
@@ -166,6 +178,30 @@ class TinyMashSecurity {
 
     public function getLastLoginAttemptState() : array {
         return( $this->last_login_attempt_state );
+    }
+
+    public function refreshAuthenticatedSession() : bool {
+        if ( ! $this->isLoggedIn() ) {
+            return( false );
+        }
+
+        $username = (string) ( $this->session_auth_record['username'] ?? '' );
+        $auth_record = $this->getAuthRecord( $username );
+        if ( ! is_array( $auth_record ) ) {
+            $this->clearAuthenticationState();
+            return( false );
+        }
+
+        if ( session_status() === PHP_SESSION_ACTIVE ) {
+            session_regenerate_id( true );
+        }
+        unset( $_SESSION[self::SESSION_CSRF_KEY] );
+        $_SESSION[self::SESSION_USER_KEY] = (string) $auth_record['username'];
+        $_SESSION[self::SESSION_ROLE_KEY] = (string) ( $auth_record['role'] ?: 'creator' );
+        $_SESSION[self::SESSION_AUTH_FINGERPRINT_KEY] = self::buildAuthenticationFingerprint( (string) $auth_record['hash'] );
+        $this->session_auth_checked = true;
+        $this->session_auth_record = $auth_record;
+        return( true );
     }
 
     public function getLoginHardeningSummary() : array {
@@ -275,9 +311,22 @@ class TinyMashSecurity {
         }
 
         $_SESSION = [];
+        $this->session_auth_checked = true;
+        $this->session_auth_record = null;
         if ( ini_get( 'session.use_cookies' ) ) {
             $params = session_get_cookie_params();
-            setcookie( session_name(), '', time() - 3600, $params['path'], $params['domain'], $params['secure'], $params['httponly'] );
+            setcookie(
+                session_name(),
+                '',
+                [
+                    'expires' => time() - 3600,
+                    'path' => (string) ( $params['path'] ?? '/' ),
+                    'domain' => (string) ( $params['domain'] ?? '' ),
+                    'secure' => ! empty( $params['secure'] ),
+                    'httponly' => ! empty( $params['httponly'] ),
+                    'samesite' => (string) ( $params['samesite'] ?? 'Lax' ),
+                ]
+            );
         }
         session_destroy();
     }
@@ -319,6 +368,53 @@ class TinyMashSecurity {
     public static function buildRedisSessionPrefix( string $session_name ) : string {
         $session_name = self::resolveSessionName( $session_name );
         return( $session_name . ':' );
+    }
+
+    public static function buildSessionCookieParams( bool $secure_cookie ) : array {
+        return(
+            [
+                'lifetime' => 0,
+                'path' => '/',
+                'secure' => $secure_cookie,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]
+        );
+    }
+
+    public static function sanitizeAdminReturnUrl( string $return_url, string $admin_url, string $login_url ) : string {
+        $return_url = trim( $return_url );
+        $decoded_return_url = rawurldecode( $return_url );
+        if ( $return_url === '' || preg_match( '/[\\x00-\\x1F\\x7F\\\\]/', $decoded_return_url ) === 1 ) {
+            return( '' );
+        }
+
+        $parts = parse_url( $return_url );
+        if ( $parts === false || isset( $parts['scheme'] ) || isset( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+            return( '' );
+        }
+
+        $path = trim( (string) ( $parts['path'] ?? '' ) );
+        if ( $path === '' ) {
+            return( '' );
+        }
+        if ( ! str_starts_with( $path, '/' ) ) {
+            $path = '/' . ltrim( $path, '/' );
+        }
+        $decoded_path_segments = explode( '/', rawurldecode( $path ) );
+        if ( in_array( '.', $decoded_path_segments, true ) || in_array( '..', $decoded_path_segments, true ) ) {
+            return( '' );
+        }
+
+        $admin_url = '/' . trim( $admin_url, '/' );
+        $login_url = '/' . trim( $login_url, '/' );
+        $is_admin_path = $path === $admin_url || str_starts_with( $path, $admin_url . '/' );
+        if ( ! $is_admin_path || $path === $login_url ) {
+            return( '' );
+        }
+
+        $query = trim( (string) ( $parts['query'] ?? '' ) );
+        return( $path . ( $query !== '' ? '?' . $query : '' ) );
     }
 
     public static function isFilesystemSessionSavePath( string $save_path ) : bool {
@@ -438,17 +534,10 @@ class TinyMashSecurity {
         $last_seen_ip = '';
 
         if ( session_status() === PHP_SESSION_ACTIVE ) {
-            $username_value = $_SESSION[self::SESSION_USER_KEY] ?? null;
-            if ( is_string( $username_value ) && $username_value !== '' ) {
-                $logged_in = true;
-                $username = $username_value;
-            }
-
-            $role_value = $_SESSION[self::SESSION_ROLE_KEY] ?? '';
-            if ( is_string( $role_value ) && $role_value !== '' ) {
-                $role = $role_value;
-            } elseif ( $logged_in ) {
-                $role = 'creator';
+            $logged_in = $this->isLoggedIn();
+            if ( $logged_in ) {
+                $username = (string) ( $this->session_auth_record['username'] ?? '' );
+                $role = (string) ( $this->session_auth_record['role'] ?? 'creator' ) ?: 'creator';
             }
 
             $last_seen_ip_value = $_SESSION[self::SESSION_VISITOR_IP_KEY] ?? '';
@@ -504,6 +593,19 @@ class TinyMashSecurity {
         }
     }
 
+    protected function applySessionCookieParams( array $params ) : void {
+        $ini_values = [
+            'session.cookie_lifetime' => (string) ( $params['lifetime'] ?? 0 ),
+            'session.cookie_path' => (string) ( $params['path'] ?? '/' ),
+            'session.cookie_secure' => ! empty( $params['secure'] ) ? '1' : '0',
+            'session.cookie_httponly' => ! empty( $params['httponly'] ) ? '1' : '0',
+            'session.cookie_samesite' => (string) ( $params['samesite'] ?? 'Lax' ),
+        ];
+        foreach ( $ini_values as $name => $value ) {
+            @ ini_set( $name, $value );
+        }
+    }
+
     public function setFlash( string $key, mixed $value ) : void {
         $this->startSession();
         if ( empty( $_SESSION[self::SESSION_FLASH_KEY] ) || ! is_array( $_SESSION[self::SESSION_FLASH_KEY] ) ) {
@@ -529,13 +631,7 @@ class TinyMashSecurity {
         return( $value );
     }
 
-    /**
-     * Checks password by comparing input with result of mb_trim/trim.
-     * Conditionally use mb_trim(), PHP >= 8.4.0
-     *
-     * @param string $password
-     * @return bool
-     */
+    /** Rejects passwords with leading or trailing whitespace. */
     public function validatePassword( string $password ) : bool {
         if ( empty( $password ) ) {
             return( false );
@@ -592,6 +688,23 @@ class TinyMashSecurity {
                 'role' => ! empty( $user['role'] ) ? (string) $user['role'] : '',
             ]
         );
+    }
+
+    protected static function buildAuthenticationFingerprint( string $password_hash ) : string {
+        return( hash( 'sha256', $password_hash ) );
+    }
+
+    protected function clearAuthenticationState() : void {
+        unset(
+            $_SESSION[self::SESSION_USER_KEY],
+            $_SESSION[self::SESSION_ROLE_KEY],
+            $_SESSION[self::SESSION_AUTH_FINGERPRINT_KEY],
+            $_SESSION[self::SESSION_CSRF_KEY]
+        );
+        if ( session_status() === PHP_SESSION_ACTIVE ) {
+            session_regenerate_id( true );
+        }
+        $this->session_auth_record = null;
     }
 
     protected function verifyPasswordHash( string $password, string $hash ) : bool {
@@ -763,13 +876,13 @@ class TinyMashSecurity {
         );
     }
 
-    protected function clearFailedLogins( string $username, string $ip_address ) : void {
+    protected function clearFailedLogins( string $username ) : void {
         if ( $this->login_attempts_filename === '' ) {
             return;
         }
 
         $this->withLockedLoginAttemptStore(
-            function( array $store ) use ( $username, $ip_address ) : array {
+            function( array $store ) use ( $username ) : array {
                 $failures = is_array( $store['failures'] ?? null ) ? $store['failures'] : [];
                 $remaining_failures = [];
 
@@ -779,8 +892,7 @@ class TinyMashSecurity {
                     }
 
                     $failure_username = $this->normalizeUsername( (string) ( $failure['username'] ?? '' ) );
-                    $failure_ip = trim( (string) ( $failure['ip'] ?? '' ) );
-                    if ( ( $username !== '' && $failure_username === $username ) || ( $ip_address !== '' && $failure_ip === $ip_address ) ) {
+                    if ( $username !== '' && $failure_username === $username ) {
                         continue;
                     }
 
@@ -794,65 +906,13 @@ class TinyMashSecurity {
     }
 
     protected function readLoginAttemptStore() : array {
-        if ( $this->login_attempts_filename === '' || ! is_file( $this->login_attempts_filename ) || ! is_readable( $this->login_attempts_filename ) ) {
-            return( [ 'failures' => [] ] );
-        }
-
-        $handle = @ fopen( $this->login_attempts_filename, 'rb' );
-        if ( $handle === false ) {
-            return( [ 'failures' => [] ] );
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_SH ) ) {
-                return( [ 'failures' => [] ] );
-            }
-            $json = stream_get_contents( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
-
-        return( $this->decodeLoginAttemptStore( is_string( $json ) ? $json : '' ) );
-    }
-
-    protected function writeLoginAttemptStore( array $store ) : void {
         if ( $this->login_attempts_filename === '' ) {
-            return;
+            return( [ 'failures' => [] ] );
         }
 
-        $directory = dirname( $this->login_attempts_filename );
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
-        }
-
-        $encoded_store = json_encode(
-            [
-                'failures' => $this->pruneFailedLogins( is_array( $store['failures'] ?? null ) ? $store['failures'] : [] ),
-            ],
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-        );
-        if ( ! is_string( $encoded_store ) || $encoded_store === '' ) {
-            return;
-        }
-
-        $handle = @ fopen( $this->login_attempts_filename, 'c+' );
-        if ( $handle === false ) {
-            return;
-        }
-
-        try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                return;
-            }
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            fwrite( $handle, $encoded_store . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
-        }
+        $store = TinyMashLockedJsonFile::readStrict( $this->login_attempts_filename, [ 'failures' => [] ] );
+        $store['failures'] = $this->pruneFailedLogins( is_array( $store['failures'] ?? null ) ? $store['failures'] : [] );
+        return( $store );
     }
 
     protected function withLockedLoginAttemptStore( callable $callback ) : void {
@@ -860,60 +920,26 @@ class TinyMashSecurity {
             return;
         }
 
-        $directory = dirname( $this->login_attempts_filename );
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
-        }
-
-        $handle = @ fopen( $this->login_attempts_filename, 'c+' );
-        if ( $handle === false ) {
-            return;
-        }
-
         try {
-            if ( ! @ flock( $handle, LOCK_EX ) ) {
-                return;
-            }
-
-            $json = stream_get_contents( $handle );
-            $store = $this->decodeLoginAttemptStore( is_string( $json ) ? $json : '' );
-            $updated_store = $callback( $store );
-            if ( ! is_array( $updated_store ) ) {
-                $updated_store = $store;
-            }
-
-            $encoded_store = json_encode(
-                [
-                    'failures' => $this->pruneFailedLogins( is_array( $updated_store['failures'] ?? null ) ? $updated_store['failures'] : [] ),
-                ],
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+            TinyMashLockedJsonFile::mutate(
+                $this->login_attempts_filename,
+                function( array $store ) use ( $callback ) : array {
+                    $store['failures'] = $this->pruneFailedLogins( is_array( $store['failures'] ?? null ) ? $store['failures'] : [] );
+                    $updated_store = $callback( $store );
+                    if ( ! is_array( $updated_store ) ) {
+                        $updated_store = $store;
+                    }
+                    return(
+                        [
+                            'failures' => $this->pruneFailedLogins( is_array( $updated_store['failures'] ?? null ) ? $updated_store['failures'] : [] ),
+                        ]
+                    );
+                },
+                [ 'failures' => [] ]
             );
-            if ( ! is_string( $encoded_store ) || $encoded_store === '' ) {
-                return;
-            }
-
-            ftruncate( $handle, 0 );
-            rewind( $handle );
-            fwrite( $handle, $encoded_store . PHP_EOL );
-            fflush( $handle );
-            @ flock( $handle, LOCK_UN );
-        } finally {
-            fclose( $handle );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to update login-attempt store: ' . $e->getMessage() );
         }
-    }
-
-    protected function decodeLoginAttemptStore( string $json ) : array {
-        if ( trim( $json ) === '' ) {
-            return( [ 'failures' => [] ] );
-        }
-
-        $store = json_decode( $json, true, 16 );
-        if ( ! is_array( $store ) ) {
-            return( [ 'failures' => [] ] );
-        }
-
-        $store['failures'] = $this->pruneFailedLogins( is_array( $store['failures'] ?? null ) ? $store['failures'] : [] );
-        return( $store );
     }
 
     protected function pruneFailedLogins( array $failures ) : array {
@@ -960,4 +986,4 @@ class TinyMashSecurity {
         return( $count );
     }
 
-}// AdminController
+}

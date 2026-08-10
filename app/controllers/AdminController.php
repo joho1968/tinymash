@@ -13,6 +13,7 @@ use app\classes\TinyMashMenuService;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
 use app\classes\TinyMashDraftRepository;
+use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashNotificationService;
 use flight\Engine;
 use app\classes\TinyMashMarkdownRenderer;
@@ -26,6 +27,7 @@ require_once dirname(__FILE__, 2 ) . '/classes/TinyMashSecurity.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashConfig.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashContentRepository.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashDraftRepository.php';
+require_once dirname(__FILE__, 2 ) . '/classes/TinyMashDateFormatter.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashEditorMediaPickerService.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashMenuService.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashTheme.php';
@@ -65,6 +67,7 @@ class AdminController extends BaseController {
     protected ?TinyMashDraftRepository $draft_repository;
     protected ?TinyMashMarkdownRenderer $markdown_renderer;
     protected ?TinyMashEditorMediaPickerService $editor_media_picker_service = null;
+    protected ?TinyMashDateFormatter $admin_date_formatter = null;
     protected $app;
 
     public function __construct( $app, $router, $security, $config, ?TinyMashMarkdownRenderer $markdown_renderer = null, ?TinyMashDraftRepository $draft_repository = null, ?TinyMashContentRepository $content_repository = null, ?TinyMashTheme $theme = null ) {
@@ -76,6 +79,13 @@ class AdminController extends BaseController {
         $this->markdown_renderer = $markdown_renderer;
         $this->draft_repository = $draft_repository;
         $this->app = $app;
+    }
+
+    protected function renderAdmin( string $view_name, array $data = [] ) : void {
+        if ( ! array_key_exists( 'csrf_token', $data ) ) {
+            $data['csrf_token'] = $this->security->getCsrfToken();
+        }
+        parent::renderAdmin( $view_name, $data );
     }
 
     protected function emitServerTimingHeader( array $timings ) : void {
@@ -157,6 +167,15 @@ class AdminController extends BaseController {
         }
 
         $admin_theme_info = $this->getSystemAdminThemeInfo();
+        $site_name = $this->config->getSiteName();
+        $markdown_renderer = $this->markdown_renderer;
+        if ( ! $markdown_renderer instanceof TinyMashMarkdownRenderer && $this->app->has( 'markdown.renderer' ) ) {
+            $markdown_renderer = $this->app->get( 'markdown.renderer' );
+        }
+        if ( $markdown_renderer instanceof TinyMashMarkdownRenderer ) {
+            $site_name = $markdown_renderer->replaceEmojiShortcodes( $site_name );
+        }
+
         $this->renderAdmin(
             'about',
             [
@@ -177,7 +196,7 @@ class AdminController extends BaseController {
                     'app_name' => APP_NAME,
                     'app_version' => APP_VERSION,
                     'license' => 'AGPL-3.0-or-later',
-                    'site_name' => $this->config->getSiteName(),
+                    'site_name' => $site_name,
                     'base_url' => (string) $this->config->configGetBaseURL(),
                     'public_theme' => $this->theme !== null ? $this->theme->getThemeName() : 'Unknown',
                     'public_theme_key' => $this->config->getPublicThemeKey(),
@@ -256,17 +275,39 @@ class AdminController extends BaseController {
         }
 
         try {
-            if ( $this->app->has( 'date.formatter' ) ) {
-                $formatter = $this->app->get( 'date.formatter' );
-                if ( is_object( $formatter ) && method_exists( $formatter, 'formatUtcDateTime' ) ) {
-                    return( (string) $formatter->formatUtcDateTime( $utc_datetime ) );
-                }
-            }
-        } catch ( \Throwable $e ) {
+            return( $this->getAdminDateFormatter()->formatUtcDateTime( $utc_datetime ) );
+        } catch ( \Throwable ) {
             return( $utc_datetime );
         }
+    }
 
-        return( $utc_datetime );
+    protected function getAdminDateFormatter() : TinyMashDateFormatter {
+        if ( $this->admin_date_formatter instanceof TinyMashDateFormatter ) {
+            return( $this->admin_date_formatter );
+        }
+
+        $timezone = '';
+        $user = $this->getCurrentUserRecord();
+        if ( is_array( $user ) ) {
+            $timezone = trim( (string) ( $user['timezone'] ?? '' ) );
+            if ( $timezone !== '' ) {
+                try {
+                    new \DateTimeZone( $timezone );
+                } catch ( \Throwable ) {
+                    $timezone = '';
+                }
+            }
+        }
+        if ( $timezone === '' ) {
+            $timezone = $this->config->getLocaleTimezone();
+        }
+
+        $this->admin_date_formatter = new TinyMashDateFormatter(
+            $this->config->getLocaleDateFormat(),
+            $this->config->getLocaleTimeFormat(),
+            $timezone
+        );
+        return( $this->admin_date_formatter );
     }
 
     protected function resolveSystemSiteImageUpload( array $current_image, string $field_key, array $allowed_mimes ) : array {
@@ -411,9 +452,9 @@ class AdminController extends BaseController {
 
         $html = '<div class="row g-4 tm-help-modal-grid">';
         $html .= '<div class="col-12 col-xl-4 d-flex">';
-        $html .= '<section class="border rounded-3 p-3 bg-body position-xl-sticky tm-help-index-panel w-100" style="top: 1rem;">';
-        $html .= '<div class="d-flex align-items-center justify-content-between gap-2 mb-2">';
-        $html .= '<div class="small text-uppercase text-body-secondary fw-semibold mb-0">Table of contents</div>';
+        $html .= '<section class="position-xl-sticky tm-help-index-panel w-100" style="top: 1rem;">';
+        $html .= '<div class="d-flex align-items-center justify-content-between gap-2 mb-2 px-1">';
+        $html .= '<div class="small text-uppercase text-body-secondary fw-semibold mb-0">Contents</div>';
         $html .= '<button class="btn btn-outline-secondary btn-sm d-xl-none" type="button" data-bs-toggle="collapse" data-bs-target="#tm-help-index-collapse" aria-expanded="false" aria-controls="tm-help-index-collapse" title="Toggle table of contents" aria-label="Toggle table of contents">';
         $html .= '<i class="bi bi-list" aria-hidden="true"></i>';
         $html .= '</button>';
@@ -431,16 +472,14 @@ class AdminController extends BaseController {
                 continue;
             }
 
-             $group = trim( (string) ( $item['group'] ?? 'Core' ) );
+            $group = trim( (string) ( $item['group'] ?? 'Core' ) );
             if ( $group === '' ) {
                 $group = 'Core';
             }
             if ( $group !== $current_group ) {
-                if ( $current_group !== '' ) {
-                    $html .= '<div class="border-top my-2"></div>';
-                }
                 if ( strtolower( $group ) !== 'core' ) {
-                    $html .= '<div class="small text-uppercase text-body-secondary fw-semibold mt-1">' . htmlspecialchars( $group, ENT_QUOTES, 'UTF-8' ) . '</div>';
+                    $group_spacing = $current_group === '' ? 'mt-1' : 'mt-3';
+                    $html .= '<div class="small text-uppercase text-body-secondary fw-semibold ' . $group_spacing . ' px-1">' . htmlspecialchars( $group, ENT_QUOTES, 'UTF-8' ) . '</div>';
                 }
                 $current_group = $group;
             }
@@ -468,7 +507,7 @@ class AdminController extends BaseController {
                 $summary = $this->markdown_renderer->render( (string) $document['summary'] );
             }
 
-            $html .= '<section class="border rounded-3 p-3 bg-body">';
+            $html .= '<section class="tm-help-document">';
             $html .= '<h3 class="h5 mb-3">' . $title . '</h3>';
             if ( $summary !== '' ) {
                 $html .= '<div class="tm-help-content mb-3">' . $summary . '</div>';
@@ -490,9 +529,9 @@ class AdminController extends BaseController {
                     continue;
                 }
 
-                $html .= '<div class="tm-help-section border-top pt-3 mt-3">';
+                $html .= '<div class="tm-help-section">';
                 if ( $section_title !== '' ) {
-                    $html .= '<h4 class="h6 mb-2">' . htmlspecialchars( $section_title, ENT_QUOTES, 'UTF-8' ) . '</h4>';
+                    $html .= '<h4 class="tm-help-section-title mb-2">' . htmlspecialchars( $section_title, ENT_QUOTES, 'UTF-8' ) . '</h4>';
                 }
                 if ( $section_markdown !== '' && $this->markdown_renderer !== null ) {
                     $html .= '<div class="tm-help-content">' . $this->markdown_renderer->render( $section_markdown ) . '</div>';
@@ -1649,4 +1688,4 @@ class AdminController extends BaseController {
         return( $notification );
     }
 
-}// AdminController
+}

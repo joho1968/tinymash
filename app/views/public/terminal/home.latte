@@ -27,10 +27,13 @@
             {/if}
         </article>
     {else}
+    {if empty( $listing_context_title )}
+        <h1 class="tm-visually-hidden">Latest posts</h1>
+    {/if}
     {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary ) }
         <section class="tm-terminal-panel tm-terminal-listing-header">
             {if ! empty( $listing_context_title ) }
-                <h2 class="tm-terminal-entry-title tm-terminal-listing-title">{$listing_context_title}</h2>
+                <h1 class="tm-terminal-entry-title tm-terminal-listing-title">{$listing_context_title}</h1>
             {/if}
             {if ! empty( $listing_context_summary ) }
                 <p class="tm-terminal-muted tm-terminal-listing-summary">{$listing_context_summary}</p>

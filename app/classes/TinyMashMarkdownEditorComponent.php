@@ -106,7 +106,7 @@ class TinyMashMarkdownEditorComponent {
         $html .= '>' . $escape( $content ) . '</textarea>';
         if ( $emoji_autocomplete ) {
             $autocomplete_id = $field_id === 'tm-editor-markdown' ? ' id="tm-editor-emoji-autocomplete"' : '';
-            $html .= '<div class="list-group shadow-sm d-none tm-editor-emoji-autocomplete"' . $autocomplete_id . ' data-tm-markdown-emoji-autocomplete role="listbox" aria-label="Emoji shortcode suggestions"></div>';
+            $html .= '<div class="border rounded bg-body d-none tm-editor-emoji-autocomplete"' . $autocomplete_id . ' data-tm-markdown-emoji-autocomplete role="listbox" aria-label="Emoji shortcode suggestions"></div>';
         }
         if ( $images ) {
             $html .= '<input class="d-none" id="tm-editor-image-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" aria-label="Upload image">';

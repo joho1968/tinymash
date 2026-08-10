@@ -7,13 +7,12 @@
             <div class="col-12 col-xl-7">
                 <div class="p-3 bg-body border rounded-3 shadow-sm h-100">
                     <div class="small text-uppercase text-body-secondary mb-2">{if ! empty( $is_superadmin )}Author Area{else}Workspace{/if}</div>
-                    <div class="fw-semibold mb-1">Content workbench</div>
-                    <div class="small text-body-secondary mb-3">This side of the back end is for writing, editing, previewing, and eventually managing your own content lifecycle.</div>
+                    <div class="fw-semibold mb-3">Content workbench</div>
                     <div class="row g-3">
                         <div class="col-12 col-md-6">
                             <div class="rounded-3 p-3 h-100 bg-body-secondary d-flex flex-column">
                                 <div class="fw-semibold mb-1">Post and page composer</div>
-                                <div class="small text-body-secondary mb-3">Draft, preview, publish, and load existing content through the responsive composer.</div>
+                                <div class="small text-body-secondary mb-3">Draft, preview, publish, and edit content.</div>
                                 <div class="mt-auto">
                                     <a class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1" href="{$editor_url}"><span class="bi bi-pencil-square" aria-hidden="true"></span><span>Open composer</span></a>
                                 </div>
@@ -22,7 +21,7 @@
                         <div class="col-12 col-md-6">
                             <div class="rounded-3 p-3 h-100 bg-body-secondary d-flex flex-column">
                                 <div class="fw-semibold mb-1">Content library</div>
-                                <div class="small text-body-secondary mb-3">Review drafts and saved content in one place, then jump into the composer with the right context.</div>
+                                <div class="small text-body-secondary mb-3">Browse saved content and drafts.</div>
                                 <div class="mt-auto">
                                     <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$entries_url}"><span class="bi bi-collection" aria-hidden="true"></span><span>Open content</span></a>
                                 </div>
@@ -85,15 +84,14 @@
                         </div>
                     {else}
                         <div class="fw-semibold mb-1">Author access</div>
-                        <div class="small text-body-secondary mb-0">This account is currently scoped to content work. System-wide tools remain reserved for higher-privilege roles. {if ! empty( $content_moderation_required )}Sitewide moderation is active, so submitted content will require review before going live.{/if}</div>
+                        <div class="small text-body-secondary mb-0">Author account. System administration requires a higher-privilege role. {if ! empty( $content_moderation_required )}Submissions require review before publication.{/if}</div>
                     {/if}
                 </div>
             </div>
             <div class="col-12 col-lg-6">
                 <div class="p-3 bg-body border rounded-3 shadow-sm h-100 d-flex flex-column">
                     <div class="small text-uppercase text-body-secondary mb-2">Site</div>
-                    <div class="fw-semibold mb-1">Public front page</div>
-                    <div class="small text-body-secondary mb-3">Check the current public rendering and content flow.</div>
+                    <div class="fw-semibold mb-3">Public front page</div>
                     <div class="mt-auto">
                         <a class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" href="/"><span class="bi bi-box-arrow-up-right" aria-hidden="true"></span><span>View site</span></a>
                     </div>

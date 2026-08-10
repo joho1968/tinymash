@@ -337,8 +337,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( empty( $revisions ) ) {
             $revisions_html = '<div class="small text-body-secondary">No saved revisions yet.</div>';
         } else {
-            $revisions_html .= '<div class="border rounded-3 bg-body overflow-auto" style="max-height: 18rem;">';
-            $revisions_html .= '<div class="list-group list-group-flush">';
+            $revisions_html .= '<div class="overflow-auto" style="max-height: 18rem;">';
+            $revisions_html .= '<div class="d-grid">';
             foreach ( $revisions as $revision ) {
                 if ( ! is_array( $revision ) ) {
                     continue;
@@ -353,7 +353,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $revision_bytes = max( 0, (int) ( $revision['bytes'] ?? 0 ) );
                 $load_url = $notes_url . '?revision=' . rawurlencode( $revision_id );
 
-                $revisions_html .= '<a class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-3" href="' . $escape( $load_url ) . '">';
+                $revisions_html .= '<a class="d-flex justify-content-between align-items-start gap-3 py-2 border-top text-decoration-none" href="' . $escape( $load_url ) . '">';
                 $revisions_html .= '<span><span class="d-block fw-semibold font-monospace">' . $escape( $revision_id ) . '</span><span class="d-block small text-body-secondary">' . $escape( $revision_time ) . '</span></span>';
                 $revisions_html .= '<span class="small text-body-secondary">' . $escape( (string) $revision_bytes ) . ' bytes</span>';
                 $revisions_html .= '</a>';
@@ -465,7 +465,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     </div>
                     <div class="position-relative">
                         <textarea class="form-control font-monospace" id="tm-notes-content" name="notes_content" rows="22" spellcheck="true"><?= $escape( $editor_content ) ?></textarea>
-                        <div class="list-group shadow-sm d-none tm-editor-emoji-autocomplete" id="tm-notes-emoji-autocomplete" role="listbox" aria-label="Emoji shortcode suggestions"></div>
+                        <div class="border rounded bg-body d-none tm-editor-emoji-autocomplete" id="tm-notes-emoji-autocomplete" role="listbox" aria-label="Emoji shortcode suggestions"></div>
                     </div>
                 </div>
 
@@ -817,7 +817,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     emojiAutocomplete.innerHTML = emojiAutocompleteMatches.map((entry, index) => {
                         const active = index === emojiAutocompleteIndex;
                         return ''
-                            + '<button class="list-group-item list-group-item-action d-flex align-items-center gap-2'
+                            + '<button class="btn btn-light border-0 border-bottom rounded-0 w-100 text-start d-flex align-items-center gap-2 tm-editor-emoji-option'
                             + (active ? ' active' : '')
                             + '" type="button" data-emoji-index="' + index + '" role="option" aria-selected="' + (active ? 'true' : 'false') + '">'
                             + '<span class="tm-emoji fs-5" aria-hidden="true">' + escapeHtml(entry.emoji) + '</span>'

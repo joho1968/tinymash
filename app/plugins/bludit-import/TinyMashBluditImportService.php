@@ -1,8 +1,13 @@
 <?php
 
 use app\classes\TinyMashContentRepository;
+use app\classes\TinyMashDateFormatter;
+use app\classes\TinyMashFilesystem;
 use app\classes\TinyMashImportLockService;
 use app\classes\TinyMashMediaImportBridge;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashFilesystem.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashDateFormatter.php';
 
 class TinyMashBluditImportService {
 
@@ -472,8 +477,8 @@ class TinyMashBluditImportService {
                 'sticky' => $source_type === 'sticky',
                 'slug' => $slug,
                 'parent_slug' => $parent_slug,
-                'title' => trim( (string) ( $page['title'] ?? $slug ) ),
-                'summary' => trim( (string) ( $page['description'] ?? '' ) ),
+                'title' => mb_trim( (string) ( $page['title'] ?? $slug ) ),
+                'summary' => mb_trim( (string) ( $page['description'] ?? '' ) ),
                 'sort_order' => (int) ( $page['position'] ?? 0 ),
                 'show_in_navigation' => $entry_type === 'page',
                 'published_at_utc' => $this->toUtc( (string) ( $page['date'] ?? '' ), $site_timezone ),
@@ -514,8 +519,8 @@ class TinyMashBluditImportService {
         return(
             [
                 'source_directory' => $resolved_site_directory,
-                'source_title' => trim( (string) ( $site['title'] ?? '' ) ),
-                'source_slogan' => trim( (string) ( $site['slogan'] ?? '' ) ),
+                'source_title' => mb_trim( (string) ( $site['title'] ?? '' ) ),
+                'source_slogan' => mb_trim( (string) ( $site['slogan'] ?? '' ) ),
                 'source_url' => $source_base_url,
                 'source_theme' => trim( (string) ( $site['theme'] ?? '' ) ),
                 'source_homepage' => trim( (string) ( $site['homepage'] ?? '' ) ),
@@ -819,8 +824,8 @@ class TinyMashBluditImportService {
         }
 
         try {
-            $date = new DateTimeImmutable( $value, new DateTimeZone( $timezone ) );
-            return( $date->setTimezone( new DateTimeZone( 'UTC' ) )->format( 'Y-m-d\TH:i:s\Z' ) );
+            $formatter = new TinyMashDateFormatter( timezone: $timezone );
+            return( $formatter->normalizeLocalDateTimeToUtc( $value, 'Y-m-d H:i:s' ) );
         } catch ( \Throwable ) {
             return( '' );
         }
@@ -962,7 +967,7 @@ class TinyMashBluditImportService {
             throw new \RuntimeException( 'The import preview could not be encoded.' );
         }
 
-        if ( @file_put_contents( $filename, $encoded . PHP_EOL, LOCK_EX ) === false ) {
+        if ( ! TinyMashFilesystem::writeFileAtomically( $filename, $encoded . PHP_EOL ) ) {
             throw new \RuntimeException( 'The import workspace could not be written.' );
         }
     }

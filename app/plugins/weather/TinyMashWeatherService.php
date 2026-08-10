@@ -220,7 +220,7 @@ class TinyMashWeatherService {
             'refreshed_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
             'feeds' => $next_feeds,
         ];
-        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $this->normalizeCache( $cache ) ) ) {
+        if ( ! TinyMashLockedJsonFile::write( $this->cache_filename, $this->normalizeCache( $cache ), true ) ) {
             throw new \RuntimeException( 'cache_write' );
         }
 
@@ -293,7 +293,6 @@ class TinyMashWeatherService {
                          $this->escape( $this->formatAdminHeaderDate( (string) ( $feed['current']['time'] ?? '' ), (string) ( $location['timezone'] ?? '' ) ) ) .
                          '</small>' .
                          '</h2></div>';
-                // $html .= '<div><div class="tm-weather-kicker">Weather</div><h2 class="tm-weather-title">' . $this->escape( (string) $location['label'] ) . '</h2></div>';
             }
             if ( $stale || $status === 'error' ) {
                 $html .= '<span class="tm-weather-status">' . $this->escape( $stale ? 'Stale' : 'Cached' ) . '</span>';
@@ -392,7 +391,7 @@ class TinyMashWeatherService {
         $current_date = substr( (string) ( $current['time'] ?? '' ), 0, 10 );
         $html = '<div class="tm-weather-admin-preview-body">';
         if ( $show_current && ! empty( $current ) ) {
-            $html .= '<div class="text-center tm-weather-admin-current">';/**/
+            $html .= '<div class="text-center tm-weather-admin-current">';
             $icon = $this->weatherIconUrl( (int) ( $current['weather_code'] ?? -1 ), ! empty( $current['is_day'] ) );
             $html .= '<div>';
             $html .= '<img class="tm-weather-admin-icon" src="' . $this->escape( $icon ) . '" alt="" aria-hidden="true">';
@@ -424,7 +423,7 @@ class TinyMashWeatherService {
         }
 
         foreach ( $days as $day ) {
-            $html .= '<div class="text-center tm-weather-admin-day">';/**/
+            $html .= '<div class="text-center tm-weather-admin-day">';
             $date = (string) ( $day['date'] ?? '' );
             $icon = $this->weatherIconUrl( (int) ( $day['weather_code'] ?? -1 ), true );
             $html .= '<div>';
@@ -1083,7 +1082,7 @@ class TinyMashWeatherService {
         }
         $cache = $this->getCache();
         $cache['feeds'] = array_intersect_key( $cache['feeds'], $valid );
-        TinyMashLockedJsonFile::write( $this->cache_filename, $cache );
+        TinyMashLockedJsonFile::write( $this->cache_filename, $cache, true );
     }
 
     protected function isFeedStale( array $feed, int $stale_hours, \DateTimeImmutable $now ) : bool {
@@ -1102,7 +1101,7 @@ class TinyMashWeatherService {
     protected function publicRefreshErrorMessage( string $code ) : string {
         return(
             [
-                'provider_unsupported' => 'This provider is not implemented yet.',
+                'provider_unsupported' => 'This provider is not supported.',
                 'curl_missing' => 'Remote weather fetching is unavailable on this server.',
                 'nws_location_unsupported' => 'NWS supports US locations only.',
                 'remote_fetch' => 'The weather provider could not be reached.',
@@ -1435,7 +1434,6 @@ class TinyMashWeatherService {
         if ( $date === '' ) {
             return( 'Now' );
         }
-        /*return( 'Now, ' . $this->formatDateLabel( $date ) );*/
         return( 'Now' );
     }
 

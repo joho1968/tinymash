@@ -139,7 +139,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Providers',
-                    'markdown' => 'The built-in providers are Open-Meteo, MET Norway / Yr, and the US National Weather Service. MET Norway / Yr uses the Locationforecast API and requires attribution plus an identifying User-Agent. NWS is US-focused and only works for locations resolved by `api.weather.gov`. Future commercial key-based providers should remain explicit because pricing, attribution, redistribution, and quota terms vary.',
+                    'markdown' => 'The built-in providers are Open-Meteo, MET Norway / Yr, and the US National Weather Service. MET Norway / Yr uses the Locationforecast API and requires attribution plus an identifying User-Agent. NWS supports only locations resolved by `api.weather.gov`.',
                 ],
                 [
                     'title' => 'Shortcode',

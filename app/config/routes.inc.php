@@ -3,11 +3,8 @@ if ( empty( TINYMASH_RUNNING ) ) {
     die( 'We do not seem to have all the bits configured' );
 }
 
-// use flight\Engine;
-// use flight\net\Router;
 use app\controllers\AdminController;
 use app\controllers\ContentController;
-// use app\classes\TinyMashSecurity;
 
 global $router;
 global $app;
@@ -30,7 +27,7 @@ $redirect_to_login = static function() use ( $app, $config ) : void {
     $app->redirect( $login_url . $separator . 'return=' . rawurlencode( $return_target ) );
 };
 
-// Canonicalize malformed request paths like `//joho` or `~/joho` before routing.
+// Normalize malformed paths before routing.
 $request_uri = (string) ( $_SERVER['REQUEST_URI'] ?? '/' );
 $request_path = (string) ( parse_url( $request_uri, PHP_URL_PATH ) ?? '/' );
 $request_query = (string) ( parse_url( $request_uri, PHP_URL_QUERY ) ?? '' );
@@ -38,6 +35,14 @@ $normalized_request_path = preg_replace( '#/+#', '/', $request_path ) ?? $reques
 $strip_path_characters = "~><[]\\.=\\$!@%#^;:'*_(){}+";
 if ( $normalized_request_path === '' ) {
     $normalized_request_path = '/';
+}
+
+$admin_url = '/' . trim( (string) $config->configGetAdminURL(), '/' );
+if ( $normalized_request_path === $admin_url || str_starts_with( $normalized_request_path, $admin_url . '/' ) ) {
+    header( 'Cache-Control: private, no-store, max-age=0, must-revalidate' );
+    header( 'X-Content-Type-Options: nosniff' );
+    header( 'Referrer-Policy: no-referrer' );
+    header( 'X-Frame-Options: DENY' );
 }
 
 $path_segments = array_values( array_filter( explode( '/', ltrim( $normalized_request_path, '/' ) ), static fn( string $segment ) : bool => $segment !== '' ) );
@@ -73,7 +78,6 @@ if ( $normalized_request_path !== $request_path ) {
     exit;
 }
 
-// Some error "handling"
 $app->map('error', function ( \Throwable $e ) use ( $router, $app ) {
     error_log( '*** EXCEPTION: ' . $e->getMessage() . ' (' . $e->getCode() . ')' );
     error_log( $e->getTraceAsString() );
@@ -155,7 +159,7 @@ $router->get('/favicon.ico', function() use ( $app, $config ) {
     header( 'Location: ' . $favicon_url, true, 302 );
 });
 
-// login
+// Authentication routes.
 $router->post( $config->configGetLoginURL(), function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config );
     $admin->login();
@@ -180,9 +184,12 @@ $router->post( $config->configGetAdminURL() . '/password-reset/confirm', functio
     $admin = new AdminController( $app, $router, $security, $config );
     $admin->submitPasswordResetConfirm();
 });
-$router->get( $config->configGetAdminURL() . '/logout', function() use ( $app, $router, $security, $config ) {
+$router->post( $config->configGetAdminURL() . '/logout', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config );
     $admin->logout();
+});
+$router->get( $config->configGetAdminURL() . '/logout', function() use ( $app, $security, $config ) {
+    $app->redirect( $security->isLoggedIn() ? $config->configGetAdminURL() : $config->configGetLoginURL() );
 });
 $router->get( $config->configGetAdminURL() . '/editor', function() use ( $app, $router, $security, $config, $redirect_to_login ) {
     if ( ! $security->isLoggedIn() ) {
@@ -212,13 +219,13 @@ $router->post( $config->configGetAdminURL() . '/editor/publish', function() use 
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->publishEditorEntry();
 });
+$router->post( $config->configGetAdminURL() . '/editor/mode', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->saveEditorMode();
+});
 $router->post( $config->configGetAdminURL() . '/editor/slug-check', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->checkEditorSlug();
-});
-$router->post( $config->configGetAdminURL() . '/editor/content-search', function() use ( $app, $router, $security, $config ) {
-    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
-    $admin->searchEditorContent();
 });
 $router->post( $config->configGetAdminURL() . '/editor/image-upload', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
@@ -433,7 +440,7 @@ $router->get( $config->configGetAdminURL() . '/static-export/@artifact_id/downlo
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->downloadStaticExport( $artifact_id );
 });
-// admin
+// Admin home.
 $router->get( $config->configGetAdminURL(), function() use ( $app, $router, $security, $config, $redirect_to_login) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     if ( ! $security->isLoggedIn() ) {
@@ -446,23 +453,6 @@ $router->get( $config->configGetAdminURL(), function() use ( $app, $router, $sec
     }
 });
 
-/*
-$router->group( '/admin', function() use ( $router, $app, $security ) {
-    error_log( '*** /admin');
-    if ( ! $security->isLoggedIn() ) {
-        error_log( '*** /admin, not authenticated, re-directing');
-        $app->redirect('/login');
-    }
-    $router->get('/', function () use( $app ) {
-        error_log( '*** /admin (index)');
-        $app->view()->render('admin.home.latte', [
-            'app_url' => $app->get( 'app.url' ),
-            'admin_url' => $app->get( 'admin.url'),
-            'title' => 'Admin',
-        ]);
-    });
-});
-*/
 
 $router->get('/', function () use( $app, $router, $config ) {
     $content = new ContentController(

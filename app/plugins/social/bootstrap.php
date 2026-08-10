@@ -164,7 +164,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $form_action = $is_profile ? $profile_url . '/save' : $site_url . '/save';
         $body_html = '<form method="post" action="' . $escape( $form_action ) . '" class="d-grid gap-3">';
         $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
-        $body_html .= '<section class="p-3 bg-body border rounded-3 shadow-sm">';
+        $body_html .= '<section>';
         $body_html .= '<p class="text-body-secondary small mb-3">Add one or more typed links. Empty address rows are ignored.</p>';
         $body_html .= $service->renderAdminFormFields( $settings, '', 'Save Social links', ! $is_profile );
         $body_html .= '</section>';

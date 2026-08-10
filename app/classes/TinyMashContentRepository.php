@@ -1,9 +1,12 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashFilesystem.php';
+require_once __DIR__ . '/TinyMashDateFormatter.php';
+
 class TinyMashContentRepository {
 
-    protected const CONTENT_INDEX_VERSION = 9;
+    protected const CONTENT_INDEX_VERSION = 10;
     protected const SEARCH_INDEX_VERSION = 1;
 
     protected string $content_directory;
@@ -20,6 +23,8 @@ class TinyMashContentRepository {
     protected array $child_pages_cache = [];
     protected array $page_tree_cache = [];
     protected array $search_profiling_metrics = [];
+    protected int $content_lock_depth = 0;
+    protected bool $content_write_locked = false;
 
     public function __construct( string $content_directory, int $revision_retention_limit = 20 ) {
         $this->content_directory = rtrim( $content_directory, DIRECTORY_SEPARATOR );
@@ -31,17 +36,19 @@ class TinyMashContentRepository {
     }
 
     public function clearPersistentCache() : int {
-        $this->persistent_content_index = null;
-        $this->persistent_search_index = null;
-        $removed = 0;
-        if ( is_file( $this->content_index_filename ) && @ unlink( $this->content_index_filename ) ) {
-            $removed++;
-        }
-        if ( is_file( $this->search_index_filename ) && @ unlink( $this->search_index_filename ) ) {
-            $removed++;
-        }
+        return( $this->withLockedContentStore( function() : int {
+            $this->persistent_content_index = null;
+            $this->persistent_search_index = null;
+            $removed = 0;
+            if ( is_file( $this->content_index_filename ) && @ unlink( $this->content_index_filename ) ) {
+                $removed++;
+            }
+            if ( is_file( $this->search_index_filename ) && @ unlink( $this->search_index_filename ) ) {
+                $removed++;
+            }
 
-        return( $removed );
+            return( $removed );
+        } ) );
     }
 
     public function invalidateDerivedCaches() : void {
@@ -49,24 +56,26 @@ class TinyMashContentRepository {
     }
 
     public function warmPersistentCache() : array {
-        $index = $this->buildPersistentContentIndex();
-        $search_index = $this->buildPersistentSearchIndex( $index );
-        $this->writePersistentContentIndex( $index );
-        $this->writePersistentSearchIndex( $search_index );
-        $this->persistent_content_index = $index;
-        $this->persistent_search_index = $search_index;
-        $this->entries = is_array( $index['entries'] ?? null ) ? $index['entries'] : [];
-        $this->published_entries = is_array( $index['published_entries'] ?? null ) ? $index['published_entries'] : [];
+        return( $this->withSharedContentStore( function() : array {
+            $index = $this->buildPersistentContentIndex();
+            $search_index = $this->buildPersistentSearchIndex( $index );
+            $this->writePersistentContentIndex( $index );
+            $this->writePersistentSearchIndex( $search_index );
+            $this->persistent_content_index = $index;
+            $this->persistent_search_index = $search_index;
+            $this->entries = is_array( $index['entries'] ?? null ) ? $index['entries'] : [];
+            $this->published_entries = is_array( $index['published_entries'] ?? null ) ? $index['published_entries'] : [];
 
-        return(
-            [
-                'entries' => count( $this->entries ),
-                'published_entries' => count( $this->published_entries ),
-                'authors' => count( is_array( $index['author_home'] ?? null ) ? $index['author_home'] : [] ),
-                'aggregated_posts' => count( is_array( $index['aggregated_post_ids'] ?? null ) ? $index['aggregated_post_ids'] : [] ),
-                'cache_file' => $this->content_index_filename,
-            ]
-        );
+            return(
+                [
+                    'entries' => count( $this->entries ),
+                    'published_entries' => count( $this->published_entries ),
+                    'authors' => count( is_array( $index['author_home'] ?? null ) ? $index['author_home'] : [] ),
+                    'aggregated_posts' => count( is_array( $index['aggregated_post_ids'] ?? null ) ? $index['aggregated_post_ids'] : [] ),
+                    'cache_file' => $this->content_index_filename,
+                ]
+            );
+        } ) );
     }
 
     public function getPublishedAggregatedPosts( ?string $language = null ) : array {
@@ -909,7 +918,12 @@ class TinyMashContentRepository {
             if ( ! is_string( $revision_file ) ) {
                 continue;
             }
-            $raw_revision = $this->readRawRevisionFromStorage( $revision_file );
+            try {
+                $raw_revision = $this->readRawRevisionFromStorage( $revision_file );
+            } catch ( \Throwable ) {
+                $this->logMalformedStorageFile( $revision_file, 'revision' );
+                continue;
+            }
             if ( ! is_array( $raw_revision ) ) {
                 continue;
             }
@@ -961,7 +975,12 @@ class TinyMashContentRepository {
         }
 
         $revision_file = $this->getEntryDirectory( $entry ) . DIRECTORY_SEPARATOR . 'revisions' . DIRECTORY_SEPARATOR . $revision_id . DIRECTORY_SEPARATOR . 'revision.json';
-        $raw_revision = $this->readRawRevisionFromStorage( $revision_file );
+        try {
+            $raw_revision = $this->readRawRevisionFromStorage( $revision_file );
+        } catch ( \Throwable ) {
+            $this->logMalformedStorageFile( $revision_file, 'revision' );
+            return( null );
+        }
         if ( ! is_array( $raw_revision ) ) {
             return( null );
         }
@@ -1492,12 +1511,12 @@ class TinyMashContentRepository {
             }
 
             $this->writeRawEntryToStorage( $raw_entry, true );
+            $this->clearDerivedCaches();
             $saved_entry = $this->normalizeEntry( $raw_entry );
             if ( ! is_array( $saved_entry ) ) {
                 throw new \RuntimeException( 'Imported entry could not be normalized after write.' );
             }
 
-            $this->entries = is_array( $this->entries ) ? array_merge( $this->entries, [ $saved_entry ] ) : null;
             if ( $write_revision ) {
                 $this->writeRevisionSnapshot( $saved_entry );
             }
@@ -1745,20 +1764,25 @@ class TinyMashContentRepository {
                 throw new \InvalidArgumentException( 'editor_entry_access' );
             }
 
-            $raw_entries = $this->getRawEntries();
-            $existing_index = $this->findRawEntryIndexById( $raw_entries, $entry_id );
-            if ( $existing_index === null || ! is_array( $raw_entries[$existing_index] ) ) {
+            $metadata_file = $this->getEntryDirectory( $accessible_entry ) . DIRECTORY_SEPARATOR . 'entry.json';
+            $raw_entry = $this->readRawEntryFromStorage( $metadata_file );
+            if ( ! is_array( $raw_entry ) || trim( (string) ( $raw_entry['id'] ?? '' ) ) !== $entry_id ) {
                 throw new \RuntimeException( 'The entry could not be updated.' );
             }
 
             $normalized_status = $this->normalizeStatus( $status );
-            $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
-            $raw_entries[$existing_index]['status'] = $normalized_status;
-            if ( $normalized_status === 'published' && empty( $raw_entries[$existing_index]['published_at_utc'] ) ) {
-                $raw_entries[$existing_index]['published_at_utc'] = $now_utc;
+            if ( $this->normalizeStatus( (string) ( $raw_entry['status'] ?? '' ) ) === $normalized_status ) {
+                return( $accessible_entry );
             }
 
-            $this->writeRawEntries( $raw_entries );
+            $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
+            $raw_entry['status'] = $normalized_status;
+            if ( $normalized_status === 'published' && empty( $raw_entry['published_at_utc'] ) ) {
+                $raw_entry['published_at_utc'] = $now_utc;
+            }
+
+            $this->writeRawEntryMetadataToStorage( $metadata_file, $raw_entry );
+            $this->clearDerivedCaches();
             $saved_entry = $this->getAccessibleEntryById( $entry_id, null, $author_slug, $allow_root );
             if ( ! is_array( $saved_entry ) ) {
                 throw new \RuntimeException( 'Updated entry could not be reloaded.' );
@@ -2158,10 +2182,18 @@ class TinyMashContentRepository {
         return( is_array( $index['trashed_entries'] ?? null ) ? $index['trashed_entries'] : [] );
     }
 
-    protected function getRawEntries() : array {
+    protected function getRawEntries( bool $skip_malformed = false ) : array {
         $raw_entries = [];
         foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
-            $raw_entry = $this->readRawEntryFromStorage( $metadata_file );
+            try {
+                $raw_entry = $this->readRawEntryFromStorage( $metadata_file );
+            } catch ( \Throwable $exception ) {
+                if ( ! $skip_malformed ) {
+                    throw $exception;
+                }
+                $this->logMalformedStorageFile( $metadata_file, 'entry' );
+                continue;
+            }
             if ( is_array( $raw_entry ) ) {
                 $raw_entries[] = $raw_entry;
             }
@@ -2281,7 +2313,7 @@ class TinyMashContentRepository {
                 'trashed_by' => trim( (string) ( $raw_entry['trashed_by'] ?? '' ) ),
                 'pre_trash_status' => $this->normalizePreTrashStatus( (string) ( $raw_entry['pre_trash_status'] ?? $raw_entry['status'] ?? 'unpublished' ) ),
                 'aggregate_to_root' => ! empty( $raw_entry['aggregate_to_root'] ),
-                'sticky' => ! empty( $raw_entry['sticky'] ),
+                'sticky' => $entry_type === 'post' && ! empty( $raw_entry['sticky'] ),
                 'featured' => ! empty( $raw_entry['featured'] ),
                 'seo_title' => trim( (string) ( $raw_entry['seo_title'] ?? '' ) ),
                 'seo_description' => trim( (string) ( $raw_entry['seo_description'] ?? '' ) ),
@@ -2333,7 +2365,7 @@ class TinyMashContentRepository {
                 'parent_slug' => $entry_type === 'page' ? $this->normalizeParentSlug( (string) ( $editor_entry['parent_slug'] ?? '' ) ) : '',
                 'sort_order' => $entry_type === 'page' ? (int) ( $editor_entry['sort_order'] ?? 0 ) : 0,
                 'aggregate_to_root' => $entry_type === 'post' ? ! empty( $editor_entry['aggregate_to_root'] ) : false,
-                'sticky' => ! empty( $editor_entry['sticky'] ),
+                'sticky' => $entry_type === 'post' && ! empty( $editor_entry['sticky'] ),
                 'featured' => $entry_type === 'post' ? ! empty( $editor_entry['featured'] ) : false,
                 'show_in_navigation' => $entry_type === 'page' ? ! empty( $editor_entry['show_in_navigation'] ) : false,
                 'featured_image_media_id' => trim( (string) ( $editor_entry['featured_image_media_id'] ?? '' ) ),
@@ -2598,13 +2630,12 @@ class TinyMashContentRepository {
             return( '' );
         }
 
-        try {
-            $normalized = new \DateTimeImmutable( $timestamp );
-        } catch ( \Throwable ) {
+        $normalized = TinyMashDateFormatter::parseUtcDateTime( $timestamp );
+        if ( ! $normalized instanceof \DateTimeImmutable ) {
             return( '' );
         }
 
-        return( $normalized->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d\TH:i:s\Z' ) );
+        return( $normalized->format( 'Y-m-d\TH:i:s\Z' ) );
     }
 
     protected function buildDeletedAuthorSlug( string $deleted_username ) : string {
@@ -2775,8 +2806,16 @@ class TinyMashContentRepository {
 
         $index = $this->readPersistentContentIndex();
         if ( ! is_array( $index ) ) {
-            $index = $this->buildPersistentContentIndex();
-            $this->writePersistentContentIndex( $index );
+            $index = $this->withSharedContentStore( function() : array {
+                $current_index = $this->readPersistentContentIndex();
+                if ( is_array( $current_index ) ) {
+                    return( $current_index );
+                }
+
+                $current_index = $this->buildPersistentContentIndex();
+                $this->writePersistentContentIndex( $current_index );
+                return( $current_index );
+            } );
         }
 
         $this->persistent_content_index = $index;
@@ -2790,9 +2829,17 @@ class TinyMashContentRepository {
 
         $index = $this->readPersistentSearchIndex();
         if ( ! is_array( $index ) ) {
-            $content_index = $this->getPersistentContentIndex();
-            $index = $this->buildPersistentSearchIndex( $content_index );
-            $this->writePersistentSearchIndex( $index );
+            $index = $this->withSharedContentStore( function() : array {
+                $current_index = $this->readPersistentSearchIndex();
+                if ( is_array( $current_index ) ) {
+                    return( $current_index );
+                }
+
+                $content_index = $this->getPersistentContentIndex();
+                $current_index = $this->buildPersistentSearchIndex( $content_index );
+                $this->writePersistentSearchIndex( $current_index );
+                return( $current_index );
+            } );
         }
 
         $this->persistent_search_index = $index;
@@ -2801,7 +2848,7 @@ class TinyMashContentRepository {
 
     protected function buildPersistentContentIndex() : array {
         $normalized_entries = [];
-        foreach ( $this->getRawEntries() as $raw_entry ) {
+        foreach ( $this->getRawEntries( true ) as $raw_entry ) {
             if ( ! is_array( $raw_entry ) ) {
                 continue;
             }
@@ -2866,7 +2913,6 @@ class TinyMashContentRepository {
         }
 
         $published_entry_lookup = [];
-        $published_search_texts = [];
         $published_page_lookup = [];
         $root_path_map = [];
         $author_path_map = [];
@@ -2879,7 +2925,6 @@ class TinyMashContentRepository {
                 continue;
             }
 
-            $published_search_texts[$entry_id] = $this->buildPublishedEntrySearchText( $entry );
             $published_entry_lookup[$entry_id] = $entry;
 
             if ( ( $entry['type'] ?? '' ) === 'page' ) {
@@ -2973,7 +3018,6 @@ class TinyMashContentRepository {
                 'trashed_entries' => $trashed_entries,
                 'published_entries' => $published_entries,
                 'published_entry_lookup' => $published_entry_lookup,
-                'published_search_texts' => $published_search_texts,
                 'published_page_lookup' => $published_page_lookup,
                 'root_path_map' => $root_path_map,
                 'author_path_map' => $author_path_map,
@@ -3015,11 +3059,11 @@ class TinyMashContentRepository {
         }
 
         $decoded = json_decode( $json, true );
-        if ( ! is_array( $decoded ) || (int) ( $decoded['version'] ?? 0 ) !== self::CONTENT_INDEX_VERSION || ! is_array( $decoded['entries'] ?? null ) || ! is_array( $decoded['published_entries'] ?? null ) ) {
+        if ( ! is_array( $decoded ) || (int) ( $decoded['version'] ?? 0 ) !== self::CONTENT_INDEX_VERSION || ! is_array( $decoded['entries'] ?? null ) ) {
             return( null );
         }
 
-        return( $decoded );
+        return( $this->hydratePersistentContentIndex( $decoded ) );
     }
 
     protected function readPersistentSearchIndex() : ?array {
@@ -3046,17 +3090,37 @@ class TinyMashContentRepository {
             return;
         }
 
-        $json = json_encode( $index, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+        $persistent_index = $index;
+        unset( $persistent_index['published_entries'], $persistent_index['published_entry_lookup'] );
+        $json = json_encode( $persistent_index, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
         if ( ! is_string( $json ) || $json === '' ) {
             return;
         }
 
-        $temporary_filename = $this->content_index_filename . '.tmp';
-        if ( @ file_put_contents( $temporary_filename, $json . PHP_EOL, LOCK_EX ) === false ) {
-            return;
+        TinyMashFilesystem::writeFileAtomically( $this->content_index_filename, $json . PHP_EOL );
+    }
+
+    protected function hydratePersistentContentIndex( array $index ) : array {
+        $entries = array_values( array_filter( is_array( $index['entries'] ?? null ) ? $index['entries'] : [], 'is_array' ) );
+        $published_entries = array_values(
+            array_filter(
+                $entries,
+                static fn( array $entry ) : bool => ( $entry['status'] ?? '' ) === 'published'
+            )
+        );
+        $published_entry_lookup = [];
+        foreach ( $published_entries as $entry ) {
+            $entry_id = trim( (string) ( $entry['id'] ?? '' ) );
+            if ( $entry_id !== '' ) {
+                $published_entry_lookup[$entry_id] = $entry;
+            }
         }
 
-        @ rename( $temporary_filename, $this->content_index_filename );
+        $index['entries'] = $entries;
+        $index['trashed_entries'] = array_values( array_filter( is_array( $index['trashed_entries'] ?? null ) ? $index['trashed_entries'] : [], 'is_array' ) );
+        $index['published_entries'] = $published_entries;
+        $index['published_entry_lookup'] = $published_entry_lookup;
+        return( $index );
     }
 
     protected function writePersistentSearchIndex( array $index ) : void {
@@ -3070,12 +3134,7 @@ class TinyMashContentRepository {
             return;
         }
 
-        $temporary_filename = $this->search_index_filename . '.tmp';
-        if ( @ file_put_contents( $temporary_filename, $json . PHP_EOL, LOCK_EX ) === false ) {
-            return;
-        }
-
-        @ rename( $temporary_filename, $this->search_index_filename );
+        TinyMashFilesystem::writeFileAtomically( $this->search_index_filename, $json . PHP_EOL );
     }
 
     protected function buildEntryPathFromPageLookup( array $entry, array $page_lookup ) : string {
@@ -3122,7 +3181,9 @@ class TinyMashContentRepository {
     protected function clearDerivedCaches() : void {
         $this->resetDerivedRuntimeState();
         $this->clearPersistentCache();
-        TinyMashPublicPageCache::invalidateDirectory( $this->public_page_cache_directory );
+        if ( class_exists( TinyMashPublicPageCache::class, false ) ) {
+            TinyMashPublicPageCache::invalidateDirectory( $this->public_page_cache_directory );
+        }
     }
 
     protected function resetDerivedRuntimeState() : void {
@@ -3608,6 +3669,9 @@ class TinyMashContentRepository {
             if ( ! $file_info->isFile() || $file_info->getFilename() !== 'entry.json' ) {
                 continue;
             }
+            if ( str_contains( $file_info->getPathname(), DIRECTORY_SEPARATOR . '.transactions' . DIRECTORY_SEPARATOR ) ) {
+                continue;
+            }
             $metadata_files[] = $file_info->getPathname();
         }
 
@@ -3616,17 +3680,23 @@ class TinyMashContentRepository {
     }
 
     protected function readRawEntryMetadataFromStorage( string $metadata_file ) : ?array {
-        if ( ! is_file( $metadata_file ) || ! is_readable( $metadata_file ) ) {
+        if ( ! is_file( $metadata_file ) ) {
             return( null );
         }
+        if ( ! is_readable( $metadata_file ) ) {
+            throw new \RuntimeException( 'Unable to read entry metadata.' );
+        }
 
-        $json = file_get_contents( $metadata_file );
+        $json = @ file_get_contents( $metadata_file );
         if ( ! is_string( $json ) || trim( $json ) === '' ) {
-            return( null );
+            throw new \RuntimeException( 'Entry metadata is empty.' );
         }
 
         $raw_entry = json_decode( $json, true, 32, JSON_THROW_ON_ERROR );
-        return( is_array( $raw_entry ) ? $raw_entry : null );
+        if ( ! is_array( $raw_entry ) ) {
+            throw new \RuntimeException( 'Entry metadata is invalid.' );
+        }
+        return( $raw_entry );
     }
 
     protected function writeRawEntryMetadataToStorage( string $metadata_file, array $raw_entry ) : void {
@@ -3651,7 +3721,8 @@ class TinyMashContentRepository {
             throw new \RuntimeException( 'Unable to encode entry metadata.' );
         }
 
-        if ( file_put_contents( $metadata_file, $metadata_json . PHP_EOL ) === false ) {
+        $metadata_payload = $metadata_json . PHP_EOL;
+        if ( ! TinyMashFilesystem::writeFileAtomically( $metadata_file, $metadata_payload ) ) {
             throw new \RuntimeException( 'Unable to write entry metadata.' );
         }
     }
@@ -3714,18 +3785,21 @@ class TinyMashContentRepository {
     }
 
     protected function readRawRevisionFromStorage( string $metadata_file ) : ?array {
-        if ( ! is_file( $metadata_file ) || ! is_readable( $metadata_file ) ) {
+        if ( ! is_file( $metadata_file ) ) {
             return( null );
         }
+        if ( ! is_readable( $metadata_file ) ) {
+            throw new \RuntimeException( 'Unable to read revision metadata.' );
+        }
 
-        $json = file_get_contents( $metadata_file );
+        $json = @ file_get_contents( $metadata_file );
         if ( ! is_string( $json ) || trim( $json ) === '' ) {
-            return( null );
+            throw new \RuntimeException( 'Revision metadata is empty.' );
         }
 
         $raw_revision = json_decode( $json, true, 32, JSON_THROW_ON_ERROR );
         if ( ! is_array( $raw_revision ) ) {
-            return( null );
+            throw new \RuntimeException( 'Revision metadata is invalid.' );
         }
 
         $revision_directory = dirname( $metadata_file );
@@ -3749,6 +3823,11 @@ class TinyMashContentRepository {
         return( $raw_revision );
     }
 
+    protected function logMalformedStorageFile( string $filename, string $record_type ) : void {
+        $record_directory = basename( dirname( $filename ) );
+        error_log( basename( __FILE__ ) . ': Ignoring malformed ' . $record_type . ' record "' . $record_directory . '"' );
+    }
+
     protected function writeRawEntryToStorage( array $raw_entry, bool $skip_existing_id_scan = false, string $known_existing_directory = '' ) : string {
         $normalized_entry = $this->normalizeEntry( $raw_entry );
         if ( ! is_array( $normalized_entry ) ) {
@@ -3756,13 +3835,11 @@ class TinyMashContentRepository {
         }
 
         $entry_directory = $this->getEntryDirectory( $normalized_entry );
+        $existing_entry_directories = [];
         if ( ! $skip_existing_id_scan ) {
             $known_existing_directory = rtrim( $known_existing_directory, DIRECTORY_SEPARATOR );
-            if ( $known_existing_directory !== '' ) {
-                if ( $known_existing_directory !== $entry_directory && is_dir( $known_existing_directory ) ) {
-                    $this->deleteDirectoryRecursively( $known_existing_directory );
-                    $this->cleanupEmptyParentDirectories( dirname( $known_existing_directory ) );
-                }
+            if ( $known_existing_directory !== '' && is_dir( $known_existing_directory ) ) {
+                $existing_entry_directories[] = $known_existing_directory;
             } else {
                 foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
                     $existing_raw_entry = $this->readRawEntryFromStorage( $metadata_file );
@@ -3774,15 +3851,28 @@ class TinyMashContentRepository {
                         continue;
                     }
 
-                    $old_directory = dirname( $metadata_file );
-                    $this->deleteDirectoryRecursively( $old_directory );
-                    $this->cleanupEmptyParentDirectories( dirname( $old_directory ) );
+                    $existing_entry_directories[] = dirname( $metadata_file );
                 }
             }
         }
+        $existing_entry_directories = array_values( array_unique( $existing_entry_directories ) );
 
-        if ( ! is_dir( $entry_directory ) && ! mkdir( $entry_directory, 0775, true ) && ! is_dir( $entry_directory ) ) {
-            throw new \RuntimeException( 'Unable to create entry directory "' . $entry_directory . '"' );
+        $transaction_directory = $this->content_directory . DIRECTORY_SEPARATOR . '.transactions';
+        if ( ! is_dir( $transaction_directory ) && ! @ mkdir( $transaction_directory, 0775, true ) && ! is_dir( $transaction_directory ) ) {
+            throw new \RuntimeException( 'Unable to create content transaction directory.' );
+        }
+        $staging_directory = $transaction_directory . DIRECTORY_SEPARATOR . 'entry-' . $normalized_entry['id'] . '-' . bin2hex( random_bytes( 8 ) );
+        if ( ! @ mkdir( $staging_directory, 0775 ) && ! is_dir( $staging_directory ) ) {
+            throw new \RuntimeException( 'Unable to create entry staging directory.' );
+        }
+        if ( ! empty( $existing_entry_directories ) ) {
+            try {
+                $this->copyDirectoryRecursively( $existing_entry_directories[0], $staging_directory );
+            } catch ( \Throwable $e ) {
+                $this->deleteDirectoryRecursively( $staging_directory );
+                $this->cleanupEmptyParentDirectories( $transaction_directory );
+                throw $e;
+            }
         }
 
         $metadata = [
@@ -3831,14 +3921,15 @@ class TinyMashContentRepository {
                 'title' => (string) ( $translation['title'] ?? '' ),
                 'summary' => (string) ( $translation['summary'] ?? '' ),
             ];
-            $body_filename = $entry_directory . DIRECTORY_SEPARATOR . 'body.' . $language . '.md';
+            $body_filename = $staging_directory . DIRECTORY_SEPARATOR . 'body.' . $language . '.md';
             $body_content = (string) ( $translation['content'] ?? '' );
-            if ( file_put_contents( $body_filename, $body_content ) === false ) {
+            if ( ! TinyMashFilesystem::writeFileAtomically( $body_filename, $body_content ) ) {
+                $this->deleteDirectoryRecursively( $staging_directory );
                 throw new \RuntimeException( 'Unable to write entry body "' . $body_filename . '"' );
             }
         }
 
-        foreach ( glob( $entry_directory . DIRECTORY_SEPARATOR . 'body.*.md' ) ?: [] as $body_filename ) {
+        foreach ( glob( $staging_directory . DIRECTORY_SEPARATOR . 'body.*.md' ) ?: [] as $body_filename ) {
             if ( ! is_string( $body_filename ) || ! is_file( $body_filename ) ) {
                 continue;
             }
@@ -3848,7 +3939,10 @@ class TinyMashContentRepository {
             if ( array_key_exists( $matches[1], $metadata['translations'] ) ) {
                 continue;
             }
-            unlink( $body_filename );
+            if ( ! @ unlink( $body_filename ) && is_file( $body_filename ) ) {
+                $this->deleteDirectoryRecursively( $staging_directory );
+                throw new \RuntimeException( 'Unable to remove stale entry body.' );
+            }
         }
 
         $metadata_json = json_encode( $metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
@@ -3856,11 +3950,98 @@ class TinyMashContentRepository {
             throw new \RuntimeException( 'Unable to encode entry metadata.' );
         }
 
-        if ( file_put_contents( $entry_directory . DIRECTORY_SEPARATOR . 'entry.json', $metadata_json . PHP_EOL ) === false ) {
+        $metadata_payload = $metadata_json . PHP_EOL;
+        if ( ! TinyMashFilesystem::writeFileAtomically( $staging_directory . DIRECTORY_SEPARATOR . 'entry.json', $metadata_payload ) ) {
+            $this->deleteDirectoryRecursively( $staging_directory );
             throw new \RuntimeException( 'Unable to write entry metadata.' );
         }
 
+        $this->commitEntryDirectory( $staging_directory, $entry_directory, $existing_entry_directories );
+
         return( $normalized_entry['id'] );
+    }
+
+    protected function commitEntryDirectory( string $staging_directory, string $entry_directory, array $existing_entry_directories ) : void {
+        $entry_parent_directory = dirname( $entry_directory );
+        if ( ! is_dir( $entry_parent_directory ) && ! @ mkdir( $entry_parent_directory, 0775, true ) && ! is_dir( $entry_parent_directory ) ) {
+            $this->deleteDirectoryRecursively( $staging_directory );
+            throw new \RuntimeException( 'Unable to create entry directory.' );
+        }
+
+        if ( file_exists( $entry_directory ) && ! in_array( $entry_directory, $existing_entry_directories, true ) ) {
+            $this->deleteDirectoryRecursively( $staging_directory );
+            throw new \RuntimeException( 'Entry destination already exists.' );
+        }
+
+        $transaction_directory = dirname( $staging_directory );
+        $backups = [];
+        foreach ( $existing_entry_directories as $index => $existing_directory ) {
+            if ( ! is_string( $existing_directory ) || ! is_dir( $existing_directory ) ) {
+                continue;
+            }
+
+            $backup_directory = $transaction_directory . DIRECTORY_SEPARATOR . 'backup-' . $index . '-' . bin2hex( random_bytes( 8 ) );
+            if ( ! @ rename( $existing_directory, $backup_directory ) ) {
+                $this->restoreEntryDirectoryBackups( $backups );
+                $this->deleteDirectoryRecursively( $staging_directory );
+                throw new \RuntimeException( 'Unable to prepare existing entry for replacement.' );
+            }
+            $backups[$existing_directory] = $backup_directory;
+        }
+
+        if ( ! @ rename( $staging_directory, $entry_directory ) ) {
+            $restored = $this->restoreEntryDirectoryBackups( $backups );
+            $this->deleteDirectoryRecursively( $staging_directory );
+            if ( ! $restored ) {
+                throw new \RuntimeException( 'Unable to replace entry directory and restore its previous state.' );
+            }
+            throw new \RuntimeException( 'Unable to replace entry directory.' );
+        }
+
+        foreach ( $backups as $existing_directory => $backup_directory ) {
+            $this->deleteDirectoryRecursively( $backup_directory );
+            if ( $existing_directory !== $entry_directory ) {
+                $this->cleanupEmptyParentDirectories( dirname( $existing_directory ) );
+            }
+        }
+        $this->cleanupEmptyParentDirectories( $transaction_directory );
+    }
+
+    protected function restoreEntryDirectoryBackups( array $backups ) : bool {
+        $restored = true;
+        foreach ( array_reverse( $backups, true ) as $original_directory => $backup_directory ) {
+            if ( ! is_dir( $backup_directory ) ) {
+                continue;
+            }
+            if ( ! @ rename( $backup_directory, $original_directory ) ) {
+                $restored = false;
+            }
+        }
+        return( $restored );
+    }
+
+    protected function copyDirectoryRecursively( string $source_directory, string $destination_directory ) : void {
+        foreach ( scandir( $source_directory ) ?: [] as $item ) {
+            if ( $item === '.' || $item === '..' ) {
+                continue;
+            }
+
+            $source_path = $source_directory . DIRECTORY_SEPARATOR . $item;
+            $destination_path = $destination_directory . DIRECTORY_SEPARATOR . $item;
+            if ( is_link( $source_path ) ) {
+                throw new \RuntimeException( 'Entry directories cannot contain symbolic links.' );
+            }
+            if ( is_dir( $source_path ) ) {
+                if ( ! @ mkdir( $destination_path, 0775 ) && ! is_dir( $destination_path ) ) {
+                    throw new \RuntimeException( 'Unable to copy entry directory.' );
+                }
+                $this->copyDirectoryRecursively( $source_path, $destination_path );
+                continue;
+            }
+            if ( ! is_file( $source_path ) || ! @ copy( $source_path, $destination_path ) ) {
+                throw new \RuntimeException( 'Unable to copy entry file.' );
+            }
+        }
     }
 
     protected function writeRevisionSnapshot( array $entry ) : void {
@@ -3873,16 +4054,22 @@ class TinyMashContentRepository {
             return;
         }
 
-        $revision_id = 'revision_' . gmdate( 'Ymd_His' ) . '_' . bin2hex( random_bytes( 4 ) );
-        $revision_directory = $entry_directory . DIRECTORY_SEPARATOR . 'revisions' . DIRECTORY_SEPARATOR . $revision_id;
-        if ( ! is_dir( $revision_directory ) && ! mkdir( $revision_directory, 0775, true ) && ! is_dir( $revision_directory ) ) {
-            throw new \RuntimeException( 'Unable to create revision directory "' . $revision_directory . '"' );
+        $revision_time = new \DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) );
+        $revision_id = 'revision_' . $revision_time->format( 'Ymd_His_u' ) . '_' . bin2hex( random_bytes( 4 ) );
+        $revision_root = $entry_directory . DIRECTORY_SEPARATOR . 'revisions';
+        if ( ! is_dir( $revision_root ) && ! @ mkdir( $revision_root, 0775, true ) && ! is_dir( $revision_root ) ) {
+            throw new \RuntimeException( 'Unable to create revision directory.' );
+        }
+        $revision_directory = $revision_root . DIRECTORY_SEPARATOR . $revision_id;
+        $staging_directory = $revision_root . DIRECTORY_SEPARATOR . '.revision-tmp-' . bin2hex( random_bytes( 8 ) );
+        if ( ! @ mkdir( $staging_directory, 0775 ) && ! is_dir( $staging_directory ) ) {
+            throw new \RuntimeException( 'Unable to create revision staging directory.' );
         }
 
         $metadata = [
             'revision_id' => $revision_id,
             'source_entry_id' => (string) ( $entry['id'] ?? '' ),
-            'saved_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
+            'saved_at_utc' => $revision_time->format( 'Y-m-d\TH:i:s.u\Z' ),
             'id' => (string) ( $entry['id'] ?? '' ),
             'type' => (string) ( $entry['type'] ?? 'post' ),
             'scope' => (string) ( $entry['scope'] ?? 'root' ),
@@ -3933,19 +4120,28 @@ class TinyMashContentRepository {
                 'summary' => (string) ( $translation['summary'] ?? '' ),
             ];
 
-            $body_filename = $revision_directory . DIRECTORY_SEPARATOR . 'body.' . $language . '.md';
-            if ( file_put_contents( $body_filename, (string) ( $translation['content'] ?? '' ) ) === false ) {
+            $body_filename = $staging_directory . DIRECTORY_SEPARATOR . 'body.' . $language . '.md';
+            $body_content = (string) ( $translation['content'] ?? '' );
+            if ( ! TinyMashFilesystem::writeFileAtomically( $body_filename, $body_content ) ) {
+                $this->deleteDirectoryRecursively( $staging_directory );
                 throw new \RuntimeException( 'Unable to write revision body "' . $body_filename . '"' );
             }
         }
 
         $metadata_json = json_encode( $metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
         if ( ! is_string( $metadata_json ) || $metadata_json === '' ) {
+            $this->deleteDirectoryRecursively( $staging_directory );
             throw new \RuntimeException( 'Unable to encode revision metadata.' );
         }
 
-        if ( file_put_contents( $revision_directory . DIRECTORY_SEPARATOR . 'revision.json', $metadata_json . PHP_EOL ) === false ) {
+        $metadata_payload = $metadata_json . PHP_EOL;
+        if ( ! TinyMashFilesystem::writeFileAtomically( $staging_directory . DIRECTORY_SEPARATOR . 'revision.json', $metadata_payload ) ) {
+            $this->deleteDirectoryRecursively( $staging_directory );
             throw new \RuntimeException( 'Unable to write revision metadata.' );
+        }
+        if ( ! @ rename( $staging_directory, $revision_directory ) ) {
+            $this->deleteDirectoryRecursively( $staging_directory );
+            throw new \RuntimeException( 'Unable to commit revision snapshot.' );
         }
 
         $this->pruneRevisionSnapshots( $entry_directory );
@@ -3973,6 +4169,13 @@ class TinyMashContentRepository {
     }
 
     protected function withLockedContentStore( callable $callback ) : mixed {
+        if ( $this->content_lock_depth > 0 ) {
+            if ( ! $this->content_write_locked ) {
+                throw new \RuntimeException( 'Unable to upgrade shared content lock.' );
+            }
+            return( $callback() );
+        }
+
         $this->ensureContentDirectory();
 
         $lock_handle = @ fopen( $this->content_lock_filename, 'c+' );
@@ -3985,9 +4188,39 @@ class TinyMashContentRepository {
                 throw new \RuntimeException( 'Unable to lock content store.' );
             }
 
+            $this->content_lock_depth++;
+            $this->content_write_locked = true;
             $this->resetDerivedRuntimeState();
             return( $callback() );
         } finally {
+            $this->content_lock_depth = max( 0, $this->content_lock_depth - 1 );
+            $this->content_write_locked = false;
+            @ flock( $lock_handle, LOCK_UN );
+            fclose( $lock_handle );
+        }
+    }
+
+    protected function withSharedContentStore( callable $callback ) : mixed {
+        if ( $this->content_lock_depth > 0 ) {
+            return( $callback() );
+        }
+
+        $this->ensureContentDirectory();
+
+        $lock_handle = @ fopen( $this->content_lock_filename, 'c+' );
+        if ( $lock_handle === false ) {
+            throw new \RuntimeException( 'Unable to open content lock file.' );
+        }
+
+        try {
+            if ( ! @ flock( $lock_handle, LOCK_SH ) ) {
+                throw new \RuntimeException( 'Unable to lock content store for reading.' );
+            }
+
+            $this->content_lock_depth++;
+            return( $callback() );
+        } finally {
+            $this->content_lock_depth = max( 0, $this->content_lock_depth - 1 );
             @ flock( $lock_handle, LOCK_UN );
             fclose( $lock_handle );
         }

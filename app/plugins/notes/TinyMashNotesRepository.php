@@ -1,5 +1,9 @@
 <?php
 
+use app\classes\TinyMashFilesystem;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashFilesystem.php';
+
 class TinyMashNotesRepository {
 
     protected string $storage_root;
@@ -14,24 +18,7 @@ class TinyMashNotesRepository {
             return( $this->buildEmptyNote() );
         }
 
-        $note_directory = $this->getNoteDirectory( $username );
-        $metadata = $this->readJsonFile( $note_directory . DIRECTORY_SEPARATOR . 'note.json' );
-        $content = $this->readTextFile( $note_directory . DIRECTORY_SEPARATOR . 'note.md' );
-
-        $created_at_utc = trim( (string) ( $metadata['created_at_utc'] ?? '' ) );
-        $updated_at_utc = trim( (string) ( $metadata['updated_at_utc'] ?? '' ) );
-        $current_revision_id = trim( (string) ( $metadata['current_revision_id'] ?? '' ) );
-
-        return(
-            [
-                'username' => $username,
-                'content' => $content,
-                'created_at_utc' => $created_at_utc,
-                'updated_at_utc' => $updated_at_utc,
-                'current_revision_id' => $current_revision_id,
-                'has_note' => is_file( $note_directory . DIRECTORY_SEPARATOR . 'note.json' ) || is_file( $note_directory . DIRECTORY_SEPARATOR . 'note.md' ),
-            ]
-        );
+        return( $this->withUserLock( $username, LOCK_SH, fn() : array => $this->readNoteUnlocked( $username ) ) );
     }
 
     public function getDraft( string $username ) : array {
@@ -40,18 +27,7 @@ class TinyMashNotesRepository {
             return( $this->buildEmptyDraft() );
         }
 
-        $note_directory = $this->getNoteDirectory( $username );
-        $metadata = $this->readJsonFile( $note_directory . DIRECTORY_SEPARATOR . 'draft.json' );
-        $content = $this->readTextFile( $note_directory . DIRECTORY_SEPARATOR . 'draft.md' );
-
-        return(
-            [
-                'username' => $username,
-                'content' => $content,
-                'updated_at_utc' => trim( (string) ( $metadata['updated_at_utc'] ?? '' ) ),
-                'has_draft' => is_file( $note_directory . DIRECTORY_SEPARATOR . 'draft.json' ) || is_file( $note_directory . DIRECTORY_SEPARATOR . 'draft.md' ),
-            ]
-        );
+        return( $this->withUserLock( $username, LOCK_SH, fn() : array => $this->readDraftUnlocked( $username ) ) );
     }
 
     public function saveNote( string $username, string $content, int $revision_limit = 0 ) : array {
@@ -61,37 +37,49 @@ class TinyMashNotesRepository {
         }
 
         $content = $this->normalizeContent( $content );
-        $current_note = $this->getNote( $username );
-        $note_directory = $this->getNoteDirectory( $username );
-        $created_at_utc = trim( (string) ( $current_note['created_at_utc'] ?? '' ) );
-        if ( $created_at_utc === '' ) {
-            $created_at_utc = gmdate( 'Y-m-d H:i:s' );
-        }
+        return(
+            $this->withUserLock(
+                $username,
+                LOCK_EX,
+                function() use ( $username, $content, $revision_limit ) : array {
+                    $current_note = $this->readNoteUnlocked( $username );
+                    $created_at_utc = trim( (string) ( $current_note['created_at_utc'] ?? '' ) );
+                    if ( $created_at_utc === '' ) {
+                        $created_at_utc = gmdate( 'Y-m-d H:i:s' );
+                    }
 
-        $current_revision_id = trim( (string) ( $current_note['current_revision_id'] ?? '' ) );
-        if ( $current_note['has_note'] && (string) ( $current_note['content'] ?? '' ) !== $content && $revision_limit > 0 ) {
-            $current_revision_id = $this->createRevisionSnapshot( $username, $current_note );
-            $this->pruneRevisions( $username, $revision_limit );
-        }
+                    $this->mutateUserDirectoryUnlocked(
+                        $username,
+                        function( string $staging_directory ) use ( $username, $content, $revision_limit, $current_note, $created_at_utc ) : void {
+                            $current_revision_id = trim( (string) ( $current_note['current_revision_id'] ?? '' ) );
+                            if ( $current_note['has_note'] && (string) ( $current_note['content'] ?? '' ) !== $content && $revision_limit > 0 ) {
+                                $current_revision_id = $this->createRevisionSnapshotInDirectory( $staging_directory, $current_note );
+                                $this->pruneRevisionsInDirectory( $staging_directory, $revision_limit );
+                            }
 
-        $updated_at_utc = gmdate( 'Y-m-d H:i:s' );
-        $this->ensureDirectory( $note_directory );
-        file_put_contents( $note_directory . DIRECTORY_SEPARATOR . 'note.md', $content );
-        file_put_contents(
-            $note_directory . DIRECTORY_SEPARATOR . 'note.json',
-            json_encode(
-                [
-                    'username' => $username,
-                    'created_at_utc' => $created_at_utc,
-                    'updated_at_utc' => $updated_at_utc,
-                    'current_revision_id' => $current_revision_id,
-                ],
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-            ) . PHP_EOL
+                            $metadata = [
+                                'username' => $username,
+                                'created_at_utc' => $created_at_utc,
+                                'updated_at_utc' => gmdate( 'Y-m-d H:i:s' ),
+                                'current_revision_id' => $current_revision_id,
+                            ];
+                            $this->writeJsonFile( $staging_directory . DIRECTORY_SEPARATOR . 'note.json', $metadata, 'Unable to write note metadata.' );
+                            if ( ! TinyMashFilesystem::writeFileAtomically( $staging_directory . DIRECTORY_SEPARATOR . 'note.md', $content ) ) {
+                                throw new \RuntimeException( 'Unable to write note.' );
+                            }
+                            foreach ( [ 'draft.md', 'draft.json' ] as $draft_filename ) {
+                                $draft_path = $staging_directory . DIRECTORY_SEPARATOR . $draft_filename;
+                                if ( is_file( $draft_path ) && ! @ unlink( $draft_path ) ) {
+                                    throw new \RuntimeException( 'Unable to remove note draft.' );
+                                }
+                            }
+                        }
+                    );
+
+                    return( $this->readNoteUnlocked( $username ) );
+                }
+            )
         );
-        $this->deleteDraft( $username );
-
-        return( $this->getNote( $username ) );
     }
 
     public function saveDraft( string $username, string $content ) : array {
@@ -101,23 +89,28 @@ class TinyMashNotesRepository {
         }
 
         $content = $this->normalizeContent( $content );
-        $note_directory = $this->getNoteDirectory( $username );
-        $updated_at_utc = gmdate( 'Y-m-d H:i:s' );
-
-        $this->ensureDirectory( $note_directory );
-        file_put_contents( $note_directory . DIRECTORY_SEPARATOR . 'draft.md', $content );
-        file_put_contents(
-            $note_directory . DIRECTORY_SEPARATOR . 'draft.json',
-            json_encode(
-                [
-                    'username' => $username,
-                    'updated_at_utc' => $updated_at_utc,
-                ],
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-            ) . PHP_EOL
+        return(
+            $this->withUserLock(
+                $username,
+                LOCK_EX,
+                function() use ( $username, $content ) : array {
+                    $this->mutateUserDirectoryUnlocked(
+                        $username,
+                        function( string $staging_directory ) use ( $username, $content ) : void {
+                            $this->writeJsonFile(
+                                $staging_directory . DIRECTORY_SEPARATOR . 'draft.json',
+                                [ 'username' => $username, 'updated_at_utc' => gmdate( 'Y-m-d H:i:s' ) ],
+                                'Unable to write note draft metadata.'
+                            );
+                            if ( ! TinyMashFilesystem::writeFileAtomically( $staging_directory . DIRECTORY_SEPARATOR . 'draft.md', $content ) ) {
+                                throw new \RuntimeException( 'Unable to write note draft.' );
+                            }
+                        }
+                    );
+                    return( $this->readDraftUnlocked( $username ) );
+                }
+            )
         );
-
-        return( $this->getDraft( $username ) );
     }
 
     public function deleteDraft( string $username ) : bool {
@@ -126,16 +119,30 @@ class TinyMashNotesRepository {
             return( false );
         }
 
-        $note_directory = $this->getNoteDirectory( $username );
-        $deleted = false;
-        foreach ( [ 'draft.md', 'draft.json' ] as $filename ) {
-            $path = $note_directory . DIRECTORY_SEPARATOR . $filename;
-            if ( is_file( $path ) && @ unlink( $path ) ) {
-                $deleted = true;
-            }
-        }
-
-        return( $deleted );
+        return(
+            $this->withUserLock(
+                $username,
+                LOCK_EX,
+                function() use ( $username ) : bool {
+                    $draft = $this->readDraftUnlocked( $username );
+                    if ( empty( $draft['has_draft'] ) ) {
+                        return( false );
+                    }
+                    $this->mutateUserDirectoryUnlocked(
+                        $username,
+                        function( string $staging_directory ) : void {
+                            foreach ( [ 'draft.md', 'draft.json' ] as $filename ) {
+                                $path = $staging_directory . DIRECTORY_SEPARATOR . $filename;
+                                if ( is_file( $path ) && ! @ unlink( $path ) ) {
+                                    throw new \RuntimeException( 'Unable to remove note draft.' );
+                                }
+                            }
+                        }
+                    );
+                    return( true );
+                }
+            )
+        );
     }
 
     public function listRevisions( string $username, int $limit = 10 ) : array {
@@ -144,6 +151,10 @@ class TinyMashNotesRepository {
             return( [] );
         }
 
+        return( $this->withUserLock( $username, LOCK_SH, fn() : array => $this->listRevisionsUnlocked( $username, $limit ) ) );
+    }
+
+    protected function listRevisionsUnlocked( string $username, int $limit = 10 ) : array {
         $revision_root = $this->getNoteDirectory( $username ) . DIRECTORY_SEPARATOR . 'revisions';
         if ( ! is_dir( $revision_root ) ) {
             return( [] );
@@ -179,6 +190,10 @@ class TinyMashNotesRepository {
             return( null );
         }
 
+        return( $this->withUserLock( $username, LOCK_SH, fn() : ?array => $this->getRevisionUnlocked( $username, $revision_id ) ) );
+    }
+
+    protected function getRevisionUnlocked( string $username, string $revision_id ) : ?array {
         $revision_directory = $this->getNoteDirectory( $username ) . DIRECTORY_SEPARATOR . 'revisions' . DIRECTORY_SEPARATOR . $revision_id;
         $metadata = $this->readJsonFile( $revision_directory . DIRECTORY_SEPARATOR . 'revision.json' );
         if ( empty( $metadata ) ) {
@@ -246,30 +261,36 @@ class TinyMashNotesRepository {
             throw new \InvalidArgumentException( 'notes_username' );
         }
 
-        $source_directory = $this->getNoteDirectory( $username );
-        if ( ! is_dir( $source_directory ) ) {
-            return(
-                [
-                    'username' => $username,
-                    'exported' => false,
-                    'note' => false,
-                    'draft' => false,
-                    'revisions' => 0,
-                ]
-            );
-        }
-
-        $target_directory = rtrim( $target_directory, DIRECTORY_SEPARATOR );
-        $this->copyDirectoryRecursively( $source_directory, $target_directory );
-
         return(
-            [
-                'username' => $username,
-                'exported' => true,
-                'note' => is_file( $source_directory . DIRECTORY_SEPARATOR . 'note.md' ) || is_file( $source_directory . DIRECTORY_SEPARATOR . 'note.json' ),
-                'draft' => is_file( $source_directory . DIRECTORY_SEPARATOR . 'draft.md' ) || is_file( $source_directory . DIRECTORY_SEPARATOR . 'draft.json' ),
-                'revisions' => count( $this->listRevisions( $username, 1000 ) ),
-            ]
+            $this->withUserLock(
+                $username,
+                LOCK_SH,
+                function() use ( $username, $target_directory ) : array {
+                    $source_directory = $this->getNoteDirectory( $username );
+                    if ( ! is_dir( $source_directory ) ) {
+                        return(
+                            [
+                                'username' => $username,
+                                'exported' => false,
+                                'note' => false,
+                                'draft' => false,
+                                'revisions' => 0,
+                            ]
+                        );
+                    }
+
+                    $this->copyDirectoryRecursively( $source_directory, rtrim( $target_directory, DIRECTORY_SEPARATOR ) );
+                    return(
+                        [
+                            'username' => $username,
+                            'exported' => true,
+                            'note' => is_file( $source_directory . DIRECTORY_SEPARATOR . 'note.md' ) || is_file( $source_directory . DIRECTORY_SEPARATOR . 'note.json' ),
+                            'draft' => is_file( $source_directory . DIRECTORY_SEPARATOR . 'draft.md' ) || is_file( $source_directory . DIRECTORY_SEPARATOR . 'draft.json' ),
+                            'revisions' => count( $this->listRevisionsUnlocked( $username, 1000 ) ),
+                        ]
+                    );
+                }
+            )
         );
     }
 
@@ -292,25 +313,35 @@ class TinyMashNotesRepository {
             );
         }
 
-        $target_directory = $this->getNoteDirectory( $username );
-        if ( is_dir( $target_directory ) && ! $replace_existing ) {
-            throw new \RuntimeException( 'Notes data already exists for this user.' );
-        }
-
-        if ( is_dir( $target_directory ) && $replace_existing ) {
-            $this->deleteDirectory( $target_directory );
-        }
-
-        $this->copyDirectoryRecursively( $source_directory, $target_directory );
-
         return(
-            [
-                'username' => $username,
-                'imported' => true,
-                'note' => is_file( $target_directory . DIRECTORY_SEPARATOR . 'note.md' ) || is_file( $target_directory . DIRECTORY_SEPARATOR . 'note.json' ),
-                'draft' => is_file( $target_directory . DIRECTORY_SEPARATOR . 'draft.md' ) || is_file( $target_directory . DIRECTORY_SEPARATOR . 'draft.json' ),
-                'revisions' => count( $this->listRevisions( $username, 1000 ) ),
-            ]
+            $this->withUserLock(
+                $username,
+                LOCK_EX,
+                function() use ( $username, $source_directory, $replace_existing ) : array {
+                    $target_directory = $this->getNoteDirectory( $username );
+                    if ( is_dir( $target_directory ) && ! $replace_existing ) {
+                        throw new \RuntimeException( 'Notes data already exists for this user.' );
+                    }
+
+                    $this->mutateUserDirectoryUnlocked(
+                        $username,
+                        function( string $staging_directory ) use ( $source_directory ) : void {
+                            $this->clearDirectory( $staging_directory );
+                            $this->copyDirectoryRecursively( $source_directory, $staging_directory );
+                        }
+                    );
+
+                    return(
+                        [
+                            'username' => $username,
+                            'imported' => true,
+                            'note' => is_file( $target_directory . DIRECTORY_SEPARATOR . 'note.md' ) || is_file( $target_directory . DIRECTORY_SEPARATOR . 'note.json' ),
+                            'draft' => is_file( $target_directory . DIRECTORY_SEPARATOR . 'draft.md' ) || is_file( $target_directory . DIRECTORY_SEPARATOR . 'draft.json' ),
+                            'revisions' => count( $this->listRevisionsUnlocked( $username, 1000 ) ),
+                        ]
+                    );
+                }
+            )
         );
     }
 
@@ -401,32 +432,43 @@ class TinyMashNotesRepository {
         );
     }
 
-    protected function createRevisionSnapshot( string $username, array $current_note ) : string {
+    protected function createRevisionSnapshotInDirectory( string $note_directory, array $current_note ) : string {
         $revision_id = gmdate( 'Ymd_His' ) . '_' . substr( bin2hex( random_bytes( 4 ) ), 0, 8 );
-        $revision_directory = $this->getNoteDirectory( $username ) . DIRECTORY_SEPARATOR . 'revisions' . DIRECTORY_SEPARATOR . $revision_id;
+        $revision_directory = $note_directory . DIRECTORY_SEPARATOR . 'revisions' . DIRECTORY_SEPARATOR . $revision_id;
         $content = (string) ( $current_note['content'] ?? '' );
 
         $this->ensureDirectory( $revision_directory );
-        file_put_contents( $revision_directory . DIRECTORY_SEPARATOR . 'note.md', $content );
-        file_put_contents(
+        if ( ! TinyMashFilesystem::writeFileAtomically( $revision_directory . DIRECTORY_SEPARATOR . 'note.md', $content ) ) {
+            $this->deleteDirectory( $revision_directory );
+            throw new \RuntimeException( 'Unable to write note revision.' );
+        }
+        $this->writeJsonFile(
             $revision_directory . DIRECTORY_SEPARATOR . 'revision.json',
-            json_encode(
-                [
-                    'id' => $revision_id,
-                    'created_at_utc' => trim( (string) ( $current_note['updated_at_utc'] ?? $current_note['created_at_utc'] ?? gmdate( 'Y-m-d H:i:s' ) ) ),
-                    'bytes' => strlen( $content ),
-                ],
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-            ) . PHP_EOL
+            [
+                'id' => $revision_id,
+                'created_at_utc' => trim( (string) ( $current_note['updated_at_utc'] ?? $current_note['created_at_utc'] ?? gmdate( 'Y-m-d H:i:s' ) ) ),
+                'bytes' => strlen( $content ),
+            ],
+            'Unable to write note revision metadata.'
         );
 
         return( $revision_id );
     }
 
     protected function pruneRevisions( string $username, int $revision_limit ) : int {
+        return(
+            $this->withUserLock(
+                $username,
+                LOCK_EX,
+                fn() : int => $this->pruneRevisionsInDirectory( $this->getNoteDirectory( $username ), $revision_limit )
+            )
+        );
+    }
+
+    protected function pruneRevisionsInDirectory( string $note_directory, int $revision_limit ) : int {
         $revision_limit = max( 0, $revision_limit );
 
-        $revision_root = $this->getNoteDirectory( $username ) . DIRECTORY_SEPARATOR . 'revisions';
+        $revision_root = $note_directory . DIRECTORY_SEPARATOR . 'revisions';
         if ( ! is_dir( $revision_root ) ) {
             return( 0 );
         }
@@ -471,6 +513,22 @@ class TinyMashNotesRepository {
         @ rmdir( $directory );
     }
 
+    protected function clearDirectory( string $directory ) : void {
+        foreach ( scandir( $directory ) ?: [] as $item ) {
+            if ( $item === '.' || $item === '..' ) {
+                continue;
+            }
+            $path = $directory . DIRECTORY_SEPARATOR . $item;
+            if ( is_dir( $path ) && ! is_link( $path ) ) {
+                $this->deleteDirectory( $path );
+                continue;
+            }
+            if ( ! @ unlink( $path ) && file_exists( $path ) ) {
+                throw new \RuntimeException( 'Unable to prepare notes import.' );
+            }
+        }
+    }
+
     protected function readJsonFile( string $filename ) : array {
         if ( ! is_file( $filename ) || ! is_readable( $filename ) ) {
             return( [] );
@@ -494,9 +552,110 @@ class TinyMashNotesRepository {
         return( is_string( $content ) ? $content : '' );
     }
 
+    protected function readNoteUnlocked( string $username ) : array {
+        $note_directory = $this->getNoteDirectory( $username );
+        $metadata = $this->readJsonFile( $note_directory . DIRECTORY_SEPARATOR . 'note.json' );
+        return(
+            [
+                'username' => $username,
+                'content' => $this->readTextFile( $note_directory . DIRECTORY_SEPARATOR . 'note.md' ),
+                'created_at_utc' => trim( (string) ( $metadata['created_at_utc'] ?? '' ) ),
+                'updated_at_utc' => trim( (string) ( $metadata['updated_at_utc'] ?? '' ) ),
+                'current_revision_id' => trim( (string) ( $metadata['current_revision_id'] ?? '' ) ),
+                'has_note' => is_file( $note_directory . DIRECTORY_SEPARATOR . 'note.json' ) || is_file( $note_directory . DIRECTORY_SEPARATOR . 'note.md' ),
+            ]
+        );
+    }
+
+    protected function readDraftUnlocked( string $username ) : array {
+        $note_directory = $this->getNoteDirectory( $username );
+        $metadata = $this->readJsonFile( $note_directory . DIRECTORY_SEPARATOR . 'draft.json' );
+        return(
+            [
+                'username' => $username,
+                'content' => $this->readTextFile( $note_directory . DIRECTORY_SEPARATOR . 'draft.md' ),
+                'updated_at_utc' => trim( (string) ( $metadata['updated_at_utc'] ?? '' ) ),
+                'has_draft' => is_file( $note_directory . DIRECTORY_SEPARATOR . 'draft.json' ) || is_file( $note_directory . DIRECTORY_SEPARATOR . 'draft.md' ),
+            ]
+        );
+    }
+
+    protected function writeJsonFile( string $filename, array $data, string $error_message ) : void {
+        $json = json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+        if ( ! is_string( $json ) || ! TinyMashFilesystem::writeFileAtomically( $filename, $json . PHP_EOL ) ) {
+            throw new \RuntimeException( $error_message );
+        }
+    }
+
+    protected function withUserLock( string $username, int $operation, callable $callback ) : mixed {
+        $lock_directory = $this->storage_root . DIRECTORY_SEPARATOR . '.locks';
+        if ( $operation === LOCK_SH && is_dir( $this->storage_root ) && ! is_writable( $this->storage_root ) ) {
+            return( $callback() );
+        }
+
+        $this->ensureDirectory( $lock_directory );
+        $lock_handle = @ fopen( $lock_directory . DIRECTORY_SEPARATOR . $username . '.lock', 'c+' );
+        if ( $lock_handle === false ) {
+            throw new \RuntimeException( 'Unable to open note lock.' );
+        }
+
+        try {
+            if ( ! @ flock( $lock_handle, $operation ) ) {
+                throw new \RuntimeException( 'Unable to lock note.' );
+            }
+            return( $callback() );
+        } finally {
+            @ flock( $lock_handle, LOCK_UN );
+            fclose( $lock_handle );
+        }
+    }
+
+    protected function mutateUserDirectoryUnlocked( string $username, callable $callback ) : mixed {
+        $note_directory = $this->getNoteDirectory( $username );
+        $transaction_directory = $this->storage_root . DIRECTORY_SEPARATOR . '.transactions';
+        $this->ensureDirectory( $transaction_directory );
+        $staging_directory = $transaction_directory . DIRECTORY_SEPARATOR . $username . '-' . bin2hex( random_bytes( 8 ) );
+        $this->ensureDirectory( $staging_directory );
+
+        try {
+            if ( is_dir( $note_directory ) ) {
+                $this->copyDirectoryRecursively( $note_directory, $staging_directory );
+            }
+            $result = $callback( $staging_directory );
+        } catch ( \Throwable $e ) {
+            $this->deleteDirectory( $staging_directory );
+            throw $e;
+        }
+
+        $backup_directory = $transaction_directory . DIRECTORY_SEPARATOR . $username . '-backup-' . bin2hex( random_bytes( 8 ) );
+        $has_backup = false;
+        if ( is_dir( $note_directory ) ) {
+            if ( ! @ rename( $note_directory, $backup_directory ) ) {
+                $this->deleteDirectory( $staging_directory );
+                throw new \RuntimeException( 'Unable to prepare note for replacement.' );
+            }
+            $has_backup = true;
+        }
+
+        if ( ! @ rename( $staging_directory, $note_directory ) ) {
+            $restored = ! $has_backup || @ rename( $backup_directory, $note_directory );
+            $this->deleteDirectory( $staging_directory );
+            if ( ! $restored ) {
+                throw new \RuntimeException( 'Unable to replace note and restore its previous state.' );
+            }
+            throw new \RuntimeException( 'Unable to replace note.' );
+        }
+
+        if ( $has_backup ) {
+            $this->deleteDirectory( $backup_directory );
+        }
+        @ rmdir( $transaction_directory );
+        return( $result );
+    }
+
     protected function ensureDirectory( string $directory ) : void {
-        if ( ! is_dir( $directory ) ) {
-            mkdir( $directory, 0775, true );
+        if ( ! is_dir( $directory ) && ! @ mkdir( $directory, 0775, true ) && ! is_dir( $directory ) ) {
+            throw new \RuntimeException( 'Unable to create notes directory.' );
         }
     }
 
@@ -519,13 +678,18 @@ class TinyMashNotesRepository {
             $source_path = $source_directory . DIRECTORY_SEPARATOR . $item;
             $target_path = $target_directory . DIRECTORY_SEPARATOR . $item;
 
+            if ( is_link( $source_path ) ) {
+                throw new \RuntimeException( 'Notes directories cannot contain symbolic links.' );
+            }
             if ( is_dir( $source_path ) ) {
                 $this->copyDirectoryRecursively( $source_path, $target_path );
                 continue;
             }
 
             $this->ensureDirectory( dirname( $target_path ) );
-            copy( $source_path, $target_path );
+            if ( ! is_file( $source_path ) || ! @ copy( $source_path, $target_path ) ) {
+                throw new \RuntimeException( 'Unable to copy notes data.' );
+            }
         }
     }
 

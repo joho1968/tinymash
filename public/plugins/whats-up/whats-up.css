@@ -337,6 +337,11 @@
     font-weight: 600;
 }
 
+.tm-whats-up-calendar-mobile-empty,
+.tm-whats-up-calendar-weekday-mobile {
+    display: none;
+}
+
 .tm-whats-up-calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(5.5rem, 1fr));
@@ -368,13 +373,15 @@
 
 .tm-whats-up-calendar-today .tm-whats-up-calendar-number {
     display: inline-flex;
+    box-sizing: border-box;
     min-width: 1.55rem;
     min-height: 1.55rem;
     align-items: center;
     justify-content: center;
+    border: 2px solid var(--tm-whats-up-now-color);
     border-radius: 50%;
-    background: var(--tm-whats-up-now-color);
-    color: var(--bs-white);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
 }
 
 .tm-whats-up-calendar-number {
@@ -433,6 +440,71 @@
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
+}
+
+@media (max-width: 767.98px) {
+    .tm-whats-up-calendar-view {
+        overflow-x: visible;
+    }
+
+    .tm-whats-up-calendar-mobile-empty {
+        display: block;
+        margin: 0;
+        color: var(--tm-whats-up-muted);
+    }
+
+    .tm-whats-up-calendar-grid {
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
+        border: 0;
+    }
+
+    .tm-whats-up-calendar-weekday,
+    .tm-whats-up-calendar-day-empty,
+    .tm-whats-up-calendar-day-no-events {
+        display: none;
+    }
+
+    .tm-whats-up-calendar-day-has-events {
+        display: grid;
+        grid-template-columns: 4.25rem minmax(0, 1fr);
+        gap: 0.25rem 0.75rem;
+        min-height: 0;
+        border-right: 0;
+        border-bottom: 1px solid var(--tm-whats-up-rule);
+        padding: 0.65rem 0;
+    }
+
+    .tm-whats-up-calendar-date {
+        display: flex;
+        grid-column: 1;
+        gap: 0.35rem;
+        align-items: baseline;
+        color: var(--tm-whats-up-muted);
+        white-space: nowrap;
+    }
+
+    .tm-whats-up-calendar-weekday-mobile {
+        display: inline;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .tm-whats-up-calendar-number {
+        margin-bottom: 0;
+    }
+
+    .tm-whats-up-calendar-day-has-events > .tm-whats-up-calendar-event,
+    .tm-whats-up-calendar-day-has-events > .tm-whats-up-calendar-overflow {
+        grid-column: 2;
+        margin-bottom: 0.2rem;
+    }
+
+    .tm-whats-up-calendar-event {
+        font-size: 0.82rem;
+        line-height: 1.35;
+    }
 }
 
 @media (max-width: 420px) {
