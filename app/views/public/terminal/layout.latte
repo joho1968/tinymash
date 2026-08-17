@@ -316,8 +316,9 @@
 
         {var $theme_show_public_chrome = ! isset( $theme_show_public_chrome ) || $theme_show_public_chrome}
         {var $theme_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_sidebar_enabled )}
-        {var $theme_sidebar_rendered = $theme_sidebar_visible && ( ! empty( $theme_page_structure ) || ! empty( $theme_sidebar_menu ) )}
-        {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || ! empty( $theme_page_structure ) || ( ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) ) )}
+        {var $theme_plugin_sidebar_visible = $theme_show_public_chrome && ! empty( $theme_public_sidebar_fragments )}
+        {var $theme_sidebar_rendered = ( $theme_sidebar_visible && ( ! empty( $theme_page_structure ) || ! empty( $theme_sidebar_menu ) ) ) || $theme_plugin_sidebar_visible}
+        {var $theme_has_mobile_panel = $theme_show_public_chrome && ( ! empty( $theme_navigation_menu ) || ! empty( $theme_sidebar_menu ) || ! empty( $theme_page_structure ) || $theme_plugin_sidebar_visible || ( ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) ) )}
         {var $theme_author_space_slug = ''}
         {if ! empty( $author_slug )}
             {var $theme_author_space_slug = (string) $author_slug}
@@ -410,6 +411,16 @@
                                                     </nav>
                                                 </section>
                                             {/if}
+                                            {if $theme_plugin_sidebar_visible}
+                                                <section>
+                                                    <div class="tm-terminal-panel-title">/plugins</div>
+                                                    <div class="tm-terminal-stack">
+                                                        {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
+                                                            <div n:if="! empty( $theme_public_sidebar_fragment['html'] )" data-tm-plugin-fragment="{$theme_public_sidebar_fragment['plugin_key'] ?? ''}">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                                                        {/foreach}
+                                                    </div>
+                                                </section>
+                                            {/if}
                                         </div>
                                     </div>
                                 </details>
@@ -468,6 +479,14 @@
                             </ul>
                         </nav>
                     </section>
+                    <section n:if="$theme_plugin_sidebar_visible" class="tm-terminal-panel">
+                        <div class="tm-terminal-panel-title">/plugins</div>
+                        <div class="tm-terminal-stack">
+                            {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
+                                <div n:if="! empty( $theme_public_sidebar_fragment['html'] )" data-tm-plugin-fragment="{$theme_public_sidebar_fragment['plugin_key'] ?? ''}">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                            {/foreach}
+                        </div>
+                    </section>
                 </aside>
             </div>
         </div>
@@ -487,13 +506,13 @@
                     <div n:if="! empty( $theme_public_footer_fragments )" class="tm-terminal-footer-fragments">
                         {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
                             {if ! empty( $theme_public_footer_fragment['lines'] ) }
-                                <div class="tm-terminal-stack">
+                                <div class="tm-terminal-stack" data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">
                                     {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
                                         <div>{$theme_public_footer_line|noescape}</div>
                                     {/foreach}
                                 </div>
                             {elseif ! empty( $theme_public_footer_fragment['html'] ) }
-                                <div>{$theme_public_footer_fragment['html']|noescape}</div>
+                                <div data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">{$theme_public_footer_fragment['html']|noescape}</div>
                             {/if}
                         {/foreach}
                     </div>

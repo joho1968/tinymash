@@ -393,7 +393,10 @@ trait AdminEditorActionConcern {
             }
             $draft_id = trim( (string) ( $data['draft_id'] ?? '' ) );
             $requested_status = strtolower( trim( (string) ( $normalized_payload['status'] ?? 'unpublished' ) ) );
-            $save_status = $requested_status === 'published' ? 'published' : 'unpublished';
+            $save_status = in_array( $requested_status, [ 'published', 'scheduled' ], true ) ? $requested_status : 'unpublished';
+            if ( $save_status === 'scheduled' && $this->config->isContentModerationRequired() && ! $this->security->isSuperAdmin() ) {
+                throw new \InvalidArgumentException( 'scheduled_publish_moderation' );
+            }
             if ( $save_status === 'published' && $this->config->isContentModerationRequired() && ! $this->security->isSuperAdmin() ) {
                 $save_status = 'pending_review';
             }
@@ -453,7 +456,7 @@ trait AdminEditorActionConcern {
             $timings['adopt_attachments'] = ( microtime( true ) - $timing_started_at ) * 1000;
 
             $timing_started_at = microtime( true );
-            $this->queueFediverseEntrySync(
+            $this->dispatchContentLifecycle(
                 is_array( $loaded_entry ) ? $loaded_entry : null,
                 $published_entry,
                 (string) ( $this->security->getCurrentUsername() ?? '' )
@@ -486,11 +489,14 @@ trait AdminEditorActionConcern {
         $timing_started_at = microtime( true );
         $response_payload = [
             'published' => $published_entry['status'] === 'published',
+            'scheduled' => $published_entry['status'] === 'scheduled',
             'pending_review' => $published_entry['status'] === 'pending_review',
             'status' => $published_entry['status'],
             'message' => $published_entry['status'] === 'pending_review'
                 ? 'Content saved for moderation review.'
-                : ( $published_entry['status'] === 'published' ? 'Content saved and published.' : 'Content saved as unpublished.' ),
+                : ( $published_entry['status'] === 'published'
+                    ? 'Content saved and published.'
+                    : ( $published_entry['status'] === 'scheduled' ? 'Content scheduled.' : 'Content saved as unpublished.' ) ),
             'updated_at_utc' => (string) $published_entry['updated_at_utc'],
             'updated_at_display' => $this->formatUtcDateTime( (string) $published_entry['updated_at_utc'] ),
             'url' => $entry_url,

@@ -572,7 +572,7 @@ class TinyMashDraftRepository {
 
     protected function normalizeEntryStatus( string $status ) : string {
         $status = strtolower( trim( $status ) );
-        if ( in_array( $status, [ 'published', 'unpublished', 'pending_review' ], true ) ) {
+        if ( in_array( $status, [ 'published', 'scheduled', 'unpublished', 'pending_review' ], true ) ) {
             return( $status );
         }
 

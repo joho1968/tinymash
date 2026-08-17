@@ -117,6 +117,7 @@ class TinyMashTheme {
                 'theme_screen_mode' => $this->resolveScreenMode( $page_context ),
                 'theme_public_sidebar_fragments' => $this->getPublicSidebarFragments( $context_entry, $context_author_slug ),
                 'theme_public_footer_fragments' => $this->getPublicFooterFragments( $context_entry, $context_author_slug ),
+                'theme_public_author_identity_fragments' => $this->getPublicAuthorIdentityFragments( $context_entry, $context_author_slug ),
                 'theme_public_head_tags' => $this->getPublicHeadTags( $page_context, $render_context, $site_name ),
                 'theme_search' => $this->getPublicSearchViewData( $page_context['scope'] === 'author' ? (string) ( $page_context['author_slug'] ?? '' ) : '', $theme_settings, $render_context ),
                 'theme_syntax_highlighting' => $syntax_highlighting,
@@ -697,6 +698,14 @@ class TinyMashTheme {
     }
 
     protected function getPublicFooterFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
+        return( $this->getPublicSlotFragments( 'footer', $context_entry, $context_author_slug ) );
+    }
+
+    protected function getPublicAuthorIdentityFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
+        return( $this->getPublicSlotFragments( 'author_identity', $context_entry, $context_author_slug ) );
+    }
+
+    protected function getPublicSlotFragments( string $slot, ?array $context_entry = null, ?string $context_author_slug = null ) : array {
         if ( ! $this->app->has( 'plugins' ) ) {
             return( [] );
         }
@@ -720,7 +729,7 @@ class TinyMashTheme {
             'entry' => $context_entry,
         ];
 
-        $fragments = $plugins->renderPublicSlot( 'footer', $context );
+        $fragments = $plugins->renderPublicSlot( $slot, $context );
         return( is_array( $fragments ) ? $fragments : [] );
     }
 
@@ -748,31 +757,7 @@ class TinyMashTheme {
     }
 
     protected function getPublicSidebarFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
-        if ( ! $this->app->has( 'plugins' ) ) {
-            return( [] );
-        }
-
-        $plugins = $this->app->get( 'plugins' );
-        if ( ! is_object( $plugins ) || ! method_exists( $plugins, 'renderPublicSlot' ) ) {
-            return( [] );
-        }
-
-        $resolved_author_slug = '';
-        if ( is_string( $context_author_slug ) && trim( $context_author_slug ) !== '' ) {
-            $resolved_author_slug = strtolower( trim( $context_author_slug ) );
-        } elseif ( is_array( $context_entry ) && (string) ( $context_entry['scope'] ?? '' ) === 'author' ) {
-            $resolved_author_slug = strtolower( trim( (string) ( $context_entry['author_slug'] ?? '' ) ) );
-        }
-
-        $context = [
-            'theme_key' => $this->getThemeKey(),
-            'site_name' => (string) $this->app->get( 'site.name' ),
-            'author_slug' => $resolved_author_slug,
-            'entry' => $context_entry,
-        ];
-
-        $fragments = $plugins->renderPublicSlot( 'sidebar', $context );
-        return( is_array( $fragments ) ? $fragments : [] );
+        return( $this->getPublicSlotFragments( 'sidebar', $context_entry, $context_author_slug ) );
     }
 
     protected function getPublicSearchViewData( string $author_slug = '', array $theme_settings = [], array $render_context = [] ) : array {

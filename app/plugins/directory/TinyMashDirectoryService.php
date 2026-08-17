@@ -523,7 +523,7 @@ class TinyMashDirectoryService {
         if ( $root_class === '' ) {
             $root_class = 'tm-directory tm-directory-type-' . (string) ( $type['key'] ?? '' ) . ' tm-directory-view-' . $view;
         }
-        $html = '<div class="' . $this->escape( $root_class ) . '" data-tm-directory>';
+        $html = '<div class="' . $this->escape( $root_class ) . '" data-tm-directory data-tm-heading-scope="component">';
         $html .= '<div class="tm-directory-header"><h2 class="tm-directory-title">' . $this->escape( (string) ( $directory['title'] ?? '' ) ) . '</h2>';
         $intro = (string) ( $view_model['intro_html'] ?? '' );
         if ( $intro !== '' ) {

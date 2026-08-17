@@ -333,7 +333,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $view_options = [ 'list' => 'List', 'boxes' => 'Boxes', 'cards' => 'Cards', 'tree' => 'Tree' ];
         $form_id = 'tm-directory-form-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $id !== '' ? $id : 'new' );
 
-        $html = '<form method="post" action="' . $escape( $directory_save_url ) . '" class="border rounded p-3 d-grid gap-3">';
+        $html = '<form method="post" action="' . $escape( $directory_save_url ) . '" class="rounded-3 p-3 bg-body-secondary d-grid gap-3" data-tm-admin-surface-group>';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
         $html .= '<input type="hidden" name="type_key" value="links">';
         if ( $id !== '' ) {
@@ -377,7 +377,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'directory_id' => (string) ( $directory['id'] ?? '' ),
             'type_key' => (string) ( $type['key'] ?? '' ),
         ];
-        $html = '<form method="post" action="' . $escape( $item_save_url ) . '" class="border rounded p-3 d-grid gap-3">';
+        $html = '<form method="post" action="' . $escape( $item_save_url ) . '" class="rounded-3 p-3 bg-body-secondary d-grid gap-3" data-tm-links-item-form data-tm-admin-surface-group>';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
         $html .= '<input type="hidden" name="directory_id" value="' . $escape( (string) ( $directory['id'] ?? '' ) ) . '">';
         if ( $item_id !== '' ) {
@@ -501,24 +501,23 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
 
         $body_html .= '<section class="row g-4 align-items-start">';
-        $body_html .= '<aside class="col-12 col-xl-3"><div class="d-grid gap-3">';
+        $body_html .= '<aside class="col-12 col-lg-3"><div class="d-grid gap-3">';
         $body_html .= '<div class="d-flex align-items-center justify-content-between gap-2"><div class="small text-uppercase text-body-secondary">Link collections</div><a class="btn btn-primary btn-sm" href="' . $escape( $build_admin_url( [ 'directory' => 'new', 'tab' => 'settings' ] ) ) . '"><span class="bi bi-plus-lg me-1" aria-hidden="true"></span>New</a></div>';
         if ( empty( $directories ) ) {
             $body_html .= '<div class="text-body-secondary small">No link collections yet.</div>';
         } else {
-            $body_html .= '<nav class="d-grid gap-2" aria-label="Link collections">';
+            $collection_navigation_html = '';
             foreach ( $directories as $directory ) {
                 $directory_id = (string) ( $directory['id'] ?? '' );
                 $items = $directory_service->listItems( $directory_id );
-                $type = is_array( $directory['type'] ?? null ) ? $directory['type'] : [];
                 $is_active = is_array( $selected_directory ) && (string) ( $selected_directory['id'] ?? '' ) === $directory_id;
-                $body_html .= '<a class="text-decoration-none ' . ( $is_active ? 'border-start border-primary border-3 ps-2 fw-semibold' : 'ps-3' ) . '" href="' . $escape( $build_admin_url( [ 'directory' => $directory_id, 'tab' => 'items' ] ) ) . '"' . ( $is_active ? ' aria-current="page"' : '' ) . '><span class="d-flex justify-content-between align-items-start gap-2"><span class="text-break">' . $escape( (string) ( $directory['title'] ?? 'Untitled links' ) ) . '</span><span class="small text-body-secondary">' . (int) count( $items ) . '</span></span><span class="d-block small text-body-secondary">Links</span></a>';
+                $collection_navigation_html .= '<a class="text-decoration-none py-1 ' . ( $is_active ? 'border-start border-primary border-3 ps-2 fw-semibold' : 'ps-3' ) . '" href="' . $escape( $build_admin_url( [ 'directory' => $directory_id, 'tab' => 'items' ] ) ) . '"' . ( $is_active ? ' aria-current="page"' : '' ) . '><span class="d-flex justify-content-between align-items-start gap-2"><span class="text-break">' . $escape( (string) ( $directory['title'] ?? 'Untitled links' ) ) . '</span><span class="small text-body-secondary">' . (int) count( $items ) . '</span></span></a>';
             }
-            $body_html .= '</nav>';
+            $body_html .= '<nav class="d-none d-lg-grid gap-2" aria-label="Link collections" data-tm-links-navigation-desktop>' . $collection_navigation_html . '</nav><details class="d-lg-none" data-tm-links-navigation-mobile><summary class="fw-semibold py-2">Browse link collections</summary><nav class="d-grid gap-2 pt-2" aria-label="Link collections">' . $collection_navigation_html . '</nav></details>';
         }
         $body_html .= '</div></aside>';
 
-        $body_html .= '<div class="col-12 col-xl-9">';
+        $body_html .= '<div class="col-12 col-lg-9" data-tm-links-current-workspace>';
         if ( $new_directory_requested || $selected_directory === null ) {
             $body_html .= '<section class="d-grid gap-3">';
             $body_html .= '<div><div class="small text-uppercase text-body-secondary mb-1">New links</div><h2 class="h4 mb-1">Create a link collection</h2><div class="small text-body-secondary">Add a title, optional intro, and then fill it with categorized links.</div></div>';
@@ -532,6 +531,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $item_label = mb_trim( (string) ( $selected_type['item_label'] ?? 'item' ) ) ?: 'item';
             $item_label_action = mb_strtolower( mb_substr( $item_label, 0, 1 ) ) . mb_substr( $item_label, 1 );
             $edit_item_id = trim( (string) ( $query['edit_item'] ?? '' ) );
+            $new_item_requested = (string) ( $query['new_item'] ?? '' ) === '1';
             $edit_item = null;
             if ( $edit_item_id !== '' ) {
                 foreach ( $selected_items as $item ) {
@@ -543,7 +543,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
 
             $body_html .= '<section class="d-grid gap-4">';
-            $body_html .= '<div class="d-flex flex-wrap align-items-start justify-content-between gap-3"><div><div class="small text-uppercase text-body-secondary mb-1">Links</div><h2 class="h4 mb-1">' . $escape( (string) ( $selected_directory['title'] ?? 'Untitled links' ) ) . '</h2><div class="small text-body-secondary"><code>[links id="' . $escape( $selected_alias ) . '"]</code></div></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $plugin_url ) . '"><span class="bi bi-arrow-clockwise me-1" aria-hidden="true"></span>Refresh</a><a class="btn btn-primary btn-sm" href="' . $escape( $build_admin_url( [ 'directory' => $selected_id, 'tab' => 'items' ] ) ) . '"><span class="bi bi-plus-lg me-1" aria-hidden="true"></span>Add ' . $escape( $item_label_action ) . '</a></div></div>';
+            $body_html .= '<div class="d-flex flex-wrap align-items-start justify-content-between gap-3"><div><div class="small text-uppercase text-body-secondary mb-1">Links</div><h2 class="h4 mb-1">' . $escape( (string) ( $selected_directory['title'] ?? 'Untitled links' ) ) . '</h2><div class="small text-body-secondary"><code>[links id="' . $escape( $selected_alias ) . '"]</code></div></div><a class="btn btn-primary btn-sm" href="' . $escape( $build_admin_url( [ 'directory' => $selected_id, 'tab' => 'items', 'new_item' => '1' ] ) ) . '"><span class="bi bi-plus-lg me-1" aria-hidden="true"></span>Add ' . $escape( $item_label_action ) . '</a></div>';
             $body_html .= '<nav class="nav nav-tabs" aria-label="Links sections">';
             foreach ( [ 'items' => 'Items', 'settings' => 'Settings', 'display' => 'Display' ] as $tab => $label ) {
                 $body_html .= '<a class="nav-link' . ( $active_tab === $tab ? ' active' : '' ) . '" href="' . $escape( $build_admin_url( [ 'directory' => $selected_id, 'tab' => $tab ] ) ) . '">' . $escape( $label ) . '</a>';
@@ -558,9 +558,12 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="row g-4"><div class="col-12 col-lg-6"><section><div class="fw-semibold mb-1">Views</div><div class="small text-body-secondary d-grid gap-1"><code>[links id="' . $escape( $selected_alias ) . '" view="list"]</code><code>[links id="' . $escape( $selected_alias ) . '" view="boxes"]</code><code>[links id="' . $escape( $selected_alias ) . '" view="cards"]</code><code>[links id="' . $escape( $selected_alias ) . '" view="tree"]</code></div></section></div><div class="col-12 col-lg-6"><section><div class="fw-semibold mb-1">Options</div><div class="small text-body-secondary d-grid gap-1"><code>expanded="true"</code><code>depth="2"</code><code>wide="true"</code><code>sidebar="false"</code><span>Default view: ' . $escape( ucfirst( (string) ( $selected_directory['default_view'] ?? 'list' ) ) ) . '</span></div></section></div></div></div>';
             } else {
                 $body_html .= '<div class="d-grid gap-4">';
-                $body_html .= $render_item_form( $selected_directory, is_array( $edit_item ) ? $edit_item : [], $selected_items, ( is_array( $edit_item ) ? 'Edit ' : 'Add ' ) . $item_label_action, is_array( $edit_item ) ? 'Save ' . $item_label_action : 'Add ' . $item_label_action );
-                if ( is_array( $edit_item ) ) {
-                    $body_html .= '<div><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $build_admin_url( [ 'directory' => $selected_id, 'tab' => 'items' ] ) ) . '">Cancel editing</a></div>';
+                $show_item_form = is_array( $edit_item ) || $new_item_requested || empty( $selected_items );
+                if ( $show_item_form ) {
+                    $body_html .= $render_item_form( $selected_directory, is_array( $edit_item ) ? $edit_item : [], $selected_items, ( is_array( $edit_item ) ? 'Edit ' : 'Add ' ) . $item_label_action, is_array( $edit_item ) ? 'Save ' . $item_label_action : 'Add ' . $item_label_action );
+                }
+                if ( ( is_array( $edit_item ) || $new_item_requested ) && ! empty( $selected_items ) ) {
+                    $body_html .= '<div><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $build_admin_url( [ 'directory' => $selected_id, 'tab' => 'items' ] ) ) . '">' . ( is_array( $edit_item ) ? 'Cancel editing' : 'Cancel adding' ) . '</a></div>';
                 }
                 if ( empty( $selected_items ) ) {
                     $body_html .= '<p class="text-body-secondary mb-0">No links have been added to this collection.</p>';
@@ -569,13 +572,13 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     foreach ( $selected_items as $item ) {
                         $item_id = (string) ( $item['id'] ?? '' );
                         $edit_url = $build_admin_url( [ 'directory' => $selected_id, 'tab' => 'items', 'edit_item' => $item_id ] );
-                        $body_html .= '<tr' . ( $edit_item_id === $item_id ? ' class="table-active"' : '' ) . '><td><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? 'Untitled item' ) ) . '</div></td><td class="small text-body-secondary">' . $escape( $summarize_item( $selected_directory, $item ) ) . '</td><td>' . (int) ( $item['sort_order'] ?? 0 ) . '</td><td><span class="badge text-bg-' . ( ! empty( $item['enabled'] ) ? 'success' : 'secondary' ) . '">' . ( ! empty( $item['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></td><td><div class="d-flex flex-wrap gap-1 justify-content-end"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $edit_url ) . '" title="Edit ' . $escape( $item_label_action ) . '"><span class="bi bi-pencil" aria-hidden="true"></span></a><form method="post" action="' . $escape( $item_duplicate_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit" title="Duplicate ' . $escape( $item_label_action ) . '"><span class="bi bi-files" aria-hidden="true"></span></button></form><form method="post" action="' . $escape( $item_delete_url ) . '" onsubmit="return confirm(\'Delete this item and any child items?\');"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-danger btn-sm" type="submit" title="Delete ' . $escape( $item_label_action ) . '"><span class="bi bi-trash" aria-hidden="true"></span></button></form></div></td></tr>';
+                        $body_html .= '<tr' . ( $edit_item_id === $item_id ? ' class="table-active"' : '' ) . '><td><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? 'Untitled item' ) ) . '</div></td><td class="small text-body-secondary">' . $escape( $summarize_item( $selected_directory, $item ) ) . '</td><td>' . (int) ( $item['sort_order'] ?? 0 ) . '</td><td><span class="' . ( ! empty( $item['enabled'] ) ? 'text-success-emphasis' : 'text-body-secondary' ) . '">' . ( ! empty( $item['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></td><td><div class="d-flex flex-wrap gap-1 justify-content-end"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $edit_url ) . '" title="Edit ' . $escape( $item_label_action ) . '"><span class="bi bi-pencil" aria-hidden="true"></span></a><form method="post" action="' . $escape( $item_duplicate_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit" title="Duplicate ' . $escape( $item_label_action ) . '"><span class="bi bi-files" aria-hidden="true"></span></button></form><form method="post" action="' . $escape( $item_delete_url ) . '" onsubmit="return confirm(\'Delete this item and any child items?\');"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-danger btn-sm" type="submit" title="Delete ' . $escape( $item_label_action ) . '"><span class="bi bi-trash" aria-hidden="true"></span></button></form></div></td></tr>';
                     }
                     $body_html .= '</tbody></table></div><div class="d-grid d-lg-none">';
                     foreach ( $selected_items as $item ) {
                         $item_id = (string) ( $item['id'] ?? '' );
                         $edit_url = $build_admin_url( [ 'directory' => $selected_id, 'tab' => 'items', 'edit_item' => $item_id ] );
-                        $body_html .= '<article class="d-grid gap-2 py-3 border-top"><div class="d-flex align-items-start justify-content-between gap-2"><div><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? 'Untitled item' ) ) . '</div><div class="small text-body-secondary">' . $escape( $summarize_item( $selected_directory, $item ) ) . '</div></div><span class="badge text-bg-' . ( ! empty( $item['enabled'] ) ? 'success' : 'secondary' ) . '">' . ( ! empty( $item['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></div><div class="d-flex flex-wrap gap-1"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $edit_url ) . '"><span class="bi bi-pencil me-1" aria-hidden="true"></span>Edit</a><form method="post" action="' . $escape( $item_duplicate_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit"><span class="bi bi-files me-1" aria-hidden="true"></span>Duplicate</button></form><form method="post" action="' . $escape( $item_delete_url ) . '" onsubmit="return confirm(\'Delete this item and any child items?\');"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-danger btn-sm" type="submit"><span class="bi bi-trash me-1" aria-hidden="true"></span>Delete</button></form></div></article>';
+                        $body_html .= '<article class="d-grid gap-2 py-3 border-top"><div class="d-flex align-items-start justify-content-between gap-2"><div><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? 'Untitled item' ) ) . '</div><div class="small text-body-secondary">' . $escape( $summarize_item( $selected_directory, $item ) ) . '</div></div><span class="' . ( ! empty( $item['enabled'] ) ? 'text-success-emphasis' : 'text-body-secondary' ) . '">' . ( ! empty( $item['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></div><div class="d-flex flex-wrap gap-1"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $edit_url ) . '"><span class="bi bi-pencil me-1" aria-hidden="true"></span>Edit</a><form method="post" action="' . $escape( $item_duplicate_url ) . '"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-secondary btn-sm" type="submit"><span class="bi bi-files me-1" aria-hidden="true"></span>Duplicate</button></form><form method="post" action="' . $escape( $item_delete_url ) . '" onsubmit="return confirm(\'Delete this item and any child items?\');"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="directory_id" value="' . $escape( $selected_id ) . '"><input type="hidden" name="id" value="' . $escape( $item_id ) . '"><button class="btn btn-outline-danger btn-sm" type="submit"><span class="bi bi-trash me-1" aria-hidden="true"></span>Delete</button></form></div></article>';
                     }
                     $body_html .= '</div>';
                 }
@@ -784,13 +787,19 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $plugins->redirect( $plugin_url );
                 return;
             }
+            $redirect_query = [ 'directory' => (string) ( $data['directory_id'] ?? '' ), 'tab' => 'items' ];
             try {
                 $directory_service->saveItem( $data, $security->isSuperAdmin(), $current_username() );
                 $security->setFlash( 'directory.notice', [ 'type' => 'success', 'message' => 'Link saved.' ] );
             } catch ( \Throwable $e ) {
+                if ( trim( (string) ( $data['id'] ?? '' ) ) !== '' ) {
+                    $redirect_query['edit_item'] = (string) $data['id'];
+                } else {
+                    $redirect_query['new_item'] = '1';
+                }
                 $handle_exception( $e, 'Item save failed.' );
             }
-            $plugins->redirect( $build_admin_url( [ 'directory' => (string) ( $data['directory_id'] ?? '' ), 'tab' => 'items' ] ) );
+            $plugins->redirect( $build_admin_url( $redirect_query ) );
     };
     foreach ( [ $item_save_url, $legacy_item_save_url ] as $route_url ) {
         $plugins->registerRoute( $plugin_key, 'post', $route_url, $item_save_route );

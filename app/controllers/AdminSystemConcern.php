@@ -2147,7 +2147,7 @@ trait AdminSystemConcern {
 
             $previous_entry = $entry;
             $entry = $this->content_repository->updateEntryStatus( $entry_id, $status );
-            $this->queueFediverseEntrySync(
+            $this->dispatchContentLifecycle(
                 is_array( $previous_entry ) ? $previous_entry : null,
                 $entry,
                 (string) ( $this->security->getCurrentUsername() ?? '' )
@@ -2205,7 +2205,14 @@ trait AdminSystemConcern {
             return( [] );
         }
 
-        return( $this->content_repository->getOrphanedEntryGroups( $this->config->getDefaultLanguage() ) );
+        $groups = $this->content_repository->getOrphanedEntryGroups( $this->config->getDefaultLanguage() );
+        foreach ( $groups as $group_index => $group ) {
+            foreach ( (array) ( $group['entries'] ?? [] ) as $entry_index => $entry ) {
+                $groups[$group_index]['entries'][$entry_index]['updated_at_display'] = $this->formatUtcDateTime( (string) ( $entry['updated_at_utc'] ?? '' ) );
+            }
+        }
+
+        return( $groups );
     }
 
     protected function getSystemUserFormState() : array {
@@ -2282,6 +2289,7 @@ trait AdminSystemConcern {
                 'author_slug' => 'The Username/Author could not be derived from that input.',
                 'email' => 'The e-mail address is not valid.',
                 'theme_mode' => 'The selected theme mode is not valid.',
+                'editor_mode' => 'The selected Composer mode is not valid.',
                 'default_entry_type' => 'The default content type is not valid.',
                 'default_status' => 'The default publishing status is not valid.',
                 'site_name' => 'The site name is required.',

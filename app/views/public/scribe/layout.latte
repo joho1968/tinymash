@@ -1,0 +1,38 @@
+{extends '../baseline/layout.latte'}
+
+{block public_header_identity}
+    {var $scribe_author_identity = in_array(($theme_settings['author_identity'] ?? 'name'), ['name', 'name_handle', 'hidden'], true) ? (string) ($theme_settings['author_identity'] ?? 'name') : 'name'}
+    {var $scribe_author_name = trim((string) ($author_display_name ?? ($entry['author_display_name'] ?? $theme_author_space_slug)))}
+    {if $theme_author_space_slug !== ''}
+        <span n:if="$scribe_author_identity !== 'hidden'" class="tm-scribe-author-identity d-inline-flex flex-wrap align-items-baseline gap-2">
+            <a class="text-decoration-none text-body-emphasis" href="/{$theme_author_space_slug}">{$scribe_author_name !== '' ? $scribe_author_name : $theme_author_space_slug}</a>
+            <span n:if="$scribe_author_identity === 'name_handle'" class="tm-scribe-author-handle text-body-secondary">@{$theme_author_space_slug}</span>
+        </span>
+        <div n:if="($theme_settings['author_social_links'] ?? 'disabled') === 'enabled' && ! empty( $theme_public_author_identity_fragments )" class="tm-scribe-author-social d-inline-flex align-items-center">
+            {foreach $theme_public_author_identity_fragments as $theme_public_author_identity_fragment}
+                <div n:if="! empty( $theme_public_author_identity_fragment['html'] )" data-tm-plugin-fragment="{$theme_public_author_identity_fragment['plugin_key'] ?? ''}">{$theme_public_author_identity_fragment['html']|noescape}</div>
+            {/foreach}
+        </div>
+        <a n:if="! empty( $author_home_can_edit ) && ! empty( $author_home_edit_url )" class="btn btn-outline-primary btn-sm" href="{$author_home_edit_url}">Edit</a>
+    {elseif ! empty( $site_slogan )}
+        <span class="fs-6 text-body-secondary">{$site_slogan}</span>
+    {/if}
+{/block}
+
+{block public_footer_desktop_fragments}
+    <div n:if="! empty( $theme_public_footer_fragments )" class="d-grid gap-3">
+        {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
+            <section class="tm-scribe-footer-fragment small text-body-secondary" data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">
+                {if ! empty( $theme_public_footer_fragment['lines'] ) }
+                    <div class="tm-scribe-footer-lines">
+                        {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
+                            <div>{$theme_public_footer_line|noescape}</div>
+                        {/foreach}
+                    </div>
+                {elseif ! empty( $theme_public_footer_fragment['html'] ) }
+                    <div>{$theme_public_footer_fragment['html']|noescape}</div>
+                {/if}
+            </section>
+        {/foreach}
+    </div>
+{/block}

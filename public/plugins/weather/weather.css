@@ -1,3 +1,9 @@
+.tm-weather-container {
+    container-name: tm-weather;
+    container-type: inline-size;
+    max-width: 100%;
+}
+
 .tm-weather {
     --tm-weather-current-icon-size: 6rem;
     --tm-weather-forecast-icon-size: 5rem;
@@ -36,7 +42,7 @@
     grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 500px) {
+@container tm-weather (min-width: 500px) {
     .tm-weather-horizontal:not(.tm-weather-admin-preview) {
         display: grid;
         grid-template-columns: minmax(10rem, .9fr) minmax(14rem, 1.1fr);

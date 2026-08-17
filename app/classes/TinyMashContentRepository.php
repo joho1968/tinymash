@@ -411,7 +411,22 @@ class TinyMashContentRepository {
             $author_home = is_array( $index['author_home'][$author_slug] ?? null ) ? $index['author_home'][$author_slug] : [];
             $ordered_post_ids = array_values( array_filter( is_array( $author_home['post_ids'] ?? null ) ? $author_home['post_ids'] : [], 'is_string' ) );
         } else {
-            $ordered_post_ids = array_values( array_filter( is_array( $index['aggregated_post_ids'] ?? null ) ? $index['aggregated_post_ids'] : [], 'is_string' ) );
+            $ordered_post_ids = array_values(
+                array_filter(
+                    is_array( $index['aggregated_post_ids'] ?? null ) ? $index['aggregated_post_ids'] : [],
+                    static function( mixed $candidate_id ) use ( $published_entry_lookup ) : bool {
+                        if ( ! is_string( $candidate_id ) || ! is_array( $published_entry_lookup[$candidate_id] ?? null ) ) {
+                            return( false );
+                        }
+
+                        $candidate = $published_entry_lookup[$candidate_id];
+                        return(
+                            (string) ( $candidate['type'] ?? '' ) === 'post'
+                            && (string) ( $candidate['scope'] ?? 'root' ) === 'root'
+                        );
+                    }
+                )
+            );
         }
 
         $entry_index = array_search( $entry_id, $ordered_post_ids, true );
@@ -674,6 +689,7 @@ class TinyMashContentRepository {
             'posts' => 0,
             'pages' => 0,
             'authors' => 0,
+            'scheduled' => 0,
             'pending_review' => 0,
         ];
         $authors = [];
@@ -688,7 +704,9 @@ class TinyMashContentRepository {
             } elseif ( $entry['type'] === 'page' ) {
                 $stats['pages']++;
             }
-            if ( $entry['status'] === 'pending_review' ) {
+            if ( $entry['status'] === 'scheduled' ) {
+                $stats['scheduled']++;
+            } elseif ( $entry['status'] === 'pending_review' ) {
                 $stats['pending_review']++;
             }
             if ( $entry['scope'] === 'author' && $entry['author_slug'] !== '' ) {
@@ -1461,6 +1479,9 @@ class TinyMashContentRepository {
             if ( $normalized_status === 'published' && $published_at_utc === '' ) {
                 $published_at_utc = $now_utc;
             }
+            if ( $normalized_status === 'scheduled' ) {
+                $this->assertFutureScheduledTimestamp( $published_at_utc, $now_utc );
+            }
 
             $raw_entry = [
                 'id' => $this->generateEntryId(),
@@ -1598,6 +1619,9 @@ class TinyMashContentRepository {
         if ( $normalized_status === 'published' && $published_at_utc === '' ) {
             $published_at_utc = $now_utc;
         }
+        if ( $normalized_status === 'scheduled' ) {
+            $this->assertFutureScheduledTimestamp( $published_at_utc, $now_utc );
+        }
 
         $updated_at_utc = $updated_at_override !== '' ? $updated_at_override : $now_utc;
 
@@ -1636,6 +1660,12 @@ class TinyMashContentRepository {
             'featured_image' => $normalized_editor_entry['featured_image'],
             'fallback_cover_color' => $normalized_editor_entry['fallback_cover_color'],
         ];
+        if ( $normalized_status === 'published' ) {
+            $publication_event = $this->normalizePublicationEvent( $existing_raw_entry['publication_event'] ?? [] );
+            if ( $publication_event !== [] && $publication_event['completed_at_utc'] === '' ) {
+                $raw_entry['publication_event'] = $publication_event;
+            }
+        }
 
         if ( $normalized_editor_entry['scope'] === 'author' ) {
             $raw_entry['author_slug'] = $normalized_editor_entry['author_slug'];
@@ -1771,12 +1801,18 @@ class TinyMashContentRepository {
             }
 
             $normalized_status = $this->normalizeStatus( $status );
+            if ( $normalized_status === 'scheduled' ) {
+                $this->assertFutureScheduledTimestamp( (string) ( $raw_entry['published_at_utc'] ?? '' ), gmdate( 'Y-m-d\TH:i:s\Z' ) );
+            }
             if ( $this->normalizeStatus( (string) ( $raw_entry['status'] ?? '' ) ) === $normalized_status ) {
                 return( $accessible_entry );
             }
 
             $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
             $raw_entry['status'] = $normalized_status;
+            if ( $normalized_status !== 'published' ) {
+                unset( $raw_entry['publication_event'] );
+            }
             if ( $normalized_status === 'published' && empty( $raw_entry['published_at_utc'] ) ) {
                 $raw_entry['published_at_utc'] = $now_utc;
             }
@@ -1813,6 +1849,9 @@ class TinyMashContentRepository {
 
             $target_ids = array_fill_keys( $normalized_ids, true );
             $normalized_status = $this->normalizeStatus( $status );
+            if ( $normalized_status === 'scheduled' ) {
+                throw new \InvalidArgumentException( 'scheduled_batch_not_supported' );
+            }
             $now_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
             $changed_entries = [];
 
@@ -1835,6 +1874,9 @@ class TinyMashContentRepository {
                 }
 
                 $raw_entry['status'] = $normalized_status;
+                if ( $normalized_status !== 'published' ) {
+                    unset( $raw_entry['publication_event'] );
+                }
                 if ( $normalized_status === 'published' && empty( $raw_entry['published_at_utc'] ) ) {
                     $raw_entry['published_at_utc'] = $now_utc;
                 }
@@ -1864,6 +1906,182 @@ class TinyMashContentRepository {
             }
 
             return( count( $changed_entries ) );
+        } ) );
+    }
+
+    public function activateDueScheduledEntries( string $now_utc = '' ) : array {
+        return( $this->withLockedContentStore( function() use ( $now_utc ) : array {
+            $now_utc = $this->normalizeImportTimestamp( $now_utc !== '' ? $now_utc : gmdate( 'Y-m-d\TH:i:s\Z' ) );
+            if ( $now_utc === '' ) {
+                throw new \InvalidArgumentException( 'scheduled_now_utc' );
+            }
+
+            $scheduled = 0;
+            $due = 0;
+            $transitioned_count = 0;
+            $activated = [];
+            $failures = [];
+            $stored_entries = [];
+
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $raw_entry = $this->readRawEntryMetadataFromStorage( $metadata_file );
+                if ( is_array( $raw_entry ) ) {
+                    $stored_entries[] = [ 'metadata_file' => $metadata_file, 'raw_entry' => $raw_entry ];
+                }
+            }
+
+            foreach ( $stored_entries as $stored_entry ) {
+                $metadata_file = (string) ( $stored_entry['metadata_file'] ?? '' );
+                $raw_entry = is_array( $stored_entry['raw_entry'] ?? null ) ? $stored_entry['raw_entry'] : null;
+                try {
+                    if ( ! is_array( $raw_entry ) || $this->normalizeStatus( (string) ( $raw_entry['status'] ?? '' ) ) !== 'scheduled' ) {
+                        continue;
+                    }
+
+                    $scheduled++;
+                    $publish_at_utc = $this->normalizeImportTimestamp( (string) ( $raw_entry['published_at_utc'] ?? '' ) );
+                    if ( $publish_at_utc === '' ) {
+                        $failures[] = [
+                            'entry_id' => trim( (string) ( $raw_entry['id'] ?? '' ) ),
+                            'message' => 'Scheduled content has no valid publish date/time.',
+                        ];
+                        continue;
+                    }
+                    if ( strcmp( $publish_at_utc, $now_utc ) > 0 ) {
+                        continue;
+                    }
+
+                    $due++;
+                    $entry_id = trim( (string) ( $raw_entry['id'] ?? '' ) );
+                    if ( $entry_id === '' ) {
+                        $failures[] = [ 'entry_id' => '', 'message' => 'Scheduled content has no entry id.' ];
+                        continue;
+                    }
+
+                    $full_raw_entry = $this->readRawEntryFromStorage( $metadata_file );
+                    if ( ! is_array( $full_raw_entry ) || ! is_array( $this->normalizeEntry( $full_raw_entry ) ) ) {
+                        throw new \RuntimeException( 'Scheduled content could not be read safely.' );
+                    }
+
+                    $raw_entry['status'] = 'published';
+                    $raw_entry['published_at_utc'] = $publish_at_utc;
+                    $raw_entry['publication_event'] = [
+                        'id' => hash( 'sha256', $entry_id . "\n" . $publish_at_utc ),
+                        'kind' => 'scheduled_publication',
+                        'created_at_utc' => $now_utc,
+                        'completed_at_utc' => '',
+                        'attempts' => 0,
+                        'last_attempt_at_utc' => '',
+                        'last_error' => '',
+                    ];
+
+                    $this->writeRawEntryMetadataToStorage( $metadata_file, $raw_entry );
+                    $transitioned_count++;
+                    $full_raw_entry['status'] = 'published';
+                    $full_raw_entry['published_at_utc'] = $publish_at_utc;
+                    $full_raw_entry['publication_event'] = $raw_entry['publication_event'];
+                    $saved_entry = $this->normalizeEntry( $full_raw_entry );
+                    if ( ! is_array( $saved_entry ) ) {
+                        throw new \RuntimeException( 'Activated content could not be normalized.' );
+                    }
+
+                    $activated[] = [
+                        'event' => $this->normalizePublicationEvent( $raw_entry['publication_event'] ),
+                        'entry' => $saved_entry,
+                    ];
+                    $this->writeRevisionSnapshot( $saved_entry );
+                } catch ( \Throwable $exception ) {
+                    $failures[] = [
+                        'entry_id' => is_array( $raw_entry ) ? trim( (string) ( $raw_entry['id'] ?? '' ) ) : '',
+                        'message' => $exception->getMessage(),
+                    ];
+                }
+            }
+
+            if ( $transitioned_count > 0 ) {
+                $this->clearDerivedCaches();
+            }
+
+            return(
+                [
+                    'now_utc' => $now_utc,
+                    'scheduled' => $scheduled,
+                    'due' => $due,
+                    'activated' => $activated,
+                    'activated_count' => $transitioned_count,
+                    'failures' => $failures,
+                    'failed_count' => count( $failures ),
+                ]
+            );
+        } ) );
+    }
+
+    public function getPendingScheduledPublicationEvents() : array {
+        return( $this->withSharedContentStore( function() : array {
+            $events = [];
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $raw_entry = $this->readRawEntryMetadataFromStorage( $metadata_file );
+                if ( ! is_array( $raw_entry ) || $this->normalizeStatus( (string) ( $raw_entry['status'] ?? '' ) ) !== 'published' ) {
+                    continue;
+                }
+
+                $event = $this->normalizePublicationEvent( $raw_entry['publication_event'] ?? [] );
+                if ( $event === [] || $event['kind'] !== 'scheduled_publication' || $event['completed_at_utc'] !== '' ) {
+                    continue;
+                }
+
+                $full_raw_entry = $this->readRawEntryFromStorage( $metadata_file );
+                $entry = is_array( $full_raw_entry ) ? $this->normalizeEntry( $full_raw_entry ) : null;
+                if ( ! is_array( $entry ) ) {
+                    continue;
+                }
+
+                $events[] = [ 'event' => $event, 'entry' => $entry ];
+            }
+
+            usort(
+                $events,
+                static fn( array $left, array $right ) : int => strcmp(
+                    (string) ( $left['event']['created_at_utc'] ?? '' ),
+                    (string) ( $right['event']['created_at_utc'] ?? '' )
+                )
+            );
+            return( $events );
+        } ) );
+    }
+
+    public function recordScheduledPublicationEventAttempt( string $entry_id, string $event_id, string $error = '', string $attempted_at_utc = '' ) : bool {
+        return( $this->withLockedContentStore( function() use ( $entry_id, $event_id, $error, $attempted_at_utc ) : bool {
+            $entry_id = trim( $entry_id );
+            $event_id = trim( $event_id );
+            $attempted_at_utc = $this->normalizeImportTimestamp( $attempted_at_utc !== '' ? $attempted_at_utc : gmdate( 'Y-m-d\TH:i:s\Z' ) );
+            if ( $entry_id === '' || $event_id === '' || $attempted_at_utc === '' ) {
+                return( false );
+            }
+
+            foreach ( $this->getEntryMetadataFiles() as $metadata_file ) {
+                $raw_entry = $this->readRawEntryMetadataFromStorage( $metadata_file );
+                if ( ! is_array( $raw_entry ) || trim( (string) ( $raw_entry['id'] ?? '' ) ) !== $entry_id ) {
+                    continue;
+                }
+
+                $event = $this->normalizePublicationEvent( $raw_entry['publication_event'] ?? [] );
+                if ( $event === [] || ! hash_equals( $event['id'], $event_id ) || $event['completed_at_utc'] !== '' ) {
+                    return( false );
+                }
+
+                $event['attempts']++;
+                $event['last_attempt_at_utc'] = $attempted_at_utc;
+                $event['last_error'] = mb_trim( $error );
+                if ( $event['last_error'] === '' ) {
+                    $event['completed_at_utc'] = $attempted_at_utc;
+                }
+                $raw_entry['publication_event'] = $event;
+                $this->writeRawEntryMetadataToStorage( $metadata_file, $raw_entry );
+                return( true );
+            }
+
+            return( false );
         } ) );
     }
 
@@ -1981,6 +2199,7 @@ class TinyMashContentRepository {
                 $raw_entry['status'] = 'trashed';
                 $raw_entry['trashed_at_utc'] = $now_utc;
                 $raw_entry['trashed_by'] = $trashed_by;
+                unset( $raw_entry['publication_event'] );
                 $this->writeRawEntryToStorage( $raw_entry, false, dirname( $metadata_file ) );
                 $changed_count++;
                 unset( $target_ids[$entry_id] );
@@ -2042,7 +2261,7 @@ class TinyMashContentRepository {
                     continue;
                 }
                 $raw_entries[$index]['status'] = 'unpublished';
-                unset( $raw_entries[$index]['trashed_at_utc'], $raw_entries[$index]['trashed_by'] );
+                unset( $raw_entries[$index]['trashed_at_utc'], $raw_entries[$index]['trashed_by'], $raw_entries[$index]['publication_event'] );
 
                 $normalized_entry = $this->normalizeEntry( $raw_entries[$index] );
                 if ( ! is_array( $normalized_entry ) ) {
@@ -2593,11 +2812,47 @@ class TinyMashContentRepository {
 
     protected function normalizeStatus( string $status ) : string {
         $status = strtolower( trim( $status ) );
-        if ( in_array( $status, [ 'draft', 'published', 'unpublished', 'pending_review', 'trashed' ], true ) ) {
+        if ( in_array( $status, [ 'draft', 'published', 'scheduled', 'unpublished', 'pending_review', 'trashed' ], true ) ) {
             return( $status );
         }
 
         return( 'unpublished' );
+    }
+
+    protected function assertFutureScheduledTimestamp( string $publish_at_utc, string $now_utc ) : void {
+        $publish_at_utc = $this->normalizeImportTimestamp( $publish_at_utc );
+        $now_utc = $this->normalizeImportTimestamp( $now_utc );
+        if ( $publish_at_utc === '' ) {
+            throw new \InvalidArgumentException( 'scheduled_publish_at_required' );
+        }
+        if ( $now_utc === '' || strcmp( $publish_at_utc, $now_utc ) <= 0 ) {
+            throw new \InvalidArgumentException( 'scheduled_publish_at_future' );
+        }
+    }
+
+    protected function normalizePublicationEvent( mixed $value ) : array {
+        if ( ! is_array( $value ) ) {
+            return( [] );
+        }
+
+        $id = strtolower( trim( (string) ( $value['id'] ?? '' ) ) );
+        $kind = strtolower( trim( (string) ( $value['kind'] ?? '' ) ) );
+        $created_at_utc = $this->normalizeImportTimestamp( (string) ( $value['created_at_utc'] ?? '' ) );
+        if ( preg_match( '/^[a-f0-9]{64}$/', $id ) !== 1 || $kind !== 'scheduled_publication' || $created_at_utc === '' ) {
+            return( [] );
+        }
+
+        return(
+            [
+                'id' => $id,
+                'kind' => $kind,
+                'created_at_utc' => $created_at_utc,
+                'completed_at_utc' => $this->normalizeImportTimestamp( (string) ( $value['completed_at_utc'] ?? '' ) ),
+                'attempts' => max( 0, (int) ( $value['attempts'] ?? 0 ) ),
+                'last_attempt_at_utc' => $this->normalizeImportTimestamp( (string) ( $value['last_attempt_at_utc'] ?? '' ) ),
+                'last_error' => mb_substr( mb_trim( (string) ( $value['last_error'] ?? '' ) ), 0, 500 ),
+            ]
+        );
     }
 
     protected function normalizePreTrashStatus( string $status ) : string {
@@ -3909,6 +4164,10 @@ class TinyMashContentRepository {
             'fallback_cover_color' => $normalized_entry['fallback_cover_color'],
             'translations' => [],
         ];
+        $publication_event = $this->normalizePublicationEvent( $raw_entry['publication_event'] ?? [] );
+        if ( $publication_event !== [] ) {
+            $metadata['publication_event'] = $publication_event;
+        }
         if ( $normalized_entry['scope'] === 'author' ) {
             $metadata['author_slug'] = $normalized_entry['author_slug'];
         }

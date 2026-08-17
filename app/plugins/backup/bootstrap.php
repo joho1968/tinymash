@@ -3,6 +3,7 @@
 require_once __DIR__ . '/TinyMashBackupArchiveService.php';
 
 use app\classes\TinyMashConfig;
+use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashExportService;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
@@ -11,13 +12,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $plugin_key = (string) ( $plugin['key'] ?? 'backup' );
     $project_root = dirname( __DIR__, 3 );
     $config = $plugins->getService( 'config' );
+    $date_formatter = $plugins->getService( 'date.formatter' );
     $security = $plugins->getService( 'security' );
     $export_service = $plugins->getService( 'export.service' );
     $archive_service = new TinyMashBackupArchiveService(
         $project_root . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'plugin-backup'
     );
 
-    if ( ! $config instanceof TinyMashConfig || ! $security instanceof TinyMashSecurity || ! $export_service instanceof TinyMashExportService ) {
+    if ( ! $config instanceof TinyMashConfig || ! $date_formatter instanceof TinyMashDateFormatter || ! $security instanceof TinyMashSecurity || ! $export_service instanceof TinyMashExportService ) {
         throw new \RuntimeException( 'Required services for the backup plugin are not available.' );
     }
 
@@ -226,7 +228,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         exit;
     };
 
-    $render_backup_page = static function( array $notice = [] ) use ( $plugins, $security, $config, $archive_service, $backup_url, $author_download_url, $site_download_url, $restore_inspect_url, $restore_apply_url, $restore_cancel_url, $escape, $format_bytes ) : void {
+    $render_backup_page = static function( array $notice = [] ) use ( $plugins, $security, $config, $date_formatter, $archive_service, $backup_url, $author_download_url, $site_download_url, $restore_inspect_url, $restore_apply_url, $restore_cancel_url, $escape, $format_bytes ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( (string) ( $config->configGetLoginURL() ?: '/login' ) );
             return;
@@ -315,6 +317,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $components = is_array( $inspection['components'] ?? null ) ? $inspection['components'] : [];
                 $conflicts = is_array( $inspection['target_conflicts'] ?? null ) ? $inspection['target_conflicts'] : [];
                 $token = (string) ( $restore_review['token'] ?? '' );
+                $exported_at_utc = trim( (string) ( $inspection['exported_at_utc'] ?? '' ) );
+                $exported_at_display = $exported_at_utc !== '' ? $date_formatter->formatUtcDateTime( $exported_at_utc ) : 'Unknown';
 
                 $body_html .= '<div class="row g-4">';
                 $body_html .= '<div class="col-12 col-xl-6">';
@@ -322,7 +326,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<dl class="row small mb-0">';
                 $body_html .= '<dt class="col-sm-5 text-body-secondary fw-normal">Archive</dt><dd class="col-sm-7 text-break">' . $escape( (string) ( $restore_review['original_filename'] ?? '' ) ) . '</dd>';
                 $body_html .= '<dt class="col-sm-5 text-body-secondary fw-normal">Site</dt><dd class="col-sm-7">' . $escape( (string) ( $inspection['site_name'] ?? 'Unnamed site' ) ) . '</dd>';
-                $body_html .= '<dt class="col-sm-5 text-body-secondary fw-normal">Exported UTC</dt><dd class="col-sm-7 font-monospace">' . $escape( (string) ( $inspection['exported_at_utc'] ?? '' ) ) . '</dd>';
+                $body_html .= '<dt class="col-sm-5 text-body-secondary fw-normal">Exported</dt><dd class="col-sm-7">' . $escape( $exported_at_display ) . '</dd>';
                 $body_html .= '<dt class="col-sm-5 text-body-secondary fw-normal">Format</dt><dd class="col-sm-7">Version ' . (int) ( $inspection['format_version'] ?? 0 ) . '</dd>';
                 $body_html .= '<dt class="col-sm-5 text-body-secondary fw-normal">Files</dt><dd class="col-sm-7">' . (int) ( $inspection['file_count'] ?? 0 ) . ' (' . $escape( $format_bytes( (int) ( $inspection['expanded_size_bytes'] ?? 0 ) ) ) . ')</dd>';
                 $body_html .= '</dl>';

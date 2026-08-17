@@ -146,7 +146,7 @@ trait AdminProfileSettingsConcern {
         $profile_section = $this->normalizeProfileSection( $profile_section );
 
         $section_fields = match ( $profile_section ) {
-            'editor' => [ 'autosave_mode', 'autosave_interval_seconds', 'classic_smileys_mode' ],
+            'editor' => [ 'editor_mode', 'autosave_mode', 'autosave_interval_seconds', 'classic_smileys_mode' ],
             'publishing' => [ 'default_entry_type', 'default_status', 'default_aggregate_to_root', 'discourage_search_indexing' ],
             'appearance' => [ 'public_theme_key', 'public_screen_mode', 'public_theme_content_width', 'public_theme_landing_page_path', 'public_banner_source', 'public_background_source', 'public_background_render_mode' ],
             'fediverse' => [],
@@ -199,6 +199,8 @@ trait AdminProfileSettingsConcern {
             $classic_smileys_mode = 'inherit';
         }
 
+        $editor_mode = strtolower( trim( (string) ( $data['editor_mode'] ?? 'full' ) ) );
+
         $default_entry_type = strtolower( trim( (string) ( $data['default_entry_type'] ?? 'post' ) ) );
         if ( ! in_array( $default_entry_type, [ 'post', 'page' ], true ) ) {
             $default_entry_type = 'post';
@@ -215,6 +217,7 @@ trait AdminProfileSettingsConcern {
             'role' => trim( (string) ( $data['role'] ?? $this->security->getCurrentRole() ) ),
             'email' => trim( (string) ( $data['email'] ?? '' ) ),
             'timezone' => trim( (string) ( $data['timezone'] ?? '' ) ),
+            'editor_mode' => $editor_mode,
             'autosave_mode' => $autosave_mode,
             'autosave_interval_seconds' => trim( (string) ( $data['autosave_interval_seconds'] ?? '' ) ),
             'classic_smileys_mode' => $classic_smileys_mode,
@@ -282,6 +285,11 @@ trait AdminProfileSettingsConcern {
         $autosave_mode = strtolower( trim( (string) ( $data['autosave_mode'] ?? 'inherit' ) ) );
         if ( ! in_array( $autosave_mode, [ 'inherit', 'enabled', 'disabled' ], true ) ) {
             throw new \InvalidArgumentException( 'autosave_mode' );
+        }
+
+        $editor_mode = strtolower( trim( (string) ( $data['editor_mode'] ?? 'full' ) ) );
+        if ( ! in_array( $editor_mode, [ 'focused', 'full' ], true ) ) {
+            throw new \InvalidArgumentException( 'editor_mode' );
         }
 
         $classic_smileys_mode = strtolower( trim( (string) ( $data['classic_smileys_mode'] ?? 'inherit' ) ) );
@@ -361,6 +369,7 @@ trait AdminProfileSettingsConcern {
                 'display_name' => mb_substr( $display_name, 0, 120 ),
                 'email' => mb_substr( $email, 0, 200 ),
                 'timezone' => $timezone,
+                'editor_mode' => $editor_mode,
                 'autosave_mode' => $autosave_mode,
                 'autosave_interval_seconds' => $autosave_interval_seconds,
                 'classic_smileys_mode' => $classic_smileys_mode,

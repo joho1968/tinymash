@@ -3,6 +3,7 @@
 require_once __DIR__ . '/TinyMashWhatsUpService.php';
 
 use app\classes\TinyMashConfig;
+use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashPublicPageCache;
 use app\classes\TinyMashSecurity;
@@ -58,7 +59,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return;
     }
 
-    if ( ! $security instanceof TinyMashSecurity ) {
+    $date_formatter = $plugins->getService( 'date.formatter' );
+    if ( ! $security instanceof TinyMashSecurity || ! $date_formatter instanceof TinyMashDateFormatter ) {
         throw new \RuntimeException( 'Required services for the What\'s Up plugin are not available.' );
     }
 
@@ -209,7 +211,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( true );
     };
 
-    $build_page = static function( array $notice = [] ) use ( $plugins, $security, $service, $save_url, $refresh_url, $escape ) : void {
+    $build_page = static function( array $notice = [] ) use ( $plugins, $security, $config, $date_formatter, $service, $save_url, $refresh_url, $escape ) : void {
         if ( empty( $notice ) ) {
             $flash_notice = $security->pullFlash( 'whats-up.notice', [] );
             if ( is_array( $flash_notice ) ) {
@@ -218,6 +220,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
         $settings = $service->getSettings();
         $cache = $service->getCache();
+        $refreshed_at_utc = trim( (string) ( $cache['refreshed_at_utc'] ?? '' ) );
+        $refreshed_at_display = $refreshed_at_utc !== '' ? $date_formatter->formatUtcDateTime( $refreshed_at_utc ) : 'Never';
         $timezones = timezone_identifiers_list();
         $timezone_html = '';
         foreach ( $timezones as $timezone ) {
@@ -236,7 +240,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $body_html = '<div class="tm-whats-up-admin d-grid gap-4" style="min-width:0;">';
         $body_html .= '<form method="post" action="' . $escape( $save_url ) . '" enctype="multipart/form-data" class="d-grid gap-4" style="min-width:0;">';
         $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
-        $body_html .= '<section style="min-width:0;"><div class="small text-uppercase text-body-secondary mb-2">Display defaults</div><div class="row g-3" style="min-width:0;">';
+        $body_html .= '<section class="rounded-3 p-3 bg-body-secondary" style="min-width:0;" data-tm-admin-surface-group><div class="small text-uppercase text-body-secondary mb-2">Display defaults</div><div class="row g-3" style="min-width:0;">';
         $body_html .= '<div class="col-12 col-xl-4"><label class="form-label small mb-1" for="tm-wu-timezone">Timezone</label><select class="form-select" id="tm-wu-timezone" name="timezone">' . $timezone_html . '</select></div>';
         $body_html .= '<div class="col-6 col-xl-2"><label class="form-label small mb-1" for="tm-wu-format">Time format</label><select class="form-select" id="tm-wu-format" name="time_format"><option value="24h"' . ( $settings['time_format'] === '24h' ? ' selected' : '' ) . '>24-hour</option><option value="12h"' . ( $settings['time_format'] === '12h' ? ' selected' : '' ) . '>AM/PM</option></select></div>';
         $body_html .= '<div class="col-6 col-xl-2"><label class="form-label small mb-1" for="tm-wu-past">Past days</label><input class="form-control" id="tm-wu-past" name="past_days" type="number" min="0" max="90" value="' . (int) $settings['past_days'] . '"></div>';
@@ -252,12 +256,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $sources = array_values( (array) $settings['sources'] );
         $sources[] = [ 'key' => '', 'label' => '', 'enabled' => true, 'type' => 'remote', 'url' => '', 'color' => (string) $palette_keys[count( $sources ) % count( $palette_keys )], 'custom_color' => '' ];
         $status_rows = (array) $cache['sources'];
-        $body_html .= '<section style="min-width:0;"><div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2" style="min-width:0;"><div style="min-width:0;"><div class="small text-uppercase text-body-secondary">Calendar sources</div><div class="form-text mt-1">Select a local .ics file to create an uploaded source automatically; key and label are optional for uploads. Source colors identify calendars in combined views. Remote calendars require a key and a public HTTPS URL.</div></div></div><div class="row g-3" style="min-width:0;">';
+        $body_html .= '<section class="rounded-3 p-3 bg-body-secondary" style="min-width:0;" data-tm-admin-surface-group><div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2" style="min-width:0;"><div style="min-width:0;"><div class="small text-uppercase text-body-secondary">Calendar sources</div><div class="form-text mt-1">Select a local .ics file to create an uploaded source automatically; key and label are optional for uploads. Source colors identify calendars in combined views. Remote calendars require a key and a public HTTPS URL.</div></div></div><div class="row g-3" style="min-width:0;">';
         foreach ( $sources as $index => $source ) {
             $source_key = (string) ( $source['key'] ?? '' );
             $source_status = is_array( $status_rows[$source_key] ?? null ) ? $status_rows[$source_key] : [];
             $status = (string) ( $source_status['status'] ?? '' );
-            $status_badge = $status === 'ok' ? 'success' : ( $status === 'error' ? 'danger' : 'secondary' );
             $color = (string) ( $source['color'] ?? 'blue' );
             $color_swatches = '';
             foreach ( $palette as $palette_key => $swatch ) {
@@ -268,65 +271,80 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $custom_color_id = 'tm-wu-color-' . (int) $index . '-custom';
             $color_swatches .= '<input class="btn-check" id="' . $custom_color_id . '" name="sources[' . (int) $index . '][color]" type="radio" value="custom" autocomplete="off"' . ( $color === 'custom' ? ' checked' : '' ) . '><label class="btn btn-outline-secondary btn-sm" for="' . $custom_color_id . '">Custom</label>';
             $source_id = 'tm-wu-source-' . (int) $index;
-            $body_html .= '<div class="col-12 col-lg-6" style="min-width:0;"><article class="h-100 pt-3 border-top" style="min-width:0;"><div class="row g-2 align-items-end" style="min-width:0;">';
+            $source_type = (string) ( $source['type'] ?? 'remote' );
+            $is_new_source = $index === array_key_last( $sources );
+            $summary_label = trim( (string) ( $source['label'] ?? '' ) );
+            if ( $summary_label === '' ) {
+                $summary_label = $source_key !== '' ? $source_key : 'Add calendar source';
+            }
+            $summary_meta = $is_new_source
+                ? 'Remote URL or uploaded .ics file'
+                : ( $source_type === 'local' ? 'uploaded file' : 'remote URL' ) . ' · ' . ( ! empty( $source['enabled'] ) ? 'enabled' : 'disabled' ) . ( $status !== '' ? ' · ' . $status : '' );
+            $body_html .= '<div class="col-12 col-lg-6" style="min-width:0;"><details class="h-100 border-top py-2" data-tm-wu-source-row><summary class="py-1"><span class="fw-semibold">' . $escape( $summary_label ) . '</span> <span class="small text-body-secondary">' . $escape( $summary_meta ) . '</span></summary><div class="row g-2 align-items-end pt-3" style="min-width:0;">';
             $body_html .= '<div class="col-12 col-md-5"><label class="form-label small mb-1" for="' . $source_id . '-key">Key <span class="text-body-secondary">(optional for upload)</span></label><input class="form-control font-monospace" id="' . $source_id . '-key" name="sources[' . (int) $index . '][key]" type="text" maxlength="80" placeholder="events" value="' . $escape( $source_key ) . '"></div>';
             $body_html .= '<div class="col-12 col-md-7"><label class="form-label small mb-1" for="' . $source_id . '-label">Label</label><input class="form-control" id="' . $source_id . '-label" name="sources[' . (int) $index . '][label]" type="text" maxlength="100" placeholder="Events" value="' . $escape( (string) ( $source['label'] ?? '' ) ) . '"></div>';
             $body_html .= '<div class="col-12"><div class="form-label small mb-1">Color</div><div class="d-flex flex-wrap gap-2 align-items-center">' . $color_swatches . '</div></div>';
             $body_html .= '<div class="col-12 col-sm-5"><label class="form-label small mb-1" for="' . $source_id . '-custom-color">Custom hex color</label><input class="form-control font-monospace" id="' . $source_id . '-custom-color" name="sources[' . (int) $index . '][custom_color]" type="text" maxlength="7" placeholder="#0072B2" value="' . $escape( (string) ( $source['custom_color'] ?? '' ) ) . '"></div>';
             $body_html .= '<div class="col-7"><label class="form-label small mb-1" for="' . $source_id . '-type">Source type</label><select class="form-select tm-wu-source-type" id="' . $source_id . '-type" data-tm-wu-source-index="' . (int) $index . '" name="sources[' . (int) $index . '][type]"><option value="remote"' . ( ( $source['type'] ?? 'remote' ) === 'remote' ? ' selected' : '' ) . '>Remote URL</option><option value="local"' . ( ( $source['type'] ?? '' ) === 'local' ? ' selected' : '' ) . '>Uploaded file</option></select></div>';
             $body_html .= '<div class="col-5"><div class="form-check mb-2"><input class="form-check-input" id="tm-wu-enabled-' . (int) $index . '" name="sources[' . (int) $index . '][enabled]" type="checkbox" value="1"' . ( ! empty( $source['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-wu-enabled-' . (int) $index . '">Enabled</label></div></div>';
-            $body_html .= '<div class="col-12"><label class="form-label small mb-1" for="' . $source_id . '-url">Remote HTTPS URL</label><input class="form-control" id="' . $source_id . '-url" name="sources[' . (int) $index . '][url]" type="url" maxlength="2048" placeholder="https://example.org/events.ics" value="' . $escape( (string) ( $source['url'] ?? '' ) ) . '"></div>';
-            $body_html .= '<div class="col-12"><label class="form-label small mb-1" for="' . $source_id . '-upload">Local .ics upload</label><input class="form-control tm-wu-source-upload" id="' . $source_id . '-upload" data-tm-wu-source-index="' . (int) $index . '" name="source_upload[' . (int) $index . ']" type="file" accept=".ics,text/calendar"><div class="form-text">Selecting a file sets Source type to Uploaded file and refreshes it when saved.</div>';
+            $body_html .= '<div class="col-12" data-tm-wu-source-fields="remote"><label class="form-label small mb-1" for="' . $source_id . '-url">Remote HTTPS URL</label><input class="form-control" id="' . $source_id . '-url" name="sources[' . (int) $index . '][url]" type="url" maxlength="2048" placeholder="https://example.org/events.ics" value="' . $escape( (string) ( $source['url'] ?? '' ) ) . '"></div>';
+            $body_html .= '<div class="col-12" data-tm-wu-source-fields="local"><label class="form-label small mb-1" for="' . $source_id . '-upload">Local .ics upload</label><input class="form-control tm-wu-source-upload" id="' . $source_id . '-upload" data-tm-wu-source-index="' . (int) $index . '" name="source_upload[' . (int) $index . ']" type="file" accept=".ics,text/calendar"><div class="form-text">Selecting a file sets Source type to Uploaded file and refreshes it when saved.</div>';
             if ( $source_key !== '' && is_file( $service->getLocalSourceFilename( $source_key ) ) ) {
                 $body_html .= '<div class="form-text">A local file is stored for this key. Upload another file to replace it.</div>';
             }
             $body_html .= '</div>';
             $body_html .= '<div class="col-12">';
             if ( $source_key !== '' && $status !== '' ) {
-                $body_html .= '<div class="small mb-1"><span class="badge text-bg-' . $status_badge . '">' . $escape( ucfirst( $status ) ) . '</span> <span class="text-body-secondary">' . (int) ( $source_status['event_count'] ?? 0 ) . ' cached event(s)</span></div>';
+                $body_html .= '<div class="small mb-1"><span class="fw-semibold">' . $escape( ucfirst( $status ) ) . '</span> <span class="text-body-secondary">· ' . (int) ( $source_status['event_count'] ?? 0 ) . ' cached event(s)</span></div>';
                 $body_html .= '<div class="small text-body-secondary">' . $escape( (string) ( $source_status['message'] ?? '' ) ) . '</div>';
             } else {
                 $body_html .= '<div class="small text-body-secondary">Save the source, then refresh calendars to populate its cache.</div>';
             }
             $body_html .= '</div>';
             $body_html .= '<div class="col-12"><div class="form-check"><input class="form-check-input" id="tm-wu-remove-' . (int) $index . '" name="sources[' . (int) $index . '][remove]" type="checkbox" value="1"><label class="form-check-label text-danger" for="tm-wu-remove-' . (int) $index . '">Remove source</label></div></div>';
-            $body_html .= '</div></article></div>';
+            $body_html .= '</div></details></div>';
         }
         $body_html .= '</div></section>';
         $sidebar = is_array( $settings['sidebar'] ?? null ) ? $settings['sidebar'] : [];
-        $body_html .= '<section style="min-width:0;"><div class="small text-uppercase text-body-secondary mb-2">Public sidebar</div><div class="row g-3 align-items-end" style="min-width:0;">';
-        $body_html .= '<div class="col-12 col-lg-3"><div class="form-check mb-2"><input class="form-check-input" id="tm-wu-sidebar-enabled" name="sidebar[enabled]" type="checkbox" value="1"' . ( ! empty( $sidebar['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-wu-sidebar-enabled">Show calendar in theme sidebar</label></div></div>';
+        $body_html .= '<section class="rounded-3 p-3 bg-body-secondary" style="min-width:0;" data-tm-wu-sidebar-settings data-tm-admin-surface-group><div class="small text-uppercase text-body-secondary mb-2">Public sidebar</div>';
+        $body_html .= '<div class="form-check"><input class="form-check-input" id="tm-wu-sidebar-enabled" name="sidebar[enabled]" type="checkbox" value="1" data-tm-wu-sidebar-toggle' . ( ! empty( $sidebar['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-wu-sidebar-enabled">Show calendar in the theme sidebar</label></div>';
+        $body_html .= '<div class="pt-3 ps-md-4" data-tm-wu-sidebar-fields><div class="row g-3 align-items-end" style="min-width:0;">';
         $body_html .= '<div class="col-6 col-lg-3"><label class="form-label small mb-1" for="tm-wu-sidebar-view">View</label><select class="form-select" id="tm-wu-sidebar-view" name="sidebar[view]"><option value="whatsup"' . ( ( $sidebar['view'] ?? '' ) === 'whatsup' ? ' selected' : '' ) . '>What\'s up</option><option value="agenda"' . ( ( $sidebar['view'] ?? '' ) === 'agenda' ? ' selected' : '' ) . '>Agenda</option><option value="timeline"' . ( ( $sidebar['view'] ?? '' ) === 'timeline' ? ' selected' : '' ) . '>Timeline</option></select></div>';
         $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="tm-wu-sidebar-limit">Max events</label><input class="form-control" id="tm-wu-sidebar-limit" name="sidebar[limit]" type="number" min="1" max="20" value="' . (int) ( $sidebar['limit'] ?? 6 ) . '"></div>';
-        $body_html .= '<div class="col-12 col-lg-4"><div class="small mb-1">Calendars <span class="text-body-secondary">(none selected means all)</span></div><div class="d-flex flex-wrap gap-3">';
+        $body_html .= '<div class="col-12 col-lg-7" role="group" aria-labelledby="tm-wu-sidebar-calendars-label"><div class="form-label small mb-1" id="tm-wu-sidebar-calendars-label">Calendars</div><div class="d-flex flex-wrap gap-3">';
         foreach ( (array) $settings['sources'] as $source ) {
             $sidebar_key = (string) ( $source['key'] ?? '' );
             $body_html .= '<div class="form-check"><input class="form-check-input" id="tm-wu-sidebar-source-' . $escape( $sidebar_key ) . '" name="sidebar[sources][]" type="checkbox" value="' . $escape( $sidebar_key ) . '"' . ( in_array( $sidebar_key, (array) ( $sidebar['sources'] ?? [] ), true ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-wu-sidebar-source-' . $escape( $sidebar_key ) . '">' . $escape( (string) ( $source['label'] ?? $sidebar_key ) ) . '</label></div>';
         }
-        $body_html .= '</div></div></div><div class="form-text mt-2">Sidebar placement is rendered where the selected public theme supports plugin sidebar content.</div></section>';
-        $body_html .= '<section style="min-width:0;"><div class="small text-uppercase text-body-secondary mb-2">Shortcodes</div><div class="d-flex flex-wrap gap-3" style="min-width:0;"><code style="overflow-wrap:anywhere;white-space:normal;">[whatsup]</code><code style="overflow-wrap:anywhere;white-space:normal;">[agenda future="30" limit="10"]</code><code style="overflow-wrap:anywhere;white-space:normal;">[agenda source="calendar-key" future="30" limit="10"]</code><code style="overflow-wrap:anywhere;white-space:normal;">[timeline future="30"]</code><code style="overflow-wrap:anywhere;white-space:normal;">[calendar past_months="1" future_months="1"]</code></div></section>';
-        $body_html .= '<div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Save calendar settings</button></div></form>';
-        $body_html .= '<script>(function(){document.querySelectorAll(".tm-wu-source-upload").forEach(function(input){input.addEventListener("change",function(){if(!input.files||input.files.length===0){return;}var select=document.querySelector(".tm-wu-source-type[data-tm-wu-source-index=\\"" + input.dataset.tmWuSourceIndex + "\\"]");if(select){select.value="local";}});});}());</script>';
+        $body_html .= '</div><div class="form-text">All calendars are shown when none are selected.</div></div></div><div class="form-text mt-2">Placement depends on sidebar support in the active theme.</div></div></section>';
+        $body_html .= '<div class="d-flex flex-wrap gap-2" data-tm-wu-save-settings><button class="btn btn-primary" type="submit">Save calendar settings</button></div></form>';
+        $body_html .= '<section style="min-width:0;"><details data-tm-wu-shortcode-reference><summary class="py-2 fw-semibold">Shortcode reference</summary><div class="d-flex flex-wrap gap-3 pt-2" style="min-width:0;"><code style="overflow-wrap:anywhere;white-space:normal;">[whatsup]</code><code style="overflow-wrap:anywhere;white-space:normal;">[agenda future="30" limit="10"]</code><code style="overflow-wrap:anywhere;white-space:normal;">[agenda source="calendar-key" future="30" limit="10"]</code><code style="overflow-wrap:anywhere;white-space:normal;">[timeline future="30"]</code><code style="overflow-wrap:anywhere;white-space:normal;">[calendar past_months="1" future_months="1"]</code></div></details></section>';
+        $body_html .= '<script>(function(){function sync(select){var row=select.closest("[data-tm-wu-source-row]");if(!row){return;}row.querySelectorAll("[data-tm-wu-source-fields]").forEach(function(fields){fields.classList.toggle("d-none",fields.dataset.tmWuSourceFields!==select.value);});}document.querySelectorAll(".tm-wu-source-type").forEach(function(select){sync(select);select.addEventListener("change",function(){sync(select);});});document.querySelectorAll(".tm-wu-source-upload").forEach(function(input){input.addEventListener("change",function(){if(!input.files||input.files.length===0){return;}var select=document.querySelector(".tm-wu-source-type[data-tm-wu-source-index=\\"" + input.dataset.tmWuSourceIndex + "\\"]");if(select){select.value="local";sync(select);}});});var sidebarToggle=document.querySelector("[data-tm-wu-sidebar-toggle]");var sidebarFields=document.querySelector("[data-tm-wu-sidebar-fields]");function syncSidebar(){if(sidebarToggle&&sidebarFields){sidebarFields.classList.toggle("d-none",!sidebarToggle.checked);}}if(sidebarToggle){syncSidebar();sidebarToggle.addEventListener("change",syncSidebar);}}());</script>';
 
-        $body_html .= '<section style="min-width:0;"><div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3" style="min-width:0;"><div style="min-width:0;"><div class="small text-uppercase text-body-secondary mb-1">Cached event preview</div><div class="small text-body-secondary">Last refresh: ' . $escape( (string) ( $cache['refreshed_at_utc'] ?: 'Never' ) ) . '</div></div><form method="post" action="' . $escape( $refresh_url ) . '" style="min-width:0;"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><button class="btn btn-outline-primary" type="submit"><span class="bi bi-arrow-clockwise me-1" aria-hidden="true"></span>Refresh calendars</button></form></div>';
         $preview = $service->getPreviewEvents();
+        $body_html .= '<section style="min-width:0;"><details data-tm-wu-preview-disclosure><summary class="py-2"><span class="fw-semibold">Cached event preview</span> <span class="small text-body-secondary">' . count( $preview ) . ' events · last refreshed ' . $escape( $refreshed_at_display ) . '</span></summary><div class="pt-3"><form method="post" action="' . $escape( $refresh_url ) . '" class="mb-3"><input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><button class="btn btn-outline-primary" type="submit"><span class="bi bi-arrow-clockwise me-1" aria-hidden="true"></span>Refresh calendars</button></form>';
         if ( empty( $preview ) ) {
             $body_html .= '<p class="mb-0 text-body-secondary">No cached events. Add a source and refresh calendars.</p>';
         } else {
-            $timezone = new \DateTimeZone( (string) $settings['timezone'] );
+            $preview_date_formatter = new TinyMashDateFormatter(
+                $config->getLocaleDateFormat(),
+                $config->getLocaleTimeFormat(),
+                (string) $settings['timezone']
+            );
             $body_html .= '<div class="table-responsive" tabindex="0" aria-label="Cached event preview" style="min-width:0;"><table class="table table-sm align-middle mb-0"><thead><tr><th>Start</th><th>Event</th><th>Source</th><th>Location</th></tr></thead><tbody>';
             foreach ( $preview as $event ) {
-                try {
-                    $start = ( new \DateTimeImmutable( (string) ( $event['start_at_utc'] ?? '' ) ) )->setTimezone( $timezone );
-                    $date_label = ! empty( $event['all_day'] ) ? $start->format( 'Y-m-d' ) . ' (all day)' : $start->format( 'Y-m-d H:i' );
-                } catch ( \Throwable $e ) {
-                    $date_label = '';
+                $start_at_utc = trim( (string) ( $event['start_at_utc'] ?? '' ) );
+                $date_label = '';
+                if ( TinyMashDateFormatter::parseUtcDateTime( $start_at_utc ) instanceof \DateTimeImmutable ) {
+                    $date_label = ! empty( $event['all_day'] )
+                        ? $preview_date_formatter->formatUtcDateTimePart( $start_at_utc, $config->getLocaleDateFormat() ) . ' (all day)'
+                        : $preview_date_formatter->formatUtcDateTime( $start_at_utc );
                 }
                 $body_html .= '<tr><td class="text-nowrap">' . $escape( $date_label ) . '</td><td>' . $escape( (string) ( $event['title'] ?? '' ) ) . '</td><td>' . $escape( (string) ( $event['source_label'] ?? '' ) ) . '</td><td>' . $escape( (string) ( $event['location'] ?? '' ) ) . '</td></tr>';
             }
             $body_html .= '</tbody></table></div>';
         }
-        $body_html .= '</section></div>';
+        $body_html .= '</div></details></section></div>';
 
         $plugins->renderAdminPage(
             [

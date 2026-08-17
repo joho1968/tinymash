@@ -1,0 +1,18 @@
+{extends './layout.latte'}
+
+{block content}
+    {var $message = trim((string) ($message ?? ''))}
+    {var $login_url = trim((string) ($login_url ?? ''))}
+    <section class="tm-scribe-reading tm-scribe-not-found py-5 text-center">
+        <div class="tm-scribe-kicker mb-3">404</div>
+        <h1>{$title}</h1>
+        <p class="text-body-secondary mt-3 mb-0">
+            {if $message !== ''}
+                {$message}
+            {else}
+                We can't seem to find what you're looking for.
+            {/if}
+        </p>
+        <p n:if="$login_url !== ''" class="mt-4 mb-0"><a href="{$login_url}">Log in</a></p>
+    </section>
+{/block}

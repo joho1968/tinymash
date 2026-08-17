@@ -109,6 +109,7 @@ class TinyMashExportService {
                     'posts' => (int) ( $content_stats['posts'] ?? 0 ),
                     'pages' => (int) ( $content_stats['pages'] ?? 0 ),
                     'pending_review' => (int) ( $content_stats['pending_review'] ?? 0 ),
+                    'scheduled' => (int) ( $content_stats['scheduled'] ?? 0 ),
                 ],
                 'plugin_exports' => $plugin_results,
                 'warnings' => $warnings,
@@ -263,6 +264,7 @@ class TinyMashExportService {
                     'posts' => max( 0, (int) ( $counts['posts'] ?? 0 ) ),
                     'pages' => max( 0, (int) ( $counts['pages'] ?? 0 ) ),
                     'pending_review' => max( 0, (int) ( $counts['pending_review'] ?? 0 ) ),
+                    'scheduled' => max( 0, (int) ( $counts['scheduled'] ?? 0 ) ),
                 ],
                 'components' => [
                     'config' => ! empty( $components['config'] ),

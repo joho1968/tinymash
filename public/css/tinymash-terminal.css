@@ -1414,6 +1414,14 @@ html[data-bs-theme="light"] .tm-terminal-rendered .table-striped tbody tr:nth-ch
     margin-bottom: 0;
 }
 
+.tm-terminal-shell .tm-weather {
+    --tm-weather-border-color: var(--tm-border);
+    --tm-weather-bg: var(--tm-panel);
+    --tm-weather-color: var(--tm-text);
+    --tm-weather-muted-color: var(--tm-muted);
+    --tm-weather-subtle-bg: var(--tm-panel-strong);
+}
+
 .tm-terminal-mobile-only {
     display: none;
 }

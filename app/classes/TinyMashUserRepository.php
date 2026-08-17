@@ -400,6 +400,10 @@ class TinyMashUserRepository {
         if ( $classic_smileys_mode === '' ) {
             throw new \InvalidArgumentException( 'classic_smileys_mode' );
         }
+        $editor_mode = $this->normalizeEditorMode( (string) ( $input['editor_mode'] ?? ( $current_user['editor_mode'] ?? 'full' ) ) );
+        if ( $editor_mode === '' ) {
+            throw new \InvalidArgumentException( 'editor_mode' );
+        }
 
         $default_entry_type = $this->normalizeDefaultEntryType( (string) ( $input['default_entry_type'] ?? 'post' ) );
         if ( $default_entry_type === '' ) {
@@ -416,6 +420,7 @@ class TinyMashUserRepository {
         $updated_user['display_name'] = $display_name;
         $updated_user['email'] = $email;
         $updated_user['timezone'] = $timezone;
+        $updated_user['editor_mode'] = $editor_mode;
         $updated_user['autosave_mode'] = $autosave_mode;
         $updated_user['autosave_interval_seconds'] = $autosave_interval_seconds;
         $updated_user['classic_smileys_mode'] = $classic_smileys_mode;

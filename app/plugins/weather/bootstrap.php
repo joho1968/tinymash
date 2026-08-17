@@ -3,6 +3,7 @@
 require_once __DIR__ . '/TinyMashWeatherService.php';
 
 use app\classes\TinyMashConfig;
+use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashPublicPageCache;
 use app\classes\TinyMashSecurity;
@@ -59,7 +60,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return;
     }
 
-    if ( ! $security instanceof TinyMashSecurity ) {
+    $date_formatter = $plugins->getService( 'date.formatter' );
+    if ( ! $security instanceof TinyMashSecurity || ! $date_formatter instanceof TinyMashDateFormatter ) {
         throw new \RuntimeException( 'Required services for the Weather plugin are not available.' );
     }
 
@@ -197,7 +199,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
     $default_timezone = $config->getLocaleTimezone();
 
-    $build_page = static function( array $notice = [], ?array $form_settings = null ) use ( $plugins, $security, $service, $save_url, $refresh_url, $escape, $render_select, $default_timezone ) : void {
+    $build_page = static function( array $notice = [], ?array $form_settings = null ) use ( $plugins, $security, $date_formatter, $service, $save_url, $refresh_url, $escape, $render_select, $default_timezone ) : void {
         if ( empty( $notice ) ) {
             $flash_notice = $security->pullFlash( 'weather.notice', [] );
             if ( is_array( $flash_notice ) ) {
@@ -206,7 +208,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
         $settings = $form_settings ?? $service->getSettings();
         $settings = array_replace_recursive( $service->getDefaultSettings(), $settings );
+        $expand_submitted_locations = $form_settings !== null && (string) ( $notice['type'] ?? '' ) === 'danger';
         $cache = $service->getCache();
+        $refreshed_at_utc = trim( (string) ( $cache['refreshed_at_utc'] ?? '' ) );
+        $refreshed_at_display = $refreshed_at_utc !== '' ? $date_formatter->formatUtcDateTime( $refreshed_at_utc ) : 'Never';
         $timezones = timezone_identifiers_list();
         $timezone_options = array_combine( $timezones, $timezones );
         $unit_options = [ 'metric' => 'Metric', 'imperial' => 'Imperial' ];
@@ -240,7 +245,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $body_html = '<div class="tm-weather-admin d-grid gap-4">';
         $body_html .= '<form method="post" action="' . $escape( $save_url ) . '" class="d-grid gap-3">';
         $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
-        $body_html .= '<section class="d-grid gap-3"><div class="small text-uppercase text-body-secondary">Display defaults</div><div class="row g-3 align-items-end">';
+        $body_html .= '<section class="d-grid gap-3 rounded-3 p-3 bg-body-secondary" data-tm-admin-surface-group><div class="small text-uppercase text-body-secondary">Display defaults</div><div class="row g-3 align-items-end">';
         $body_html .= '<div class="col-12 col-sm-6 col-xl-2"><label class="form-label small mb-1" for="tm-weather-default-units">Temperature</label>' . $render_select( 'default_units', (string) $settings['defaults']['units'], $unit_options, 'tm-weather-default-units' ) . '</div>';
         $body_html .= '<div class="col-12 col-sm-6 col-xl-2"><label class="form-label small mb-1" for="tm-weather-default-wind-units">Wind</label>' . $render_select( 'default_wind_units', (string) ( $settings['defaults']['wind_units'] ?? 'ms' ), $wind_unit_options, 'tm-weather-default-wind-units' ) . '</div>';
         $body_html .= '<div class="col-12 col-sm-6 col-xl-2"><label class="form-label small mb-1" for="tm-weather-default-layout">Layout</label>' . $render_select( 'default_layout', (string) $settings['defaults']['layout'], $layout_options, 'tm-weather-default-layout' ) . '</div>';
@@ -256,22 +261,27 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $body_html .= '</div><div class="form-text">Public pages render cached weather only. Refresh from this page, CLI, or scheduled housekeeping.</div></section>';
 
         $slots = is_array( $settings['slots'] ?? null ) ? $settings['slots'] : [];
-        $body_html .= '<section class="d-grid gap-3"><div class="small text-uppercase text-body-secondary">Public theme slots</div>';
+        $body_html .= '<section class="d-grid gap-2 rounded-3 p-3 bg-body-secondary" data-tm-admin-surface-group><div class="small text-uppercase text-body-secondary">Public theme slots</div><div class="d-flex flex-wrap gap-2" data-tm-weather-slot-toggles>';
         foreach ( [ 'sidebar' => 'Sidebar', 'footer' => 'Footer' ] as $slot_key => $slot_label ) {
             $slot = is_array( $slots[$slot_key] ?? null ) ? $slots[$slot_key] : [];
             $prefix = 'slots[' . $slot_key . ']';
-            $body_html .= '<div class="row g-3 align-items-end' . ( $slot_key === 'footer' ? ' mt-1' : '' ) . '">';
-            $body_html .= '<div class="col-12 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-weather-slot-' . $escape( $slot_key ) . '-enabled" name="' . $escape( $prefix ) . '[enabled]" type="checkbox" value="1"' . ( ! empty( $slot['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-weather-slot-' . $escape( $slot_key ) . '-enabled">Show in ' . strtolower( $escape( $slot_label ) ) . ' slot</label></div></div>';
-            $body_html .= '<div class="col-12 col-lg-3"><label class="form-label small mb-1" for="tm-weather-slot-' . $escape( $slot_key ) . '-location">' . $escape( $slot_label ) . ' location</label>' . $render_select( $prefix . '[location]', (string) ( $slot['location'] ?? '' ), $location_options, 'tm-weather-slot-' . (string) $slot_key . '-location' ) . '</div>';
+            $body_html .= '<div class="form-check"><input class="form-check-input" id="tm-weather-slot-' . $escape( $slot_key ) . '-enabled" name="' . $escape( $prefix ) . '[enabled]" type="checkbox" value="1" data-tm-weather-slot-toggle="' . $escape( $slot_key ) . '"' . ( ! empty( $slot['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-weather-slot-' . $escape( $slot_key ) . '-enabled">Show in ' . strtolower( $escape( $slot_label ) ) . '</label></div>';
+        }
+        $body_html .= '</div>';
+        foreach ( [ 'sidebar' => 'Sidebar', 'footer' => 'Footer' ] as $slot_key => $slot_label ) {
+            $slot = is_array( $slots[$slot_key] ?? null ) ? $slots[$slot_key] : [];
+            $prefix = 'slots[' . $slot_key . ']';
+            $body_html .= '<div class="pt-2" data-tm-weather-slot-fields="' . $escape( $slot_key ) . '"><div class="small fw-semibold mb-2">' . $escape( $slot_label ) . ' settings</div><div class="row g-3 align-items-end">';
+            $body_html .= '<div class="col-12 col-lg-4"><label class="form-label small mb-1" for="tm-weather-slot-' . $escape( $slot_key ) . '-location">' . $escape( $slot_label ) . ' location</label>' . $render_select( $prefix . '[location]', (string) ( $slot['location'] ?? '' ), $location_options, 'tm-weather-slot-' . (string) $slot_key . '-location' ) . '</div>';
             $body_html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="tm-weather-slot-' . $escape( $slot_key ) . '-provider">Provider</label>' . $render_select( $prefix . '[provider]', (string) ( $slot['provider'] ?? 'open-meteo' ), $provider_options, 'tm-weather-slot-' . (string) $slot_key . '-provider' ) . '</div>';
             $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="tm-weather-slot-' . $escape( $slot_key ) . '-layout">Layout</label>' . $render_select( $prefix . '[layout]', (string) ( $slot['layout'] ?? 'compact' ), $layout_options, 'tm-weather-slot-' . (string) $slot_key . '-layout' ) . '</div>';
-            $body_html .= '<div class="col-6 col-lg-1"><label class="form-label small mb-1" for="tm-weather-slot-' . $escape( $slot_key ) . '-days">Days</label><input class="form-control" id="tm-weather-slot-' . $escape( $slot_key ) . '-days" name="' . $escape( $prefix ) . '[forecast_days]" type="number" min="0" max="7" value="' . (int) ( $slot['forecast_days'] ?? ( $slot_key === 'footer' ? 0 : 2 ) ) . '"></div>';
+            $body_html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="tm-weather-slot-' . $escape( $slot_key ) . '-days">Days</label><input class="form-control" id="tm-weather-slot-' . $escape( $slot_key ) . '-days" name="' . $escape( $prefix ) . '[forecast_days]" type="number" min="0" max="7" value="' . (int) ( $slot['forecast_days'] ?? ( $slot_key === 'footer' ? 0 : 2 ) ) . '"></div>';
             $body_html .= '<div class="col-12 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-weather-slot-' . $escape( $slot_key ) . '-attribution" name="' . $escape( $prefix ) . '[attribution]" type="checkbox" value="1"' . ( ! empty( $slot['attribution'] ) ? ' checked' : '' ) . '><label class="form-check-label" for="tm-weather-slot-' . $escape( $slot_key ) . '-attribution">Attribution</label></div></div>';
-            $body_html .= '</div>';
+            $body_html .= '</div></div>';
         }
         $body_html .= '<div class="form-text">Slot placement depends on the active public theme. Weather slot output uses cached provider data and the global rendered-detail choices above.</div></section>';
 
-        $body_html .= '<section class="d-grid gap-3"><div class="d-flex flex-wrap align-items-start justify-content-between gap-2"><div><div class="small text-uppercase text-body-secondary">Locations</div><div class="form-text mt-1">Use WGS84 coordinates as decimal degrees or degrees/minutes/seconds. <a class="text-decoration-underline" href="https://openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> is useful for checking place coordinates. Open-Meteo is the first provider; later providers can be enabled per location without changing shortcode locations.</div></div><button class="btn btn-outline-primary" type="submit" formmethod="post" formaction="' . $escape( $refresh_url ) . '"><span class="bi bi-arrow-clockwise me-1" aria-hidden="true"></span>Refresh weather</button></div><div class="d-grid gap-3">';
+        $body_html .= '<section class="d-grid gap-3 rounded-3 p-3 bg-body-secondary" data-tm-admin-surface-group><div class="d-flex flex-wrap align-items-start justify-content-between gap-3"><div><div class="small text-uppercase text-body-secondary">Locations</div><div class="form-text mt-1">Use WGS84 coordinates as decimal degrees or degrees/minutes/seconds. <a class="text-decoration-underline" href="https://openstreetmap.org" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> is useful for checking place coordinates. Open-Meteo is the first provider; later providers can be enabled per location without changing shortcode locations.</div></div><div><button class="btn btn-outline-primary" type="submit" formmethod="post" formaction="' . $escape( $refresh_url ) . '"><span class="bi bi-arrow-clockwise me-1" aria-hidden="true"></span>Refresh weather</button><div class="small text-body-secondary mt-1" data-tm-weather-refresh-status>Last refreshed: ' . $escape( $refreshed_at_display ) . '</div></div></div><div class="d-grid gap-3">';
         foreach ( $locations as $index => $location ) {
             $location_key = (string) ( $location['key'] ?? '' );
             $default_provider = (string) ( $location['default_provider'] ?? 'open-meteo' );
@@ -290,14 +300,17 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $feed_key = $location_key !== '' ? $location_key . ':' . $preview_provider : '';
             $feed = $feed_key !== '' && is_array( $cache['feeds'][$feed_key] ?? null ) ? $cache['feeds'][$feed_key] : [];
             $status = (string) ( $feed['status'] ?? 'new' );
-            $badge = $status === 'ok' ? 'success' : ( $status === 'error' ? 'danger' : ( $status === 'disabled' ? 'secondary' : 'secondary' ) );
             $prefix = 'locations[' . (int) $index . ']';
             $location_label = (string) ( $location['label'] ?? '' );
             $location_latitude = (string) ( $location['latitude'] ?? '' );
             $location_longitude = (string) ( $location['longitude'] ?? '' );
             $location_has_data = $location_key !== '' || $location_label !== '' || $location_latitude !== '' || $location_longitude !== '';
             $location_required = $location_has_data ? ' required' : '';
-            $body_html .= '<article class="border-top pt-3" data-tm-weather-location-row><div class="row g-3 align-items-start"><div class="col-12 col-lg-6"><div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2"><div><div class="small text-uppercase text-body-secondary">Location</div><h2 class="h6 mb-0">' . $escape( (string) ( $location_label ?: 'New location' ) ) . '</h2></div><span class="badge text-bg-' . $badge . '">' . $escape( $status ) . '</span></div><div class="row g-3">';
+            $summary_label = $location_label !== '' ? $location_label : 'Add weather location';
+            $summary_meta = $location_has_data
+                ? (string) ( $provider_options[$default_provider] ?? $default_provider ) . ' · ' . ( ! empty( $location['enabled'] ) ? 'active' : 'inactive' ) . ' · ' . $status
+                : 'Coordinates, provider, and preview';
+            $body_html .= '<details class="border-top py-2" data-tm-weather-location-row' . ( $expand_submitted_locations && $location_has_data ? ' open' : '' ) . '><summary class="py-1"><span class="fw-semibold">' . $escape( $summary_label ) . '</span> <span class="small text-body-secondary">' . $escape( $summary_meta ) . '</span></summary><div class="row g-3 align-items-start pt-3"><div class="col-12 col-lg-6"><div class="row g-3">';
             $body_html .= '<div class="col-12 col-md-5"><label class="form-label small mb-1">Key</label><input class="form-control font-monospace" name="' . $escape( $prefix ) . '[key]" type="text" maxlength="80" placeholder="home" value="' . $escape( $location_key ) . '" data-tm-weather-location-trigger></div>';
             $body_html .= '<div class="col-12 col-md-7"><label class="form-label small mb-1">Label</label><input class="form-control" name="' . $escape( $prefix ) . '[label]" type="text" maxlength="100" placeholder="Home" value="' . $escape( $location_label ) . '" data-tm-weather-location-trigger data-tm-weather-location-required' . $location_required . '></div>';
             $body_html .= '<div class="col-6 col-md-4"><label class="form-label small mb-1">Latitude</label><input class="form-control" name="' . $escape( $prefix ) . '[latitude]" type="text" inputmode="decimal" maxlength="40" placeholder="60.14181 or 60° 08\' 30.52&quot; N" value="' . $escape( $location_latitude ) . '" data-tm-weather-location-trigger data-tm-weather-location-required' . $location_required . '></div>';
@@ -316,7 +329,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="col-12"><div class="small text-body-secondary">Shortcode: <code class="text-break">[weather location=&quot;' . $escape( $location_key ) . '&quot;]</code> <code class="text-break">[weather location=&quot;' . $escape( $location_key ) . '&quot; forecast=&quot;0&quot;]</code> <code class="text-break">[weather location=&quot;' . $escape( $location_key ) . '&quot; forecast=&quot;7&quot; layout=&quot;horizontal&quot;]</code></div></div>';
             }
             if ( ! empty( $feed ) ) {
-                $body_html .= '<div class="col-12"><div class="small text-body-secondary">Preview provider: ' . $escape( (string) ( $provider_options[$preview_provider] ?? $preview_provider ) ) . '. Last success: ' . $escape( (string) ( $feed['last_success_at_utc'] ?: 'Never' ) ) . '. ' . $escape( (string) ( $feed['message'] ?? '' ) ) . '</div></div>';
+                $last_success_at_utc = trim( (string) ( $feed['last_success_at_utc'] ?? '' ) );
+                $last_success_display = $last_success_at_utc !== '' ? $date_formatter->formatUtcDateTime( $last_success_at_utc ) : 'Never';
+                $body_html .= '<div class="col-12"><div class="small text-body-secondary">Preview provider: ' . $escape( (string) ( $provider_options[$preview_provider] ?? $preview_provider ) ) . '. Last success: ' . $escape( $last_success_display ) . '. ' . $escape( (string) ( $feed['message'] ?? '' ) ) . '</div></div>';
             }
             $body_html .= '</div></div><div class="col-12 col-lg-6"><div class="small text-uppercase text-body-secondary mb-2">Preview</div>';
             if ( $location_key === '' ) {
@@ -324,9 +339,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             } else {
                 $body_html .= $service->renderWeatherHtml( [ 'location' => $location_key, 'provider' => $preview_provider, 'layout' => 'compact', 'forecast' => 1, 'admin_preview' => true ] );
             }
-            $body_html .= '</div></div></article>';
+            $body_html .= '</div></div></details>';
         }
-        $body_html .= '</div><div class="small text-body-secondary">Last refresh: ' . $escape( (string) ( $cache['refreshed_at_utc'] ?: 'Never' ) ) . '</div></section></form>';
+        $body_html .= '</div></section></form>';
 
         $body_html .= '<section class="d-grid gap-2"><div class="small text-uppercase text-body-secondary">Shortcodes</div><div class="d-flex flex-wrap gap-2"><code class="text-break">[weather location=&quot;home&quot;]</code><code class="text-break">[weather location=&quot;home&quot; forecast=&quot;0&quot;]</code><code class="text-break">[weather location=&quot;home&quot; forecast=&quot;7&quot; layout=&quot;horizontal&quot;]</code><code class="text-break">[weather location=&quot;home&quot; details=&quot;location,icon,temperature,condition,wind&quot;]</code></div></section>';
         $body_html .= '<section class="d-grid gap-2"><div class="small text-uppercase text-body-secondary">Provider terms</div><div class="d-grid gap-2">';
@@ -334,7 +349,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<p class="mb-0 small text-body-secondary"><strong>' . $escape( (string) ( $provider_definition['label'] ?? '' ) ) . ':</strong> ' . $escape( (string) ( $provider_definition['notes'] ?? '' ) ) . '</p>';
         }
         $body_html .= '</div></section>';
-        $body_html .= '<script>(()=>{const sync=(row)=>{const used=Array.from(row.querySelectorAll("[data-tm-weather-location-trigger]")).some((field)=>String(field.value||"").trim()!=="");row.querySelectorAll("[data-tm-weather-location-required]").forEach((field)=>{field.required=used;});};document.querySelectorAll("[data-tm-weather-location-row]").forEach((row)=>{sync(row);row.addEventListener("input",()=>sync(row));row.addEventListener("change",()=>sync(row));});})();</script>';
+        $body_html .= '<script>(()=>{const syncLocation=(row)=>{const used=Array.from(row.querySelectorAll("[data-tm-weather-location-trigger]")).some((field)=>String(field.value||"").trim()!=="");row.querySelectorAll("[data-tm-weather-location-required]").forEach((field)=>{field.required=used;});};document.querySelectorAll("[data-tm-weather-location-row]").forEach((row)=>{syncLocation(row);row.addEventListener("input",()=>syncLocation(row));row.addEventListener("change",()=>syncLocation(row));});const syncSlot=(toggle)=>{const fields=document.querySelector("[data-tm-weather-slot-fields=\""+toggle.dataset.tmWeatherSlotToggle+"\"]");if(fields){fields.classList.toggle("d-none",!toggle.checked);}};document.querySelectorAll("[data-tm-weather-slot-toggle]").forEach((toggle)=>{syncSlot(toggle);toggle.addEventListener("change",()=>syncSlot(toggle));});})();</script>';
         $body_html .= '</div>';
 
         $plugins->renderAdminPage(

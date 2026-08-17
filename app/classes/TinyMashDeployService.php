@@ -6,11 +6,22 @@ require_once __DIR__ . '/TinyMashDeployPolicy.php';
 
 class TinyMashDeployService {
 
-    protected const INTERNAL_ONLY_DEPLOY_PATHS = [
-        '.agents', '.cache', '.codex', '.config', '.git', '.runway-config.json',
-        'AGENTS.md', 'Site', '_auth', '_cache', '_deploy', 'audit_copilot', 'docs',
-        'logs', 'node_modules', 'package-lock.json', 'package.json', 'tests',
-        'tinymash.zip', 'tmp',
+    protected const DEPLOY_ALLOWED_MANIFEST_PATHS = [
+        'root_files' => [
+            'CHANGELOG.md', 'CLI.md', 'INSTALL.md', 'LICENSE', 'README.md',
+            'bin/tinymash.php', 'composer.json', 'composer.lock',
+            'app/config/bootstrap.php', 'app/config/globals.inc.php',
+            'app/config/index.php', 'app/config/routes.inc.php',
+        ],
+        'directories' => [
+            'app/classes', 'app/controllers', 'app/help', 'app/include',
+            'app/plugins', 'app/themes', 'app/views', 'public', 'samples', 'vendor',
+        ],
+        'optional_directories' => [ 'themes' ],
+        'empty_directories' => [
+            'plugins', 'data/content', 'data/drafts', 'data/media', 'data/plugins',
+            'data/runtime', 'data/runtime/latte-cache', 'users',
+        ],
     ];
 
     protected string $project_root;
@@ -129,6 +140,9 @@ class TinyMashDeployService {
             'format' => 'tinymash-deploy',
             'format_version' => 2,
             'built_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
+            'application' => [
+                'version' => $this->resolveApplicationVersion(),
+            ],
             'site' => [
                 'name' => (string) ( $sanitized_config['site']['name'] ?? 'tinymash' ),
                 'base_url' => (string) ( $sanitized_config['site']['base_url'] ?? '' ),
@@ -169,6 +183,22 @@ class TinyMashDeployService {
 
         $this->writeJsonFile( $target_directory . DIRECTORY_SEPARATOR . 'deploy-manifest.json', $deploy_manifest );
         return( $deploy_manifest );
+    }
+
+    protected function resolveApplicationVersion() : string {
+        if ( defined( 'APP_VERSION' ) ) {
+            return( (string) APP_VERSION );
+        }
+
+        $filename = $this->project_root . DIRECTORY_SEPARATOR . 'app/config/globals.inc.php';
+        if ( ! is_file( $filename ) || ! is_readable( $filename ) || (int) @ filesize( $filename ) > 65536 ) {
+            return( '' );
+        }
+        $source = (string) @ file_get_contents( $filename );
+        if ( preg_match( "/const\\s+APP_VERSION\\s*=\\s*['\"]([^'\"]+)['\"]/", $source, $matches ) !== 1 ) {
+            return( '' );
+        }
+        return( trim( (string) $matches[1] ) );
     }
 
     protected function buildSanitizedDeployConfig() : array {
@@ -359,43 +389,61 @@ class TinyMashDeployService {
             throw new \RuntimeException( 'Deploy manifest is invalid.' );
         }
 
-        $this->assertManifestExcludesInternalPaths( $manifest );
+        $this->assertManifestPathsAreRuntimeOnly( $manifest );
 
         return( $manifest );
     }
 
-    protected function assertManifestExcludesInternalPaths( array $manifest ) : void {
-        $manifest_paths = [];
+    protected function assertManifestPathsAreRuntimeOnly( array $manifest ) : void {
         foreach ( [ 'root_files', 'directories', 'optional_directories', 'empty_directories' ] as $manifest_key ) {
-            $manifest_paths = array_merge( $manifest_paths, (array) ( $manifest[$manifest_key] ?? [] ) );
-        }
-        $manifest_paths[] = (string) ( $manifest['plugin_directory'] ?? '' );
-        $manifest_paths[] = (string) ( $manifest['plugin_data_directory'] ?? '' );
+            foreach ( (array) ( $manifest[$manifest_key] ?? [] ) as $manifest_path ) {
+                $normalized_path = $this->normalizeManifestPath( (string) $manifest_path );
+                if ( $normalized_path === '' ) {
+                    continue;
+                }
 
-        foreach ( $manifest_paths as $manifest_path ) {
-            $normalized_path = $this->normalizeRelativePath( (string) $manifest_path );
+                $allow_descendants = in_array( $manifest_key, [ 'directories', 'optional_directories' ], true );
+                if ( ! $this->isAllowedManifestPath( $normalized_path, self::DEPLOY_ALLOWED_MANIFEST_PATHS[$manifest_key], $allow_descendants ) ) {
+                    throw new \RuntimeException( 'Deploy manifest path is outside the runtime allowlist: ' . $normalized_path );
+                }
+            }
+        }
+
+        foreach ( [ 'plugin_directory' => 'plugins', 'plugin_data_directory' => 'data/plugins' ] as $manifest_key => $allowed_path ) {
+            $normalized_path = $this->normalizeManifestPath( (string) ( $manifest[$manifest_key] ?? '' ) );
             if ( $normalized_path === '' ) {
                 continue;
             }
-
-            $path_segments = [];
-            foreach ( explode( '/', $normalized_path ) as $path_segment ) {
-                if ( $path_segment === '' || $path_segment === '.' ) {
-                    continue;
-                }
-                if ( $path_segment === '..' ) {
-                    throw new \RuntimeException( 'Deploy manifest path traversal is not allowed: ' . $normalized_path );
-                }
-                $path_segments[] = $path_segment;
-            }
-            $normalized_path = implode( '/', $path_segments );
-
-            foreach ( self::INTERNAL_ONLY_DEPLOY_PATHS as $internal_path ) {
-                if ( $normalized_path === $internal_path || str_starts_with( $normalized_path, $internal_path . '/' ) ) {
-                    throw new \RuntimeException( 'Deploy manifest includes internal-only path: ' . $normalized_path );
-                }
+            if ( $normalized_path !== $allowed_path ) {
+                throw new \RuntimeException( 'Deploy manifest path is outside the runtime allowlist: ' . $normalized_path );
             }
         }
+    }
+
+    protected function normalizeManifestPath( string $path ) : string {
+        $normalized_path = $this->normalizeRelativePath( $path );
+        $path_segments = [];
+        foreach ( explode( '/', $normalized_path ) as $path_segment ) {
+            if ( $path_segment === '' || $path_segment === '.' ) {
+                continue;
+            }
+            if ( $path_segment === '..' ) {
+                throw new \RuntimeException( 'Deploy manifest path traversal is not allowed: ' . $normalized_path );
+            }
+            $path_segments[] = $path_segment;
+        }
+
+        return( implode( '/', $path_segments ) );
+    }
+
+    protected function isAllowedManifestPath( string $path, array $allowed_paths, bool $allow_descendants ) : bool {
+        foreach ( $allowed_paths as $allowed_path ) {
+            if ( $path === $allowed_path || ( $allow_descendants && str_starts_with( $path, $allowed_path . '/' ) ) ) {
+                return( true );
+            }
+        }
+
+        return( false );
     }
 
     protected function getActivePluginKeys() : array {

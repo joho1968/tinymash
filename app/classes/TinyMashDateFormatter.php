@@ -130,6 +130,10 @@ class TinyMashDateFormatter {
         return( ( new \DateTimeImmutable( 'now', $this->timezone ) )->format( $this->date_format . ', ' . $this->time_format ) );
     }
 
+    public function formatNowWithoutTimezone() : string {
+        return( ( new \DateTimeImmutable( 'now', $this->timezone ) )->format( $this->date_format . ', ' . $this->getTimeFormatWithoutTimezone() ) );
+    }
+
     public function getTimezoneName() : string {
         return( $this->timezone->getName() );
     }

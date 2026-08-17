@@ -177,25 +177,19 @@
                     {if $profile_section === 'editor'}
                     <div class="p-3 bg-body border rounded-3 shadow-sm">
                         <div class="small text-uppercase text-body-secondary mb-2">Editor</div>
-                        <div class="fw-semibold mb-1">Autosave preferences</div>
-                        <div class="small text-body-secondary mb-3">Control how the composer saves your private working drafts.</div>
+                        <div class="fw-semibold mb-3">Composer preferences</div>
 
                         <div class="rounded-3 p-3 bg-body-secondary">
                         <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label small mb-1" for="tm-profile-autosave-mode">Autosave mode</label>
-                                <select class="form-select" id="tm-profile-autosave-mode" name="autosave_mode">
-                                    <option value="inherit" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'inherit'">Inherit site default ({if !empty($profile_autosave['system_enabled'])}Enabled{else}Disabled{/if}, {$profile_autosave['system_interval_seconds'] ?? 120}s)</option>
-                                    <option value="enabled" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'enabled'">Enabled</option>
-                                    <option value="disabled" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'disabled'">Disabled</option>
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label small mb-1" for="tm-profile-editor-mode">Default Composer mode</label>
+                                <select class="form-select" id="tm-profile-editor-mode" name="editor_mode">
+                                    <option value="focused" n:attr="selected => ($profile_form['editor_mode'] ?? 'full') === 'focused'">Focused</option>
+                                    <option value="full" n:attr="selected => ($profile_form['editor_mode'] ?? 'full') === 'full'">Full</option>
                                 </select>
+                                <div class="form-text">Used when Composer opens. Switching mode in Composer updates the same preference.</div>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label small mb-1" for="tm-profile-autosave-interval">Autosave interval override (seconds)</label>
-                                <input class="form-control font-monospace" id="tm-profile-autosave-interval" name="autosave_interval_seconds" type="number" min="30" max="180" step="1" value="{$profile_form['autosave_interval_seconds'] ?? ''}">
-                                <div class="form-text">Leave blank to use the current site default of {$profile_autosave['system_interval_seconds'] ?? 120} seconds.</div>
-                            </div>
-                            <div class="col-12">
+                            <div class="col-12 col-lg-6">
                                 <label class="form-label small mb-1" for="tm-profile-classic-smileys-mode">Classic smileys</label>
                                 <select class="form-select" id="tm-profile-classic-smileys-mode" name="classic_smileys_mode">
                                     <option value="inherit" n:attr="selected => ($profile_form['classic_smileys_mode'] ?? 'inherit') === 'inherit'">Inherit site default ({if !empty($profile_classic_smileys['system_enabled'])}Enabled{else}Disabled{/if})</option>
@@ -205,6 +199,19 @@
                                 <div class="form-text">
                                     Controls whether classic smileys like <span class="font-monospace">:)</span>, <span class="font-monospace">8-)</span>, and <span class="font-monospace">:-\</span> are converted outside code blocks.
                                 </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label small mb-1" for="tm-profile-autosave-mode">Autosave mode</label>
+                                <select class="form-select" id="tm-profile-autosave-mode" name="autosave_mode">
+                                    <option value="inherit" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'inherit'">Inherit site default ({if !empty($profile_autosave['system_enabled'])}Enabled{else}Disabled{/if}, {$profile_autosave['system_interval_seconds'] ?? 120}s)</option>
+                                    <option value="enabled" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'enabled'">Enabled</option>
+                                    <option value="disabled" n:attr="selected => ($profile_form['autosave_mode'] ?? 'inherit') === 'disabled'">Disabled</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label small mb-1" for="tm-profile-autosave-interval">Autosave interval override (seconds)</label>
+                                <input class="form-control font-monospace" id="tm-profile-autosave-interval" name="autosave_interval_seconds" type="number" min="30" max="180" step="1" value="{$profile_form['autosave_interval_seconds'] ?? ''}">
+                                <div class="form-text">Leave blank to use the current site default of {$profile_autosave['system_interval_seconds'] ?? 120} seconds.</div>
                             </div>
                         </div>
                         <div class="pt-4 d-flex flex-wrap gap-2">

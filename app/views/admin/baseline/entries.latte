@@ -60,6 +60,8 @@
                         <div class="small text-body-secondary d-flex flex-wrap gap-1 align-items-center">
                             <span>{$entry_counts['entries'] ?? 0} content</span>
                             <span aria-hidden="true">&middot;</span>
+                            <span>{$entry_counts['scheduled'] ?? 0} scheduled</span>
+                            <span aria-hidden="true">&middot;</span>
                             <span>{$entry_counts['drafts'] ?? 0} drafts</span>
                             <span aria-hidden="true">&middot;</span>
                             <span>{$entry_counts['pending_review'] ?? 0} pending review</span>
@@ -219,8 +221,8 @@
                                     </thead>
                                     <tbody>
                                         {foreach $entries as $entry}
-                                            {var $entry_status_label = $entry['status'] === 'pending_review' ? 'Pending review' : ($entry['status'] === 'published' ? 'Published' : 'Unpublished')}
-                                            {var $entry_status_icon = $entry['status'] === 'pending_review' ? 'bi-circle-fill' : ($entry['status'] === 'published' ? 'bi-circle-fill' : 'bi-circle')}
+                                            {var $entry_status_label = $entry['status'] === 'pending_review' ? 'Pending review' : ($entry['status'] === 'published' ? 'Published' : ($entry['status'] === 'scheduled' ? 'Scheduled' : 'Unpublished'))}
+                                            {var $entry_status_icon = $entry['status'] === 'scheduled' ? 'bi-clock' : ($entry['status'] === 'pending_review' ? 'bi-circle-fill' : ($entry['status'] === 'published' ? 'bi-circle-fill' : 'bi-circle'))}
                                             {var $entry_tree_depth = $entries_tree_enabled && ($entry['type'] ?? '') === 'page' ? max(0, (int) ($entry['content_tree_depth'] ?? 0)) : 0}
                                             {var $entry_tree_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $entry_tree_depth)}
                                             <tr n:attr="data-open-url => $entry['active_draft'] ? ($editor_url . '?draft=' . rawurlencode((string) $entry['active_draft']['draft_id'])) : ($editor_url . '?entry=' . rawurlencode((string) $entry['id']))" class="tm-library-row">
@@ -249,14 +251,19 @@
                                                     {/if}
                                                 </td>
                                                 <td class="text-center">
-                                                    <span class="badge d-inline-flex align-items-center justify-content-center {if $entry['status'] === 'published'}text-success{elseif $entry['status'] === 'pending_review'}text-warning{else}text-secondary{/if}" title="{$entry_status_label}">
+                                                    <span class="badge d-inline-flex align-items-center justify-content-center {if $entry['status'] === 'published'}text-success{elseif $entry['status'] === 'pending_review' || $entry['status'] === 'scheduled'}text-warning{else}text-secondary{/if}" title="{$entry_status_label}{if $entry['status'] === 'scheduled' && !empty($entry['published_at_display'])}: {$entry['published_at_display']}{/if}">
                                                         <span class="bi {$entry_status_icon}" aria-hidden="true"></span>
                                                         <span class="visually-hidden">{$entry_status_label}</span>
                                                     </span>
                                                 </td>
                                                 <td class="text-center small text-body-secondary font-monospace" title="{$entry['revision_count']} revisions">{$entry['revision_count']}</td>
                                                 <td class="small text-body-secondary">
-                                                    {$entry['updated_at_display']}
+                                                    {if $entry['status'] === 'scheduled' && !empty($entry['published_at_display'])}
+                                                        <span class="d-block">Due {$entry['published_at_display']}</span>
+                                                        <span class="d-block small">Updated {$entry['updated_at_display']}</span>
+                                                    {else}
+                                                        {$entry['updated_at_display']}
+                                                    {/if}
                                                 </td>
                                                 <td class="text-end">
                                                     <div class="d-inline-flex gap-1">

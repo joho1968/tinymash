@@ -8,6 +8,7 @@ use app\classes\TinyMashConfigIO;
 use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashImportLockService;
+use app\classes\TinyMashImportPreviewWorkspaceService;
 use app\classes\TinyMashMediaImportBridge;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
@@ -23,6 +24,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $user_repository = $plugins->getService( 'user.repository' );
     $media_import_bridge = $plugins->getService( 'media.import_bridge' );
     $import_lock_service = $plugins->getService( 'import.lock_service' );
+    $import_preview_workspace_service = $plugins->getService( 'import.preview_workspaces' );
     $config_io = new TinyMashConfigIO();
 
     if ( ! $config instanceof TinyMashConfig || ! $security instanceof TinyMashSecurity || ! $content_repository instanceof TinyMashContentRepository || ! $date_formatter instanceof TinyMashDateFormatter || ! $user_repository instanceof TinyMashUserRepository ) {
@@ -133,7 +135,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 'usage' => 'tinymash wordpress-import <preview|import> <wxr-file> --author=<username> [--aggregate-root] [--replace-existing-posts] [--replace-existing-pages] [--skip-unpublished] [--import-menus] [--batch-size=<n>] [--memory-limit=<value>] [--keep-preview] [--force-lock]',
                 'summary' => 'Preview or import a WordPress WXR export into an author space from the CLI.',
                 'order' => 220,
-                'handler' => static function( array $arguments ) use ( $parse_cli_options, $write_preview_summary, $import_service, $user_repository ) : void {
+                'handler' => static function( array $arguments ) use ( $parse_cli_options, $write_preview_summary, $import_service, $import_preview_workspace_service, $plugin_key, $user_repository ) : void {
                     $options = $parse_cli_options( $arguments );
                     $action = (string) ( $options['action'] ?? '' );
                     if ( ! in_array( $action, [ 'preview', 'import' ], true ) ) {
@@ -173,11 +175,16 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     );
 
                     $write_preview_summary( $preview );
+                    $token = (string) ( $preview['token'] ?? '' );
+                    if ( ! empty( $options['keep_preview'] ) ) {
+                        if ( ! $import_preview_workspace_service instanceof TinyMashImportPreviewWorkspaceService || ! $import_preview_workspace_service->retainPreview( $plugin_key, $token ) ) {
+                            throw new \RuntimeException( 'The WordPress import preview could not be marked for retention.' );
+                        }
+                    }
                     if ( $action === 'preview' ) {
                         return;
                     }
 
-                    $token = (string) ( $preview['token'] ?? '' );
                     $batch_size = max( 1, min( 100, (int) ( $options['batch_size'] ?? 25 ) ) );
                     do {
                         $batch_result = $import_service->importPreviewBatch( $token, $batch_size, ! empty( $options['force_lock'] ) );

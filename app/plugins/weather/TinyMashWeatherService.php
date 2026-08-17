@@ -277,7 +277,7 @@ class TinyMashWeatherService {
                    ( $slot !== '' ? ' tm-weather-slot tm-weather-slot-' . $slot : '' ) .
                    ( $stale ? ' tm-weather-stale' : '' ) .
                    ( $admin_preview ? ' tm-weather-admin-preview' : '' );
-        $html = '<div class="' . $this->escape( $classes ) . '" data-weather-location="' . $this->escape( $location_key ) . '" data-weather-provider="' . $this->escape( $provider ) . '">';
+        $html = '<div class="tm-weather-container" data-tm-heading-scope="component"><div class="' . $this->escape( $classes ) . '" data-weather-location="' . $this->escape( $location_key ) . '" data-weather-provider="' . $this->escape( $provider ) . '">';
         if ( ! empty( $details['location'] ) || $stale || $status === 'error' ) {
             $html .= '<div class="tm-weather-header">';
             if ( $admin_preview && ! empty( $details['location'] ) ) {
@@ -301,7 +301,7 @@ class TinyMashWeatherService {
         }
         if ( $admin_preview ) {
             $html .= $this->renderAdminPreviewHtml( $feed, $units, $wind_units, $show_current, $forecast_days, (string) ( $location['timezone'] ?? '' ) );
-            $html .= '</div>';
+            $html .= '</div></div>';
             return( $html );
         }
         if ( $show_current ) {
@@ -322,7 +322,7 @@ class TinyMashWeatherService {
             $url = (string) ( $feed['attribution_url'] ?? 'https://open-meteo.com/' );
             $html .= '<div class="tm-weather-attribution">Source: <a href="' . $this->escape( $url ) . '" rel="nofollow noopener" target="_blank">' . $this->escape( $label ) . '</a></div>';
         }
-        $html .= '</div>';
+        $html .= '</div></div>';
         return( $html );
     }
 
@@ -1050,7 +1050,7 @@ class TinyMashWeatherService {
     }
 
     protected function renderUnavailableHtml( string $message ) : string {
-        return( '<div class="tm-weather tm-weather-unavailable"><div class="tm-weather-kicker">Weather</div><p class="mb-0">' . $this->escape( $message ) . '</p></div>' );
+        return( '<div class="tm-weather-container" data-tm-heading-scope="component"><div class="tm-weather tm-weather-unavailable"><div class="tm-weather-kicker">Weather</div><p class="mb-0">' . $this->escape( $message ) . '</p></div></div>' );
     }
 
     protected function buildFeedStatus( array $location, string $provider, string $status, string $message, array $previous = [] ) : array {

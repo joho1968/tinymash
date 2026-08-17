@@ -137,25 +137,36 @@ Use it as reference only; do not overwrite an existing `app/config/tinymash.json
 
 Do not copy a new release over the old application tree. Removed PHP, plugin, theme, vendor, or public files can remain executable after an overlay.
 
-Use a staged sibling directory:
+Use a staged sibling directory and run the preparation command from the new release root:
 
 1. create and verify a site backup
-2. extract/build and audit the new release in an empty sibling directory
-3. stop PHP-FPM and cron/queue writers for the final copy
-4. copy the existing `app/config/tinymash.json`, `data/content`, `data/drafts`, `data/media`, `data/plugins`, and `users` into the staged release
-5. leave `data/runtime`, `tmp`, logs, and the config lock behind
-6. audit the staged release again
+2. extract/build the new release into an empty sibling directory
+3. run `upgrade:prepare --dry-run` and review missing extensions, modified managed files, discarded runtime paths, and unmanaged old-site paths
+4. add compatible required plugin/theme code to the release package when needed and rerun the dry run
+5. stop PHP-FPM and cron/queue writers for the old installation
+6. run `upgrade:prepare` to copy and verify config, content, drafts, media, plugin data, and users
 7. rename the old directory aside, move the staged release into place, restore permissions, and reload PHP-FPM
 8. run `system:status`, clear/warm caches, and audit the final installation
 
 ```bash
-php8.4 bin/tinymash.php deploy:audit /path/to/staged-release
+cd /path/to/staged-release
+php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash --dry-run
+
+# Stop old-site PHP-FPM, cron, queues, and other writers before the real copy.
+php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash
+```
+
+For unattended preparation, pass `--confirm-writes-stopped --no-interaction`. Missing active plugins or selected themes block preparation unless `--allow-missing-extensions` is supplied deliberately.
+
+The command leaves `data/runtime`, `tmp`, logs, and the config lock behind. It reports but does not copy third-party extensions or unmanaged paths such as `_tmp`, `_uploads`, `uploads`, `_auth`, custom public directories, host configuration, or authentication files. Handle those paths manually according to their purpose.
+
+```bash
 php8.4 bin/tinymash.php system:status
 php8.4 bin/tinymash.php cache:clear
 php8.4 bin/tinymash.php deploy:audit /path/to/tinymash
 ```
 
-Review third-party `plugins/` and `themes/` separately. Prefer building compatible extensions into the new package so they are covered by its manifest. Keep the old installation and a verified backup until the upgraded site has been checked; after new writes begin, the old directory alone is no longer a complete rollback source.
+`upgrade:prepare` does not stop services, perform the directory swap, restore ownership, reload PHP-FPM, or run future storage migrations. Review third-party `plugins/` and `themes/` separately. Prefer building compatible extensions into the new package so they are covered by its manifest. Keep the old installation and a verified backup until the upgraded site has been checked; after new writes begin, the old directory alone is no longer a complete rollback source.
 
 ## 6. Reload PHP-FPM
 

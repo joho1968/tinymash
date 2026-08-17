@@ -37,6 +37,7 @@ require_once __DIR__ . '/../app/classes/TinyMashMediaCapabilityRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaDerivativeRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashLockedJsonFile.php';
 require_once __DIR__ . '/../app/classes/TinyMashImportLockService.php';
+require_once __DIR__ . '/../app/classes/TinyMashImportPreviewWorkspaceService.php';
 require_once __DIR__ . '/../app/classes/TinyMashPublicPageCache.php';
 require_once __DIR__ . '/../app/classes/TinyMashHousekeepingService.php';
 require_once __DIR__ . '/../app/classes/TinyMashThemeRegistry.php';
@@ -49,6 +50,7 @@ require_once __DIR__ . '/../app/classes/TinyMashStaticExportArtifactService.php'
 require_once __DIR__ . '/../app/classes/TinyMashStaticExportService.php';
 require_once __DIR__ . '/../app/classes/TinyMashDeployService.php';
 require_once __DIR__ . '/../app/classes/TinyMashDeployAuditService.php';
+require_once __DIR__ . '/../app/classes/TinyMashUpgradePrepareService.php';
 require_once __DIR__ . '/../app/classes/TinyMashMailer.php';
 require_once __DIR__ . '/../app/classes/TinyMashNotificationService.php';
 require_once __DIR__ . '/../app/classes/TinyMashPasswordResetService.php';
@@ -75,6 +77,7 @@ use app\classes\TinyMashMediaUsageReporter;
 use app\classes\TinyMashMediaCapabilityRegistry;
 use app\classes\TinyMashMediaDerivativeRegistry;
 use app\classes\TinyMashImportLockService;
+use app\classes\TinyMashImportPreviewWorkspaceService;
 use app\classes\TinyMashPublicPageCache;
 use app\classes\TinyMashHousekeepingService;
 use app\classes\TinyMashThemeRegistry;
@@ -87,6 +90,7 @@ use app\classes\TinyMashStaticExportArtifactService;
 use app\classes\TinyMashStaticExportService;
 use app\classes\TinyMashDeployService;
 use app\classes\TinyMashDeployAuditService;
+use app\classes\TinyMashUpgradePrepareService;
 use app\classes\TinyMashMailer;
 use app\classes\TinyMashNotificationService;
 use app\classes\TinyMashPasswordResetService;
@@ -358,6 +362,9 @@ Cache and housekeeping
 
   housekeeping run [--no-plugins]
       run core housekeeping now, and optionally active plugin housekeeping tasks
+
+  content publish-due
+      publish due scheduled content and enqueue active publication integrations
 
 Media
 -----
@@ -834,6 +841,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $import_lock_service = new TinyMashImportLockService(
         TINYMASH_RUNTIME_DIR . '/import-locks.json'
     );
+    $import_preview_workspace_service = TinyMashImportPreviewWorkspaceService::forProjectRoot( dirname(__DIR__) );
     $content_renderer = new TinyMashContentRenderer(
         $markdown_renderer,
         $date_formatter,
@@ -913,6 +921,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $app->set('media.import_bridge', $media_import_bridge);
     $app->set('media.usage_reporter', $media_usage_reporter);
     $app->set('import.lock_service', $import_lock_service);
+    $app->set('import.preview_workspaces', $import_preview_workspace_service);
     $app->set('media.capability_registry', $media_capability_registry);
     $app->set('media.derivative_registry', $media_derivative_registry);
     $app->set('help.catalog', $help_catalog);
@@ -953,6 +962,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
         'media_metadata_store' => $media_metadata_store,
         'media_service' => $media_service,
         'media_import_bridge' => $media_import_bridge,
+        'import_preview_workspace_service' => $import_preview_workspace_service,
         'media_usage_reporter' => $media_usage_reporter,
         'export_service' => $export_service,
         'static_export_artifact_service' => $static_export_artifact_service,
@@ -996,7 +1006,8 @@ function runHousekeeping(bool $run_plugins = true): void {
         $runtime['theme'] ?? null,
         TINYMASH_RUNTIME_DIR . '/housekeeping-web.lock',
         $runtime['media_import_bridge'] ?? null,
-        $runtime['content_repository'] ?? null
+        $runtime['content_repository'] ?? null,
+        $runtime['import_preview_workspace_service'] ?? null
     );
     $result = $service->run(
         $run_plugins,
@@ -1074,6 +1085,45 @@ function runHousekeeping(bool $run_plugins = true): void {
         }
     }
     printCliTasks($cache_tasks);
+}
+
+function runScheduledPublishing(): void {
+    $config_io = new TinyMashConfigIO();
+    if (!$config_io->getConfig()) {
+        fail('unable to read config file');
+    }
+
+    $runtime = buildCliRuntime(true);
+    $service = new TinyMashHousekeepingService(
+        $config_io,
+        $runtime['draft_repository'],
+        $runtime['media_service'] ?? null,
+        $runtime['plugins'] ?? null,
+        $runtime['notification_service'] ?? null,
+        $runtime['password_reset_service'] ?? null,
+        $runtime['theme'] ?? null,
+        TINYMASH_RUNTIME_DIR . '/housekeeping-web.lock',
+        $runtime['media_import_bridge'] ?? null,
+        $runtime['content_repository'] ?? null,
+        $runtime['import_preview_workspace_service'] ?? null
+    );
+    $result = $service->runScheduledPublications();
+
+    printCliTitle('tinymash content publish-due');
+    printCliRows([
+        'Status' => (string) ($result['status'] ?? 'error'),
+        'Scheduled' => (int) ($result['scheduled_count'] ?? 0),
+        'Due' => (int) ($result['due_count'] ?? 0),
+        'Activated' => (int) ($result['activated_count'] ?? 0),
+        'Events completed' => (int) ($result['completed_event_count'] ?? 0),
+        'Events pending' => (int) ($result['pending_event_count'] ?? 0),
+        'Failures' => (int) ($result['failed_count'] ?? 0),
+        'Message' => (string) ($result['message'] ?? ''),
+    ]);
+
+    if (($result['status'] ?? 'error') === 'error' || (int) ($result['failed_count'] ?? 0) > 0) {
+        fail('scheduled publication requires attention');
+    }
 }
 
 function runMediaCleanup(array $arguments): void {
@@ -2592,6 +2642,7 @@ function transformLegacyCliArgv(array $argv): array {
         'maintenance' => [ 'status' => 'maintenance:status', 'on' => 'maintenance:on', 'off' => 'maintenance:off' ],
         'cache' => [ 'clear' => 'cache:clear', 'warm' => 'cache:warm' ],
         'housekeeping' => [ 'status' => 'housekeeping:status', 'run' => 'housekeeping:run' ],
+        'content' => [ 'publish-due' => 'content:publish-due' ],
         'media' => [ 'usage' => 'media:usage', 'cleanup' => 'media:cleanup' ],
         'benchmark' => [ 'public' => 'benchmark:public' ],
         'audit' => [ 'remote-media' => 'audit:remote-media' ],
@@ -3246,6 +3297,189 @@ class TinymashSetupCommand extends Command {
     }
 }
 
+class TinymashUpgradePrepareCommand extends Command {
+    public function __construct() {
+        parent::__construct('upgrade:prepare');
+    }
+
+    protected function configure(): void {
+        $this
+            ->setDescription('Prepare a clean release with state from an old installation.')
+            ->addArgument('old-site-directory', InputArgument::REQUIRED, 'Old tinymash installation root')
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Inspect without copying state')
+            ->addOption('confirm-writes-stopped', null, InputOption::VALUE_NONE, 'Confirm that old-site writers are stopped')
+            ->addOption('allow-missing-extensions', null, InputOption::VALUE_NONE, 'Allow state preparation when active plugins or selected themes are absent')
+            ->setHelp(
+                "Run this command from the root of a clean new release:\n"
+                . "  php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash --dry-run\n"
+                . "  php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash --confirm-writes-stopped --no-interaction\n\n"
+                . "The command copies authoritative site state only. It does not copy runtime data or extension code, stop services, or swap directories."
+            );
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int {
+        $io = new SymfonyStyle($input, $output);
+        $dry_run = (bool) $input->getOption('dry-run');
+        guardRootUserForCliCommand($dry_run ? ['help'] : ['upgrade:prepare'], (bool) $input->getOption('allow-root'));
+
+        $old_site_directory = trim((string) $input->getArgument('old-site-directory'));
+        $allow_missing_extensions = (bool) $input->getOption('allow-missing-extensions');
+
+        $io->title('tinymash upgrade prepare');
+        try {
+            $service = new TinyMashUpgradePrepareService(dirname(__DIR__), $old_site_directory, $allow_missing_extensions);
+            $inspection = $service->inspect();
+        } catch (\Throwable $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+
+        $io->section('Installations');
+        $io->table(
+            ['Role', 'Directory', 'Version'],
+            [
+                ['Old', (string) ($inspection['source_root'] ?? $old_site_directory), (string) ($inspection['source_version'] ?? 'unknown')],
+                ['New', (string) ($inspection['target_root'] ?? dirname(__DIR__)), (string) ($inspection['target_version'] ?? APP_VERSION)],
+            ]
+        );
+
+        $io->section('Preflight');
+        $check_rows = [];
+        foreach ((array) ($inspection['checks'] ?? []) as $check) {
+            $check_rows[] = [
+                (string) ($check['check'] ?? ''),
+                !empty($check['ok']) ? '<info>ok</info>' : '<error>failed</error>',
+                (string) ($check['detail'] ?? ''),
+            ];
+        }
+        $io->table(['Check', 'Status', 'Detail'], $check_rows);
+
+        $inventory = (array) ($inspection['inventory'] ?? []);
+        if ($inventory !== []) {
+            $io->section('State transfer');
+            $io->table(
+                ['Files', 'Directories', 'Size'],
+                [[
+                    number_format((int) ($inventory['files'] ?? 0)),
+                    number_format((int) ($inventory['directories_count'] ?? 0)),
+                    $this->formatBytes((int) ($inventory['bytes'] ?? 0)),
+                ]]
+            );
+        }
+
+        $discarded_paths = (array) ($inspection['discarded_paths'] ?? []);
+        if ($discarded_paths !== []) {
+            $io->section('Deliberately left behind');
+            $io->listing($discarded_paths);
+        }
+
+        $extensions = (array) ($inspection['extensions'] ?? []);
+        $extension_review = array_merge(
+            (array) ($extensions['old_plugin_directories'] ?? []),
+            (array) ($extensions['old_theme_directories'] ?? [])
+        );
+        if ($extension_review !== []) {
+            $io->section('Extension review');
+            $io->listing($extension_review);
+            $io->writeln('Extension code is not copied automatically.');
+        }
+
+        $missing_extensions = [];
+        foreach ((array) ($extensions['missing_active_plugins'] ?? []) as $plugin_key) {
+            $missing_extensions[] = 'Plugin: ' . $plugin_key;
+        }
+        foreach ((array) ($extensions['missing_selected_themes'] ?? []) as $theme_key) {
+            $missing_extensions[] = 'Theme: ' . $theme_key;
+        }
+        if ($missing_extensions !== []) {
+            $io->section('Missing required extensions');
+            $io->listing($missing_extensions);
+        }
+
+        $review_paths = (array) ($inspection['review_paths'] ?? []);
+        if ($review_paths !== []) {
+            $io->section('Manual review');
+            $review_rows = [];
+            foreach (array_slice($review_paths, 0, 100) as $item) {
+                $review_rows[] = [
+                    (string) ($item['path'] ?? ''),
+                    (string) ($item['type'] ?? ''),
+                    number_format((int) ($item['files'] ?? 0)),
+                    $this->formatBytes((int) ($item['bytes'] ?? 0)),
+                    (string) ($item['guidance'] ?? ''),
+                ];
+            }
+            $io->table(['Path', 'Type', 'Files', 'Size', 'Guidance'], $review_rows);
+            if (count($review_paths) > 100) {
+                $io->writeln('... ' . (count($review_paths) - 100) . ' more paths');
+            }
+        }
+
+        $modified_managed_files = (array) ($inspection['modified_managed_files'] ?? []);
+        if ($modified_managed_files !== []) {
+            $io->section('Modified managed files');
+            $io->listing(array_slice($modified_managed_files, 0, 100));
+            $io->writeln('These application files are not copied over the new release. Review local changes manually.');
+        }
+
+        foreach ((array) ($inspection['warnings'] ?? []) as $warning) {
+            $io->warning((string) $warning);
+        }
+        if (empty($inspection['ok'])) {
+            foreach ((array) ($inspection['errors'] ?? []) as $error) {
+                $io->error((string) $error);
+            }
+            return Command::FAILURE;
+        }
+
+        if ($dry_run) {
+            $io->success('Dry run complete. No files were changed.');
+            return Command::SUCCESS;
+        }
+
+        $writes_stopped = (bool) $input->getOption('confirm-writes-stopped');
+        if (!$writes_stopped && !$input->isInteractive()) {
+            $io->error('Refusing to copy live state without --confirm-writes-stopped.');
+            return Command::FAILURE;
+        }
+        if (!$writes_stopped && !$io->confirm('Have PHP-FPM, cron, queues, and other old-site writers been stopped?', false)) {
+            $io->note('Upgrade preparation aborted. No files were changed.');
+            return Command::SUCCESS;
+        }
+
+        try {
+            $result = $service->prepare();
+        } catch (\Throwable $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+
+        $io->success('The new release now contains verified site state.');
+        $io->table(
+            ['Result', 'Value'],
+            [
+                ['Copied files', number_format((int) ($result['copied_files'] ?? 0))],
+                ['Copied size', $this->formatBytes((int) ($result['copied_bytes'] ?? 0))],
+                ['Deploy audit', !empty($result['audit']['ok']) ? 'ok' : 'failed'],
+            ]
+        );
+        $io->writeln('Next: review listed operator paths and extensions, swap sibling directories, restore permissions, reload PHP-FPM, then run system:status and deploy:audit.');
+
+        return Command::SUCCESS;
+    }
+
+    protected function formatBytes(int $bytes): string {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $value = max(0, $bytes);
+        $unit = 0;
+        while ($value >= 1024 && $unit < count($units) - 1) {
+            $value /= 1024;
+            $unit++;
+        }
+        return $unit === 0 ? (string) (int) $value . ' B' : number_format($value, 1) . ' ' . $units[$unit];
+    }
+}
+
 function getTinymashRootGuardArguments(string $command_name, array $arguments, bool $read_only): array {
     if ($read_only) {
         return ['help'];
@@ -3258,6 +3492,7 @@ function buildTinymashConsoleApplication(): Application {
     $application = new Application('tinymash', APP_VERSION);
     $application->getDefinition()->addOption(new InputOption('allow-root', null, InputOption::VALUE_NONE, 'Allow mutating commands to run as root without confirmation.'));
     $application->addCommand(new TinymashSetupCommand());
+    $application->addCommand(new TinymashUpgradePrepareCommand());
 
     $commands = [
         new TinymashLegacyCommand('system:status', 'Show runtime status.', static fn() => printSystemStatus(), true, 'system:status', ['system-status']),
@@ -3270,6 +3505,7 @@ function buildTinymashConsoleApplication(): Application {
         new TinymashLegacyCommand('cache:warm', 'Warm content, media, and public-page caches.', static fn(array $arguments) => warmCache($arguments), false, 'cache:warm [--base-url=<url>] [--userpass=<user:pass>] [--author=<slug>] [--entries] [--entry-limit=<n>]'),
         new TinymashLegacyCommand('housekeeping:status', 'Show housekeeping state.', static fn() => printHousekeepingStatus(), true, 'housekeeping:status'),
         new TinymashLegacyCommand('housekeeping:run', 'Run housekeeping tasks.', static fn(array $arguments) => runHousekeeping(!in_array('--no-plugins', $arguments, true)), false, 'housekeeping:run [--no-plugins]'),
+        new TinymashLegacyCommand('content:publish-due', 'Publish due scheduled content.', static fn() => runScheduledPublishing(), false, 'content:publish-due'),
         new TinymashLegacyCommand('media:usage', 'Report media usage.', static fn(array $arguments) => runMediaUsage($arguments), true, 'media:usage [--owner=<root-or-author>] [--unused-only] [--limit=<n>]'),
         new TinymashLegacyCommand('media:cleanup', 'Report unused media or generate missing derivatives.', static fn(array $arguments) => runMediaCleanup($arguments), false, 'media:cleanup [--dry-run] [--generate-missing-derivatives] [--report-unused] [--owner=<root-or-author>] [--limit=<n>]'),
         new TinymashLegacyCommand('benchmark:public', 'Benchmark public routes.', static fn(array $arguments) => runPublicBenchmark($arguments), true, 'benchmark:public [--base-url=<url>] [--userpass=<user:pass>] [--login-user=<username>] [--login-pass=<password>] [--author=<slug>] [--entry=<slug>] [--repeat=<n>]'),

@@ -12,9 +12,10 @@ class TinyMashHousekeepingService {
     protected ?TinyMashPasswordResetService $password_reset_service;
     protected ?TinyMashTheme $theme;
     protected ?TinyMashContentRepository $content_repository;
+    protected ?TinyMashImportPreviewWorkspaceService $import_preview_workspace_service;
     protected string $web_fallback_lock_filename;
 
-    public function __construct( TinyMashConfigIO $config_io, TinyMashDraftRepository $draft_repository, ?TinyMashMediaService $media_service = null, ?TinyMashPlugins $plugins = null, ?TinyMashNotificationService $notification_service = null, ?TinyMashPasswordResetService $password_reset_service = null, ?TinyMashTheme $theme = null, string $web_fallback_lock_filename = '', ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashContentRepository $content_repository = null ) {
+    public function __construct( TinyMashConfigIO $config_io, TinyMashDraftRepository $draft_repository, ?TinyMashMediaService $media_service = null, ?TinyMashPlugins $plugins = null, ?TinyMashNotificationService $notification_service = null, ?TinyMashPasswordResetService $password_reset_service = null, ?TinyMashTheme $theme = null, string $web_fallback_lock_filename = '', ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashContentRepository $content_repository = null, ?TinyMashImportPreviewWorkspaceService $import_preview_workspace_service = null ) {
         $this->config_io = $config_io;
         $this->draft_repository = $draft_repository;
         $this->media_service = $media_service;
@@ -24,6 +25,7 @@ class TinyMashHousekeepingService {
         $this->password_reset_service = $password_reset_service;
         $this->theme = $theme;
         $this->content_repository = $content_repository;
+        $this->import_preview_workspace_service = $import_preview_workspace_service;
         $this->web_fallback_lock_filename = trim( $web_fallback_lock_filename ) !== ''
             ? $web_fallback_lock_filename
             : dirname( $this->config_io->getConfigFilename(), 2 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'housekeeping-web.lock';
@@ -64,6 +66,19 @@ class TinyMashHousekeepingService {
         $media_import_cleanup_result = $this->media_import_bridge instanceof TinyMashMediaImportBridge
             ? $this->media_import_bridge->cleanupTemporaryImportDirectory()
             : [ 'checked_files' => 0, 'removed_files' => 0, 'removed_directory' => false, 'directory_exists' => false ];
+        $import_preview_cleanup_result = $this->import_preview_workspace_service instanceof TinyMashImportPreviewWorkspaceService
+            ? $this->import_preview_workspace_service->cleanupExpiredPreviews()
+            : [
+                'retention_seconds' => 0,
+                'checked_workspaces' => 0,
+                'removed_workspaces' => 0,
+                'preserved_fresh' => 0,
+                'preserved_retained' => 0,
+                'skipped_unknown' => 0,
+                'skipped_symlinks' => 0,
+                'errors' => 0,
+            ];
+        $scheduled_publication_result = $this->runScheduledPublicationTask( $context, $started_at_utc );
 
         $plugin_task_results = [];
         if ( $run_plugins && $this->plugins instanceof TinyMashPlugins ) {
@@ -105,6 +120,18 @@ class TinyMashHousekeepingService {
                 'last_run_saved' => $last_run_saved,
                 'stale_draft_retention_days' => $stale_draft_retention_days,
                 'core_tasks' => [
+                    [
+                        'key' => 'scheduled_publication',
+                        'label' => 'Scheduled publication',
+                        'status' => (string) ( $scheduled_publication_result['status'] ?? 'skipped' ),
+                        'message' => (string) ( $scheduled_publication_result['message'] ?? 'Scheduled publication was not run.' ),
+                        'scheduled_count' => (int) ( $scheduled_publication_result['scheduled_count'] ?? 0 ),
+                        'due_count' => (int) ( $scheduled_publication_result['due_count'] ?? 0 ),
+                        'activated_count' => (int) ( $scheduled_publication_result['activated_count'] ?? 0 ),
+                        'completed_event_count' => (int) ( $scheduled_publication_result['completed_event_count'] ?? 0 ),
+                        'pending_event_count' => (int) ( $scheduled_publication_result['pending_event_count'] ?? 0 ),
+                        'failed_count' => (int) ( $scheduled_publication_result['failed_count'] ?? 0 ),
+                    ],
                     [
                         'key' => 'stale_draft_cleanup',
                         'label' => 'Stale draft cleanup',
@@ -174,10 +201,169 @@ class TinyMashHousekeepingService {
                     'removed_directory' => ! empty( $media_import_cleanup_result['removed_directory'] ),
                     'directory_exists' => ! empty( $media_import_cleanup_result['directory_exists'] ),
                 ],
+                [
+                    'key' => 'import_preview_cleanup',
+                    'label' => 'Import preview cleanup',
+                    'status' => ! $this->import_preview_workspace_service instanceof TinyMashImportPreviewWorkspaceService
+                        ? 'skipped'
+                        : ( (int) ( $import_preview_cleanup_result['errors'] ?? 0 ) > 0 ? 'error' : 'ran' ),
+                    'message' => $this->import_preview_workspace_service instanceof TinyMashImportPreviewWorkspaceService
+                        ? 'Removed ' . (int) ( $import_preview_cleanup_result['removed_workspaces'] ?? 0 ) . ' expired import preview workspace(s)'
+                            . ( (int) ( $import_preview_cleanup_result['errors'] ?? 0 ) > 0
+                                ? '; ' . (int) $import_preview_cleanup_result['errors'] . ' workspace operation(s) failed.'
+                                : '.' )
+                        : 'Import preview retention service is unavailable.',
+                    'retention_seconds' => (int) ( $import_preview_cleanup_result['retention_seconds'] ?? 0 ),
+                    'checked_workspaces' => (int) ( $import_preview_cleanup_result['checked_workspaces'] ?? 0 ),
+                    'removed_workspaces' => (int) ( $import_preview_cleanup_result['removed_workspaces'] ?? 0 ),
+                    'preserved_fresh' => (int) ( $import_preview_cleanup_result['preserved_fresh'] ?? 0 ),
+                    'preserved_retained' => (int) ( $import_preview_cleanup_result['preserved_retained'] ?? 0 ),
+                    'skipped_unknown' => (int) ( $import_preview_cleanup_result['skipped_unknown'] ?? 0 ),
+                    'skipped_symlinks' => (int) ( $import_preview_cleanup_result['skipped_symlinks'] ?? 0 ),
+                    'errors' => (int) ( $import_preview_cleanup_result['errors'] ?? 0 ),
+                ],
             ],
                 'plugin_tasks' => $plugin_task_results,
                 'theme_task' => $theme_task_result,
             ]
+        );
+    }
+
+    protected function runScheduledPublicationTask( array $context, string $started_at_utc ) : array {
+        if ( (string) ( $context['trigger'] ?? '' ) !== 'cli' ) {
+            return(
+                [
+                    'status' => 'skipped',
+                    'message' => 'CLI housekeeping is required.',
+                    'scheduled_count' => 0,
+                    'due_count' => 0,
+                    'activated_count' => 0,
+                    'completed_event_count' => 0,
+                    'pending_event_count' => 0,
+                    'failed_count' => 0,
+                ]
+            );
+        }
+        if ( ! $this->content_repository instanceof TinyMashContentRepository ) {
+            return(
+                [
+                    'status' => 'error',
+                    'message' => 'Content storage is unavailable.',
+                    'scheduled_count' => 0,
+                    'due_count' => 0,
+                    'activated_count' => 0,
+                    'completed_event_count' => 0,
+                    'pending_event_count' => 0,
+                    'failed_count' => 1,
+                ]
+            );
+        }
+
+        try {
+            $activation = $this->content_repository->activateDueScheduledEntries( $started_at_utc );
+        } catch ( \Throwable $exception ) {
+            error_log( basename( __FILE__ ) . ': Scheduled publication activation failed (' . $exception->getMessage() . ')' );
+            return(
+                [
+                    'status' => 'error',
+                    'message' => 'Scheduled publication activation failed.',
+                    'scheduled_count' => 0,
+                    'due_count' => 0,
+                    'activated_count' => 0,
+                    'completed_event_count' => 0,
+                    'pending_event_count' => 0,
+                    'failed_count' => 1,
+                ]
+            );
+        }
+
+        $completed_events = 0;
+        $pending_events = 0;
+        $failed_events = 0;
+        foreach ( $this->content_repository->getPendingScheduledPublicationEvents() as $pending_event ) {
+            $event = is_array( $pending_event['event'] ?? null ) ? $pending_event['event'] : [];
+            $entry = is_array( $pending_event['entry'] ?? null ) ? $pending_event['entry'] : [];
+            $entry_id = trim( (string) ( $entry['id'] ?? '' ) );
+            $event_id = trim( (string) ( $event['id'] ?? '' ) );
+            if ( $entry_id === '' || $event_id === '' ) {
+                $failed_events++;
+                continue;
+            }
+            if ( ! $this->plugins instanceof TinyMashPlugins ) {
+                $pending_events++;
+                continue;
+            }
+
+            $previous_entry = $entry;
+            $previous_entry['status'] = 'scheduled';
+            $handler_results = $this->plugins->runContentLifecycleHandlers(
+                $previous_entry,
+                $entry,
+                [
+                    'trigger' => 'scheduled_publication',
+                    'actor_username' => 'scheduler',
+                    'publication_event_id' => $event_id,
+                    'started_at_utc' => $started_at_utc,
+                ]
+            );
+            $handler_errors = [];
+            foreach ( $handler_results as $handler_result ) {
+                if ( (string) ( $handler_result['status'] ?? '' ) !== 'error' ) {
+                    continue;
+                }
+                $handler_errors[] = trim( (string) ( $handler_result['plugin_key'] ?? 'plugin' ) ) . ': ' . trim( (string) ( $handler_result['message'] ?? 'handler failed' ) );
+            }
+
+            $error = implode( '; ', $handler_errors );
+            $recorded = $this->content_repository->recordScheduledPublicationEventAttempt( $entry_id, $event_id, $error, $started_at_utc );
+            if ( $recorded && $error === '' ) {
+                $completed_events++;
+            } else {
+                $failed_events++;
+            }
+        }
+
+        $storage_failures = (int) ( $activation['failed_count'] ?? 0 );
+        $failed_count = $storage_failures + $failed_events;
+        $activated_count = (int) ( $activation['activated_count'] ?? 0 );
+        $message = 'Activated ' . $activated_count . ' scheduled content item(s)';
+        if ( $completed_events > 0 ) {
+            $message .= ' and completed ' . $completed_events . ' publication event(s)';
+        }
+        if ( $pending_events > 0 ) {
+            $message .= '; ' . $pending_events . ' publication event(s) remain pending because plugins were not run';
+        }
+        $message .= $failed_count > 0 ? '; ' . $failed_count . ' operation(s) require attention.' : '.';
+
+        return(
+            [
+                'status' => $failed_count > 0 ? 'error' : 'ran',
+                'message' => $message,
+                'scheduled_count' => (int) ( $activation['scheduled'] ?? 0 ),
+                'due_count' => (int) ( $activation['due'] ?? 0 ),
+                'activated_count' => $activated_count,
+                'completed_event_count' => $completed_events,
+                'pending_event_count' => $pending_events,
+                'failed_count' => $failed_count,
+            ]
+        );
+    }
+
+    public function runScheduledPublications( array $context = [] ) : array {
+        $started_at_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
+        return(
+            $this->runScheduledPublicationTask(
+                array_merge(
+                    [
+                        'run_type' => 'scheduled_publication',
+                        'trigger' => 'cli',
+                        'mode' => 'publish_due',
+                        'started_at_utc' => $started_at_utc,
+                    ],
+                    $context
+                ),
+                $started_at_utc
+            )
         );
     }
 

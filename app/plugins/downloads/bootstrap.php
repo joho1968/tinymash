@@ -179,13 +179,47 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( strtolower( trim( (string) $security->getCurrentUsername() ) ) );
     };
 
+    $build_admin_selection_url = static function( string $folder_id = '', string $scope = '', string $author_slug = '' ) use ( $downloads_admin_url ) : string {
+        $folder_id = trim( $folder_id );
+        if ( $folder_id !== '' ) {
+            return( $downloads_admin_url . '?folder=' . rawurlencode( $folder_id ) );
+        }
+
+        $scope = strtolower( trim( $scope ) ) === 'author' ? 'author' : 'root';
+        $parameters = [ 'scope' => $scope ];
+        if ( $scope === 'author' && trim( $author_slug ) !== '' ) {
+            $parameters['author'] = strtolower( trim( $author_slug ) );
+        }
+        return( $downloads_admin_url . '?' . http_build_query( $parameters, '', '&', PHP_QUERY_RFC3986 ) );
+    };
+
     $build_catalogue_options = static function( string $current_id, string $current_parent_id, string $scope, string $author_slug ) use ( $downloads_service, $escape ) : string {
         $html = '<option value="">Top level</option>';
-        foreach ( $downloads_service->listCatalogues( $scope, $author_slug ) as $catalogue ) {
+        $catalogues = $downloads_service->listCatalogues( $scope, $author_slug );
+        $catalogues_by_id = [];
+        foreach ( $catalogues as $catalogue ) {
+            $catalogue_id = (string) ( $catalogue['id'] ?? '' );
+            if ( $catalogue_id !== '' ) {
+                $catalogues_by_id[$catalogue_id] = $catalogue;
+            }
+        }
+
+        foreach ( $catalogues as $catalogue ) {
             $id = (string) ( $catalogue['id'] ?? '' );
             if ( $id === '' || $id === $current_id ) {
                 continue;
             }
+
+            $ancestor_id = (string) ( $catalogue['parent_id'] ?? '' );
+            $guard = 0;
+            while ( $current_id !== '' && $ancestor_id !== '' && $guard < count( $catalogues_by_id ) ) {
+                if ( $ancestor_id === $current_id ) {
+                    continue 2;
+                }
+                $ancestor_id = (string) ( $catalogues_by_id[$ancestor_id]['parent_id'] ?? '' );
+                $guard++;
+            }
+
             $label = (string) ( $catalogue['path'] ?? $catalogue['title'] ?? $id );
             $html .= '<option value="' . $escape( $id ) . '"' . ( $id === $current_parent_id ? ' selected' : '' ) . '>' . $escape( $label ) . '</option>';
         }
@@ -193,7 +227,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $html );
     };
 
-    $build_catalogue_form = static function( array $catalogue, string $title, string $button_label ) use ( $catalogue_save_url, $security, $downloads_service, $escape, $build_catalogue_options, $current_username ) : string {
+    $build_catalogue_form = static function( array $catalogue, string $title, string $button_label, string $return_folder_id = '', string $return_scope = '', string $return_author_slug = '' ) use ( $catalogue_save_url, $security, $downloads_service, $escape, $build_catalogue_options, $current_username ) : string {
         $is_superadmin = $security->isSuperAdmin();
         $id = (string) ( $catalogue['id'] ?? '' );
         $scope = (string) ( $catalogue['scope'] ?? ( $is_superadmin ? 'root' : 'author' ) );
@@ -203,6 +237,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
         $html = '<form method="post" action="' . $escape( $catalogue_save_url ) . '" class="d-grid gap-3">';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
+        $html .= '<input type="hidden" name="return_folder_id" value="' . $escape( $return_folder_id ) . '"><input type="hidden" name="return_scope" value="' . $escape( $return_scope ) . '"><input type="hidden" name="return_author_slug" value="' . $escape( $return_author_slug ) . '">';
         if ( $id !== '' ) {
             $html .= '<input type="hidden" name="id" value="' . $escape( $id ) . '">';
         }
@@ -221,9 +256,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $html .= '<div class="col-12 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-slug' ) . '">Slug</label><input class="form-control font-monospace" id="' . $escape( $form_id . '-slug' ) . '" name="slug" type="text" placeholder="auto" value="' . $escape( (string) ( $catalogue['slug'] ?? '' ) ) . '"></div>';
         $html .= '<div class="col-12 col-lg-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-parent' ) . '">Parent</label><select class="form-select" id="' . $escape( $form_id . '-parent' ) . '" name="parent_id">' . $build_catalogue_options( $id, (string) ( $catalogue['parent_id'] ?? '' ), $scope, $author_slug ) . '</select></div>';
         $html .= '<div class="col-12"><label class="form-label small mb-1" for="' . $escape( $form_id . '-intro' ) . '">Intro text</label><textarea class="form-control" id="' . $escape( $form_id . '-intro' ) . '" name="intro" rows="3">' . $escape( (string) ( $catalogue['intro'] ?? '' ) ) . '</textarea></div>';
+        $html .= '</div>';
+        $html .= '<div class="row g-3 align-items-end" data-tm-downloads-catalogue-actions>';
         $html .= '<div class="col-6 col-lg-2"><label class="form-label small mb-1" for="' . $escape( $form_id . '-order' ) . '">Order</label><input class="form-control" id="' . $escape( $form_id . '-order' ) . '" name="sort_order" type="number" value="' . (int) ( $catalogue['sort_order'] ?? 0 ) . '"></div>';
-        $html .= '<div class="col-6 col-lg-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-downloads-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '" name="enabled" type="checkbox" value="1"' . ( $enabled ? ' checked' : '' ) . '><label class="form-check-label" for="tm-downloads-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '">Enabled</label></div></div>';
-        $html .= '<div class="col-12 col-lg-2"><button class="btn btn-primary w-100" type="submit">' . $escape( $button_label ) . '</button></div>';
+        $html .= '<div class="col-6 col-lg-auto"><div class="form-check mb-2"><input class="form-check-input" id="tm-downloads-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '" name="enabled" type="checkbox" value="1"' . ( $enabled ? ' checked' : '' ) . '><label class="form-check-label" for="tm-downloads-enabled-' . $escape( $id !== '' ? $id : 'new' ) . '">Enabled</label></div></div>';
+        $html .= '<div class="col-12 col-sm-auto ms-sm-auto d-flex justify-content-end"><button class="btn btn-primary text-nowrap" type="submit">' . $escape( $button_label ) . '</button></div>';
         $html .= '</div>';
         $html .= '<div class="form-text">Root folders use /downloads. Author folders use /&lt;author&gt;/downloads and stay in that author space.</div>';
         $html .= '</form>';
@@ -238,14 +275,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
         $form_id = 'tm-downloads-upload-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $id );
 
-        $html = '<form method="post" action="' . $escape( $file_upload_url ) . '" enctype="multipart/form-data" class="mt-3 pt-3 border-top" data-tm-downloads-upload-form data-tm-downloads-max-file-bytes="209715200">';
+        $html = '<form method="post" action="' . $escape( $file_upload_url ) . '" enctype="multipart/form-data" data-tm-downloads-upload-form data-tm-downloads-max-file-bytes="209715200">';
         $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '">';
         $html .= '<input type="hidden" name="catalogue_id" value="' . $escape( $id ) . '">';
-        $html .= '<div class="row g-3 align-items-end">';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-files' ) . '">Files</label><input class="form-control" id="' . $escape( $form_id . '-files' ) . '" name="download_file[]" type="file" multiple required></div>';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-title' ) . '">Title</label><input class="form-control" id="' . $escape( $form_id . '-title' ) . '" name="title" type="text" placeholder="Use filename"></div>';
-        $html .= '<div class="col-12 col-xl-3"><label class="form-label small mb-1" for="' . $escape( $form_id . '-description' ) . '">Description</label><input class="form-control" id="' . $escape( $form_id . '-description' ) . '" name="description" type="text"></div>';
-        $html .= '<div class="col-6 col-xl-1"><div class="form-check mb-2"><input class="form-check-input" id="tm-downloads-file-enabled-' . $escape( $id ) . '" name="enabled" type="checkbox" value="1" checked><label class="form-check-label" for="tm-downloads-file-enabled-' . $escape( $id ) . '">Enabled</label></div></div>';
+        $html .= '<input type="hidden" name="return_folder_id" value="' . $escape( $id ) . '">';
+        $html .= '<div class="row g-3 align-items-end" data-tm-downloads-upload-grid>';
+        $html .= '<div class="col-12 col-xl-5"><label class="form-label small mb-1" for="' . $escape( $form_id . '-files' ) . '">Files</label><input class="form-control" id="' . $escape( $form_id . '-files' ) . '" name="download_file[]" type="file" multiple required></div>';
+        $html .= '<div class="col-12 col-xl-7"><label class="form-label small mb-1" for="' . $escape( $form_id . '-title' ) . '">Title</label><input class="form-control" id="' . $escape( $form_id . '-title' ) . '" name="title" type="text" placeholder="Use filename"></div>';
+        $html .= '<div class="col-12 col-xl-8"><label class="form-label small mb-1" for="' . $escape( $form_id . '-description' ) . '">Description</label><input class="form-control" id="' . $escape( $form_id . '-description' ) . '" name="description" type="text"></div>';
+        $html .= '<div class="col-6 col-xl-2"><div class="form-check mb-2"><input class="form-check-input" id="tm-downloads-file-enabled-' . $escape( $id ) . '" name="enabled" type="checkbox" value="1" checked><label class="form-check-label" for="tm-downloads-file-enabled-' . $escape( $id ) . '">Enabled</label></div></div>';
         $html .= '<div class="col-6 col-xl-2"><button class="btn btn-outline-primary w-100" type="submit" data-tm-downloads-upload-submit>Upload file</button></div>';
         $html .= '</div>';
         $html .= '<div class="form-text">Allowed formats include archives, documents, images, video files, and plain data files. Maximum size: 200 MB per file. When several files are uploaded together, each file uses its filename as the title.</div>';
@@ -260,7 +298,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             return( '<div class="small text-body-secondary mt-3">No files have been uploaded to this folder yet.</div>' );
         }
 
-        $html = '<div class="d-grid gap-2 mt-3">';
+        $html = '<div class="mt-3" data-tm-downloads-file-list>';
         foreach ( $files as $file ) {
             $last_downloaded = trim( (string) ( $file['last_downloaded_at_utc'] ?? '' ) ) !== ''
                 ? $date_formatter->formatUtcDateTime( (string) $file['last_downloaded_at_utc'] )
@@ -272,14 +310,19 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $form_id = 'tm-downloads-file-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $file_id );
             $public_url = (string) ( $file['public_url'] ?? '' );
             $download_count = (int) ( $file['download_count'] ?? 0 );
-            $html .= '<article class="pt-2 border-top">';
+            $file_title = trim( (string) ( $file['title'] ?? '' ) );
+            if ( $file_title === '' ) {
+                $file_title = (string) ( $file['original_filename'] ?? 'Untitled file' );
+            }
+            $html .= '<details class="border-top py-2" data-tm-downloads-file-disclosure>';
+            $html .= '<summary class="py-1"><span class="fw-semibold">' . $escape( $file_title ) . '</span> <span class="small text-body-secondary">' . $escape( (string) ( $file['size_label'] ?? '' ) ) . ' · ' . $download_count . ' downloads · ' . ( ! empty( $file['enabled'] ) ? 'enabled' : 'disabled' ) . '</span></summary>';
             $html .= '<form method="post" action="' . $escape( $file_save_url ) . '" data-tm-downloads-file-form="1" data-tm-downloads-save-url="' . $escape( $file_save_json_url ) . '" class="row g-2 align-items-start">';
-            $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="id" value="' . $escape( $file_id ) . '">';
+            $html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $security->getCsrfToken() ) . '"><input type="hidden" name="id" value="' . $escape( $file_id ) . '"><input type="hidden" name="return_folder_id" value="' . $escape( (string) ( $catalogue['id'] ?? '' ) ) . '">';
             $html .= '<div class="col-12 col-xl-5"><label class="form-label small mb-1" for="' . $escape( $form_id . '-title' ) . '">Title</label><input class="form-control form-control-sm" id="' . $escape( $form_id . '-title' ) . '" name="title" type="text" value="' . $escape( (string) ( $file['title'] ?? '' ) ) . '"><label class="form-label small mt-2 mb-1" for="' . $escape( $form_id . '-description' ) . '">Description</label><textarea class="form-control form-control-sm" id="' . $escape( $form_id . '-description' ) . '" name="description" rows="2">' . $escape( (string) ( $file['description'] ?? '' ) ) . '</textarea></div>';
             $html .= '<div class="col-12 col-xl-4"><div class="small text-body-secondary mb-2 text-truncate" title="' . $escape( (string) ( $file['original_filename'] ?? '' ) ) . '">' . $escape( (string) ( $file['original_filename'] ?? '' ) ) . '</div><div class="small text-body-secondary d-flex flex-wrap gap-2 mb-2"><span>' . $escape( (string) ( $file['size_label'] ?? '' ) ) . '</span>' . ( $file_date !== '' ? '<span class="text-nowrap">' . $escape( $file_date ) . '</span>' : '' ) . '<span class="text-nowrap">' . $download_count . ' downloads</span>' . ( $last_downloaded !== '' ? '<span class="text-nowrap" title="' . $escape( $last_downloaded ) . '">last ' . $escape( $last_downloaded ) . '</span>' : '' ) . '</div><label class="form-label small mb-1" for="' . $escape( $form_id . '-date' ) . '">File date</label><input class="form-control form-control-sm" id="' . $escape( $form_id . '-date' ) . '" name="file_date" type="datetime-local" value="' . $escape( (string) ( $file['file_date_input'] ?? '' ) ) . '"><div class="form-check mt-2"><input class="form-check-input" id="tm-download-file-enabled-' . $escape( $file_id ) . '" name="enabled" type="checkbox" value="1"' . ( ! empty( $file['enabled'] ) ? ' checked' : '' ) . '><label class="form-check-label small" for="tm-download-file-enabled-' . $escape( $file_id ) . '">Enabled</label></div></div>';
             $html .= '<div class="col-12 col-xl-3 text-xl-end"><div class="d-flex flex-wrap gap-2 justify-content-xl-end"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $public_url ) . '" title="' . $escape( $public_url ) . '" aria-label="Open public file URL"><span class="bi bi-question-circle" aria-hidden="true"></span></a><button class="btn btn-outline-primary btn-sm" type="submit" data-tm-downloads-ajax-save="1">Save</button><button class="btn btn-outline-danger btn-sm" type="submit" formaction="' . $escape( $file_delete_url ) . '">Delete</button></div><div class="small text-body-secondary mt-2" data-tm-downloads-save-status aria-live="polite"></div></div>';
             $html .= '</form>';
-            $html .= '</article>';
+            $html .= '</details>';
         }
         $html .= '</div>';
         return( $html );
@@ -412,7 +455,49 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 HTML );
     };
 
-    $render_admin_page = static function( array $notice = [] ) use ( $plugins, $security, $downloads_service, $downloads_admin_url, $build_catalogue_form, $build_upload_form, $build_files_html, $build_admin_script, $escape, $current_username ) : void {
+    $build_folder_tree_items = null;
+    $build_folder_tree_items = static function( array $children_by_parent, string $parent_id, string $current_folder_id, array $file_counts, array $trail = [] ) use ( &$build_folder_tree_items, $build_admin_selection_url, $escape ) : string {
+        $children = is_array( $children_by_parent[$parent_id] ?? null ) ? $children_by_parent[$parent_id] : [];
+        if ( empty( $children ) ) {
+            return( '' );
+        }
+
+        $html = '<ul class="list-unstyled mb-0' . ( $parent_id !== '' ? ' ms-3 ps-2 border-start' : '' ) . '">';
+        foreach ( $children as $catalogue ) {
+            $id = (string) ( $catalogue['id'] ?? '' );
+            if ( $id === '' || isset( $trail[$id] ) ) {
+                continue;
+            }
+            $next_trail = $trail;
+            $next_trail[$id] = true;
+            $is_current = $id === $current_folder_id;
+            $file_count = (int) ( $file_counts[$id] ?? 0 );
+            $html .= '<li data-tm-downloads-tree-item="' . $escape( $id ) . '"><div class="d-flex align-items-baseline gap-2 py-1">';
+            $html .= '<a class="flex-grow-1 text-decoration-none ' . ( $is_current ? 'fw-semibold text-body' : 'text-body-secondary' ) . '" href="' . $escape( $build_admin_selection_url( $id ) ) . '" data-tm-downloads-tree-node="' . $escape( $id ) . '"' . ( $is_current ? ' aria-current="page"' : '' ) . '>' . $escape( (string) ( $catalogue['title'] ?? '' ) ) . '</a>';
+            $html .= '<span class="small text-body-secondary" title="' . $file_count . ' ' . ( $file_count === 1 ? 'file' : 'files' ) . '">' . $file_count . '</span></div>';
+            $html .= $build_folder_tree_items( $children_by_parent, $id, $current_folder_id, $file_counts, $next_trail );
+            $html .= '</li>';
+        }
+        $html .= '</ul>';
+        return( $html );
+    };
+
+    $build_folder_navigation = static function( array $groups, string $current_folder_id, string $current_scope, string $current_author_slug, array $file_counts, string $label, string $marker ) use ( $build_folder_tree_items, $build_admin_selection_url, $escape ) : string {
+        $html = '<nav aria-label="' . $escape( $label ) . '" ' . $marker . '>';
+        foreach ( $groups as $group ) {
+            $scope = (string) ( $group['scope'] ?? 'root' );
+            $author_slug = (string) ( $group['author_slug'] ?? '' );
+            $is_current_root = $current_folder_id === '' && $scope === $current_scope && $author_slug === $current_author_slug;
+            $html .= '<div class="mb-3" data-tm-downloads-tree-group="' . $escape( $scope . ( $author_slug !== '' ? ':' . $author_slug : '' ) ) . '">';
+            $html .= '<div class="d-flex align-items-baseline gap-2 mb-1"><a class="flex-grow-1 text-decoration-none small text-uppercase ' . ( $is_current_root ? 'fw-semibold text-body' : 'text-body-secondary' ) . '" href="' . $escape( $build_admin_selection_url( '', $scope, $author_slug ) ) . '"' . ( $is_current_root ? ' aria-current="page"' : '' ) . '>' . $escape( (string) ( $group['label'] ?? 'Downloads' ) ) . '</a><span class="small text-body-secondary">' . count( (array) ( $group['catalogues'] ?? [] ) ) . '</span></div>';
+            $html .= $build_folder_tree_items( (array) ( $group['children'] ?? [] ), '', $current_folder_id, $file_counts );
+            $html .= '</div>';
+        }
+        $html .= '</nav>';
+        return( $html );
+    };
+
+    $render_admin_page = static function( array $notice = [] ) use ( $plugins, $security, $downloads_service, $user_repository, $build_admin_selection_url, $build_folder_navigation, $build_catalogue_form, $build_upload_form, $build_files_html, $build_admin_script, $escape, $current_username ) : void {
         if ( empty( $notice ) ) {
             $flash_notice = $security->pullFlash( 'downloads.notice', [] );
             if ( is_array( $flash_notice ) ) {
@@ -424,29 +509,158 @@ HTML );
         $username = $current_username();
         $catalogues = $downloads_service->listAccessibleCatalogues( $is_superadmin, $username );
 
-        $body_html = '<div class="d-grid gap-4">';
-        $body_html .= '<section class="pb-4 border-bottom">';
-        $body_html .= $build_catalogue_form( [ 'enabled' => true ], 'New download folder', 'Create folder' );
-        $body_html .= '</section>';
-        $body_html .= '<section class="d-grid gap-3">';
-        $body_html .= '<div><div class="small text-uppercase text-body-secondary mb-1">Download folders</div><div class="text-body-secondary small">Use folder URLs in posts/pages directly; file URLs are routed and counted.</div></div>';
-
-        if ( empty( $catalogues ) ) {
-            $body_html .= '<div class="text-body-secondary">No download folders have been created yet.</div>';
+        $catalogues_by_id = [];
+        $file_counts = [];
+        $groups = [];
+        if ( $is_superadmin ) {
+            $groups['root:'] = [ 'scope' => 'root', 'author_slug' => '', 'label' => 'Site downloads', 'catalogues' => [], 'children' => [] ];
+        } else {
+            $author_label = $user_repository->getDisplayLabelByAuthorSlug( $username );
+            $groups['author:' . $username] = [ 'scope' => 'author', 'author_slug' => $username, 'label' => ( $author_label !== '' ? $author_label : $username ) . ' downloads', 'catalogues' => [], 'children' => [] ];
         }
 
         foreach ( $catalogues as $catalogue ) {
-            $body_html .= '<article class="border-top pt-3">';
-            $body_html .= '<div class="d-flex flex-wrap gap-2 justify-content-between align-items-start mb-3">';
-            $body_html .= '<div><div class="fw-semibold">' . $escape( (string) ( $catalogue['title'] ?? '' ) ) . '</div><div class="small text-body-secondary"><code>' . $escape( (string) ( $catalogue['public_url'] ?? '' ) ) . '</code></div></div>';
-            $body_html .= '<div class="d-flex flex-wrap gap-2 align-items-center"><span class="badge text-bg-' . ( ! empty( $catalogue['enabled'] ) ? 'success' : 'secondary' ) . '">' . ( ! empty( $catalogue['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span><span class="badge text-bg-secondary">' . $escape( (string) ( $catalogue['scope'] ?? 'root' ) ) . '</span></div>';
-            $body_html .= '</div>';
-            $body_html .= $build_catalogue_form( $catalogue, 'Edit folder', 'Save folder' );
-            $body_html .= $build_upload_form( $catalogue );
-            $body_html .= $build_files_html( $catalogue );
-            $body_html .= '</article>';
+            $id = (string) ( $catalogue['id'] ?? '' );
+            if ( $id === '' ) {
+                continue;
+            }
+            $catalogues_by_id[$id] = $catalogue;
+            $file_counts[$id] = count( $downloads_service->listFilesForCatalogue( $id ) );
+            $scope = (string) ( $catalogue['scope'] ?? 'root' );
+            $author_slug = $scope === 'author' ? (string) ( $catalogue['author_slug'] ?? '' ) : '';
+            $group_key = $scope . ':' . $author_slug;
+            if ( ! isset( $groups[$group_key] ) ) {
+                $author_label = $author_slug !== '' ? $user_repository->getDisplayLabelByAuthorSlug( $author_slug ) : '';
+                $groups[$group_key] = [
+                    'scope' => $scope,
+                    'author_slug' => $author_slug,
+                    'label' => $scope === 'author' ? ( $author_label !== '' ? $author_label : $author_slug ) . ' downloads' : 'Site downloads',
+                    'catalogues' => [],
+                    'children' => [],
+                ];
+            }
+            $groups[$group_key]['catalogues'][] = $catalogue;
         }
-        $body_html .= '</section></div>';
+
+        uksort(
+            $groups,
+            static function( string $left, string $right ) : int {
+                if ( $left === 'root:' ) {
+                    return( -1 );
+                }
+                if ( $right === 'root:' ) {
+                    return( 1 );
+                }
+                return( strcmp( $left, $right ) );
+            }
+        );
+
+        foreach ( $groups as $group_key => $group ) {
+            $group_ids = [];
+            foreach ( (array) $group['catalogues'] as $catalogue ) {
+                $group_ids[(string) ( $catalogue['id'] ?? '' )] = true;
+            }
+            foreach ( (array) $group['catalogues'] as $catalogue ) {
+                $parent_id = (string) ( $catalogue['parent_id'] ?? '' );
+                if ( $parent_id !== '' && ! isset( $group_ids[$parent_id] ) ) {
+                    $parent_id = '';
+                }
+                $groups[$group_key]['children'][$parent_id][] = $catalogue;
+            }
+        }
+
+        $query = $plugins->getRequestQueryData();
+        $requested_folder_id = trim( (string) ( $query['folder'] ?? '' ) );
+        $selected_catalogue = $requested_folder_id !== '' && isset( $catalogues_by_id[$requested_folder_id] ) ? $catalogues_by_id[$requested_folder_id] : [];
+        $current_folder_id = (string) ( $selected_catalogue['id'] ?? '' );
+        $current_scope = $is_superadmin ? 'root' : 'author';
+        $current_author_slug = $is_superadmin ? '' : $username;
+        if ( $current_folder_id !== '' ) {
+            $current_scope = (string) ( $selected_catalogue['scope'] ?? 'root' );
+            $current_author_slug = $current_scope === 'author' ? (string) ( $selected_catalogue['author_slug'] ?? '' ) : '';
+        } elseif ( strtolower( trim( (string) ( $query['scope'] ?? '' ) ) ) === 'author' ) {
+            $requested_author = strtolower( trim( (string) ( $query['author'] ?? '' ) ) );
+            $requested_group_key = 'author:' . $requested_author;
+            if ( isset( $groups[$requested_group_key] ) && ( $is_superadmin || $requested_author === $username ) ) {
+                $current_scope = 'author';
+                $current_author_slug = $requested_author;
+            }
+        }
+
+        $current_group_key = $current_scope . ':' . $current_author_slug;
+        if ( ! isset( $groups[$current_group_key] ) ) {
+            $current_group_key = array_key_first( $groups ) ?? '';
+            $current_scope = (string) ( $groups[$current_group_key]['scope'] ?? ( $is_superadmin ? 'root' : 'author' ) );
+            $current_author_slug = (string) ( $groups[$current_group_key]['author_slug'] ?? ( $is_superadmin ? '' : $username ) );
+            $selected_catalogue = [];
+            $current_folder_id = '';
+        }
+
+        $current_group = is_array( $groups[$current_group_key] ?? null ) ? $groups[$current_group_key] : [];
+        $current_title = $current_folder_id !== '' ? (string) ( $selected_catalogue['title'] ?? 'Download folder' ) : (string) ( $current_group['label'] ?? 'Downloads' );
+        $current_children = is_array( $current_group['children'][$current_folder_id] ?? null ) ? $current_group['children'][$current_folder_id] : [];
+        $return_scope = $current_folder_id === '' ? $current_scope : '';
+        $return_author_slug = $current_folder_id === '' ? $current_author_slug : '';
+        $new_catalogue = [
+            'enabled' => true,
+            'scope' => $current_scope,
+            'author_slug' => $current_author_slug,
+            'parent_id' => $current_folder_id,
+        ];
+
+        $desktop_navigation = $build_folder_navigation( $groups, $current_folder_id, $current_scope, $current_author_slug, $file_counts, 'Download folder tree', 'data-tm-downloads-tree-desktop' );
+        $mobile_navigation = $build_folder_navigation( $groups, $current_folder_id, $current_scope, $current_author_slug, $file_counts, 'Download folders', 'data-tm-downloads-tree-mobile' );
+
+        $body_html = '<div class="row g-4 align-items-start" data-tm-downloads-workspace>';
+        $body_html .= '<div class="col-12 d-lg-none"><details class="border-bottom pb-3" data-tm-downloads-mobile-navigation><summary class="py-2 fw-semibold">Browse folders <span class="small fw-normal text-body-secondary">' . $escape( $current_title ) . '</span></summary><div class="pt-3">' . $mobile_navigation . '</div></details></div>';
+        $body_html .= '<aside class="col-lg-3 d-none d-lg-block" aria-label="Download folder navigation"><div class="pe-lg-3 border-end position-sticky" style="top:5rem;">' . $desktop_navigation . '</div></aside>';
+        $body_html .= '<div class="col-12 col-lg-9"><div class="d-grid gap-3" data-tm-downloads-current-workspace' . ( $current_folder_id !== '' ? ' data-folder-id="' . $escape( $current_folder_id ) . '"' : ' data-scope="' . $escape( $current_scope ) . '" data-author="' . $escape( $current_author_slug ) . '"' ) . '>';
+        $body_html .= '<header class="d-flex flex-wrap align-items-start justify-content-between gap-2"><div><div class="small text-uppercase text-body-secondary mb-1">' . ( $current_folder_id !== '' ? 'Current folder' : 'Download root' ) . '</div><h2 class="h5 mb-1">' . $escape( $current_title ) . '</h2>';
+        if ( $current_folder_id !== '' ) {
+            $body_html .= '<div class="small text-body-secondary font-monospace">' . $escape( (string) ( $selected_catalogue['public_url'] ?? '' ) ) . '</div>';
+        }
+        $body_html .= '</div>';
+        if ( $current_folder_id !== '' ) {
+            $public_url = (string) ( $selected_catalogue['public_url'] ?? '' );
+            $body_html .= '<a class="btn btn-outline-secondary btn-sm" href="' . $escape( $public_url ) . '">Open public folder</a>';
+        }
+        $body_html .= '</header>';
+
+        $body_html .= '<details class="py-2" data-tm-downloads-new-folder><summary class="py-1 fw-semibold">New folder</summary><div class="pt-2"><div class="rounded-3 p-3 bg-body-secondary" data-tm-downloads-form-surface="new" data-tm-admin-surface-group>';
+        $body_html .= $build_catalogue_form( $new_catalogue, $current_folder_id !== '' ? 'New subfolder' : 'New top-level folder', 'Create folder', $current_folder_id, $return_scope, $return_author_slug );
+        $body_html .= '</div></div></details>';
+
+        if ( $current_folder_id !== '' ) {
+            $body_html .= '<details class="py-2" data-tm-downloads-folder-settings data-tm-downloads-folder-disclosure><summary class="py-1 fw-semibold">Folder settings <span class="small fw-normal text-body-secondary">' . ( ! empty( $selected_catalogue['enabled'] ) ? 'enabled' : 'disabled' ) . ' · ' . (int) ( $file_counts[$current_folder_id] ?? 0 ) . ' ' . ( (int) ( $file_counts[$current_folder_id] ?? 0 ) === 1 ? 'file' : 'files' ) . '</span></summary><div class="pt-2"><div class="rounded-3 p-3 bg-body-secondary" data-tm-downloads-form-surface="settings" data-tm-admin-surface-group>';
+            $body_html .= $build_catalogue_form( $selected_catalogue, 'Edit folder', 'Save folder', $current_folder_id );
+            $body_html .= '</div></div></details>';
+            $body_html .= '<details class="py-2" data-tm-downloads-upload-disclosure><summary class="py-1 fw-semibold">Upload files</summary><div class="pt-2"><div class="rounded-3 p-3 bg-body-secondary" data-tm-downloads-form-surface="upload" data-tm-admin-surface-group>' . $build_upload_form( $selected_catalogue ) . '</div></div></details>';
+        }
+
+        $body_html .= '<div class="rounded-3 p-3 bg-body-secondary d-grid gap-3" data-tm-admin-surface-group data-tm-downloads-folder-contents>';
+        $body_html .= '<section data-tm-downloads-child-folders><div class="small text-uppercase text-body-secondary mb-2">Folders</div>';
+        if ( empty( $current_children ) ) {
+            $body_html .= '<div class="small text-body-secondary">No subfolders.</div>';
+        } else {
+            $body_html .= '<div class="table-responsive" tabindex="0" aria-label="Subfolders"><table class="table table-sm align-middle mb-0"><thead><tr><th>Folder</th><th class="d-none d-xl-table-cell">Path</th><th class="text-end d-none d-md-table-cell">Files</th><th class="d-none d-md-table-cell">Status</th><th class="text-end d-md-none">Details</th></tr></thead><tbody>';
+            foreach ( $current_children as $child ) {
+                $child_id = (string) ( $child['id'] ?? '' );
+                $child_path = (string) ( $child['public_url'] ?? '' );
+                $child_file_count = (int) ( $file_counts[$child_id] ?? 0 );
+                $child_status = ! empty( $child['enabled'] ) ? 'Enabled' : 'Disabled';
+                $body_html .= '<tr data-tm-downloads-child-folder="' . $escape( $child_id ) . '"><td><a class="fw-semibold text-decoration-none" href="' . $escape( $build_admin_selection_url( $child_id ) ) . '">' . $escape( (string) ( $child['title'] ?? '' ) ) . '</a><div class="small text-body-secondary font-monospace d-xl-none">' . $escape( $child_path ) . '</div></td><td class="d-none d-xl-table-cell font-monospace small text-body-secondary">' . $escape( $child_path ) . '</td><td class="text-end d-none d-md-table-cell">' . $child_file_count . '</td><td class="d-none d-md-table-cell">' . $child_status . '</td><td class="text-end text-nowrap d-md-none"><div>' . $child_file_count . ' ' . ( $child_file_count === 1 ? 'file' : 'files' ) . '</div><div class="small text-body-secondary">' . $child_status . '</div></td></tr>';
+            }
+            $body_html .= '</tbody></table></div>';
+        }
+        $body_html .= '</section>';
+
+        if ( $current_folder_id !== '' ) {
+            $body_html .= '<section data-tm-downloads-selected-files><div class="small text-uppercase text-body-secondary mb-2">Files</div>' . $build_files_html( $selected_catalogue ) . '</section>';
+        } elseif ( empty( $catalogues ) ) {
+            $body_html .= '<div class="small text-body-secondary">No download folders have been created yet.</div>';
+        }
+
+        $body_html .= '</div></div></div></div>';
         $body_html .= $build_admin_script();
 
         $plugins->renderAdminPage(
@@ -703,7 +917,7 @@ HTML );
         }
 
         $timezone_label = $date_formatter->getTimezoneAbbreviation();
-        $html = '<div class="tm-downloads-page tm-downloads-embed">';
+        $html = '<div class="tm-downloads-page tm-downloads-embed" data-tm-heading-scope="component">';
         $html .= '<div class="tm-downloads-header"><h2 class="tm-downloads-title">' . $escape( $title ) . '</h2>';
         if ( trim( (string) ( $catalogue['intro'] ?? '' ) ) !== '' ) {
             $html .= '<div class="tm-downloads-description">' . nl2br( $escape( (string) $catalogue['intro'] ) ) . '</div>';
@@ -806,19 +1020,25 @@ HTML );
         $plugin_key,
         'post',
         $catalogue_save_url,
-        static function() use ( $plugins, $security, $downloads_service, $downloads_admin_url, $require_login, $current_username ) : void {
+        static function() use ( $plugins, $security, $downloads_service, $build_admin_selection_url, $require_login, $current_username ) : void {
             if ( ! $require_login() ) {
                 return;
             }
             $data = $plugins->getRequestData();
+            $redirect_url = $build_admin_selection_url(
+                (string) ( $data['return_folder_id'] ?? '' ),
+                (string) ( $data['return_scope'] ?? '' ),
+                (string) ( $data['return_author_slug'] ?? '' )
+            );
             if ( ! $security->validateCsrfToken( (string) ( $data['tinymash_csrf'] ?? '' ) ) ) {
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'Your session token is invalid. Please reload the page and try again.' ] );
-                $plugins->redirect( $downloads_admin_url );
+                $plugins->redirect( $redirect_url );
                 return;
             }
 
             try {
-                $downloads_service->saveCatalogue( $data, $security->isSuperAdmin(), $current_username() );
+                $saved_catalogue = $downloads_service->saveCatalogue( $data, $security->isSuperAdmin(), $current_username() );
+                $redirect_url = $build_admin_selection_url( (string) ( $saved_catalogue['id'] ?? '' ) );
                 $security->setFlash( 'downloads.notice', [ 'type' => 'success', 'message' => 'Download folder saved.' ] );
             } catch ( \InvalidArgumentException $e ) {
                 $messages = [
@@ -835,7 +1055,7 @@ HTML );
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'The folder could not be saved.' ] );
             }
 
-            $plugins->redirect( $downloads_admin_url );
+            $plugins->redirect( $redirect_url );
         }
     );
 
@@ -843,7 +1063,7 @@ HTML );
         $plugin_key,
         'post',
         $file_upload_url,
-        static function() use ( $plugins, $security, $downloads_service, $downloads_admin_url, $require_login, $current_username, $request_exceeds_post_limit ) : void {
+        static function() use ( $plugins, $security, $downloads_service, $downloads_admin_url, $build_admin_selection_url, $require_login, $current_username, $request_exceeds_post_limit ) : void {
             if ( ! $require_login() ) {
                 return;
             }
@@ -853,9 +1073,10 @@ HTML );
                 return;
             }
             $data = $plugins->getRequestData();
+            $redirect_url = $build_admin_selection_url( (string) ( $data['return_folder_id'] ?? $data['catalogue_id'] ?? '' ) );
             if ( ! $security->validateCsrfToken( (string) ( $data['tinymash_csrf'] ?? '' ) ) ) {
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'Your session token is invalid. Please reload the page and try again.' ] );
-                $plugins->redirect( $downloads_admin_url );
+                $plugins->redirect( $redirect_url );
                 return;
             }
 
@@ -876,7 +1097,7 @@ HTML );
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'The file could not be uploaded.' ] );
             }
 
-            $plugins->redirect( $downloads_admin_url );
+            $plugins->redirect( $redirect_url );
         }
     );
 
@@ -884,14 +1105,15 @@ HTML );
         $plugin_key,
         'post',
         $file_save_url,
-        static function() use ( $plugins, $security, $downloads_service, $downloads_admin_url, $require_login, $current_username ) : void {
+        static function() use ( $plugins, $security, $downloads_service, $build_admin_selection_url, $require_login, $current_username ) : void {
             if ( ! $require_login() ) {
                 return;
             }
             $data = $plugins->getRequestData();
+            $redirect_url = $build_admin_selection_url( (string) ( $data['return_folder_id'] ?? '' ) );
             if ( ! $security->validateCsrfToken( (string) ( $data['tinymash_csrf'] ?? '' ) ) ) {
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'Your session token is invalid. Please reload the page and try again.' ] );
-                $plugins->redirect( $downloads_admin_url );
+                $plugins->redirect( $redirect_url );
                 return;
             }
 
@@ -910,7 +1132,7 @@ HTML );
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'The file could not be saved.' ] );
             }
 
-            $plugins->redirect( $downloads_admin_url );
+            $plugins->redirect( $redirect_url );
         }
     );
 
@@ -962,14 +1184,15 @@ HTML );
         $plugin_key,
         'post',
         $file_delete_url,
-        static function() use ( $plugins, $security, $downloads_service, $downloads_admin_url, $require_login, $current_username ) : void {
+        static function() use ( $plugins, $security, $downloads_service, $build_admin_selection_url, $require_login, $current_username ) : void {
             if ( ! $require_login() ) {
                 return;
             }
             $data = $plugins->getRequestData();
+            $redirect_url = $build_admin_selection_url( (string) ( $data['return_folder_id'] ?? '' ) );
             if ( ! $security->validateCsrfToken( (string) ( $data['tinymash_csrf'] ?? '' ) ) ) {
                 $security->setFlash( 'downloads.notice', [ 'type' => 'danger', 'message' => 'Your session token is invalid. Please reload the page and try again.' ] );
-                $plugins->redirect( $downloads_admin_url );
+                $plugins->redirect( $redirect_url );
                 return;
             }
 
@@ -980,7 +1203,7 @@ HTML );
                     ? [ 'type' => 'success', 'message' => 'Download file deleted.' ]
                     : [ 'type' => 'warning', 'message' => 'That file could not be found.' ]
             );
-            $plugins->redirect( $downloads_admin_url );
+            $plugins->redirect( $redirect_url );
         }
     );
 

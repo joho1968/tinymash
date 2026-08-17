@@ -42,42 +42,48 @@ class TinyMashPhotosService {
         $image_overrides = is_array( $settings['gallery_image_overrides'] ?? null ) ? $settings['gallery_image_overrides'] : [];
         $image_upload = is_array( $context['editor_image_upload'] ?? null ) ? $context['editor_image_upload'] : [];
         $image_upload_enabled = ! empty( $image_upload['enabled'] );
+        $selected_count = count( $selected_ids );
 
-        $html = '<div class="row g-3">';
-        $html .= '<div class="col-12">';
+        $html = '<div class="d-flex flex-column gap-4">';
+        $html .= '<fieldset class="m-0">';
+        $html .= '<legend class="small fw-semibold mb-2" id="tm-editor-photos-presentation-heading">Presentation</legend>';
         $html .= '<div class="form-check">';
         $html .= '<input class="form-check-input" id="tm-editor-photos-photo-post-enabled" type="checkbox" data-editor-plugin-key="photos" data-editor-plugin-field="photo_post_enabled"' . ( ! empty( $settings['photo_post_enabled'] ) ? ' checked' : '' ) . '>';
         $html .= '<label class="form-check-label" for="tm-editor-photos-photo-post-enabled">Treat this as a photo post</label>';
+        $html .= '<div class="form-text">Themes can use this for image-led layouts. The entry remains a normal post or page.</div>';
         $html .= '</div>';
-        $html .= '<div class="form-text">Photo posts are still normal posts. Themes may use this setting for image-focused layouts.</div>';
-        $html .= '</div>';
-        $html .= '<div class="col-12">';
+        $html .= '</fieldset>';
+        $html .= '<fieldset class="m-0">';
+        $html .= '<legend class="small fw-semibold mb-2" id="tm-editor-photos-gallery-heading">Gallery</legend>';
         $html .= '<div class="form-check">';
         $html .= '<input class="form-check-input" id="tm-editor-photos-gallery-enabled" type="checkbox" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_enabled"' . ( ! empty( $settings['gallery_enabled'] ) ? ' checked' : '' ) . '>';
-        $html .= '<label class="form-check-label" for="tm-editor-photos-gallery-enabled">Attach a gallery to this post</label>';
+        $html .= '<label class="form-check-label" for="tm-editor-photos-gallery-enabled">Attach a gallery</label>';
+        $html .= '<div class="form-text">Publishes the selected images with this entry. A featured image is used as the cover.</div>';
+        $html .= '<div class="form-text' . ( empty( $settings['gallery_enabled'] ) && $selected_count > 0 ? '' : ' d-none' ) . '" id="tm-editor-photos-gallery-retained">' . $selected_count . ( $selected_count === 1 ? ' image remains selected' : ' images remain selected' ) . ' while the gallery is off.</div>';
         $html .= '</div>';
-        $html .= '<div class="form-text">The current featured image is the gallery cover. Selected gallery images render publicly only when this is enabled.</div>';
+        $html .= '<div class="mt-3' . ( empty( $settings['gallery_enabled'] ) ? ' d-none' : '' ) . '" id="tm-editor-photos-gallery-settings" aria-hidden="' . ( empty( $settings['gallery_enabled'] ) ? 'true' : 'false' ) . '">';
+        $html .= '<input type="hidden" id="tm-editor-photos-gallery-media-ids" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_media_ids" value="' . $this->escape( implode( "\n", $selected_ids ) ) . '">';
+        $html .= '<input type="hidden" id="tm-editor-photos-gallery-image-overrides" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_image_overrides" value="' . $this->escape( $this->encodeGalleryImageOverridesForField( $image_overrides ) ) . '">';
+        $html .= '<div class="mb-2">';
+        $html .= '<div class="fw-semibold">Gallery images</div>';
+        $html .= '<div class="small text-body-secondary">Choose attached or library images, or upload new ones. Removing an image only detaches it from this gallery.</div>';
+        $html .= '<div class="d-flex flex-wrap gap-2 align-items-center mt-2">';
+        $html .= '<button class="btn btn-outline-secondary btn-sm" id="tm-editor-photos-choose-existing" type="button"><span class="bi bi-images me-1" aria-hidden="true"></span>Choose existing images</button>';
+        if ( $image_upload_enabled ) {
+            $html .= '<button class="btn btn-outline-secondary btn-sm" id="tm-editor-photos-upload-gallery" type="button"><span class="bi bi-images me-1" aria-hidden="true"></span>Upload gallery images</button>';
+        }
+        $html .= '<span class="small text-body-secondary" id="tm-editor-photos-gallery-count" aria-live="polite">' . $selected_count . ( $selected_count === 1 ? ' image selected' : ' images selected' ) . '</span>';
         $html .= '</div>';
-        $html .= '<div class="col-12">';
-        $html .= '<div class="form-check">';
-        $html .= '<input class="form-check-input" id="tm-editor-photos-gallery-download-enabled" type="checkbox" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_download_enabled"' . ( ! empty( $settings['gallery_download_enabled'] ) ? ' checked' : '' ) . '>';
-        $html .= '<label class="form-check-label" for="tm-editor-photos-gallery-download-enabled">Show download button in gallery lightbox</label>';
         $html .= '</div>';
-        $html .= '<div class="form-text">Default off. When enabled, visitors get an explicit download action for each gallery image.</div>';
+        $html .= '<p class="small text-body-secondary mb-0' . ( empty( $ordered_records ) ? '' : ' d-none' ) . '" id="tm-editor-photos-gallery-empty">No images are available for this entry yet.</p>';
+        $html .= '<div class="row g-2' . ( empty( $ordered_records ) ? ' d-none' : '' ) . '" id="tm-editor-photos-gallery-options">';
+        foreach ( $ordered_records as $record ) {
+            $media_id = (string) ( $record['media_id'] ?? '' );
+            $html .= $this->buildEditorGalleryOptionHtml( $record, isset( $selected_lookup[$media_id] ), is_array( $image_overrides[$media_id] ?? null ) ? $image_overrides[$media_id] : [] );
+        }
         $html .= '</div>';
-        $html .= '<div class="col-12 col-lg-6">';
-        $html .= '<div class="form-check">';
-        $html .= '<input class="form-check-input" id="tm-editor-photos-gallery-slideshow-enabled" type="checkbox" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_slideshow_enabled"' . ( ! empty( $settings['gallery_slideshow_enabled'] ) ? ' checked' : '' ) . '>';
-        $html .= '<label class="form-check-label" for="tm-editor-photos-gallery-slideshow-enabled">Enable slideshow in gallery lightbox</label>';
-        $html .= '</div>';
-        $html .= '<div class="form-text">Default off. Visitors can start or stop playback from the lightbox.</div>';
-        $html .= '</div>';
-        $html .= '<div class="col-12 col-lg-6">';
-        $html .= '<label class="form-label small mb-1" for="tm-editor-photos-gallery-slideshow-delay">Slideshow delay (seconds)</label>';
-        $html .= '<input class="form-control font-monospace" id="tm-editor-photos-gallery-slideshow-delay" type="number" min="2" max="60" step="1" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_slideshow_delay_seconds" value="' . (int) $settings['gallery_slideshow_delay_seconds'] . '">';
-        $html .= '<div class="form-text">Allowed range is 2 to 60 seconds.</div>';
-        $html .= '</div>';
-        $html .= '<div class="col-12 col-lg-6">';
+        $html .= '<div class="row g-3 mt-1">';
+        $html .= '<div class="col-12 col-lg-4">';
         $html .= '<label class="form-label small mb-1" for="tm-editor-photos-gallery-position">Gallery position</label>';
         $html .= '<select class="form-select" id="tm-editor-photos-gallery-position" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_position">';
         foreach ( $this->getGalleryPositionOptions() as $value => $label ) {
@@ -85,30 +91,33 @@ class TinyMashPhotosService {
         }
         $html .= '</select>';
         $html .= '</div>';
-        $html .= '<div class="col-12">';
-        $html .= '<input type="hidden" id="tm-editor-photos-gallery-media-ids" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_media_ids" value="' . $this->escape( implode( "\n", $selected_ids ) ) . '">';
-        $html .= '<input type="hidden" id="tm-editor-photos-gallery-image-overrides" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_image_overrides" value="' . $this->escape( $this->encodeGalleryImageOverridesForField( $image_overrides ) ) . '">';
-        $html .= '<div class="d-flex flex-column flex-lg-row justify-content-between gap-2 align-items-lg-end mb-2">';
-        $html .= '<div>';
-        $html .= '<div class="fw-semibold">Gallery images</div>';
-        $html .= '<div class="small text-body-secondary">Select attached images, choose existing library images, or upload new gallery images. Removing an image here only detaches it from this gallery.</div>';
-        $html .= '</div>';
-        $html .= '<div class="d-flex flex-wrap gap-2 align-items-center">';
-        $html .= '<button class="btn btn-outline-secondary btn-sm" id="tm-editor-photos-choose-existing" type="button"><span class="bi bi-images me-1" aria-hidden="true"></span>Choose existing images</button>';
-        if ( $image_upload_enabled ) {
-            $html .= '<button class="btn btn-outline-secondary btn-sm" id="tm-editor-photos-upload-gallery" type="button"><span class="bi bi-images me-1" aria-hidden="true"></span>Upload gallery images</button>';
-        }
-        $html .= '<span class="badge text-bg-secondary" id="tm-editor-photos-gallery-count">' . count( $selected_ids ) . ' selected</span>';
+        $html .= '<div class="col-12 col-lg-8">';
+        $html .= '<div class="small fw-semibold mb-2" id="tm-editor-photos-lightbox-heading">Lightbox</div>';
+        $html .= '<div class="row g-3" aria-labelledby="tm-editor-photos-lightbox-heading">';
+        $html .= '<div class="col-12 col-md-6">';
+        $html .= '<div class="form-check">';
+        $html .= '<input class="form-check-input" id="tm-editor-photos-gallery-download-enabled" type="checkbox" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_download_enabled"' . ( ! empty( $settings['gallery_download_enabled'] ) ? ' checked' : '' ) . '>';
+        $html .= '<label class="form-check-label" for="tm-editor-photos-gallery-download-enabled">Allow image downloads</label>';
+        $html .= '<div class="form-text">Adds a download action for each gallery image.</div>';
         $html .= '</div>';
         $html .= '</div>';
-        $html .= '<div class="border rounded-3 bg-body-tertiary p-3 small text-body-secondary' . ( empty( $ordered_records ) ? '' : ' d-none' ) . '" id="tm-editor-photos-gallery-empty">No gallery images are selected yet. Choose existing images from the current content scope, upload gallery images here, or upload/insert images elsewhere in the editor and return to this tab. Photo-post mode alone does not render a gallery.</div>';
-        $html .= '<div class="row g-2' . ( empty( $ordered_records ) ? ' d-none' : '' ) . '" id="tm-editor-photos-gallery-options">';
-        foreach ( $ordered_records as $record ) {
-            $media_id = (string) ( $record['media_id'] ?? '' );
-            $html .= $this->buildEditorGalleryOptionHtml( $record, isset( $selected_lookup[$media_id] ), is_array( $image_overrides[$media_id] ?? null ) ? $image_overrides[$media_id] : [] );
-        }
+        $html .= '<div class="col-12 col-md-6">';
+        $html .= '<div class="form-check">';
+        $html .= '<input class="form-check-input" id="tm-editor-photos-gallery-slideshow-enabled" type="checkbox" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_slideshow_enabled"' . ( ! empty( $settings['gallery_slideshow_enabled'] ) ? ' checked' : '' ) . '>';
+        $html .= '<label class="form-check-label" for="tm-editor-photos-gallery-slideshow-enabled">Enable slideshow</label>';
+        $html .= '<div class="form-text">Visitors can start and stop automatic playback.</div>';
+        $html .= '<div class="mt-2' . ( empty( $settings['gallery_slideshow_enabled'] ) ? ' d-none' : '' ) . '" id="tm-editor-photos-gallery-slideshow-delay-wrap" aria-hidden="' . ( empty( $settings['gallery_slideshow_enabled'] ) ? 'true' : 'false' ) . '">';
+        $html .= '<label class="form-label small mb-1" for="tm-editor-photos-gallery-slideshow-delay">Delay (seconds)</label>';
+        $html .= '<input class="form-control font-monospace w-auto" id="tm-editor-photos-gallery-slideshow-delay" type="number" min="2" max="60" step="1" data-editor-plugin-key="photos" data-editor-plugin-field="gallery_slideshow_delay_seconds" value="' . (int) $settings['gallery_slideshow_delay_seconds'] . '">';
+        $html .= '<div class="form-text">2 to 60 seconds.</div>';
         $html .= '</div>';
         $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</fieldset>';
         $html .= '</div>';
         $html .= $this->buildEditorScript();
 
@@ -601,7 +610,12 @@ class TinyMashPhotosService {
     const root = document.getElementById("tm-editor-photos-gallery-options");
     const hiddenField = document.getElementById("tm-editor-photos-gallery-media-ids");
     const overridesField = document.getElementById("tm-editor-photos-gallery-image-overrides");
-    const countBadge = document.getElementById("tm-editor-photos-gallery-count");
+    const galleryEnabledField = document.getElementById("tm-editor-photos-gallery-enabled");
+    const gallerySettings = document.getElementById("tm-editor-photos-gallery-settings");
+    const galleryRetained = document.getElementById("tm-editor-photos-gallery-retained");
+    const slideshowEnabledField = document.getElementById("tm-editor-photos-gallery-slideshow-enabled");
+    const slideshowDelayWrap = document.getElementById("tm-editor-photos-gallery-slideshow-delay-wrap");
+    const countText = document.getElementById("tm-editor-photos-gallery-count");
     const emptyMessage = document.getElementById("tm-editor-photos-gallery-empty");
     const uploadButton = document.getElementById("tm-editor-photos-upload-gallery");
     const chooseExistingButton = document.getElementById("tm-editor-photos-choose-existing");
@@ -633,6 +647,25 @@ class TinyMashPhotosService {
     const getSelectedMediaIds = () => Array.from(root.querySelectorAll(".tm-editor-photos-gallery-check:checked"))
         .map((field) => String(field.value || "").trim())
         .filter((value, index, values) => value !== "" && values.indexOf(value) === index);
+    const syncConditionalVisibility = (selectedCount) => {
+        const galleryEnabled = galleryEnabledField instanceof HTMLInputElement && galleryEnabledField.checked;
+        if (gallerySettings) {
+            gallerySettings.classList.toggle("d-none", !galleryEnabled);
+            gallerySettings.setAttribute("aria-hidden", galleryEnabled ? "false" : "true");
+        }
+        if (galleryRetained) {
+            const showRetained = !galleryEnabled && selectedCount > 0;
+            galleryRetained.textContent = selectedCount + (selectedCount === 1 ? " image remains selected" : " images remain selected") + " while the gallery is off.";
+            galleryRetained.classList.toggle("d-none", !showRetained);
+        }
+        if (slideshowDelayWrap) {
+            const showDelay = galleryEnabled
+                && slideshowEnabledField instanceof HTMLInputElement
+                && slideshowEnabledField.checked;
+            slideshowDelayWrap.classList.toggle("d-none", !showDelay);
+            slideshowDelayWrap.setAttribute("aria-hidden", showDelay ? "false" : "true");
+        }
+    };
     const collectOverrides = () => {
         const overrides = {};
         root.querySelectorAll("[data-tm-editor-photos-gallery-option]").forEach((option) => {
@@ -668,18 +701,17 @@ class TinyMashPhotosService {
         });
     };
     const update = () => {
-        const selected = Array.from(root.querySelectorAll(".tm-editor-photos-gallery-check:checked"))
-            .map((field) => String(field.value || "").trim())
-            .filter((value, index, values) => value !== "" && values.indexOf(value) === index);
+        const selected = getSelectedMediaIds();
         hiddenField.value = selected.join("\n");
-        if (countBadge) {
-            countBadge.textContent = selected.length + " selected";
+        if (countText) {
+            countText.textContent = selected.length + (selected.length === 1 ? " image selected" : " images selected");
         }
         overridesField.value = JSON.stringify(collectOverrides());
         hiddenField.dispatchEvent(new Event("change", { bubbles: true }));
         overridesField.dispatchEvent(new Event("change", { bubbles: true }));
         setEmptyState();
         updateOrderControls();
+        syncConditionalVisibility(selected.length);
     };
     const buildOption = (record) => {
         const normalized = normalizeRecord(record);
@@ -963,6 +995,12 @@ class TinyMashPhotosService {
                 detail: { target: "gallery" }
             }));
         });
+    }
+    if (galleryEnabledField) {
+        galleryEnabledField.addEventListener("change", () => syncConditionalVisibility(getSelectedMediaIds().length));
+    }
+    if (slideshowEnabledField) {
+        slideshowEnabledField.addEventListener("change", () => syncConditionalVisibility(getSelectedMediaIds().length));
     }
     document.addEventListener("tinymash:editor-images-uploaded", (event) => {
         const detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};

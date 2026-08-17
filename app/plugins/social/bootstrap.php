@@ -71,6 +71,16 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         }
     );
 
+    $plugins->registerPublicSlotRenderer(
+        $plugin_key,
+        'author_identity',
+        static function( array $context = [] ) use ( $service, $resolve_settings ) : string {
+            $settings = $resolve_settings( $context, 'auto' );
+            $settings['section_label'] = '';
+            return( $service->renderLinksHtml( $settings, 'Author links' ) );
+        }
+    );
+
     $plugins->registerShortcode(
         $plugin_key,
         'social',

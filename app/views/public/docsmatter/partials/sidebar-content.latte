@@ -27,7 +27,7 @@
             <section class="tm-docsmatter-sidebar-section tm-docsmatter-sidebar-plugin-fragments">
                 <div class="d-grid gap-3">
                     {foreach $sidebar_fragments as $sidebar_fragment}
-                        <div>{$sidebar_fragment['html']|noescape}</div>
+                        <div data-tm-plugin-fragment="{$sidebar_fragment['plugin_key'] ?? ''}">{$sidebar_fragment['html']|noescape}</div>
                     {/foreach}
                 </div>
             </section>
@@ -54,13 +54,13 @@
                 <div class="small text-body-secondary d-grid gap-2">
                     {foreach $sidebar_footer_fragments as $theme_public_footer_fragment}
                         {if ! empty( $theme_public_footer_fragment['lines'] ) }
-                            <div class="d-grid gap-1">
+                            <div class="d-grid gap-1" data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">
                                 {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}
                                     <div>{$theme_public_footer_line|noescape}</div>
                                 {/foreach}
                             </div>
                         {elseif ! empty( $theme_public_footer_fragment['html'] ) }
-                            <div>{$theme_public_footer_fragment['html']|noescape}</div>
+                            <div data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">{$theme_public_footer_fragment['html']|noescape}</div>
                         {/if}
                     {/foreach}
                 </div>

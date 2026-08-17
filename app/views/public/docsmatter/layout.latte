@@ -117,7 +117,8 @@
                         return;
                     }
 
-                    const headings = Array.from(contentRoot.querySelectorAll('h2'));
+                    const headings = Array.from(contentRoot.querySelectorAll('h2'))
+                        .filter((heading) => !heading.closest('[data-tm-heading-scope="component"]'));
                     if (headings.length < 2) {
                         tocRoot.classList.add('d-none');
                         tocRoot.innerHTML = '';

@@ -4,6 +4,7 @@ require_once __DIR__ . '/TinyMashFediverseService.php';
 
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashContentRepository;
+use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashMarkdownRenderer;
 use app\classes\TinyMashNotificationService;
 use app\classes\TinyMashPlugins;
@@ -16,6 +17,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $project_root = dirname( __DIR__, 3 );
     $config = $plugins->getService( 'config' );
     $content_repository = $plugins->getService( 'content.repository' );
+    $date_formatter = $plugins->getService( 'date.formatter' );
     $user_repository = $plugins->getService( 'user.repository' );
     $markdown_renderer = $plugins->getService( 'markdown.renderer' );
     $theme = $plugins->getService( 'theme' );
@@ -26,6 +28,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     if (
         ! $config instanceof TinyMashConfig
         || ! $content_repository instanceof TinyMashContentRepository
+        || ! $date_formatter instanceof TinyMashDateFormatter
         || ! $user_repository instanceof TinyMashUserRepository
         || ! $security instanceof TinyMashSecurity
     ) {
@@ -155,6 +158,22 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         },
         'delivery',
         'Process Fediverse delivery queue'
+    );
+
+    $plugins->registerContentLifecycleHandler(
+        $plugin_key,
+        static function( ?array $previous_entry, ?array $saved_entry, array $context = [] ) use ( $plugins, $plugin_key, $fediverse_service ) : array {
+            $actor_username = trim( (string) ( $context['actor_username'] ?? '' ) );
+            $root_settings = $plugins->getPluginSystemSettings( $plugin_key );
+            if ( ! is_array( $saved_entry ) ) {
+                if ( ! is_array( $previous_entry ) ) {
+                    return( [ 'queued' => false, 'reason' => 'missing_entry' ] );
+                }
+                return( $fediverse_service->queueEntryRemoval( $previous_entry, $root_settings, $actor_username ) );
+            }
+
+            return( $fediverse_service->queueEntrySync( $previous_entry, $saved_entry, $root_settings, $actor_username ) );
+        }
     );
 
     if ( $plugins->isCliRuntime() ) {
@@ -297,7 +316,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $body_html );
     };
 
-    $render_page = static function() use ( $plugins, $plugin_key, $fediverse_service, $config, $content_repository, $theme, $security, $escape, $render_account_summary ) : void {
+    $render_page = static function() use ( $plugins, $plugin_key, $fediverse_service, $config, $content_repository, $date_formatter, $theme, $security, $escape, $render_account_summary ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( (string) ( $config->configGetLoginURL() ?: '/login' ) );
             return;
@@ -354,13 +373,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 }
                 $entry_url = is_array( $entry ) && $theme instanceof TinyMashTheme ? trim( (string) $theme->getEntryURL( $entry ) ) : '';
                 $recorded_at_utc = trim( (string) ( $log_item['recorded_at_utc'] ?? '' ) );
+                $recorded_at_display = $recorded_at_utc !== '' ? $date_formatter->formatUtcDateTime( $recorded_at_utc ) : 'Unknown';
                 $action = trim( (string) ( $log_item['action'] ?? '' ) );
                 $status = trim( (string) ( $log_item['status'] ?? '' ) );
                 $message = trim( (string) ( $log_item['message'] ?? '' ) );
                 $remote_status_url = trim( (string) ( $log_item['context']['remote_status_url'] ?? '' ) );
 
                 $body_html .= '<tr>';
-                $body_html .= '<td class="small text-nowrap">' . $escape( $recorded_at_utc !== '' ? $recorded_at_utc : 'Unknown' ) . '</td>';
+                $body_html .= '<td class="small text-nowrap">' . $escape( $recorded_at_display ) . '</td>';
                 $body_html .= '<td>';
                 if ( $entry_url !== '' ) {
                     $body_html .= '<a class="text-decoration-none" href="' . $escape( $entry_url ) . '">' . $escape( $entry_title ) . '</a>';

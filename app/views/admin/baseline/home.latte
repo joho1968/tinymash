@@ -194,7 +194,7 @@
                                             <tr>
                                                 <td class="font-monospace">{if ! empty($recent_failure['username'])}{$recent_failure['username']}{else}unknown{/if}</td>
                                                 <td class="font-monospace">{if ! empty($recent_failure['ip'])}{$recent_failure['ip']}{else}unknown{/if}</td>
-                                                <td>{$recent_failure['failed_at_display'] ?? ($recent_failure['failed_at_utc'] ?? '')}</td>
+                                                <td>{$recent_failure['failed_at_display'] ?? 'Unknown'}</td>
                                             </tr>
                                         {/foreach}
                                     </tbody>

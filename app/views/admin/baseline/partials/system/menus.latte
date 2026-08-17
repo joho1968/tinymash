@@ -2,60 +2,80 @@
     <div class="d-flex flex-wrap align-items-start gap-3 justify-content-between mb-3">
         <div>
             <div class="small text-uppercase text-body-secondary mb-2">Menus</div>
-            <div class="fw-semibold mb-1">Primary and footer navigation</div>
-            <div class="text-body-secondary small">Build ordered parent and child items for the menu locations your current public theme can render.</div>
+            <div class="fw-semibold mb-1">Site navigation</div>
+            <div class="text-body-secondary small">Arrange the links shown by your current public theme.</div>
         </div>
-        <div class="d-grid gap-2 justify-content-lg-end">
+        <div>
             <button class="btn btn-primary btn-sm" type="submit" form="tm-system-menus-form">Save menus</button>
-            <div>
-                <div class="small text-uppercase text-body-secondary mb-2">Current theme menu support</div>
-                <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
-                    {foreach $system_theme_supports as $theme_support}
-                        {if in_array((string) ($theme_support['key'] ?? ''), ['primary_menu', 'sidebar_menu', 'footer_menu'], true)}
-                            <span class="badge {if ! empty($theme_support['enabled'])}text-bg-success{else}text-bg-secondary{/if}">{$theme_support['label']}</span>
-                        {/if}
-                    {/foreach}
-                </div>
-            </div>
         </div>
+    </div>
+    <div class="small text-body-secondary mb-3">
+        <span class="me-1">Theme support:</span>
+        <span class="d-inline-flex flex-wrap gap-2">
+            {foreach $system_theme_supports as $theme_support}
+                {if in_array((string) ($theme_support['key'] ?? ''), ['primary_menu', 'sidebar_menu', 'footer_menu'], true)}
+                    <span>{$theme_support['label']}: {if ! empty($theme_support['enabled'])}<span class="text-success">available</span>{else}unavailable{/if}</span>
+                {/if}
+            {/foreach}
+        </span>
     </div>
 
     <form id="tm-system-menus-form" method="post" action="{$system_settings_url}">
         <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
         <input type="hidden" name="settings_group" value="menus">
 
-        <div class="row g-3">
+        <div class="d-flex flex-wrap gap-1 mb-3" role="tablist" aria-label="Menu locations" data-tm-menu-location-tabs>
+            {foreach $system_menu_location_definitions as $menu_location_key => $menu_location_definition}
+                {var $menu_location_rows = $system_menu_locations[$menu_location_key] ?? []}
+                <button id="tm-menu-location-tab-{$menu_location_key}" class="btn btn-sm btn-link text-decoration-none text-body-secondary px-2 pb-2 rounded-0" type="button" role="tab" aria-selected="false" aria-controls="tm-menu-location-{$menu_location_key}" data-tm-menu-location-select="{$menu_location_key}">
+                    {$menu_location_definition['label']}
+                    <span class="text-body-secondary" data-tm-menu-location-count>({=count($menu_location_rows)})</span>
+                </button>
+            {/foreach}
+        </div>
+
+        <div>
             {foreach $system_menu_location_definitions as $menu_location_key => $menu_location_definition}
                 {var $menu_rows = $system_menu_locations[$menu_location_key] ?? []}
-                <div class="col-12">
-                    <section class="border rounded-3 p-3 bg-body-tertiary tm-menu-location-root" data-tm-menu-location-root="{$menu_location_key}">
+                <div>
+                    <section id="tm-menu-location-{$menu_location_key}" class="tm-menu-location-root rounded-3 p-3 bg-body-secondary" role="tabpanel" aria-labelledby="tm-menu-location-tab-{$menu_location_key}" data-tm-menu-location-root="{$menu_location_key}" data-tm-menu-location-panel data-tm-admin-surface-group>
                         <div class="d-flex flex-wrap align-items-start gap-2 justify-content-between mb-3">
                             <div>
-                                <div class="small text-uppercase text-body-secondary mb-1">{$menu_location_definition['label']}</div>
-                                <div class="small text-body-secondary">Add menu items, delete what you do not need, and drag rows to reorder them.</div>
+                                <div class="fw-semibold">{$menu_location_definition['label']}</div>
+                                <div class="small text-body-secondary">Drag items to change their order. Child items belong to the nearest parent above them.</div>
                             </div>
                             <button class="btn btn-outline-secondary btn-sm" type="button" data-tm-menu-add>
                                 <span class="bi bi-plus-lg me-1" aria-hidden="true"></span>New item
                             </button>
                         </div>
 
-                        <div class="d-grid gap-3" data-tm-menu-list="{$menu_location_key}">
+                        <div class="border-bottom" data-tm-menu-list="{$menu_location_key}">
                             {foreach $menu_rows as $row_index => $menu_row}
                                 {var $menu_row_depth = max(0, min(1, (int) ($menu_row['depth'] ?? 0)))}
                                 {var $menu_row_type = in_array((string) ($menu_row['type'] ?? 'page'), ['page', 'url', 'separator'], true) ? (string) ($menu_row['type'] ?? 'page') : 'page'}
-                                <article class="border rounded-3 p-3 bg-body tm-menu-row{if $menu_row_depth === 1} tm-menu-row-child{/if}" data-tm-menu-row draggable="false">
-                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                        <button class="btn btn-outline-secondary btn-sm tm-menu-row-handle" type="button" data-tm-menu-drag-handle title="Drag to reorder" aria-label="Drag to reorder">
+                                {var $menu_row_label = mb_trim((string) ($menu_row['label'] ?? ''))}
+                                {var $menu_row_path = ltrim((string) ($menu_row['path'] ?? ''), '/')}
+                                {var $menu_row_url = mb_trim((string) ($menu_row['url'] ?? ''))}
+                                {var $menu_row_summary = $menu_row_type === 'separator' ? 'Separator' : ($menu_row_label !== '' ? $menu_row_label : ($menu_row_type === 'url' ? ($menu_row_url !== '' ? $menu_row_url : 'Untitled item') : ($menu_row_path !== '' ? '/' . $menu_row_path : 'Untitled item')))}
+                                <article class="border-top py-2 tm-menu-row{if $menu_row_depth === 1} tm-menu-row-child{/if}" data-tm-menu-row draggable="false">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button class="btn btn-sm btn-link text-body-secondary px-1 tm-menu-row-handle" type="button" data-tm-menu-drag-handle title="Drag to reorder" aria-label="Drag to reorder">
                                             <span class="bi bi-grip-vertical" aria-hidden="true"></span>
                                         </button>
-                                        <div class="small text-uppercase text-body-secondary">Menu item</div>
-                                        <button class="btn btn-outline-danger btn-sm ms-auto" type="button" data-tm-menu-delete>
+                                        <button class="btn btn-link text-start text-decoration-none text-body p-0 flex-grow-1 d-flex align-items-center" type="button" data-tm-menu-row-toggle aria-expanded="true" aria-controls="tm-menu-{$menu_location_key}-fields-{$row_index}" data-controls-template="tm-menu-{$menu_location_key}-fields-__INDEX__">
+                                            <span>
+                                                <span class="d-block fw-semibold" data-tm-menu-row-summary>{$menu_row_summary}</span>
+                                                <span class="d-block small text-body-secondary" data-tm-menu-row-meta>{if $menu_row_type === 'url'}Custom URL{elseif $menu_row_type === 'separator'}Separator{else}Published page{/if} · {if $menu_row_depth === 1}Child item{else}Parent item{/if}</span>
+                                            </span>
+                                            <span class="bi bi-chevron-down ms-auto text-body-secondary tm-menu-row-chevron" aria-hidden="true"></span>
+                                        </button>
+                                        <button class="btn btn-sm btn-link text-danger px-1" type="button" data-tm-menu-delete title="Delete item">
                                             <span class="bi bi-trash" aria-hidden="true"></span>
                                             <span class="visually-hidden">Delete item</span>
                                         </button>
                                     </div>
 
-                                    <div class="row g-3 align-items-start">
+                                    <div id="tm-menu-{$menu_location_key}-fields-{$row_index}" class="row g-3 align-items-start pt-3 pb-2" data-tm-menu-row-fields data-id-template="tm-menu-{$menu_location_key}-fields-__INDEX__">
                                         <div class="col-12 col-xl-2">
                                             <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-depth-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-depth-__INDEX__">Level</label>
                                             <select class="form-select form-select-sm" id="tm-menu-{$menu_location_key}-depth-{$row_index}" data-id-template="tm-menu-{$menu_location_key}-depth-__INDEX__" name="menu_locations[{$menu_location_key}][{$row_index}][depth]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][depth]" data-tm-menu-input="depth">
@@ -105,30 +125,33 @@
                                                 <label class="form-check-label small" for="tm-menu-{$menu_location_key}-new-tab-{$row_index}" data-for-template="tm-menu-{$menu_location_key}-new-tab-__INDEX__">Open custom URL in new tab</label>
                                             </div>
                                         </div>
-                                        <div class="col-12">
-                                            <div class="form-text mb-0">Child items attach to the nearest parent item above them.</div>
-                                        </div>
                                     </div>
                                 </article>
                             {/foreach}
                         </div>
 
-                        <div class="small text-body-secondary mt-3" data-tm-menu-empty-state n:if="empty($menu_rows)">No items yet. Use <span class="fw-semibold">New item</span> to start this menu.</div>
+                        <div class="small text-body-secondary py-3" data-tm-menu-empty-state n:if="empty($menu_rows)">No items yet. Add one to start this menu.</div>
 
                         <template id="tm-menu-row-template-{$menu_location_key}">
-                            <article class="border rounded-3 p-3 bg-body tm-menu-row" data-tm-menu-row draggable="false">
-                                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                    <button class="btn btn-outline-secondary btn-sm tm-menu-row-handle" type="button" data-tm-menu-drag-handle title="Drag to reorder" aria-label="Drag to reorder">
+                            <article class="border-top py-2 tm-menu-row" data-tm-menu-row data-tm-menu-row-new draggable="false">
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-link text-body-secondary px-1 tm-menu-row-handle" type="button" data-tm-menu-drag-handle title="Drag to reorder" aria-label="Drag to reorder">
                                         <span class="bi bi-grip-vertical" aria-hidden="true"></span>
                                     </button>
-                                    <div class="small text-uppercase text-body-secondary">Menu item</div>
-                                    <button class="btn btn-outline-danger btn-sm ms-auto" type="button" data-tm-menu-delete>
+                                    <button class="btn btn-link text-start text-decoration-none text-body p-0 flex-grow-1 d-flex align-items-center" type="button" data-tm-menu-row-toggle aria-expanded="true" aria-controls="tm-menu-{$menu_location_key}-fields-__INDEX__" data-controls-template="tm-menu-{$menu_location_key}-fields-__INDEX__">
+                                        <span>
+                                            <span class="d-block fw-semibold" data-tm-menu-row-summary>Untitled item</span>
+                                            <span class="d-block small text-body-secondary" data-tm-menu-row-meta>Published page · Parent item</span>
+                                        </span>
+                                        <span class="bi bi-chevron-down ms-auto text-body-secondary tm-menu-row-chevron" aria-hidden="true"></span>
+                                    </button>
+                                    <button class="btn btn-sm btn-link text-danger px-1" type="button" data-tm-menu-delete title="Delete item">
                                         <span class="bi bi-trash" aria-hidden="true"></span>
                                         <span class="visually-hidden">Delete item</span>
                                     </button>
                                 </div>
 
-                                <div class="row g-3 align-items-start">
+                                <div id="tm-menu-{$menu_location_key}-fields-__INDEX__" class="row g-3 align-items-start pt-3 pb-2" data-tm-menu-row-fields data-id-template="tm-menu-{$menu_location_key}-fields-__INDEX__">
                                     <div class="col-12 col-xl-2">
                                         <label class="form-label small mb-1" for="tm-menu-{$menu_location_key}-depth-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-depth-__INDEX__">Level</label>
                                         <select class="form-select form-select-sm" id="tm-menu-{$menu_location_key}-depth-__INDEX__" data-id-template="tm-menu-{$menu_location_key}-depth-__INDEX__" name="menu_locations[{$menu_location_key}][__INDEX__][depth]" data-name-template="menu_locations[{$menu_location_key}][__INDEX__][depth]" data-tm-menu-input="depth">
@@ -178,9 +201,6 @@
                                             <label class="form-check-label small" for="tm-menu-{$menu_location_key}-new-tab-__INDEX__" data-for-template="tm-menu-{$menu_location_key}-new-tab-__INDEX__">Open custom URL in new tab</label>
                                         </div>
                                     </div>
-                                    <div class="col-12">
-                                        <div class="form-text mb-0">Child items attach to the nearest parent item above them.</div>
-                                    </div>
                                 </div>
                             </article>
                         </template>
@@ -188,7 +208,7 @@
                 </div>
             {/foreach}
 
-            <div class="col-12 d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 mt-3">
                 <button class="btn btn-primary btn-sm" type="submit">Save menus</button>
             </div>
         </div>
@@ -219,12 +239,55 @@
                 row.querySelectorAll('[data-menu-template]').forEach((element) => {
                     element.setAttribute('data-tm-picker-menu', replaceIndexToken(element.getAttribute('data-menu-template') || '', index));
                 });
+                row.querySelectorAll('[data-controls-template]').forEach((element) => {
+                    element.setAttribute('aria-controls', replaceIndexToken(element.getAttribute('data-controls-template') || '', index));
+                });
+            }
+
+            function setRowOpen(row, open) {
+                const toggle = row.querySelector('[data-tm-menu-row-toggle]');
+                const fields = row.querySelector('[data-tm-menu-row-fields]');
+                if (!(toggle instanceof HTMLElement) || !(fields instanceof HTMLElement)) {
+                    return;
+                }
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                fields.hidden = !open;
+            }
+
+            function updateRowSummary(row) {
+                const typeField = row.querySelector('[data-tm-menu-input="type"]');
+                const depthField = row.querySelector('[data-tm-menu-input="depth"]');
+                const pathField = row.querySelector('[data-tm-menu-field="path"] input');
+                const urlField = row.querySelector('[data-tm-menu-field="url"] input');
+                const labelField = row.querySelector('[data-tm-menu-field="label"] input');
+                const summary = row.querySelector('[data-tm-menu-row-summary]');
+                const meta = row.querySelector('[data-tm-menu-row-meta]');
+                const type = typeField instanceof HTMLSelectElement ? typeField.value : 'page';
+                const depth = depthField instanceof HTMLSelectElement ? depthField.value : '0';
+                const path = pathField instanceof HTMLInputElement ? pathField.value.trim().replace(/^\/+/, '') : '';
+                const url = urlField instanceof HTMLInputElement ? urlField.value.trim() : '';
+                const label = labelField instanceof HTMLInputElement ? labelField.value.trim() : '';
+                const typeLabels = {
+                    page: 'Published page',
+                    url: 'Custom URL',
+                    separator: 'Separator',
+                };
+
+                if (summary instanceof HTMLElement) {
+                    summary.textContent = type === 'separator'
+                        ? 'Separator'
+                        : (label || (type === 'url' ? url : (path ? '/' + path : '')) || 'Untitled item');
+                }
+                if (meta instanceof HTMLElement) {
+                    meta.textContent = (typeLabels[type] || typeLabels.page) + ' · ' + (depth === '1' ? 'Child item' : 'Parent item');
+                }
             }
 
             function updateRowDepthState(row) {
                 const depthField = row.querySelector('[data-tm-menu-input="depth"]');
                 const depth = depthField instanceof HTMLSelectElement ? depthField.value : '0';
                 row.classList.toggle('tm-menu-row-child', depth === '1');
+                updateRowSummary(row);
             }
 
             function updateRowTypeState(row) {
@@ -251,6 +314,7 @@
                         }
                     });
                 });
+                updateRowSummary(row);
             }
 
             function updateEmptyState(locationRoot) {
@@ -260,6 +324,12 @@
                     return;
                 }
                 emptyState.classList.toggle('d-none', list.querySelector('[data-tm-menu-row]') !== null);
+                const locationKey = locationRoot.getAttribute('data-tm-menu-location-root') || '';
+                const locationSelect = document.querySelector('[data-tm-menu-location-select="' + CSS.escape(locationKey) + '"]');
+                const count = locationSelect instanceof HTMLElement ? locationSelect.querySelector('[data-tm-menu-location-count]') : null;
+                if (count instanceof HTMLElement) {
+                    count.textContent = '(' + list.querySelectorAll('[data-tm-menu-row]').length + ')';
+                }
             }
 
             function renumberLocation(locationRoot) {
@@ -287,6 +357,7 @@
                 const depthField = row.querySelector('[data-tm-menu-input="depth"]');
                 const deleteButton = row.querySelector('[data-tm-menu-delete]');
                 const dragHandle = row.querySelector('[data-tm-menu-drag-handle]');
+                const rowToggle = row.querySelector('[data-tm-menu-row-toggle]');
 
                 if (typeField instanceof HTMLSelectElement) {
                     typeField.addEventListener('change', () => {
@@ -304,6 +375,14 @@
                         renumberLocation(locationRoot);
                     });
                 }
+                if (rowToggle instanceof HTMLElement) {
+                    rowToggle.addEventListener('click', () => {
+                        setRowOpen(row, rowToggle.getAttribute('aria-expanded') !== 'true');
+                    });
+                }
+                row.addEventListener('input', () => {
+                    updateRowSummary(row);
+                });
                 if (dragHandle instanceof HTMLElement) {
                     const armDrag = () => {
                         row.setAttribute('data-tm-menu-drag-armed', '1');
@@ -340,6 +419,8 @@
 
                 updateRowDepthState(row);
                 updateRowTypeState(row);
+                setRowOpen(row, row.hasAttribute('data-tm-menu-row-new'));
+                row.removeAttribute('data-tm-menu-row-new');
             }
 
             function getDragAfterRow(list, clientY) {
@@ -422,16 +503,75 @@
                 renumberLocation(locationRoot);
             }
 
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => {
-                    document.querySelectorAll('[data-tm-menu-location-root]').forEach((locationRoot) => {
-                        initializeLocation(locationRoot);
-                    });
-                }, { once: true });
-            } else {
-                document.querySelectorAll('[data-tm-menu-location-root]').forEach((locationRoot) => {
+            function initializeEditor() {
+                const editor = document.querySelector('[data-tm-menu-editor]');
+                if (!(editor instanceof HTMLElement)) {
+                    return;
+                }
+                const locationRoots = Array.from(editor.querySelectorAll('[data-tm-menu-location-root]'));
+                const locationSelects = Array.from(editor.querySelectorAll('[data-tm-menu-location-select]'));
+
+                locationRoots.forEach((locationRoot) => {
                     initializeLocation(locationRoot);
                 });
+
+                const selectLocation = (locationKey) => {
+                    locationRoots.forEach((locationRoot) => {
+                        if (locationRoot instanceof HTMLElement) {
+                            locationRoot.hidden = locationRoot.getAttribute('data-tm-menu-location-root') !== locationKey;
+                        }
+                    });
+                    locationSelects.forEach((locationSelect) => {
+                        if (!(locationSelect instanceof HTMLElement)) {
+                            return;
+                        }
+                        const selected = locationSelect.getAttribute('data-tm-menu-location-select') === locationKey;
+                        locationSelect.setAttribute('aria-selected', selected ? 'true' : 'false');
+                        locationSelect.tabIndex = selected ? 0 : -1;
+                        locationSelect.classList.toggle('fw-semibold', selected);
+                        locationSelect.classList.toggle('text-body', selected);
+                        locationSelect.classList.toggle('text-body-secondary', !selected);
+                        locationSelect.classList.toggle('border-primary', selected);
+                    });
+                };
+
+                locationSelects.forEach((locationSelect) => {
+                    locationSelect.addEventListener('click', () => {
+                        selectLocation(locationSelect.getAttribute('data-tm-menu-location-select') || '');
+                    });
+                    locationSelect.addEventListener('keydown', (event) => {
+                        const currentIndex = locationSelects.indexOf(locationSelect);
+                        let nextIndex = currentIndex;
+                        if (event.key === 'ArrowRight') {
+                            nextIndex = (currentIndex + 1) % locationSelects.length;
+                        } else if (event.key === 'ArrowLeft') {
+                            nextIndex = (currentIndex - 1 + locationSelects.length) % locationSelects.length;
+                        } else if (event.key === 'Home') {
+                            nextIndex = 0;
+                        } else if (event.key === 'End') {
+                            nextIndex = locationSelects.length - 1;
+                        } else {
+                            return;
+                        }
+                        event.preventDefault();
+                        const nextLocation = locationSelects[nextIndex];
+                        if (nextLocation instanceof HTMLElement) {
+                            selectLocation(nextLocation.getAttribute('data-tm-menu-location-select') || '');
+                            nextLocation.focus();
+                        }
+                    });
+                });
+
+                const firstLocation = locationSelects[0];
+                if (firstLocation instanceof HTMLElement) {
+                    selectLocation(firstLocation.getAttribute('data-tm-menu-location-select') || '');
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializeEditor, { once: true });
+            } else {
+                initializeEditor();
             }
         })();
     </script>

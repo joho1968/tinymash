@@ -63,7 +63,7 @@
                                         </td>
                                         <td><span class="badge text-bg-secondary text-uppercase">{$entry['type']}</span></td>
                                         <td><span class="badge text-bg-warning text-uppercase">{$entry['status']}</span></td>
-                                        <td><span class="small text-body-secondary">{$entry['updated_at_utc']}</span></td>
+                                        <td><span class="small text-body-secondary">{$entry['updated_at_display'] ?? 'Unknown'}</span></td>
                                         <td>
                                             <a class="btn btn-outline-secondary btn-sm" href="{$admin_url}/editor?entry={$entry['id']}">Open in composer</a>
                                         </td>

@@ -224,7 +224,28 @@ php8.4 bin/tinymash.php deploy:audit /path/to/installed-tinymash \
 
 The audit compares managed files with the version-2 SHA-256 inventory and reports missing, changed, unknown, or unsafe application paths. Live config, content, media, plugin state, users, caches, workspace files, and logs are ignored. Any managed difference returns a non-zero exit status.
 
-See `INSTALL.md` for the staged existing-installation upgrade procedure.
+Prepare a clean new release with authoritative state from an old installation:
+
+```bash
+cd /path/to/new-tinymash
+php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash --dry-run
+php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash
+```
+
+The command requires the current directory to be a clean version-2 deploy tree with no live config, content, drafts, media, plugin data, or users. It audits the new release, inventories and validates old state, reports missing extensions, modified managed files, discarded runtime paths, and unmanaged files/directories such as `_uploads`, `_auth`, or custom public directories.
+
+The real copy requires confirmation that PHP-FPM, cron, queues, and other old-site writers are stopped. For unattended use:
+
+```bash
+php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash \
+  --confirm-writes-stopped --no-interaction
+```
+
+Active plugins and selected themes missing from the new release block preparation by default. `--allow-missing-extensions` permits the state copy after explicit operator review; extension code and other unmanaged paths are never copied automatically.
+
+The command stages every policy-owned file, verifies source and destination hashes, rejects malformed authoritative JSON and state symlinks, checks that the old tree did not change during copying, commits only into empty state paths, and runs `deploy:audit` again. It does not stop services, copy runtime caches/logs/extension code, swap directories, restore ownership, or reload PHP-FPM.
+
+See `INSTALL.md` for the complete staged existing-installation upgrade procedure.
 
 ## Export And Import
 

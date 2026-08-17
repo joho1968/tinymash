@@ -3,7 +3,7 @@
 {block public_footer_desktop_fragments}
     <div n:if="! empty( $theme_public_footer_fragments )" class="d-grid gap-3">
         {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
-            <section class="tm-timeline-footer-fragment small text-body-secondary">
+            <section class="tm-timeline-footer-fragment small text-body-secondary" data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">
                 {if ! empty( $theme_public_footer_fragment['lines'] ) }
                     <div class="tm-timeline-footer-fragment-lines">
                         {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}

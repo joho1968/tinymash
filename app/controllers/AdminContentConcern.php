@@ -131,7 +131,7 @@ trait AdminContentConcern {
                         foreach ( $before_entries as $entry_id => $previous_entry ) {
                             $still_exists = $this->content_repository->getAccessibleEntryById( (string) $entry_id, null, $author_slug, $allow_root );
                             if ( ! is_array( $still_exists ) ) {
-                                $this->queueFediverseEntryRemoval( $previous_entry, (string) ( $this->security->getCurrentUsername() ?? '' ) );
+                                $this->dispatchContentLifecycle( $previous_entry, null, (string) ( $this->security->getCurrentUsername() ?? '' ) );
                             }
                         }
                     } elseif ( in_array( $action, [ 'publish', 'unpublish' ], true ) ) {
@@ -144,7 +144,7 @@ trait AdminContentConcern {
                         foreach ( $before_entries as $entry_id => $previous_entry ) {
                             $saved_entry = $this->content_repository->getAccessibleEntryById( (string) $entry_id, null, $author_slug, $allow_root );
                             if ( is_array( $saved_entry ) ) {
-                                $this->queueFediverseEntrySync(
+                                $this->dispatchContentLifecycle(
                                     $previous_entry,
                                     $saved_entry,
                                     (string) ( $this->security->getCurrentUsername() ?? '' )
@@ -252,6 +252,7 @@ trait AdminContentConcern {
 
         foreach ( $entries as $index => $entry ) {
             $entries[$index]['updated_at_display'] = $this->formatUtcDateTime( (string) ( $entry['updated_at_utc'] ?? '' ) );
+            $entries[$index]['published_at_display'] = $this->formatUtcDateTime( (string) ( $entry['published_at_utc'] ?? '' ) );
             $entries[$index]['open_url'] = $this->app->get( 'admin.url' ) . '/editor?entry=' . rawurlencode( (string) $entry['id'] );
             $entries[$index]['active_draft'] = $drafts_by_entry_id[(string) $entry['id']] ?? null;
             $entries[$index]['view_url'] = $this->buildEntryPublicUrl( $entry );
@@ -295,6 +296,7 @@ trait AdminContentConcern {
             'drafts' => count( $drafts ),
             'entries' => count( $entries ),
             'published' => 0,
+            'scheduled' => 0,
             'unpublished' => 0,
             'pending_review' => 0,
             'trash' => count( $trashed_entries ),
@@ -307,6 +309,8 @@ trait AdminContentConcern {
             $entry_status = (string) ( $entry['status'] ?? '' );
             if ( $entry_status === 'published' ) {
                 $content_counts['published']++;
+            } elseif ( $entry_status === 'scheduled' ) {
+                $content_counts['scheduled']++;
             } elseif ( $entry_status === 'unpublished' ) {
                 $content_counts['unpublished']++;
             } elseif ( $entry_status === 'pending_review' ) {

@@ -1,0 +1,53 @@
+{extends './layout.latte'}
+
+{block content}
+    <div class="tm-scribe-reading">
+        {if empty( $listing_context_title )}
+            <h1 n:class="($theme_settings['author_home_heading'] ?? 'enabled') === 'enabled' ? 'tm-scribe-author-home-title mb-5' : 'visually-hidden'">Posts by {$author_display_name ?? $author_slug ?? 'author'}</h1>
+        {/if}
+        {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary )}
+            <header class="tm-scribe-listing-context mb-5">
+                {if ! empty( $listing_context_title )}
+                    <h1 class="mb-2">{$listing_context_title}</h1>
+                {/if}
+                {if ! empty( $listing_context_summary )}
+                    <div class="tm-scribe-deck text-body-secondary">{$listing_context_summary}</div>
+                {/if}
+            </header>
+        {/if}
+        {if empty( $posts )}
+            <p class="text-body-secondary mb-0">{$listing_empty_message ?? 'No published posts yet.'}</p>
+        {else}
+            <section class="tm-scribe-stream">
+                {foreach $posts as $entry}
+                    <article class="tm-scribe-story">
+                        <header>
+                            <div n:if="! empty( $entry['sticky'] )" class="tm-scribe-kicker">Pinned</div>
+                            <h2><a href="{$entry['url']}">{$entry['title_html']|noescape}</a></h2>
+                            <div n:if="! empty( $entry['published_at_display'] )" class="tm-scribe-meta">
+                                <span>{$entry['published_at_display']}</span>
+                            </div>
+                        </header>
+                        {if ! empty( $entry['featured_image']['url'] )}
+                            <a class="tm-scribe-listing-image" href="{$entry['url']}">
+                                <img src="{$entry['featured_image']['thumbnail_url'] ?? $entry['featured_image']['url']}" alt="{$entry['featured_image']['alt_text'] ?? ''}" loading="lazy" decoding="async"{if ! empty( $entry['featured_image']['thumbnail_width'] )} width="{$entry['featured_image']['thumbnail_width']}"{elseif ! empty( $entry['featured_image']['width'] )} width="{$entry['featured_image']['width']}"{/if}{if ! empty( $entry['featured_image']['thumbnail_height'] )} height="{$entry['featured_image']['thumbnail_height']}"{elseif ! empty( $entry['featured_image']['height'] )} height="{$entry['featured_image']['height']}"{/if}>
+                            </a>
+                        {/if}
+                        {if ! empty( $entry['summary_html'] )}
+                            <div class="tm-scribe-summary" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">{$entry['summary_html']|noescape}</div>
+                        {/if}
+                        {if ! empty( $theme_tags['enabled'] ) && ! empty( $entry['tag_links'] )}
+                            <div class="tm-scribe-tags">
+                                {foreach $entry['tag_links'] as $tag_link}
+                                    <a href="{$tag_link['url']}">#{$tag_link['label']}</a>
+                                {/foreach}
+                            </div>
+                        {/if}
+                        <a class="tm-scribe-read" href="{$entry['url']}">Continue reading <span aria-hidden="true">→</span></a>
+                    </article>
+                {/foreach}
+            </section>
+            {include '../baseline/partials/listing-pagination.latte', listing_pagination: $listing_pagination ?? []}
+        {/if}
+    </div>
+{/block}

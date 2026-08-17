@@ -34,6 +34,7 @@
             <select class="form-select form-select-sm" id="tm-editor-status-field">
                 <option value="unpublished" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'unpublished'">Unpublished</option>
                 <option value="published" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'published'">Published</option>
+                <option n:if="empty($content_moderation_required) || !empty($is_superadmin)" value="scheduled" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'scheduled'">Scheduled</option>
             </select>
             {if ! empty( $content_moderation_required ) && empty( $is_superadmin )}
                 <div class="form-text">
@@ -83,36 +84,38 @@
             <div class="form-text" id="tm-editor-slug-status">Slug will update from the title while creating new content.</div>
         </div>
         <div class="col-12 col-lg-8 tm-editor-focus-wide" id="tm-editor-page-structure">
-            <label class="form-label small mb-1" for="tm-editor-parent-slug">Parent page</label>
-            <select class="form-select font-monospace" id="tm-editor-parent-slug">
-                <option value="">/ (root)</option>
-                {foreach $editor_parent_page_options as $parent_page_option}
-                    {var $parent_page_depth = max(0, (int) ($parent_page_option['depth'] ?? 0))}
-                    {var $parent_page_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $parent_page_depth)}
-                    <option
-                        value="{$parent_page_option['slug']}"
-                        data-entry-id="{$parent_page_option['id']}"
-                        data-scope="{$parent_page_option['scope']}"
-                        data-author-slug="{$parent_page_option['author_slug']}"
-                        data-parent-slug="{$parent_page_option['parent_slug']}"
-                        data-sort-order="{$parent_page_option['sort_order']}"
-                        data-depth="{$parent_page_depth}"
-                        n:attr="selected => $editor_draft['parent_slug'] === $parent_page_option['slug'] && $editor_draft['scope'] === $parent_page_option['scope'] && ( $editor_draft['scope'] !== 'author' || $editor_draft['author_slug'] === $parent_page_option['author_slug'] )"
-                    >{$parent_page_indent|noescape}{$parent_page_option['title']} · {$parent_page_option['display_path']}</option>
-                {/foreach}
-            </select>
-            <div class="form-text">Pages only. Choose `/ (root)` to keep this page at the top level.</div>
-            <div class="row g-2 mt-1">
-                <div class="col-12 col-md-7 tm-editor-focus-wide">
+            <div class="row g-2">
+                <div class="col-12 col-md-8 tm-editor-focus-wide" id="tm-editor-parent-field">
+                    <label class="form-label small mb-1" for="tm-editor-parent-slug">Parent page</label>
+                    <select class="form-select font-monospace" id="tm-editor-parent-slug">
+                        <option value="">/ (root)</option>
+                        {foreach $editor_parent_page_options as $parent_page_option}
+                            {var $parent_page_depth = max(0, (int) ($parent_page_option['depth'] ?? 0))}
+                            {var $parent_page_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $parent_page_depth)}
+                            <option
+                                value="{$parent_page_option['slug']}"
+                                data-entry-id="{$parent_page_option['id']}"
+                                data-scope="{$parent_page_option['scope']}"
+                                data-author-slug="{$parent_page_option['author_slug']}"
+                                data-parent-slug="{$parent_page_option['parent_slug']}"
+                                data-sort-order="{$parent_page_option['sort_order']}"
+                                data-depth="{$parent_page_depth}"
+                                n:attr="selected => $editor_draft['parent_slug'] === $parent_page_option['slug'] && $editor_draft['scope'] === $parent_page_option['scope'] && ( $editor_draft['scope'] !== 'author' || $editor_draft['author_slug'] === $parent_page_option['author_slug'] )"
+                            >{$parent_page_indent|noescape}{$parent_page_option['title']} · {$parent_page_option['display_path']}</option>
+                        {/foreach}
+                    </select>
+                    <div class="form-text">Pages only. Choose `/ (root)` to keep this page at the top level.</div>
+                </div>
+                <div class="col-12 col-md-4 tm-editor-full-only" id="tm-editor-sort-order-field">
+                    <label class="form-label small mb-1" for="tm-editor-sort-order">Sort order</label>
+                    <input class="form-control" id="tm-editor-sort-order" type="number" value="{$editor_draft['sort_order']}">
+                    <div class="form-text" id="tm-editor-sort-order-hint">Pages with the same parent are sorted by this number first.</div>
+                </div>
+                <div class="col-12">
                     <div class="form-check" id="tm-editor-navigation-field">
                         <input class="form-check-input" id="tm-editor-nav" type="checkbox" n:attr="checked => $editor_draft['show_in_navigation']">
                         <label class="form-check-label" for="tm-editor-nav">Show in navigation</label>
                     </div>
-                </div>
-                <div class="col-12 col-md-5 tm-editor-full-only" id="tm-editor-sort-order-field">
-                    <label class="form-label small mb-1" for="tm-editor-sort-order">Sort order</label>
-                    <input class="form-control form-control-sm" id="tm-editor-sort-order" type="number" value="{$editor_draft['sort_order']}">
-                    <div class="form-text" id="tm-editor-sort-order-hint">Pages with the same parent are sorted by this number first.</div>
                 </div>
             </div>
         </div>
@@ -127,7 +130,7 @@
                         <div class="col-12">
                             <label class="form-label small mb-1" for="tm-editor-published-at-local">Publish date/time <span class="text-body-secondary">({$editor_timezone_name ?? 'UTC'})</span></label>
                             <input class="form-control form-control-sm font-monospace" id="tm-editor-published-at-local" type="datetime-local" value="{$editor_draft['published_at_local'] ?? ''}">
-                            <div class="form-text">Leave blank for first publish. Future values are metadata, not scheduling.</div>
+                            <div class="form-text">Scheduled requires a future value. A future date on Published remains visible immediately.</div>
                         </div>
                         <div class="col-12" n:if="$editor_tags_enabled">
                             <label class="form-label small mb-1" for="tm-editor-tags">Tags</label>

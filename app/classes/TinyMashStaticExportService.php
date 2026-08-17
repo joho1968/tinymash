@@ -665,6 +665,10 @@ class TinyMashStaticExportService {
         if ( isset( $this->exported_route_files[$route_file] ) ) {
             return( $this->relativePath( $source_dir, $route_file ) . $fragment );
         }
+        $generated_theme_css = $this->copyGeneratedThemeCssIfAvailable( $public_path, $target_directory, $base_url );
+        if ( $generated_theme_css !== '' ) {
+            return( $this->relativePath( $source_dir, $generated_theme_css ) . $query . $fragment );
+        }
         if ( $this->copyPublicAssetIfAvailable( $public_path, $target_directory ) ) {
             return( $this->relativePath( $source_dir, ltrim( $public_path, '/' ) ) . $query . $fragment );
         }
@@ -673,6 +677,36 @@ class TinyMashStaticExportService {
         $this->unresolved_internal_urls[$unresolved_url] = true;
         $live_base_url = rtrim( trim( (string) $this->config->configGetBaseURL() ), '/' );
         return( $live_base_url !== '' ? $live_base_url . $unresolved_url . $fragment : $unresolved_url . $fragment );
+    }
+
+    protected function copyGeneratedThemeCssIfAvailable( string $public_path, string $target_directory, string $base_url ) : string {
+        if ( preg_match( '#^/theme-custom-css/([a-z0-9_-]+)$#', $public_path, $matches ) !== 1 ) {
+            return( '' );
+        }
+
+        $theme_key = (string) ( $matches[1] ?? '' );
+        if ( $theme_key === '' || $theme_key !== $this->theme->getThemeKey() ) {
+            return( '' );
+        }
+
+        $settings = $this->theme->getCustomCssSettings( $theme_key );
+        $css = (string) ( $settings['css'] ?? '' );
+        if ( empty( $settings['enabled'] ) || trim( $css ) === '' ) {
+            return( '' );
+        }
+
+        $relative = 'theme-custom-css/' . $theme_key . '.css';
+        $target = rtrim( $target_directory, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, $relative );
+        $this->ensureDirectory( dirname( $target ) );
+        if ( ! is_file( $target ) ) {
+            $css = $this->rewriteCssUrls( $css, '/' . $relative, $target_directory, $base_url );
+            if ( ! TinyMashFilesystem::writeFileAtomically( $target, $css ) ) {
+                throw new \RuntimeException( 'Unable to write generated theme stylesheet: ' . $relative );
+            }
+            $this->copied_assets[$relative] = true;
+        }
+
+        return( $relative );
     }
 
     protected function copyPublicAssetIfAvailable( string $public_path, string $target_directory ) : bool {

@@ -32,6 +32,7 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaCapab
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMediaDerivativeRegistry.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashLockedJsonFile.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashImportLockService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashImportPreviewWorkspaceService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPublicPageCache.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashHousekeepingService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashThemeRegistry.php' );
@@ -143,6 +144,9 @@ $media_usage_reporter = new app\classes\TinyMashMediaUsageReporter(
 $import_lock_service = new app\classes\TinyMashImportLockService(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'import-locks.json'
 );
+$import_preview_workspace_service = app\classes\TinyMashImportPreviewWorkspaceService::forProjectRoot(
+    dirname( __FILE__, 3 )
+);
 $public_page_cache = new app\classes\TinyMashPublicPageCache(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'public-page-cache'
 );
@@ -242,6 +246,7 @@ $app->set( 'media.import_bridge', $media_import_bridge );
 $app->set( 'media.usage_reporter', $media_usage_reporter );
 $app->set( 'media.review_store', $media_review_store );
 $app->set( 'import.lock_service', $import_lock_service );
+$app->set( 'import.preview_workspaces', $import_preview_workspace_service );
 $app->set( 'public.page_cache', $public_page_cache );
 $app->set( 'media.capability_registry', $media_capability_registry );
 $app->set( 'media.derivative_registry', $media_derivative_registry );
@@ -291,7 +296,7 @@ try {
 
 if ( PHP_SAPI !== 'cli' ) {
     register_shutdown_function(
-        static function() use ( $content_repository, $draft_repository, $media_service, $media_import_bridge, $plugins, $notification_service, $password_reset_service, $theme ) : void {
+        static function() use ( $content_repository, $draft_repository, $media_service, $media_import_bridge, $import_preview_workspace_service, $plugins, $notification_service, $password_reset_service, $theme ) : void {
             try {
                 $config_io = new \app\classes\TinyMashConfigIO();
                 if ( ! $config_io->getConfig() ) {
@@ -308,7 +313,8 @@ if ( PHP_SAPI !== 'cli' ) {
                     $theme,
                     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'housekeeping-web.lock',
                     $media_import_bridge,
-                    $content_repository
+                    $content_repository,
+                    $import_preview_workspace_service
                 );
                 $housekeeping_service->runWebFallbackIfDue();
             } catch( \Throwable $e ) {

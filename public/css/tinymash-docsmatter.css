@@ -271,6 +271,11 @@ body.tm-theme-docsmatter {
     margin-bottom: 0 !important;
 }
 
+.tm-docsmatter-content a:not(.btn):not(.tm-downloads-file-link) {
+    text-decoration: underline !important;
+    text-underline-offset: 0.12em !important;
+}
+
 .tm-docsmatter-content .tm-content-blank-line {
     display: block;
     height: 1.25rem;
@@ -557,6 +562,9 @@ a.nav-link:hover {
 
 .tm-docsmatter-content p > code {
     border: 0 !important;
+    max-width: 100%;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
 }
 
 .tm-docsmatter-content div > code {
@@ -748,13 +756,19 @@ a.nav-link:hover {
 }
 
 #bs5docs-toc a {
-    display: block;
+    display: flex;
+    align-items: center;
+    min-height: 1.5rem;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-decoration: none;
     color: var(--bs-success-text-emphasis);
+}
+
+.tm-docsmatter-content .tm-directory-link-anchor {
+    color: var(--tm-docsmatter-title-link);
 }
 
 #bs5docs-toc a:hover {

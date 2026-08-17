@@ -38,7 +38,8 @@
             const slugField = document.getElementById('tm-editor-slug');
             const authorSlugField = document.getElementById('tm-editor-author-slug');
             const parentSlugField = document.getElementById('tm-editor-parent-slug');
-            const parentSlugFieldContainer = parentSlugField ? parentSlugField.closest('.col-12') : null;
+            const pageStructureContainer = document.getElementById('tm-editor-page-structure');
+            const parentSlugFieldContainer = document.getElementById('tm-editor-parent-field');
             const summaryField = document.getElementById('tm-editor-summary');
             const tagsField = document.getElementById('tm-editor-tags');
             const seoTitleField = document.getElementById('tm-editor-seo-title');
@@ -527,7 +528,7 @@
 
                 revisionsList.innerHTML = revisionItems.map((revision) => {
                     const title = String(revision.title || 'Untitled revision');
-                    const savedAt = String(revision.saved_at_display || revision.saved_at_utc || '');
+                    const savedAt = String(revision.saved_at_display || 'Unknown');
                     const status = String(revision.status || 'unpublished');
                     return '<li><a class="dropdown-item" href="' + escapeHtml(String(revision.open_url || '#')) + '">'
                         + '<span class="d-block fw-semibold">' + escapeHtml(title) + '</span>'
@@ -1165,6 +1166,9 @@
                 }
                 if (parentSlugFieldContainer) {
                     parentSlugFieldContainer.classList.toggle('d-none', !isPage);
+                }
+                if (pageStructureContainer) {
+                    pageStructureContainer.classList.toggle('d-none', !isPage);
                 }
                 if (navigationField) {
                     navigationField.disabled = !isPage;
@@ -1980,6 +1984,15 @@
             tabButtons.forEach((button) => {
                 button.addEventListener('click', () => {
                     setMode(button.getAttribute('data-mode'));
+                    if (window.matchMedia('(max-width: 767.98px)').matches) {
+                        const tabList = document.getElementById('tinymash-editor-tabs');
+                        const tabItems = tabList ? Array.from(tabList.querySelectorAll('.nav-item:not(.d-none)')) : [];
+                        const activeIndex = button.parentElement ? tabItems.indexOf(button.parentElement) : -1;
+                        const anchor = activeIndex >= 0 ? tabItems[Math.max(0, activeIndex - 2)] : null;
+                        if (tabList && anchor) {
+                            tabList.scrollLeft += anchor.getBoundingClientRect().left - tabList.getBoundingClientRect().left;
+                        }
+                    }
                 });
             });
             editorModeButtons.forEach((button) => {

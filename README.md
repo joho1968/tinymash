@@ -23,7 +23,7 @@ The shipped runtime includes:
 - public themes and theme settings
 - plugin support
 - media uploads for editor and site imagery
-- feeds, tags, menus, search, backup/export, imports, and housekeeping tooling
+- feeds, tags, menus, search, scheduled publishing, backup/export, imports, and housekeeping tooling
 - a CLI for cache management, deploy builds, housekeeping, imports, backups, and other maintenance work
 
 ## Normal installation path
@@ -37,7 +37,7 @@ If you are holding a tinymash deploy package, the short version is:
 3. make `data/`, `users/`, and `tmp/` writable by the PHP/web-server user
 4. run `php8.4 bin/tinymash.php setup`
 5. review system settings in the admin UI
-6. set up housekeeping from cron
+6. set up scheduled publishing and housekeeping from cron
 
 The full step-by-step version is in `INSTALL.md`.
 
@@ -68,6 +68,15 @@ Recommended PHP extensions for full feature coverage:
 
 For ordinary public and admin use, tinymash can run with a small PHP memory limit; `16M` is enough for many small sites. Larger batch jobs such as imports, backups/exports, media cleanup, and big upload/import runs may need more memory. The CLI import commands also accept explicit memory-limit options where that matters.
 
+## Compatibility
+
+- Tinymash 1.x requires PHP `8.4.1` or newer. PHP `8.5` is tested.
+- Patch and minor releases should preserve configuration, users, content, drafts, media, and plugin data.
+- Upgrades use `upgrade:prepare` to create a clean sibling installation. Do not overwrite an existing installation.
+- Required data migrations will be documented with the release.
+- Documented plugin and theme interfaces remain compatible throughout 1.x. Planned removals will be deprecated for at least one minor release.
+- Internal classes, storage paths, templates, HTML structure, and CSS selectors are not compatibility guarantees.
+
 ## First setup
 
 After copying a prepared runtime tree and pointing the web server at `public/`, run setup from the tinymash root:
@@ -77,6 +86,15 @@ php8.4 bin/tinymash.php setup
 ```
 
 Setup creates `app/config/tinymash.json` when needed and creates the first superadmin user. Existing configs are preserved on reruns.
+
+For an existing installation, extract the new release into an empty sibling directory and use its CLI to inspect and copy authoritative state from the old tree:
+
+```bash
+cd /path/to/new-tinymash
+php8.4 bin/tinymash.php upgrade:prepare /path/to/old-tinymash --dry-run
+```
+
+The command reports unmanaged local paths and missing extensions without copying them. See `INSTALL.md` before performing the real state copy and directory swap.
 
 ## Command line
 

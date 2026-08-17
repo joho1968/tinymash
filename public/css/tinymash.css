@@ -431,7 +431,7 @@ mark, .mark {
     text-align: right;
 }
 .tm-downloads-file-date-zone {
-    color: var(--bs-tertiary-color);
+    color: var(--bs-secondary-color);
     font-weight: 400;
 }
 a.tm-downloads-file-link {
@@ -793,6 +793,10 @@ a.tm-downloads-file-link:hover {
 .tm-baseline-content > :last-child {
     margin-bottom: 0 !important;
 }
+.tm-baseline-content a:not(.btn):not(.tm-downloads-file-link) {
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+}
 .tm-baseline-content h1 + .table-responsive,
 .tm-baseline-content h2 + .table-responsive,
 .tm-baseline-content h3 + .table-responsive,
@@ -825,11 +829,12 @@ a.tm-downloads-file-link:hover {
     min-height: 0;
 }
 .tm-menu-row {
-    transition: border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    transition: background-color 0.12s ease, opacity 0.12s ease;
 }
 .tm-menu-row-child {
     margin-left: 1.5rem;
-    border-left: 0.25rem solid var(--bs-border-color-translucent) !important;
+    padding-left: 0.75rem;
+    border-left: 0.125rem solid var(--bs-border-color-translucent);
 }
 .tm-menu-row-handle {
     cursor: grab;
@@ -837,9 +842,15 @@ a.tm-downloads-file-link:hover {
 .tm-menu-row-handle:active {
     cursor: grabbing;
 }
+.tm-menu-row-chevron {
+    transition: transform 0.12s ease;
+}
+[data-tm-menu-row-toggle][aria-expanded="true"] .tm-menu-row-chevron {
+    transform: rotate(180deg);
+}
 .tm-menu-row-dragging {
     opacity: 0.55;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
+    background-color: var(--bs-tertiary-bg);
 }
 .tm-baseline-featured-image-entry img {
     display: block;

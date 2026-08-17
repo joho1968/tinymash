@@ -15,7 +15,7 @@ class TinyMashPlugins {
     public const STATIC_EXPORT_MODES = [ 'static', 'snapshot', 'placeholder', 'omit', 'static-js' ];
 
     protected const BOOT_STAGES = [ 'before', 'early', 'after', 'late' ];
-    protected const PUBLIC_SLOTS = [ 'footer', 'sidebar' ];
+    protected const PUBLIC_SLOTS = [ 'footer', 'sidebar', 'author_identity' ];
     protected const ADMIN_NAV_AREAS = [ 'author', 'admin', 'account' ];
     protected const EXPOSED_SERVICE_KEYS = [
         'config',
@@ -34,6 +34,7 @@ class TinyMashPlugins {
         'media.import_map_store',
         'media.import_bridge',
         'import.lock_service',
+        'import.preview_workspaces',
         'media.service',
         'media.capability_registry',
         'media.derivative_registry',
@@ -66,6 +67,7 @@ class TinyMashPlugins {
     protected array $admin_configuration_urls = [];
     protected array $cli_commands = [];
     protected array $housekeeping_tasks = [];
+    protected array $content_lifecycle_handlers = [];
     protected array $export_contributors = [];
     protected array $static_export_contributors = [];
     protected array $import_contributors = [];
@@ -115,6 +117,7 @@ class TinyMashPlugins {
         $this->admin_configuration_urls = [];
         $this->cli_commands = [];
         $this->housekeeping_tasks = [];
+        $this->content_lifecycle_handlers = [];
         $this->export_contributors = [];
         $this->static_export_contributors = [];
         $this->import_contributors = [];
@@ -603,6 +606,57 @@ class TinyMashPlugins {
         ];
 
         return( true );
+    }
+
+    public function registerContentLifecycleHandler( string $plugin_key, callable $handler ) : bool {
+        if ( ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
+            return( false );
+        }
+
+        $plugin_key = $this->canonicalizePluginKey( $plugin_key );
+        if ( $plugin_key === '' ) {
+            return( false );
+        }
+
+        $this->content_lifecycle_handlers[] = [
+            'plugin_key' => $plugin_key,
+            'handler' => $handler,
+        ];
+        return( true );
+    }
+
+    public function runContentLifecycleHandlers( ?array $previous_entry, ?array $saved_entry, array $context = [] ) : array {
+        $results = [];
+        foreach ( $this->content_lifecycle_handlers as $registered_handler ) {
+            if ( ! is_array( $registered_handler ) || empty( $registered_handler['handler'] ) || ! is_callable( $registered_handler['handler'] ) ) {
+                continue;
+            }
+
+            $plugin_key = (string) ( $registered_handler['plugin_key'] ?? '' );
+            if ( $plugin_key === '' || empty( $this->registered_plugins[$plugin_key]['active'] ) || empty( $this->registered_plugins[$plugin_key]['booted'] ) ) {
+                continue;
+            }
+
+            try {
+                $result = call_user_func( $registered_handler['handler'], $previous_entry, $saved_entry, $context );
+                $results[] = [
+                    'plugin_key' => $plugin_key,
+                    'status' => 'ran',
+                    'result' => $result,
+                    'message' => is_string( $result ) ? mb_trim( $result ) : '',
+                ];
+            } catch ( \Throwable $exception ) {
+                error_log( basename( __FILE__ ) . ': Content lifecycle handler failed for "' . $plugin_key . '" (' . $exception->getMessage() . ')' );
+                $results[] = [
+                    'plugin_key' => $plugin_key,
+                    'status' => 'error',
+                    'result' => null,
+                    'message' => mb_trim( $exception->getMessage() ),
+                ];
+            }
+        }
+
+        return( $results );
     }
 
     public function registerCliCommand( string $plugin_key, array $definition ) : bool {

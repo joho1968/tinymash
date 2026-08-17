@@ -306,17 +306,17 @@
         },
         {
             "name": "flightphp/core",
-            "version": "v3.19.0",
-            "version_normalized": "3.19.0.0",
+            "version": "v3.19.1",
+            "version_normalized": "3.19.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/flightphp/core.git",
-                "reference": "ee032744986b7d432e2ba4fd2b6e9b8fcfc175d0"
+                "reference": "d8fe78449cbd76d0d54560efaefd10c98f1235a4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/flightphp/core/zipball/ee032744986b7d432e2ba4fd2b6e9b8fcfc175d0",
-                "reference": "ee032744986b7d432e2ba4fd2b6e9b8fcfc175d0",
+                "url": "https://api.github.com/repos/flightphp/core/zipball/d8fe78449cbd76d0d54560efaefd10c98f1235a4",
+                "reference": "d8fe78449cbd76d0d54560efaefd10c98f1235a4",
                 "shasum": ""
             },
             "require": {
@@ -347,7 +347,7 @@
                 "tracy/tracy": "Tracy debugger",
                 "twig/twig": "Twig template engine (recommended for apps, e.g. flightphp/skeleton)"
             },
-            "time": "2026-08-07T13:44:18+00:00",
+            "time": "2026-08-11T05:29:08+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -385,7 +385,7 @@
             "homepage": "https://docs.flightphp.com",
             "support": {
                 "issues": "https://github.com/flightphp/core/issues",
-                "source": "https://github.com/flightphp/core/tree/v3.19.0"
+                "source": "https://github.com/flightphp/core/tree/v3.19.1"
             },
             "install-path": "../flightphp/core"
         },
@@ -540,17 +540,17 @@
         },
         {
             "name": "league/commonmark",
-            "version": "2.9.1",
-            "version_normalized": "2.9.1.0",
+            "version": "2.10.0",
+            "version_normalized": "2.10.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/commonmark.git",
-                "reference": "73cb188c785abfa7a7bec73487148202968274c6"
+                "reference": "d2d1aa8b35e072966c89bc0c66cf926e56767dc4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/commonmark/zipball/73cb188c785abfa7a7bec73487148202968274c6",
-                "reference": "73cb188c785abfa7a7bec73487148202968274c6",
+                "url": "https://api.github.com/repos/thephpleague/commonmark/zipball/d2d1aa8b35e072966c89bc0c66cf926e56767dc4",
+                "reference": "d2d1aa8b35e072966c89bc0c66cf926e56767dc4",
                 "shasum": ""
             },
             "require": {
@@ -584,11 +584,11 @@
             "suggest": {
                 "symfony/yaml": "v2.3+ required if using the Front Matter extension"
             },
-            "time": "2026-08-09T14:10:38+00:00",
+            "time": "2026-08-11T16:06:25+00:00",
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "2.10-dev"
+                    "dev-main": "2.11-dev"
                 }
             },
             "installation-source": "dist",

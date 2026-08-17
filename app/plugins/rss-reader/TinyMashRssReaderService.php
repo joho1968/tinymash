@@ -220,6 +220,95 @@ class TinyMashRssReaderService {
         return( [ 'settings' => $settings, 'errors' => $errors ] );
     }
 
+    public function buildScopedSettingsFromPostResult( array $data, ?array $current_settings = null ) : array {
+        $section = strtolower( mb_trim( (string) ( $data['section'] ?? '' ) ) );
+        if ( ! in_array( $section, [ 'defaults', 'sidebar', 'source' ], true ) ) {
+            return( $this->buildSettingsFromPostResult( $data ) );
+        }
+
+        $current = $this->normalizeSettings( $current_settings ?? $this->getSettings() );
+        $post = [
+            'default_item_limit' => (int) $current['defaults']['item_limit'],
+            'default_layout' => (string) $current['defaults']['layout'],
+            'default_show_excerpt' => ! empty( $current['defaults']['show_excerpt'] ) ? '1' : '',
+            'default_show_date' => ! empty( $current['defaults']['show_date'] ) ? '1' : '',
+            'stale_hours' => (int) $current['defaults']['stale_hours'],
+            'slots' => $current['slots'],
+            'sources' => $current['sources'],
+        ];
+        $selection = [ 'view' => $section ];
+        $errors = [];
+        $source_validation_data = null;
+
+        if ( $section === 'defaults' ) {
+            foreach ( [ 'default_item_limit', 'default_layout', 'default_show_excerpt', 'default_show_date', 'stale_hours' ] as $field ) {
+                $post[$field] = $data[$field] ?? '';
+            }
+        } elseif ( $section === 'sidebar' ) {
+            $post['slots']['sidebar'] = is_array( $data['slots']['sidebar'] ?? null ) ? $data['slots']['sidebar'] : [];
+        } else {
+            $selection = [ 'source' => 'new' ];
+            $original_key = $this->normalizeKey( (string) ( $data['original_source_key'] ?? '' ) );
+            $action = strtolower( mb_trim( (string) ( $data['action'] ?? 'save' ) ) );
+            $delete = $action === 'delete';
+            $source = is_array( $data['source'] ?? null ) ? $data['source'] : [];
+            $next_sources = [];
+            $found = $original_key === '';
+
+            foreach ( $current['sources'] as $current_source ) {
+                if ( $original_key !== '' && (string) ( $current_source['key'] ?? '' ) === $original_key ) {
+                    $found = true;
+                    continue;
+                }
+                $next_sources[] = $current_source;
+            }
+
+            if ( ! $found ) {
+                $errors[] = 'Choose a feed source that still exists.';
+            } elseif ( $delete && ! hash_equals( $original_key, mb_trim( (string) ( $data['delete_confirmation'] ?? '' ) ) ) ) {
+                $errors[] = 'Confirm the feed source before deleting it.';
+            } elseif ( ! $delete && mb_trim( (string) ( $source['label'] ?? '' ) ) === '' && mb_trim( (string) ( $source['key'] ?? '' ) ) === '' && mb_trim( (string) ( $source['url'] ?? '' ) ) === '' ) {
+                $errors[] = 'Feed source needs a label and URL.';
+            } elseif ( ! $delete ) {
+                $normalized_source = $this->normalizeSource( $source, $current['defaults'] );
+                $normalized_key = (string) ( $normalized_source['key'] ?? '' );
+                foreach ( $next_sources as $other_source ) {
+                    if ( $normalized_key !== '' && (string) ( $other_source['key'] ?? '' ) === $normalized_key ) {
+                        $errors[] = 'Another feed source already uses that key.';
+                        break;
+                    }
+                }
+                $next_sources[] = $source;
+                $source_validation_data = $source;
+                $selection = [ 'source' => (string) ( $normalized_source['key'] ?? 'new' ) ];
+                if ( $original_key !== '' && (string) ( $post['slots']['sidebar']['source'] ?? '' ) === $original_key ) {
+                    $post['slots']['sidebar']['source'] = (string) ( $normalized_source['key'] ?? '' );
+                }
+            } elseif ( (string) ( $post['slots']['sidebar']['source'] ?? '' ) === $original_key ) {
+                $post['slots']['sidebar']['enabled'] = false;
+                $post['slots']['sidebar']['source'] = '';
+            }
+            if ( ! empty( $errors ) ) {
+                $post['sources'] = $current['sources'];
+                $selection = [ 'source' => $original_key !== '' ? $original_key : 'new' ];
+            } else {
+                $post['sources'] = $next_sources;
+                if ( $delete ) {
+                    $selection = [ 'source' => ! empty( $next_sources ) ? (string) ( $next_sources[0]['key'] ?? 'new' ) : 'new' ];
+                }
+            }
+        }
+
+        $settings = $this->buildSettingsFromPost( $post );
+        if ( is_array( $source_validation_data ) && empty( $errors ) ) {
+            $source_post = $post;
+            $source_post['sources'] = [ $source_validation_data ];
+            $source_result = $this->buildSettingsFromPostResult( $source_post );
+            $errors = array_merge( $errors, (array) ( $source_result['errors'] ?? [] ) );
+        }
+        return( [ 'settings' => $settings, 'errors' => array_values( $errors ), 'selection' => $selection ] );
+    }
+
     public function getSourceMap( ?array $settings = null ) : array {
         $settings = $settings ?? $this->getSettings();
         $map = [];
@@ -354,7 +443,7 @@ class TinyMashRssReaderService {
         $stale = $this->isFeedStale( $feed, (int) ( $defaults['stale_hours'] ?? 24 ) );
 
         $classes = 'tm-rss-reader tm-rss-reader-' . $layout . ( $slot ? ' tm-rss-reader-slot' : '' ) . ( $stale ? ' tm-rss-reader-stale' : '' );
-        $html = '<div class="' . $this->escape( $classes ) . '" data-rss-source="' . $this->escape( $source_key ) . '">';
+        $html = '<div class="' . $this->escape( $classes ) . '" data-rss-source="' . $this->escape( $source_key ) . '" data-tm-heading-scope="component">';
         $html .= '<div class="tm-rss-reader-header">';
         $html .= '<h2 class="tm-rss-reader-title">' . $this->escape( $title ) . '</h2>';
         if ( $stale || $status === 'error' ) {
@@ -949,7 +1038,7 @@ class TinyMashRssReaderService {
     }
 
     protected function renderUnavailableHtml( string $message ) : string {
-        return( '<div class="tm-rss-reader tm-rss-reader-unavailable"><span>' . $this->escape( $message ) . '</span></div>' );
+        return( '<div class="tm-rss-reader tm-rss-reader-unavailable" data-tm-heading-scope="component"><span>' . $this->escape( $message ) . '</span></div>' );
     }
 
     protected function escape( string $value ) : string {

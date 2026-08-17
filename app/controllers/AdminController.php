@@ -1090,55 +1090,23 @@ class AdminController extends BaseController {
         return( is_object( $plugins ) ? $plugins : null );
     }
 
-    protected function queueFediverseEntrySync( ?array $previous_entry, array $saved_entry, string $actor_username = '' ) : void {
-        if ( ! $this->app->has( 'plugin.fediverse.service' ) ) {
-            return;
-        }
-
-        $fediverse_service = $this->app->get( 'plugin.fediverse.service' );
-        if ( ! is_object( $fediverse_service ) || ! method_exists( $fediverse_service, 'queueEntrySync' ) ) {
-            return;
-        }
-
-        $root_settings = [];
+    protected function dispatchContentLifecycle( ?array $previous_entry, ?array $saved_entry, string $actor_username = '' ) : void {
         $plugins = $this->getPluginsService();
-        if ( is_object( $plugins ) && method_exists( $plugins, 'getPluginSystemSettings' ) ) {
-            $root_settings = $plugins->getPluginSystemSettings( 'fediverse' );
-            if ( ! is_array( $root_settings ) ) {
-                $root_settings = [];
-            }
+        if ( ! is_object( $plugins ) || ! method_exists( $plugins, 'runContentLifecycleHandlers' ) ) {
+            return;
         }
 
         try {
-            $fediverse_service->queueEntrySync( $previous_entry, $saved_entry, $root_settings, $actor_username );
+            $plugins->runContentLifecycleHandlers(
+                $previous_entry,
+                $saved_entry,
+                [
+                    'trigger' => 'admin',
+                    'actor_username' => mb_trim( $actor_username ),
+                ]
+            );
         } catch ( \Throwable $e ) {
-            error_log( basename( __FILE__ ) . ': Unable to queue Fediverse delivery (' . $e->getMessage() . ')' );
-        }
-    }
-
-    protected function queueFediverseEntryRemoval( array $previous_entry, string $actor_username = '' ) : void {
-        if ( ! $this->app->has( 'plugin.fediverse.service' ) ) {
-            return;
-        }
-
-        $fediverse_service = $this->app->get( 'plugin.fediverse.service' );
-        if ( ! is_object( $fediverse_service ) || ! method_exists( $fediverse_service, 'queueEntryRemoval' ) ) {
-            return;
-        }
-
-        $root_settings = [];
-        $plugins = $this->getPluginsService();
-        if ( is_object( $plugins ) && method_exists( $plugins, 'getPluginSystemSettings' ) ) {
-            $root_settings = $plugins->getPluginSystemSettings( 'fediverse' );
-            if ( ! is_array( $root_settings ) ) {
-                $root_settings = [];
-            }
-        }
-
-        try {
-            $fediverse_service->queueEntryRemoval( $previous_entry, $root_settings, $actor_username );
-        } catch ( \Throwable $e ) {
-            error_log( basename( __FILE__ ) . ': Unable to queue Fediverse removal (' . $e->getMessage() . ')' );
+            error_log( basename( __FILE__ ) . ': Unable to dispatch content lifecycle handlers (' . $e->getMessage() . ')' );
         }
     }
 

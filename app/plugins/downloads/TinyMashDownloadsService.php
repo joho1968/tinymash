@@ -406,6 +406,10 @@ class TinyMashDownloadsService {
                         $updated_catalogues[] = $saved_record;
                     }
 
+                    if ( ! $this->catalogueHierarchyIsValid( $updated_catalogues ) ) {
+                        throw new \InvalidArgumentException( 'parent' );
+                    }
+
                     $store['version'] = 1;
                     $store['catalogues'] = array_values( $updated_catalogues );
                     $store['files'] = is_array( $store['files'] ?? null ) ? array_values( $store['files'] ) : [];
@@ -1035,6 +1039,39 @@ class TinyMashDownloadsService {
         }
 
         return( false );
+    }
+
+    protected function catalogueHierarchyIsValid( array $catalogues ) : bool {
+        $catalogues_by_id = [];
+        foreach ( $catalogues as $catalogue ) {
+            if ( ! is_array( $catalogue ) ) {
+                continue;
+            }
+            $catalogue = $this->normalizeCatalogueRecord( $catalogue );
+            if ( $catalogue['id'] !== '' ) {
+                $catalogues_by_id[$catalogue['id']] = $catalogue;
+            }
+        }
+
+        foreach ( $catalogues_by_id as $catalogue ) {
+            $visited = [ $catalogue['id'] => true ];
+            $parent_id = $catalogue['parent_id'];
+            while ( $parent_id !== '' ) {
+                if ( isset( $visited[$parent_id] ) || ! isset( $catalogues_by_id[$parent_id] ) ) {
+                    return( false );
+                }
+
+                $parent = $catalogues_by_id[$parent_id];
+                if ( $parent['scope'] !== $catalogue['scope'] || $parent['author_slug'] !== $catalogue['author_slug'] ) {
+                    return( false );
+                }
+
+                $visited[$parent_id] = true;
+                $parent_id = $parent['parent_id'];
+            }
+        }
+
+        return( true );
     }
 
     protected function normalizeScope( string $scope ) : string {

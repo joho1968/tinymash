@@ -2,6 +2,13 @@
 
 Notable changes in tinymash
 
+## 0.96.0 - 2026-08-17
+
+- More admin cleanup and polish
+- Added Scribe, a reading-led public theme for long-form writing and author spaces
+- Added true scheduled publishing with explicit scheduling
+- Component updates
+
 ## 0.95.0 - 2026-08-10
 
 - Component updates

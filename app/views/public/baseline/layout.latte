@@ -350,14 +350,16 @@
                             <a class="text-decoration-none text-body d-inline-flex align-items-center" href="{$theme_header_home_url}">
                                 <span class="fw-semibold fs-5">{$site_name}</span>
                             </a>
-                            {if $theme_author_space_slug !== ''}
-                                <a class="text-decoration-none d-inline-flex align-items-center" href="/{$theme_author_space_slug}">
-                                    <span class="fs-6 font-monospace text-body-emphasis">~ /home/{$theme_author_space_slug}</span>
-                                </a>
-                                <a n:if="! empty( $author_home_can_edit ) && ! empty( $author_home_edit_url )" class="btn btn-outline-primary btn-sm" href="{$author_home_edit_url}">Edit</a>
-                            {elseif ! empty( $site_slogan )}
-                                <span class="fs-6 text-body-secondary">{$site_slogan}</span>
-                            {/if}
+                            {block public_header_identity}
+                                {if $theme_author_space_slug !== ''}
+                                    <a class="text-decoration-none d-inline-flex align-items-center" href="/{$theme_author_space_slug}">
+                                        <span class="fs-6 font-monospace text-body-emphasis">~ /home/{$theme_author_space_slug}</span>
+                                    </a>
+                                    <a n:if="! empty( $author_home_can_edit ) && ! empty( $author_home_edit_url )" class="btn btn-outline-primary btn-sm" href="{$author_home_edit_url}">Edit</a>
+                                {elseif ! empty( $site_slogan )}
+                                    <span class="fs-6 text-body-secondary">{$site_slogan}</span>
+                                {/if}
+                            {/block}
                         </div>
                         <div class="d-flex flex-nowrap align-items-center gap-2 ms-auto">
                             {if ! empty( $theme_search['enabled'] ) && ! empty( $theme_search['url'] ) }
@@ -465,7 +467,7 @@
                 </section>
                 <section n:if="$theme_plugin_sidebar_visible" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                     {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
-                        <div n:if="! empty( $theme_public_sidebar_fragment['html'] )">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                        <div n:if="! empty( $theme_public_sidebar_fragment['html'] )" data-tm-plugin-fragment="{$theme_public_sidebar_fragment['plugin_key'] ?? ''}">{$theme_public_sidebar_fragment['html']|noescape}</div>
                     {/foreach}
                 </section>
             </div>
@@ -487,7 +489,7 @@
                         </section>
                         <section n:if="$theme_plugin_sidebar_visible" class="p-3 bg-body border rounded-3 shadow-sm tm-baseline-panel">
                             {foreach $theme_public_sidebar_fragments as $theme_public_sidebar_fragment}
-                                <div n:if="! empty( $theme_public_sidebar_fragment['html'] )">{$theme_public_sidebar_fragment['html']|noescape}</div>
+                                <div n:if="! empty( $theme_public_sidebar_fragment['html'] )" data-tm-plugin-fragment="{$theme_public_sidebar_fragment['plugin_key'] ?? ''}">{$theme_public_sidebar_fragment['html']|noescape}</div>
                             {/foreach}
                         </section>
                     </div>
@@ -510,7 +512,7 @@
                     {block public_footer_desktop_fragments}
                         <div n:if="! empty( $theme_public_footer_fragments )" class="d-grid gap-3">
                             {foreach $theme_public_footer_fragments as $theme_public_footer_fragment}
-                                <section class="tm-baseline-footer-fragment small text-body-secondary">
+                                <section class="tm-baseline-footer-fragment small text-body-secondary" data-tm-plugin-fragment="{$theme_public_footer_fragment['plugin_key'] ?? ''}">
                                     {if ! empty( $theme_public_footer_fragment['lines'] ) }
                                         <div class="tm-baseline-footer-fragment-lines">
                                             {foreach $theme_public_footer_fragment['lines'] as $theme_public_footer_line}

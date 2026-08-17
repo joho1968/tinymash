@@ -59,8 +59,19 @@ class TinyMashAdminTheme {
                 'admin_theme_slot_section_tools' => (string) ( $slots['section_tools'] ?? '../slots/section-tools.latte' ),
                 'site_favicon_png_image' => $this->getSiteFaviconPngImage(),
                 'site_favicon_ico_image' => $this->getSiteFaviconIcoImage(),
+                'admin_server_time_display' => $this->getServerTimeDisplay(),
             ]
         );
+    }
+
+    protected function getServerTimeDisplay() : string {
+        $formatter = new TinyMashDateFormatter(
+            $this->config instanceof TinyMashConfig ? $this->config->getLocaleDateFormat() : 'd-M-Y',
+            $this->config instanceof TinyMashConfig ? $this->config->getLocaleTimeFormat() : 'H:i (T)',
+            'UTC'
+        );
+
+        return( $formatter->formatNowWithoutTimezone() );
     }
 
     public function getThemeDescription() : string {

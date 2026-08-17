@@ -1,6 +1,6 @@
 .tm-directory {
     --tm-directory-border: color-mix(in srgb, currentColor 18%, transparent);
-    --tm-directory-muted: color-mix(in srgb, currentColor 64%, transparent);
+    --tm-directory-muted: color-mix(in srgb, currentColor 74%, transparent);
     display: grid;
     gap: 1rem;
     margin-block: 1.5rem;
