@@ -1,7 +1,7 @@
 {
     "key": "scribe",
     "name": "Scribe",
-    "description": "Reading-led editorial theme with serif-first long-form typography.",
+    "description": "Reading-focused theme for long-form publishing.",
     "version": "1.0.0",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -46,7 +46,7 @@
                 { "value": "sidebar", "label": "Sidebar" },
                 { "value": "off", "label": "Off" }
             ],
-            "help": "Controls where the primary site menu is rendered when a menu is configured."
+            "help": "Show the primary menu in the header or sidebar, or hide it."
         },
         {
             "key": "footer_menu_position",
@@ -57,26 +57,26 @@
                 { "value": "footer", "label": "Footer" },
                 { "value": "off", "label": "Off" }
             ],
-            "help": "Controls whether the configured footer menu is rendered by this theme."
+            "help": "Show the footer menu in the footer, or hide it."
         },
         {
             "key": "root_landing_mode",
-            "label": "Root start page",
+            "label": "Site home page",
             "type": "select",
             "default": "blogroll",
             "options": [
                 { "value": "blogroll", "label": "Blogroll" },
                 { "value": "page", "label": "Static page" }
             ],
-            "help": "Controls whether the public root space starts on the aggregated post list or a published static page."
+            "help": "Use the post list or a published page as the site home page."
         },
         {
             "key": "landing_page_path",
-            "label": "Root landing page path",
+            "label": "Site home page content",
             "type": "text",
             "lookup": "published_pages",
             "default": "",
-            "help": "Used when `Static page` is selected. Choose one of the published root pages."
+            "help": "Choose the published root page used when `Static page` is selected."
         },
         {
             "key": "content_width",
@@ -93,7 +93,7 @@
                 { "value": "wide", "label": "Wide (1140)" },
                 { "value": "full", "label": "Full" }
             ],
-            "help": "Bounds the main public content area using tinymash width presets."
+            "help": "Set the maximum width of the main content area."
         },
         {
             "key": "author_identity",
@@ -106,19 +106,31 @@
                 { "value": "name_handle", "label": "Display name and handle" },
                 { "value": "hidden", "label": "Hidden" }
             ],
-            "help": "Controls the author identity shown beside the site title in author spaces."
+            "help": "Show the author name, name and handle, or no author identity beside the site title."
+        },
+        {
+            "key": "post_image_alignment",
+            "label": "Standalone post images",
+            "type": "select",
+            "author_override": true,
+            "default": "as_written",
+            "options": [
+                { "value": "as_written", "label": "As written" },
+                { "value": "centered", "label": "Centered" }
+            ],
+            "help": "Center standalone images in full posts or keep their authored alignment."
         },
         {
             "key": "author_home_heading",
             "label": "Author home heading",
             "type": "select",
             "author_override": true,
-            "default": "enabled",
+            "default": "disabled",
             "options": [
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether author home pages visibly identify whose posts are listed."
+            "help": "Show the author name above post lists on author home pages."
         },
         {
             "key": "author_social_links",
@@ -130,7 +142,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Shows configured Social profile links beside the author identity when the Social plugin is active."
+            "help": "Show Social profile links beside the author identity when the Social plugin is active."
         },
         {
             "key": "secondary_sidebar",
@@ -141,7 +153,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether plugin sidebar output is shown beside the reading column."
+            "help": "Show plugin sidebar output beside the reading column."
         },
         {
             "key": "show_search",
@@ -152,7 +164,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether the public search form is shown when the Search plugin is active."
+            "help": "Show public search when the Search plugin is active."
         },
         {
             "key": "show_tags",
@@ -163,11 +175,11 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether entry tags are shown publicly in this theme when tags are enabled sitewide."
+            "help": "Show entry tags when tags are enabled for the site."
         },
         {
             "key": "enable_syntax_highlighting",
-            "label": "Enable syntax highlighting",
+            "label": "Syntax highlighting",
             "type": "select",
             "requires_plugin": "syntax-highlighting",
             "default": "enabled",
@@ -175,7 +187,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+            "help": "Highlight fenced code blocks with the local highlight.js assets."
         },
         {
             "key": "page_sidebar_style",
@@ -187,11 +199,11 @@
                 { "value": "cards", "label": "Card tree" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls how published page trees render in the sidebar."
+            "help": "Show the published page tree as a flat list or card tree, or hide it."
         },
         {
             "key": "top_navigation_depth",
-            "label": "Top navigation depth",
+            "label": "Fallback page-tree depth",
             "type": "select",
             "default": "1",
             "options": [
@@ -200,7 +212,7 @@
                 { "value": "2", "label": "2nd level" },
                 { "value": "3", "label": "3rd level" }
             ],
-            "help": "Used for the fallback page-tree menu when no primary menu is configured and the position is set to `Header`."
+            "help": "Set the depth of the page tree shown in the header when no primary menu is configured."
         },
         {
             "key": "page_breadcrumbs",
@@ -211,19 +223,19 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether page entries render breadcrumb trails."
+            "help": "Show breadcrumb trails above page content."
         },
         {
             "key": "page_children_after_content",
-            "label": "After-content child pages",
+            "label": "Child pages after content",
             "type": "select",
             "default": "subpages",
             "options": [
                 { "value": "disabled", "label": "Disabled" },
-                { "value": "more", "label": "More in this section" },
+                { "value": "more", "label": "More" },
                 { "value": "subpages", "label": "Subpages" }
             ],
-            "help": "Controls whether page entries list published child pages after the content body."
+            "help": "List published child pages after page content."
         }
     ]
 }

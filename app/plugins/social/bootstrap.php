@@ -99,7 +99,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         },
         [
             'label' => 'Social links',
-            'description' => 'Displays configured site or profile social links.',
+            'description' => 'Shows saved site or profile links.',
             'example' => '[social layout="cards"]',
         ]
     );
@@ -142,18 +142,18 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-social',
         [
             'title' => 'Social',
-            'summary' => 'Promote site and profile social/contact links.',
+            'summary' => 'Show site and profile links with local accessible icons.',
             'group' => 'Plugins',
             'order' => 145,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Social renders configured site/profile links with local icons. It does not post to social networks, fetch remote widgets, or call external platforms from visitor browsers.',
+                    'title' => 'Overview',
+                    'markdown' => 'Show configured site and profile links with local icons. Social does not publish posts, fetch remote widgets, or call external platforms from visitor browsers.',
                 ],
                 [
                     'title' => 'Placement',
-                    'markdown' => '`[social]` uses profile links when the rendered author/profile context has configured profile links. The site setting "Use site links when profile links are empty" controls whether automatic author/profile output falls back to site links. `[social scope="site"]` always renders the site links from `/admin/social`. `[social scope="profile"]` only renders links for the current author/profile context and returns nothing when that profile has no Social links. Shortcode layouts are `icons`, `list`, and `cards`, for example `[social layout="cards"]`.',
+                    'markdown' => '`[social]` uses profile links when the rendered author/profile context has configured profile links. Automatic author/profile output falls back to site links when **Use site links when profile links are empty** is enabled. `[social scope="site"]` always renders the site links from `/admin/social`. `[social scope="profile"]` only renders links for the current author/profile context and returns nothing when that profile has no Social links. Shortcode layouts are `icons`, `list`, and `cards`, for example `[social layout="cards"]`.',
                 ],
             ],
         ]

@@ -31,7 +31,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         [
             'title' => 'SEO',
-            'summary' => 'Generated search-engine output for robots.txt, sitemap.xml, and AI crawler advisory rules.',
+            'summary' => 'Configure robots.txt, sitemap.xml, and AI-crawler advisory rules.',
             'fields' => [
                 [
                     'key' => 'robots_enabled',
@@ -63,14 +63,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-seo',
         [
             'title' => 'SEO',
-            'summary' => 'Generated robots.txt and sitemap.xml output, plus AI crawler advisory rules.',
+            'summary' => 'Generate robots.txt and sitemap.xml with optional AI-crawler advisory rules.',
             'group' => 'Plugins',
             'order' => 140,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'The SEO plugin exposes generated `/robots.txt` and `/sitemap.xml` output, computes entry-level SEO metadata, and respects tinymash visibility rules together with the built-in search-index discouragement settings.',
+                    'title' => 'Overview',
+                    'markdown' => 'Generate `/robots.txt`, `/sitemap.xml`, and entry SEO metadata while respecting tinymash visibility and indexing settings.',
                 ],
                 [
                     'title' => 'Social image order',
@@ -82,7 +82,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'AI crawler advisory',
-                    'markdown' => 'The plugin can add advisory `Disallow` blocks for common AI crawler user agents in `robots.txt`. This is a request, not technical enforcement.',
+                    'markdown' => 'Add advisory `Disallow` blocks for common AI crawler user agents in `robots.txt`. These rules are requests, not technical enforcement.',
                 ],
             ],
         ]

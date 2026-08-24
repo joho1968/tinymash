@@ -794,10 +794,10 @@ class AdminController extends BaseController {
         }
 
         if ( $settings_group === 'security' ) {
-            $secret_link_default_expiry_days = (int) ( $data['secret_link_default_expiry_days'] ?? 60 );
-            if ( $secret_link_default_expiry_days < 1 || $secret_link_default_expiry_days > 365 ) {
-                throw new \InvalidArgumentException( 'secret_link_default_expiry_days' );
-            }
+            $secret_link_default_expiry_days = $this->validateSecretLinkExpiryDays(
+                $data['secret_link_default_expiry_days'] ?? 60,
+                'secret_link_default_expiry_days'
+            );
             $password_reset_throttle_window_minutes = (int) ( $data['password_reset_throttle_window_minutes'] ?? 60 );
             if ( $password_reset_throttle_window_minutes < 1 || $password_reset_throttle_window_minutes > 1440 ) {
                 throw new \InvalidArgumentException( 'password_reset_throttle_window_minutes' );
@@ -854,6 +854,10 @@ class AdminController extends BaseController {
         }
 
         if ( $settings_group === 'content_media' ) {
+            $editor_default_mode = strtolower( trim( (string) ( $data['editor_default_mode'] ?? 'simple' ) ) );
+            if ( ! in_array( $editor_default_mode, [ 'simple', 'focused', 'full' ], true ) ) {
+                throw new \InvalidArgumentException( 'editor_default_mode' );
+            }
             $content_revision_retention_limit = (int) ( $data['content_revision_retention_limit'] ?? 20 );
             if ( $content_revision_retention_limit < 0 || $content_revision_retention_limit > 100 ) {
                 throw new \InvalidArgumentException( 'content_revision_retention_limit' );
@@ -889,6 +893,7 @@ class AdminController extends BaseController {
                     'editor_autosave_enabled' => ! empty( $data['editor_autosave_enabled'] ),
                     'editor_autosave_interval_seconds' => $editor_autosave_interval_seconds,
                     'editor_classic_smileys_enabled' => $editor_classic_smileys_enabled,
+                    'editor_default_mode' => $editor_default_mode,
                 ]
             );
         }
@@ -1023,8 +1028,8 @@ class AdminController extends BaseController {
                 [ 'value' => 'image/jpeg', 'label' => 'JPEG', 'description' => 'Photos and general-purpose uploads' ],
                 [ 'value' => 'image/png', 'label' => 'PNG', 'description' => 'Transparency and lossless graphics' ],
                 [ 'value' => 'image/gif', 'label' => 'GIF', 'description' => 'Simple graphics and imported animated GIFs' ],
-                [ 'value' => 'image/webp', 'label' => 'WebP', 'description' => 'Modern compressed web images' ],
-                [ 'value' => 'image/avif', 'label' => 'AVIF', 'description' => 'Modern high-efficiency web images' ],
+                [ 'value' => 'image/webp', 'label' => 'WebP', 'description' => 'Compressed web images' ],
+                [ 'value' => 'image/avif', 'label' => 'AVIF', 'description' => 'High-efficiency web images' ],
             ]
         );
     }
@@ -1117,6 +1122,20 @@ class AdminController extends BaseController {
 
         $secret_link_service = $this->app->get( 'secret_links' );
         return( is_object( $secret_link_service ) ? $secret_link_service : null );
+    }
+
+    protected function validateSecretLinkExpiryDays( mixed $value, string $field = 'secret_link_expiry_days' ) : int {
+        $value = trim( (string) $value );
+        if ( preg_match( '/^\d{1,3}$/D', $value ) !== 1 ) {
+            throw new \InvalidArgumentException( $field );
+        }
+
+        $days = (int) $value;
+        if ( $days > 365 ) {
+            throw new \InvalidArgumentException( $field );
+        }
+
+        return( $days );
     }
 
     protected function normalizePluginKey( string $plugin_key ) : string {

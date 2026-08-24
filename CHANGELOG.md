@@ -2,6 +2,24 @@
 
 Notable changes in tinymash
 
+## 0.97.0 - 2026-08-24
+
+- Added a Simple Composer mode for routine title/content/photo publishing with direct draft and publish actions
+- Reworked CLI help
+- Fixed CLI password resets to preserve an existing user's role instead of defaulting it to superadmin
+- Standardized theme settings
+- Deploy builds now create an empty `tmp/` runtime workspace
+- Author-space content width now defaults to the configured site value
+- Scribe author homes no longer repeat the masthead identity with a visible `Posts by …` heading by default.
+- Pages rendered from a non-public site now always emit `noindex, nofollow` metadata
+- Updated safe Composer components
+- Updated Bootstrap, highlight.js, emoji picker, and emoji data assets
+- Secret links can now grant either whole-site or author-space guest access on non-public sites
+- Secret-link requests now use private, non-cacheable responses with crawler and referrer protections
+- Author links are revoked on author deletion and suspended while author content is disabled.
+- Browser-based Blogger, WordPress, and Bludit imports now recover cleanly from expired sessions and interrupted batches
+- Blogger import now preserves recognized image alignment and UTF-8 text while localizing image markup
+
 ## 0.96.0 - 2026-08-17
 
 - More admin cleanup and polish

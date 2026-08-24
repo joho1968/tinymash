@@ -1,8 +1,8 @@
 {
     "key": "weather",
     "name": "Weather",
-    "version": "0.96.0",
-    "description": "Displays cached current weather and forecast data for configured locations.",
+    "version": "0.97.0",
+    "description": "Shows cached current weather and forecasts for saved locations.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -14,11 +14,13 @@
         "content.shortcodes",
         "theme.slots",
         "storage.private",
-        "housekeeping"
+        "housekeeping",
+        "assets.public",
+        "cli"
     ],
     "static_export": {
         "mode": "omit",
-        "summary": "Cached Weather shortcodes and slots are not currently rendered into static exports."
+        "summary": "Excludes Weather shortcodes and theme slots from static exports."
     },
     "default_active": true,
     "stage": "early"

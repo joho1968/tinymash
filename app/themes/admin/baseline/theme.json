@@ -1,7 +1,7 @@
 {
     "key": "baseline",
     "name": "Baseline Admin",
-    "description": "Default admin theme",
+    "description": "Default administration theme.",
     "version": "1.0.0",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -15,7 +15,8 @@
     ],
     "js_urls": [
         "/ext/bs/js/bootstrap.bundle.min.js",
-        "/ext/sortablejs/sortable.min.js"
+        "/ext/sortablejs/sortable.min.js",
+        "/js/tinymash-admin-import.js"
     ],
     "slots": {
         "head_extra": "slots/head-extra.latte",

@@ -8,6 +8,7 @@ use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashMarkdownRenderer;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
+use app\classes\TinyMashSecretLinkService;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
 
@@ -15,6 +16,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $plugin_key = (string) ( $plugin['key'] ?? 'feeds' );
     $config = $plugins->getService( 'config' );
     $security = $plugins->getService( 'security' );
+    $secret_link_service = $plugins->getService( 'secret_links' );
     $content_repository = $plugins->getService( 'content.repository' );
     $content_renderer = $plugins->getService( 'content.renderer' );
     $markdown_renderer = $plugins->getService( 'markdown.renderer' );
@@ -36,6 +38,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         $config,
         $security,
+        $secret_link_service instanceof TinyMashSecretLinkService ? $secret_link_service : null,
         $content_repository,
         $content_renderer,
         $markdown_renderer,
@@ -60,17 +63,43 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return;
     }
 
+    $plugins->registerHelpDocument(
+        $plugin_key,
+        'plugin-feeds',
+        [
+            'title' => 'Feeds',
+            'summary' => 'Provide RSS, Atom, and JSON Feed for the site and author spaces.',
+            'group' => 'Plugins',
+            'order' => 123,
+            'roles' => [ 'author', 'admin' ],
+            'sections' => [
+                [
+                    'title' => 'Overview',
+                    'markdown' => 'Provide RSS 2.0, Atom 1.0, and JSON Feed for the site and enabled author spaces.',
+                ],
+                [
+                    'title' => 'Addresses',
+                    'markdown' => 'Site feeds use `/feed.rss`, `/feed.atom`, and `/feed.json`. Author feeds use `/<author>/feed.rss`, `/<author>/feed.atom`, and `/<author>/feed.json`.',
+                ],
+                [
+                    'title' => 'Visibility',
+                    'markdown' => 'Feed output follows site and author visibility. Non-public feeds require the same login or secret-link access as other content in that scope and are never shared-cacheable.',
+                ],
+            ],
+        ]
+    );
+
     $plugins->registerSystemSettingsSection(
         $plugin_key,
         [
-            'title' => 'Frontpage feeds',
-            'summary' => 'Controls whether the site-level frontpage feeds are exposed and how many items they return.',
+            'title' => 'Site feeds',
+            'summary' => 'Enable site feeds and set their item count.',
             'fields' => [
                 [
                     'key' => 'root_feeds_enabled',
                     'type' => 'checkbox',
-                    'label' => 'Enable frontpage feeds',
-                    'help' => 'When disabled, `/feed.rss`, `/feed.atom`, and `/feed.json` return 404.',
+                    'label' => 'Enable site feeds',
+                    'help' => 'Return 404 from `/feed.rss`, `/feed.atom`, and `/feed.json` when disabled.',
                     'default' => true,
                 ],
                 [
@@ -95,20 +124,20 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'publishing',
         [
             'title' => 'Author feeds',
-            'summary' => 'Controls whether your public author feeds are exposed.',
+            'summary' => 'Enable feeds for your author space.',
             'fields' => [
                 [
                     'key' => 'author_feeds_enabled',
                     'type' => 'checkbox',
-                    'label' => 'Enable my public feeds',
-                    'help' => 'When disabled, your `/username/feed.rss`, `/feed.atom`, and `/feed.json` endpoints return 404.',
+                    'label' => 'Enable author feeds',
+                    'help' => 'Return 404 from your author feed addresses when disabled.',
                     'default' => true,
                 ],
             ],
         ]
     );
 
-    $emit_feed = static function( string $format, ?string $author_slug = null ) use ( $service ) : void {
+    $emit_feed = static function( string $format, ?string $author_slug = null ) use ( $service, $config ) : void {
         $feed = $service->renderFeed( $format, $author_slug );
         if ( ! is_string( $feed ) ) {
             \Flight::app()->notFound();
@@ -122,6 +151,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 default => 'Content-Type: application/feed+json; charset=utf-8',
             }
         );
+        if ( ! $config->isSitePublic() ) {
+            header( 'Vary: Cookie' );
+            header( 'Cache-Control: private, no-store, max-age=0, must-revalidate' );
+            header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
+        }
         echo $feed;
     };
 

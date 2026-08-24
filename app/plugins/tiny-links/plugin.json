@@ -1,7 +1,7 @@
 {
     "key": "tiny-links",
     "name": "Tiny links",
-    "version": "0.96.0",
+    "version": "0.97.0",
     "description": "Creates short links for published content.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -11,12 +11,12 @@
     "capabilities": [
         "routes.public",
         "routes.admin",
-        "navigation.admin",
+        "admin.navigation",
         "storage.private"
     ],
     "static_export": {
         "mode": "placeholder",
-        "summary": "Tiny-link redirects remain on the live site through rewritten fallback URLs."
+        "summary": "Keeps tiny-link redirects on the live site and rewrites exported links to their live URLs."
     },
     "default_active": true,
     "stage": "early"

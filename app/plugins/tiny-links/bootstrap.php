@@ -58,8 +58,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'roles' => [ 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Tiny links creates short URLs under `/t/<token>` for published tinymash content.',
+                    'title' => 'Overview',
+                    'markdown' => 'Create short URLs under `/t/<token>` for published tinymash content.',
                 ],
                 [
                     'title' => 'Targets',

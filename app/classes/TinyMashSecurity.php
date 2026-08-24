@@ -15,6 +15,7 @@ class TinyMashSecurity {
     protected const SESSION_AUTH_FINGERPRINT_KEY = 'tinymash.auth.fingerprint';
     protected const SESSION_CSRF_KEY = 'tinymash.csrf.token';
     protected const SESSION_FLASH_KEY = 'tinymash.flash';
+    protected const SESSION_LAST_ACTIVITY_KEY = 'tinymash.auth.last_activity';
     protected const SESSION_VISITOR_IP_KEY = 'tinymash.visitor.last_ip';
     protected const LOGIN_FAILURE_LOOKBACK_SECONDS = 86400;
     protected const LOGIN_THROTTLE_WINDOW_SECONDS = 900;
@@ -350,6 +351,15 @@ class TinyMashSecurity {
         if ( session_status() === PHP_SESSION_ACTIVE ) {
             session_write_close();
         }
+    }
+
+    public function touchAuthenticatedSession() : bool {
+        if ( ! $this->isLoggedIn() || session_status() !== PHP_SESSION_ACTIVE ) {
+            return( false );
+        }
+
+        $_SESSION[self::SESSION_LAST_ACTIVITY_KEY] = time();
+        return( true );
     }
 
     public static function resolveSessionName( mixed $configured_session_name ) : string {
@@ -699,6 +709,7 @@ class TinyMashSecurity {
             $_SESSION[self::SESSION_USER_KEY],
             $_SESSION[self::SESSION_ROLE_KEY],
             $_SESSION[self::SESSION_AUTH_FINGERPRINT_KEY],
+            $_SESSION[self::SESSION_LAST_ACTIVITY_KEY],
             $_SESSION[self::SESSION_CSRF_KEY]
         );
         if ( session_status() === PHP_SESSION_ACTIVE ) {

@@ -1,7 +1,7 @@
 {
     "key": "docsmatter",
     "name": "DocsMatter",
-    "description": "Documentation-oriented public theme with Bootstrap-based layout, sidebar navigation, and mobile offcanvas browsing.",
+    "description": "Documentation theme with sidebar navigation and mobile browsing.",
     "version": "1.0.0",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -45,7 +45,7 @@
                 { "value": "sidebar", "label": "Sidebar" },
                 { "value": "off", "label": "Off" }
             ],
-            "help": "Controls whether the primary site menu appears in the header, the sidebar, or not at all."
+            "help": "Show the primary menu in the header or sidebar, or hide it."
         },
         {
             "key": "footer_menu_position",
@@ -56,7 +56,7 @@
                 { "value": "footer", "label": "Footer" },
                 { "value": "off", "label": "Off" }
             ],
-            "help": "Controls whether the configured footer menu appears in the sidebar footer area for this theme."
+            "help": "Show the footer menu below the sidebar, or hide it."
         },
         {
             "key": "content_width",
@@ -73,7 +73,7 @@
                 { "value": "wide", "label": "Wide (1140)" },
                 { "value": "full", "label": "Full" }
             ],
-            "help": "Bounds the public reading area using tinymash width presets."
+            "help": "Set the maximum width of the main content area."
         },
         {
             "key": "show_search",
@@ -84,20 +84,20 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether the public search form is shown when the Search plugin is active."
+            "help": "Show public search when the Search plugin is active."
         },
         {
             "key": "landing_page_path",
-            "label": "Landing page path",
+            "label": "Documentation home page",
             "type": "text",
             "lookup": "published_pages",
             "author_override": true,
             "default": "",
-            "help": "Optional published page path to use as the docs starting page for home and author-home in this theme."
+            "help": "Choose a published page as the documentation home page. Leave blank to use the page list."
         },
         {
             "key": "enable_syntax_highlighting",
-            "label": "Enable syntax highlighting",
+            "label": "Syntax highlighting",
             "type": "select",
             "requires_plugin": "syntax-highlighting",
             "default": "enabled",
@@ -105,7 +105,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+            "help": "Highlight fenced code blocks with the local highlight.js assets."
         },
         {
             "key": "show_tags",
@@ -116,19 +116,19 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether entry tags are shown publicly in this theme when tags are enabled sitewide."
+            "help": "Show entry tags when tags are enabled for the site."
         },
         {
             "key": "page_children_after_content",
-            "label": "After-content child pages",
+            "label": "Child pages after content",
             "type": "select",
             "default": "subpages",
             "options": [
                 { "value": "disabled", "label": "Disabled" },
                 { "value": "more", "label": "More" },
-                { "value": "subpages", "label": "Sub pages" }
+                { "value": "subpages", "label": "Subpages" }
             ],
-            "help": "Controls whether published child pages are listed after page content."
+            "help": "List published child pages after page content."
         }
     ]
 }

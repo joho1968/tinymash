@@ -41,13 +41,13 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'weather',
-                'usage' => 'tinymash weather refresh',
-                'summary' => 'Refresh configured Weather provider feeds.',
+                'summary' => 'Refresh saved Weather provider feeds.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Operation to run', 'choices' => [ 'refresh' ] ],
+                ],
+                'examples' => [ 'php8.4 bin/tinymash.php weather refresh' ],
                 'order' => 246,
-                'handler' => static function( array $arguments ) use ( $service ) : void {
-                    if ( strtolower( trim( (string) ( $arguments[0] ?? '' ) ) ) !== 'refresh' ) {
-                        throw new \RuntimeException( 'usage: tinymash weather refresh' );
-                    }
+                'handler' => static function() use ( $service ) : void {
                     $result = $service->refreshLocations();
                     fwrite( STDOUT, 'refreshed: ' . (int) ( $result['refreshed'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'failed: ' . (int) ( $result['failed'] ?? 0 ) . PHP_EOL );
@@ -79,7 +79,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         },
         [
             'label' => 'Weather',
-            'description' => 'Displays cached current weather and forecast for a configured location.',
+            'description' => 'Shows cached current weather and forecasts for a saved location.',
             'example' => '[weather location="home" current="true" forecast="3"]',
             'dynamic' => true,
         ]
@@ -130,18 +130,18 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-weather',
         [
             'title' => 'Weather',
-            'summary' => 'Display cached weather from configured provider feeds.',
+            'summary' => 'Show cached weather from saved provider feeds.',
             'group' => 'Plugins',
             'order' => 144,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
                     'title' => 'Sources and privacy',
-                    'markdown' => 'Weather fetches provider data through admin refresh, CLI refresh, or scheduled housekeeping. Public pages render cached data only; visitors do not call weather providers or expose browser geolocation. Location coordinates may be entered as decimal degrees or pasted in degrees/minutes/seconds notation such as `60° 08\' 30.52" N`. OpenStreetMap and GeoNames are practical open coordinate lookup sources.',
+                    'markdown' => 'Refresh provider data from admin, CLI, or scheduled housekeeping. Public pages use cached data; visitor browsers do not call providers or expose geolocation. Enter coordinates as decimal degrees or degrees/minutes/seconds, such as `60° 08\' 30.52" N`. Use OpenStreetMap or GeoNames to look up coordinates.',
                 ],
                 [
                     'title' => 'Providers',
-                    'markdown' => 'The built-in providers are Open-Meteo, MET Norway / Yr, and the US National Weather Service. MET Norway / Yr uses the Locationforecast API and requires attribution plus an identifying User-Agent. NWS supports only locations resolved by `api.weather.gov`.',
+                    'markdown' => 'Built-in providers are Open-Meteo, MET Norway / Yr, and the US National Weather Service. MET Norway / Yr requires attribution and an identifying User-Agent. NWS supports locations resolved by `api.weather.gov`.',
                 ],
                 [
                     'title' => 'Shortcode',
@@ -149,7 +149,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Theme slots',
-                    'markdown' => 'The sidebar and footer slot options render cached Weather where the active public theme supports plugin slots. Slot output uses the same cached data as `[weather]` and does not call provider APIs during public page rendering.',
+                    'markdown' => 'Sidebar and footer options show cached Weather in themes that support those slots. Slot output uses the same cache as `[weather]` and never calls providers during public rendering.',
                 ],
             ],
         ]

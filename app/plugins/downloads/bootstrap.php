@@ -34,7 +34,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         [
             'title' => 'Downloads',
-            'summary' => 'Controls public Downloads browsing behavior.',
+            'summary' => 'Choose whether visitors can browse the root Downloads index.',
             'fields' => [
                 [
                     'key' => 'root_index_browseable',
@@ -77,14 +77,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-downloads',
         [
             'title' => 'Downloads',
-            'summary' => 'Create managed download folders with routed file downloads.',
+            'summary' => 'Create managed download folders and routed file downloads.',
             'group' => 'Plugins',
             'order' => 135,
             'roles' => [ 'creator', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Downloads creates public folder pages and routed file downloads. Root folders are published under `/downloads`; author folders are published under `/<author>/downloads`.',
+                    'title' => 'Overview',
+                    'markdown' => 'Create public folder pages and routed file downloads. Root folders use `/downloads`; author folders use `/<author>/downloads`.',
                 ],
                 [
                     'title' => 'Scopes',

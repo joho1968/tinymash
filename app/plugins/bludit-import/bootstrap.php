@@ -129,16 +129,31 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'bludit-import',
-                'usage' => 'tinymash bludit-import <preview|import> <site-directory> [--root|--author=<username>] [--replace-existing-posts] [--replace-existing-pages] [--skip-unpublished] [--batch-size=<n>] [--keep-preview] [--force-lock]',
-                'summary' => 'Preview or import a local Bludit site tree into root or an author space from the CLI.',
+                'summary' => 'Preview or import a local Bludit site into root or an author space.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Preview the site or import it', 'choices' => [ 'preview', 'import' ] ],
+                    [ 'name' => 'site-directory', 'required' => true, 'description' => 'Readable Bludit installation directory' ],
+                ],
+                'options' => [
+                    [ 'name' => 'root', 'description' => 'Import into the root site; this is the default' ],
+                    [ 'name' => 'author', 'value' => true, 'description' => 'Import into this local author account' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Replace posts with matching slugs' ],
+                    [ 'name' => 'replace-existing-pages', 'description' => 'Replace pages with matching slugs' ],
+                    [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
+                    [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
+                    [ 'name' => 'keep-preview', 'description' => 'Keep preview files after a completed import' ],
+                    [ 'name' => 'force-lock', 'description' => 'Replace a stale import lock for this target' ],
+                ],
+                'exclusive_options' => [ [ 'root', 'author' ] ],
+                'examples' => [
+                    'php8.4 bin/tinymash.php bludit-import preview /path/to/bludit --root',
+                    'php8.4 bin/tinymash.php bludit-import import /path/to/bludit --author=cajo',
+                ],
+                'notes' => 'The target account may be inactive, but it must exist. Run preview before import when checking a new source site.',
                 'order' => 230,
                 'handler' => static function( array $arguments ) use ( $parse_cli_options, $write_preview_summary, $resolve_cli_target, $import_service, $import_preview_workspace_service, $plugin_key ) : void {
                     $options = $parse_cli_options( $arguments );
                     $action = (string) ( $options['action'] ?? '' );
-                    if ( ! in_array( $action, [ 'preview', 'import' ], true ) ) {
-                        throw new \RuntimeException( 'usage: tinymash bludit-import <preview|import> <site-directory> [--root|--author=<username>] [--replace-existing-posts] [--replace-existing-pages] [--skip-unpublished] [--batch-size=<n>] [--keep-preview] [--force-lock]' );
-                    }
-
                     $source_directory = trim( (string) ( $options['source'] ?? '' ) );
                     if ( $source_directory === '' ) {
                         throw new \RuntimeException( 'The Bludit site directory is required.' );
@@ -208,6 +223,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $preview_url = $plugin_url . '/preview';
     $report_url = $plugin_url . '/report';
     $import_url = $plugin_url . '/run';
+    $unlock_url = $plugin_url . '/unlock';
     $max_execution_time = (int) ini_get( 'max_execution_time' );
     $import_batch_size = match ( true ) {
         $max_execution_time > 0 && $max_execution_time <= 30 => 1,
@@ -235,18 +251,22 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-bludit-import',
         [
             'title' => 'Bludit import',
-            'summary' => 'Import content from a local Bludit site tree into root or an author space.',
+            'summary' => 'Import posts and pages from a local Bludit site into root or an author space.',
             'group' => 'Plugins',
             'order' => 122,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it imports',
-                    'markdown' => 'Bludit import reads a local Bludit site tree, previews posts and pages, and imports them into root or an author space while preserving hierarchy where tinymash supports it.',
+                    'title' => 'Overview',
+                    'markdown' => 'Preview and import posts and pages from a local Bludit site into root or an author space. Supported page hierarchy is preserved.',
                 ],
                 [
                     'title' => 'Media',
-                    'markdown' => 'The importer localizes images from the Bludit `bl-content/uploads/` tree through the shared tinymash media-import bridge.',
+                    'markdown' => 'Localizes images from the Bludit `bl-content/uploads/` directory as managed tinymash media.',
+                ],
+                [
+                    'title' => 'Interrupted imports',
+                    'markdown' => 'Return to the same preview and choose **Resume import**. If an earlier import blocks a new preview, open that import or release its lock from the preview page.',
                 ],
             ],
         ]
@@ -282,7 +302,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $build_author_options = static function() use ( $user_repository ) : array {
         $options = [];
         foreach ( $user_repository->getAllUsers() as $user ) {
-            if ( ! is_array( $user ) || empty( $user['username'] ) || empty( $user['active'] ) ) {
+            if ( ! is_array( $user ) || empty( $user['username'] ) ) {
                 continue;
             }
 
@@ -291,9 +311,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 continue;
             }
 
+            $display_name = trim( (string) ( $user['display_name'] ?? '' ) );
+            $label = $display_name !== '' ? ( $display_name . ' (' . $username . ')' ) : $username;
+            if ( empty( $user['active'] ) ) {
+                $label .= ' — sign-in disabled';
+            }
             $options[] = [
                 'value' => $username,
-                'label' => $username,
+                'label' => $label,
             ];
         }
 
@@ -353,10 +378,12 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $date_formatter,
         $import_service,
         $import_lock_service,
+        $plugin_key,
         $plugin_url,
         $preview_url,
         $report_url,
         $import_url,
+        $unlock_url,
         $login_url,
         $escape,
         $build_notice,
@@ -390,12 +417,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $timeout_warning = $max_execution_time > 0 && $max_execution_time < 120;
         $has_conflicting_lock = false;
         $conflicting_lock_is_stale = false;
+        $active_lock = null;
         if ( is_array( $preview ) && $import_lock_service instanceof TinyMashImportLockService ) {
             $target_lock_key = (string) ( ( $preview['target_scope'] ?? 'root' ) === 'author' ? ( $preview['target_author_slug'] ?? '' ) : 'root' );
             $lock = $import_lock_service->getAuthorLock( $target_lock_key );
             if ( is_array( $lock ) && (string) ( $lock['token'] ?? '' ) !== (string) ( $preview['token'] ?? '' ) ) {
                 $has_conflicting_lock = true;
                 $conflicting_lock_is_stale = ! empty( $lock['is_stale'] );
+                $active_lock = $lock;
             }
         }
 
@@ -439,18 +468,40 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $entries = is_array( $preview['entries'] ?? null ) ? $preview['entries'] : [];
             $import_running = is_array( $import_state ) && (string) ( $import_state['status'] ?? '' ) === 'running';
             $import_finished = is_array( $import_state ) && (string) ( $import_state['status'] ?? '' ) === 'finished';
+            $conflicting_lock_updated_display = $has_conflicting_lock
+                ? $date_formatter->formatUtcDateTime( (string) ( $active_lock['updated_at_utc'] ?? $active_lock['created_at_utc'] ?? '' ) )
+                : '';
+            $conflicting_lock_owner = strtolower( trim( (string) ( $active_lock['created_by_username'] ?? '' ) ) );
+            $can_release_conflicting_lock = $has_conflicting_lock && ( $is_superadmin || ( $conflicting_lock_owner !== '' && $conflicting_lock_owner === $username ) );
+            $conflicting_preview = $has_conflicting_lock && (string) ( $active_lock['importer_key'] ?? '' ) === $plugin_key
+                ? $import_service->getPreview( (string) ( $active_lock['token'] ?? '' ) )
+                : null;
+            $can_open_conflicting_preview = is_array( $conflicting_preview )
+                && (string) ( $conflicting_preview['created_by_username'] ?? $conflicting_preview['target_author_slug'] ?? '' ) === $username;
             $body_html .= '<div class="col-12"><section>';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Preview</div>';
             $body_html .= '<div class="d-flex flex-wrap justify-content-between gap-2 align-items-start">';
             $body_html .= '<div><h2 class="h5 mb-1">' . $escape( (string) ( $preview['source_title'] ?? 'Bludit site' ) ) . '</h2><div class="small text-body-secondary">Import into <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['target_scope'] ?? 'root' ) === 'author' ? (string) ( $preview['target_author_slug'] ?? '' ) : 'root' ) . '</span>.</div></div>';
             if ( $mode === 'preview' ) {
-                $body_html .= '<div class="d-flex flex-wrap gap-2"><button class="btn btn-outline-primary" id="bludit-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button></div>';
+                $body_html .= '<div class="d-flex flex-wrap gap-2"><button class="btn btn-outline-primary" id="bludit-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-login-url="' . $escape( $login_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button>';
+                if ( $can_open_conflicting_preview ) {
+                    $body_html .= '<a class="btn btn-outline-secondary" href="' . $escape( $preview_url . '?preview=' . rawurlencode( (string) ( $active_lock['token'] ?? '' ) ) ) . '">Open earlier import</a>';
+                }
+                if ( $can_release_conflicting_lock ) {
+                    $body_html .= '<form method="post" action="' . $escape( $unlock_url ) . '" onsubmit="return confirm(\'Release the earlier import lock? An import still running in another tab will stop at its next batch.\');">';
+                    $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $csrf_token ) . '">';
+                    $body_html .= '<input type="hidden" name="preview_token" value="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '">';
+                    $body_html .= '<input type="hidden" name="lock_token" value="' . $escape( (string) ( $active_lock['token'] ?? '' ) ) . '">';
+                    $body_html .= '<button class="btn btn-outline-danger" type="submit">Release earlier lock</button>';
+                    $body_html .= '</form>';
+                }
+                $body_html .= '</div>';
             } else {
                 $body_html .= '<div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $plugin_url ) . '">Import another site</a></div>';
             }
             $body_html .= '</div>';
             if ( $has_conflicting_lock ) {
-                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-2">Another import currently holds this target-space lock.' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
+                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-2">Another import holds this target-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
             }
             if ( $conflicting_lock_is_stale && $mode === 'preview' ) {
                 $body_html .= '<div class="form-check mt-3"><input class="form-check-input" id="bludit-import-force-lock" type="checkbox" value="1"><label class="form-check-label" for="bludit-import-force-lock">Override stale import lock</label></div>';
@@ -545,6 +596,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     const forceLockCheckbox = document.getElementById('bludit-import-force-lock');
     const importUrl = startButton.dataset.importUrl || '';
     const pluginUrl = startButton.dataset.pluginUrl || '';
+    const loginUrl = startButton.dataset.loginUrl || '';
     const previewToken = startButton.dataset.previewToken || '';
     const csrfToken = startButton.dataset.csrfToken || '';
     let importInFlight = false;
@@ -609,10 +661,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     }).toString()
                 });
 
-                const payload = await response.json();
-                if (!response.ok) {
-                    throw new Error(payload.error || ('Import failed with status ' + response.status));
+                if (!window.TinyMashImportAdmin) {
+                    throw new Error('The import helper is unavailable. Reload this preview to resume.');
                 }
+                const payload = await window.TinyMashImportAdmin.readJsonResponse(response);
 
                 setProgress(payload);
                 if (payload.done) {
@@ -621,6 +673,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 }
             }
         } catch (error) {
+            if (error.requiresLogin && window.TinyMashImportAdmin) {
+                window.location.href = window.TinyMashImportAdmin.buildLoginUrl(loginUrl, window.location.pathname + window.location.search);
+                return;
+            }
             startButton.disabled = false;
             startButton.textContent = 'Resume import';
             if (previewTableWrap) {
@@ -628,7 +684,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
             if (progressSection && progressMessage) {
                 progressSection.classList.remove('d-none');
-                progressMessage.textContent = error.message || 'The Bludit import failed.';
+                progressMessage.textContent = error instanceof TypeError
+                    ? 'The request was interrupted. Reload this preview to resume.'
+                    : (error.message || 'The Bludit import failed.');
             }
             if (progressSpinner) {
                 progressSpinner.classList.add('d-none');
@@ -717,6 +775,51 @@ HTML;
     $plugins->registerRoute(
         $plugin_key,
         'post',
+        $unlock_url,
+        static function() use ( $plugins, $security, $import_service, $import_lock_service, $login_url, $plugin_url, $preview_url, $build_notice ) : void {
+            if ( ! $security->isLoggedIn() ) {
+                $plugins->redirect( $login_url );
+                return;
+            }
+
+            $data = $plugins->getRequestData();
+            if ( ! $security->validateCsrfToken( isset( $data['tinymash_csrf'] ) ? (string) $data['tinymash_csrf'] : '' ) ) {
+                $security->setFlash( 'bludit-import.notice', $build_notice( 'danger', 'Your session token is invalid. Please reload the page and try again.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
+
+            $preview_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['preview_token'] ?? '' ) ) ) ) ?? '';
+            $lock_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['lock_token'] ?? '' ) ) ) ) ?? '';
+            $preview = $preview_token !== '' ? $import_service->getPreview( $preview_token ) : null;
+            $current_username = strtolower( trim( (string) $security->getCurrentUsername() ) );
+            if ( ! is_array( $preview ) || (string) ( $preview['created_by_username'] ?? $preview['target_author_slug'] ?? '' ) !== $current_username ) {
+                $security->setFlash( 'bludit-import.notice', $build_notice( 'danger', 'That Bludit import preview is not available for the current account.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
+
+            $target_lock_key = (string) ( ( $preview['target_scope'] ?? 'root' ) === 'author' ? ( $preview['target_author_slug'] ?? '' ) : 'root' );
+            $lock = $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service->getAuthorLock( $target_lock_key ) : null;
+            $lock_owner = strtolower( trim( (string) ( $lock['created_by_username'] ?? '' ) ) );
+            if ( ! is_array( $lock ) || $lock_token === '' || ! hash_equals( (string) ( $lock['token'] ?? '' ), $lock_token ) || ( ! $security->isSuperAdmin() && $lock_owner !== $current_username ) ) {
+                $security->setFlash( 'bludit-import.notice', $build_notice( 'danger', 'The earlier import lock could not be released.' ) );
+                $plugins->redirect( $preview_url . '?preview=' . rawurlencode( $preview_token ) );
+                return;
+            }
+
+            $released = $import_lock_service->releaseAuthorLock( $target_lock_key, $lock_token );
+            $security->setFlash(
+                'bludit-import.notice',
+                $build_notice( $released ? 'success' : 'danger', $released ? 'Released the earlier import lock.' : 'The earlier import lock could not be released.' )
+            );
+            $plugins->redirect( $preview_url . '?preview=' . rawurlencode( $preview_token ) );
+        }
+    );
+
+    $plugins->registerRoute(
+        $plugin_key,
+        'post',
         $import_url,
         static function() use ( $plugins, $security, $import_service, $login_url, $plugin_url, $preview_url, $report_url, $build_notice, $emit_json, $is_json_request, $import_batch_size, $log_plugin_error ) : void {
             $expects_json = $is_json_request();
@@ -761,6 +864,9 @@ HTML;
                 $plugins->redirect( $plugin_url );
                 return;
             }
+
+            $security->touchAuthenticatedSession();
+            $security->closeSession();
 
             $result = [ 'done' => false ];
             try {

@@ -94,7 +94,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $render_links_shortcode,
         [
             'label' => 'Links',
-            'description' => 'Displays a Links collection.',
+            'description' => 'Shows a Links collection.',
             'example' => '[links id="useful-links" view="boxes"]',
             'dynamic' => true,
         ]
@@ -142,14 +142,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-directory',
         [
             'title' => 'Links',
-            'summary' => 'Create categorized link collections and render them with shortcodes.',
+            'summary' => 'Create categorized link collections for content shortcodes.',
             'group' => 'Plugins',
             'order' => 138,
             'roles' => [ 'creator', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Links creates categorized link collections. Public output uses `[links id="alias"]`.',
+                    'title' => 'Overview',
+                    'markdown' => 'Create categorized link collections and render them with `[links id="alias"]`.',
                 ],
                 [
                     'title' => 'Display',

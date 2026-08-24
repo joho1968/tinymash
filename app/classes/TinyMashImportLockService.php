@@ -40,7 +40,10 @@ class TinyMashImportLockService {
                 $existing = $this->normalizeRecord( $store['authors'][$author_slug] ?? null, $author_slug );
                 if ( is_array( $existing ) ) {
                     if ( (string) ( $existing['token'] ?? '' ) === $token ) {
-                        return( [ 'data' => $store, 'result' => $existing ] );
+                        $existing['updated_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
+                        unset( $existing['is_stale'] );
+                        $store['authors'][$author_slug] = $existing;
+                        return( [ 'data' => $store, 'result' => $this->normalizeRecord( $existing, $author_slug ) ] );
                     }
 
                     if ( ! $force || empty( $existing['is_stale'] ) ) {
@@ -54,6 +57,7 @@ class TinyMashImportLockService {
                     'token' => $token,
                     'created_by_username' => $created_by_username,
                     'created_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
+                    'updated_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
                 ];
                 $store['authors'][$author_slug] = $record;
                 return( [ 'data' => $store, 'result' => $this->normalizeRecord( $record, $author_slug ) ] );
@@ -103,12 +107,13 @@ class TinyMashImportLockService {
         $token = $this->normalizeToken( (string) ( $record['token'] ?? '' ) );
         $created_by_username = $this->normalizeKey( (string) ( $record['created_by_username'] ?? '' ) );
         $created_at_utc = trim( (string) ( $record['created_at_utc'] ?? '' ) );
+        $updated_at_utc = trim( (string) ( $record['updated_at_utc'] ?? $created_at_utc ) );
         if ( $author_slug === '' || $importer_key === '' || $token === '' || $created_at_utc === '' ) {
             return( null );
         }
 
-        $created_timestamp = strtotime( $created_at_utc );
-        $is_stale = $created_timestamp !== false && ( time() - $created_timestamp ) >= $this->stale_after_seconds;
+        $updated_timestamp = strtotime( $updated_at_utc );
+        $is_stale = $updated_timestamp !== false && ( time() - $updated_timestamp ) >= $this->stale_after_seconds;
 
         return(
             [
@@ -117,6 +122,7 @@ class TinyMashImportLockService {
                 'token' => $token,
                 'created_by_username' => $created_by_username,
                 'created_at_utc' => $created_at_utc,
+                'updated_at_utc' => $updated_at_utc,
                 'is_stale' => $is_stale,
             ]
         );

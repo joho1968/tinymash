@@ -1,7 +1,7 @@
 {
     "key": "blocks",
     "name": "Blocks",
-    "description": "Grid-first public theme with crisp post blocks and a featured row.",
+    "description": "Grid theme for posts and featured content.",
     "version": "1.0.0",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -46,7 +46,7 @@
                 { "value": "sidebar", "label": "Sidebar" },
                 { "value": "off", "label": "Off" }
             ],
-            "help": "Controls where the primary site menu is rendered when a menu is configured."
+            "help": "Show the primary menu in the header or sidebar, or hide it."
         },
         {
             "key": "footer_menu_position",
@@ -57,26 +57,26 @@
                 { "value": "footer", "label": "Footer" },
                 { "value": "off", "label": "Off" }
             ],
-            "help": "Controls whether the configured footer menu is rendered by this theme."
+            "help": "Show the footer menu in the footer, or hide it."
         },
         {
             "key": "root_landing_mode",
-            "label": "Root start page",
+            "label": "Site home page",
             "type": "select",
             "default": "blogroll",
             "options": [
                 { "value": "blogroll", "label": "Blogroll" },
                 { "value": "page", "label": "Static page" }
             ],
-            "help": "Controls whether the public root space starts on the aggregated post list or a published static page."
+            "help": "Use the post list or a published page as the site home page."
         },
         {
             "key": "landing_page_path",
-            "label": "Root landing page path",
+            "label": "Site home page content",
             "type": "text",
             "lookup": "published_pages",
             "default": "",
-            "help": "Used when `Static page` is selected. Choose one of the published root pages."
+            "help": "Choose the published root page used when `Static page` is selected."
         },
         {
             "key": "content_width",
@@ -93,7 +93,7 @@
                 { "value": "wide", "label": "Wide (1140)" },
                 { "value": "full", "label": "Full" }
             ],
-            "help": "Bounds the main public content area using tinymash width presets."
+            "help": "Set the maximum width of the main content area."
         },
         {
             "key": "publication_title_style",
@@ -104,11 +104,11 @@
                 { "value": "serif", "label": "Serif" },
                 { "value": "sans-serif", "label": "Sans-serif" }
             ],
-            "help": "Controls the type style for site identity and publication titles. Body text, navigation and controls remain sans-serif."
+            "help": "Use serif or sans-serif type for the site identity and publication titles. Body text, navigation, and controls remain sans-serif."
         },
         {
             "key": "general_grid_blocks",
-            "label": "General horizontal grid blocks",
+            "label": "Posts per row",
             "type": "select",
             "author_override": true,
             "default": "3",
@@ -125,11 +125,11 @@
                 { "value": "9", "label": "9" },
                 { "value": "10", "label": "10" }
             ],
-            "help": "Sets the maximum number of ordinary post blocks per row when space allows. `Automatic` falls back to three."
+            "help": "Set the maximum posts per row. `Automatic` uses three."
         },
         {
             "key": "featured_blocks",
-            "label": "Featured blocks",
+            "label": "Featured posts",
             "type": "select",
             "author_override": true,
             "default": "2",
@@ -146,7 +146,7 @@
                 { "value": "9", "label": "9" },
                 { "value": "10", "label": "10" }
             ],
-            "help": "Sets how many sticky/featured posts the top row can hold. `Off` disables the separate featured row."
+            "help": "Set the maximum featured posts in the first row, or hide the row."
         },
         {
             "key": "fallback_cover_palette",
@@ -161,7 +161,7 @@
                 { "value": "amber", "label": "Amber" },
                 { "value": "berry", "label": "Berry" }
             ],
-            "help": "Controls the fallback cover color used when a post has no featured image."
+            "help": "Choose the cover color used when a post has no featured image."
         },
         {
             "key": "show_search",
@@ -172,7 +172,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether the public search form is shown when the Search plugin is active."
+            "help": "Show public search when the Search plugin is active."
         },
         {
             "key": "show_tags",
@@ -183,11 +183,11 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether entry tags are shown publicly in this theme when tags are enabled sitewide."
+            "help": "Show entry tags when tags are enabled for the site."
         },
         {
             "key": "enable_syntax_highlighting",
-            "label": "Enable syntax highlighting",
+            "label": "Syntax highlighting",
             "type": "select",
             "requires_plugin": "syntax-highlighting",
             "default": "enabled",
@@ -195,7 +195,7 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+            "help": "Highlight fenced code blocks with the local highlight.js assets."
         },
         {
             "key": "page_sidebar_style",
@@ -207,11 +207,11 @@
                 { "value": "cards", "label": "Card tree" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls how published page trees render in the sidebar."
+            "help": "Show the published page tree as a flat list or card tree, or hide it."
         },
         {
             "key": "top_navigation_depth",
-            "label": "Top navigation depth",
+            "label": "Fallback page-tree depth",
             "type": "select",
             "default": "1",
             "options": [
@@ -220,7 +220,7 @@
                 { "value": "2", "label": "2nd level" },
                 { "value": "3", "label": "3rd level" }
             ],
-            "help": "Used for the fallback page-tree menu when no primary menu is configured and the position is set to `Header`."
+            "help": "Set the depth of the page tree shown in the header when no primary menu is configured."
         },
         {
             "key": "page_breadcrumbs",
@@ -231,23 +231,23 @@
                 { "value": "enabled", "label": "Enabled" },
                 { "value": "disabled", "label": "Disabled" }
             ],
-            "help": "Controls whether page breadcrumb trails are shown above page content."
+            "help": "Show breadcrumb trails above page content."
         },
         {
             "key": "page_children_after_content",
-            "label": "After-content child pages",
+            "label": "Child pages after content",
             "type": "select",
             "default": "more",
             "options": [
                 { "value": "disabled", "label": "Disabled" },
                 { "value": "more", "label": "More" },
-                { "value": "subpages", "label": "Sub pages" }
+                { "value": "subpages", "label": "Subpages" }
             ],
-            "help": "Controls whether published child pages are listed after page content."
+            "help": "List published child pages after page content."
         },
         {
             "key": "post_summary_fallback",
-            "label": "Short summary format for posts",
+            "label": "Posts without summaries",
             "type": "select",
             "default": "words",
             "options": [
@@ -255,14 +255,14 @@
                 { "value": "full", "label": "Full post" },
                 { "value": "title", "label": "Only title" }
             ],
-            "help": "Controls what the root and author post lists show when a post has no explicit summary."
+            "help": "Choose what post lists show when a post has no summary."
         },
         {
             "key": "post_summary_fallback_words",
-            "label": "Short summary words",
+            "label": "Short summary length",
             "type": "text",
             "default": "40",
-            "help": "Used when `Short summary` is selected. Invalid values fall back to 40."
+            "help": "Set the maximum words used by `Short summary`. Invalid values use 40."
         }
     ]
 }

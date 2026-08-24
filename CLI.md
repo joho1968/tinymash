@@ -35,7 +35,10 @@ Show the available core commands and any commands registered by active plugins:
 ```bash
 php8.4 bin/tinymash.php list
 php8.4 bin/tinymash.php help user:set-password
+php8.4 bin/tinymash.php user:set-password --help
 ```
+
+Each command declares its arguments, options, defaults, and constraints. The generated command help is the authoritative syntax reference and contains one usage section.
 
 ## First Setup
 
@@ -105,11 +108,19 @@ List local users:
 php8.4 bin/tinymash.php user:list
 ```
 
-Create or update a local user password:
+Replace an existing user's password without changing the role:
 
 ```bash
-php8.4 bin/tinymash.php user:set-password <username> <password> [role]
+php8.4 bin/tinymash.php user:set-password <username> <password>
 ```
+
+Create a user by supplying an explicit role:
+
+```bash
+php8.4 bin/tinymash.php user:set-password <username> <password> <superadmin|creator>
+```
+
+The command preserves existing profile fields but enables the account. The password is visible in the process list and may enter shell history, so run it only in a trusted local shell.
 
 For the first administrator, use:
 
@@ -277,6 +288,8 @@ php8.4 bin/tinymash.php import:author /path/to/export new-password-here
 php8.4 bin/tinymash.php import:author /path/to/export new-password-here --replace-existing
 ```
 
+The new password is visible in the process list and may enter shell history. Run this command only in a trusted local shell.
+
 Plugin data is included only when the export/import command is run with `--with-plugins` and the relevant plugin supports that path.
 
 ## Audits And Benchmarks
@@ -299,10 +312,12 @@ php8.4 bin/tinymash.php benchmark:public --base-url=https://example.com --author
 Useful options:
 
 - `--userpass=<user:pass>`: HTTP Basic Auth credentials
-- `--login-user=<username>` and `--login-pass=<password>`: benchmark a logged-in public path
+- `--login-user=<username>` and `--login-pass=<password>`: benchmark a logged-in public path; use both together
 - `--author=<slug>`: include an author home and page 2
 - `--entry=<slug>`: include an entry page
-- `--repeat=<n>`: repeat each request
+- `--repeat=<n>`: repeat each request from 1 through 10 times
+
+HTTP Basic Authentication and tinymash login passwords supplied as options may be visible to other local users. Use temporary test credentials when possible.
 
 ## Component Checks
 
@@ -320,7 +335,7 @@ This command needs Composer to be available in the source/runtime environment. `
 Active plugins may add their own CLI commands. Use:
 
 ```bash
-php8.4 bin/tinymash.php help
+php8.4 bin/tinymash.php list
 ```
 
 to see the commands available in the current install.

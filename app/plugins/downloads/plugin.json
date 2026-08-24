@@ -1,8 +1,8 @@
 {
     "key": "downloads",
     "name": "Downloads",
-    "version": "0.96.0",
-    "description": "Creates managed download folders with routed file downloads.",
+    "version": "0.97.0",
+    "description": "Creates managed download folders and routed file downloads.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -11,12 +11,12 @@
     "capabilities": [
         "routes.public",
         "routes.admin",
-        "navigation.admin",
+        "admin.navigation",
         "storage.private"
     ],
     "static_export": {
         "mode": "placeholder",
-        "summary": "Download pages and routed files remain on the live site through rewritten fallback links."
+        "summary": "Keeps download pages and files on the live site and rewrites exported links to their live URLs."
     },
     "default_active": true,
     "stage": "early"

@@ -1,19 +1,20 @@
 {
     "key": "syntax-highlighting",
-    "name": "Syntax Highlighting",
-    "version": "0.96.0",
-    "description": "Adds fenced code highlighting for supported themes using local highlight.js assets.",
+    "name": "Syntax highlighting",
+    "version": "0.97.0",
+    "description": "Highlights fenced code in supported themes with local highlight.js assets.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
     "license": "AGPL-3.0-or-later",
     "bootstrap": "bootstrap.php",
     "capabilities": [
-        "content.workflow"
+        "content.workflow",
+        "assets.public"
     ],
     "static_export": {
         "mode": "static-js",
-        "summary": "Fenced code uses local highlight.js assets copied with the exported theme output."
+        "summary": "Includes local highlight.js assets with exported theme output."
     },
     "default_active": false,
     "stage": "before"

@@ -37,6 +37,7 @@ function hasZwj (emoji) {
 // "face without mouth" plus "fog".) These emoji can only be filtered using the width test,
 // which happens in checkZwjSupport.js.
 const versionsAndTestEmoji = {
+  '🫪': 17, // distorted face
   '🫩': 16, // face with bags under eyes
   '🫨': 15.1, // shaking head, technically from v15 but see note above
   '🫠': 14,
@@ -290,16 +291,49 @@ function calculateTextWidth (node) {
   }
 }
 
+const BASELINE_EMOJI = '😀';
+
 let baselineEmojiWidth;
+let fallbackNode;
+
+function calculateTextWidthWithFallback (unicode, domNode, baselineEmojiNode) {
+  const result = calculateTextWidth(domNode);
+  /* istanbul ignore if */
+  if (!result) {
+    // If result is 0 then very likely the emoji-picker has `display:none` or equivalent. In that case, we fall back to
+    // cloning the baseline emoji, putting that in the `document.body`, and measuring that instead. This is a perf hit,
+    // but it's better than mistakenly filtering emoji: https://github.com/nolanlawson/emoji-picker-element/issues/514
+    if (!fallbackNode) {
+      fallbackNode = baselineEmojiNode.cloneNode(true);
+      // We have to copy styles because we're copying from an element in the shadow DOM to the light DOM
+      // We can't use the shadow DOM because it's likely the entire picker is `display:none`
+      const styles = getComputedStyle(baselineEmojiNode);
+      // probably don't need display/align-items/justify-content but let's play it safe
+      for (const prop of ['font-family', 'line-height', 'width', 'height', 'font-size', 'display', 'align-items', 'justify-content']) {
+        // set `!important` just in case some global styles might try to overwrite this
+        fallbackNode.style.setProperty(prop, styles.getPropertyValue(prop), 'important');
+      }
+    }
+    try {
+      document.body.appendChild(fallbackNode);
+      fallbackNode.firstChild.nodeValue = unicode;
+      return calculateTextWidth(fallbackNode)
+    } finally {
+      // avoid actually rendering the test emoji
+      fallbackNode.remove();
+    }
+  }
+  return result
+}
 
 /**
  * Check if the given emojis containing ZWJ characters are supported by the current browser (don't render
  * as double characters) and return true if all are supported.
  * @param zwjEmojisToCheck
- * @param baselineEmoji
+ * @param baselineEmojiNode
  * @param emojiToDomNode
  */
-function checkZwjSupport (zwjEmojisToCheck, baselineEmoji, emojiToDomNode) {
+function checkZwjSupport (zwjEmojisToCheck, baselineEmojiNode, emojiToDomNode) {
   let allSupported = true;
   for (const emoji of zwjEmojisToCheck) {
     const domNode = emojiToDomNode(emoji);
@@ -311,10 +345,10 @@ function checkZwjSupport (zwjEmojisToCheck, baselineEmoji, emojiToDomNode) {
       // Just bail out of emoji support detection and return `allSupported=true` since the rendering context is gone
       continue
     }
-    const emojiWidth = calculateTextWidth(domNode);
     if (typeof baselineEmojiWidth === 'undefined') { // calculate the baseline emoji width only once
-      baselineEmojiWidth = calculateTextWidth(baselineEmoji);
+      baselineEmojiWidth = calculateTextWidthWithFallback(BASELINE_EMOJI, baselineEmojiNode, baselineEmojiNode);
     }
+    const emojiWidth = calculateTextWidthWithFallback(emoji.unicode, domNode, baselineEmojiNode);
     // On Windows, some supported emoji are ~50% bigger than the baseline emoji, but what we really want to guard
     // against are the ones that are 2x the size, because those are truly broken (person with red hair = person with
     // floating red wig, black cat = cat with black square, polar bear = bear with snowflake, etc.)
@@ -1456,25 +1490,32 @@ function createRoot (shadowRoot, props) {
     }
   }
 
-  //
-  // Handle user input on an emoji
-  //
-
-  async function clickEmoji (unicodeOrName) {
+  async function getDetailForClickEvent (unicodeOrName) {
     const emoji = await state.database.getEmojiByUnicodeOrName(unicodeOrName);
     const emojiSummary = [...state.currentEmojis, ...state.currentFavorites]
       .find(_ => (_.id === unicodeOrName));
     const skinTonedUnicode = emojiSummary.unicode && unicodeWithSkin(emojiSummary, state.currentSkinTone);
     await state.database.incrementFavoriteEmojiCount(unicodeOrName);
-    fireEvent('emoji-click', {
+    return {
       emoji,
       skinTone: state.currentSkinTone,
       ...(skinTonedUnicode && { unicode: skinTonedUnicode }),
       ...(emojiSummary.name && { name: emojiSummary.name })
-    });
+    }
   }
 
-  async function onEmojiClick (event) {
+  //
+  // Handle user input on an emoji
+  //
+  async function clickEmoji (unicodeOrName) {
+    const promiseForDetail = getDetailForClickEvent(unicodeOrName);
+    // sync event to work around a safari bug: https://bugs.webkit.org/show_bug.cgi?id=222262
+    fireEvent('emoji-click-sync', promiseForDetail);
+    // async event for most normal use cases that don't need to work around the safari bug
+    fireEvent('emoji-click', await promiseForDetail);
+  }
+
+  function onEmojiClick (event) {
     const { target } = event;
     /* istanbul ignore if */
     if (!target.classList.contains('emoji')) {
@@ -1688,6 +1729,7 @@ class PickerElement extends HTMLElement {
   }
 
   connectedCallback () {
+    rescueElementPrototype(this);
     // The _cmp may be defined if the component was immediately disconnected and then reconnected. In that case,
     // do nothing (preserve the state)
     if (!this._cmp) {
@@ -1696,6 +1738,7 @@ class PickerElement extends HTMLElement {
   }
 
   disconnectedCallback () {
+    rescueElementPrototype(this);
     // Check in a microtask if the element is still connected. If so, treat this as a "move" rather than a disconnect
     // Inspired by Vue: https://vuejs.org/guide/extras/web-components.html#building-custom-elements-with-vue
     qM(() => {
@@ -1776,9 +1819,18 @@ for (const prop of PROPS) {
 
 Object.defineProperties(PickerElement.prototype, definitions);
 
+// See https://jakearchibald.com/2025/firefox-custom-elements-iframes-bug/
+// TODO: remove when the Firefox bug is fixed: https://bugzilla.mozilla.org/show_bug.cgi?id=1502814
+function rescueElementPrototype (element) {
+  /* istanbul ignore if */
+  if (!(element instanceof PickerElement)) {
+    Object.setPrototypeOf(element, customElements.get(element.tagName.toLowerCase()).prototype);
+  }
+}
+
 /* istanbul ignore else */
 if (!customElements.get('emoji-picker')) { // if already defined, do nothing (e.g. same script imported twice)
   customElements.define('emoji-picker', PickerElement);
 }
 
-export { PickerElement as default };
+export { PickerElement as default, rescueElementPrototype };

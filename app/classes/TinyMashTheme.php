@@ -528,6 +528,9 @@ class TinyMashTheme {
 
         foreach ( $this->user_repository->getPublicThemeSettings( $author_slug, $this->getThemeKey() ) as $setting_key => $setting_value ) {
             if ( is_string( $setting_key ) && array_key_exists( $setting_key, $settings ) ) {
+                if ( $setting_key === 'content_width' && strtolower( trim( (string) $setting_value ) ) === 'theme_default' ) {
+                    continue;
+                }
                 $settings[$setting_key] = $setting_value;
             }
         }
@@ -797,7 +800,7 @@ class TinyMashTheme {
     }
 
     protected function getMetaRobotsDirectives( array $page_context ) : string {
-        if ( $this->config instanceof TinyMashConfig && $this->config->discouragesSearchIndexing() ) {
+        if ( $this->config instanceof TinyMashConfig && ( ! $this->config->isSitePublic() || $this->config->discouragesSearchIndexing() ) ) {
             return( 'noindex, nofollow' );
         }
 
@@ -1449,7 +1452,7 @@ class TinyMashTheme {
     public function getChildPagesSectionHeading() : string {
         return(
             match ( (string) ( $this->getThemeSettings()['page_children_after_content'] ?? 'more' ) ) {
-                'subpages' => 'Sub pages',
+                'subpages' => 'Subpages',
                 default => 'More',
             }
         );

@@ -27,7 +27,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         [
             'title' => 'Backup',
-            'summary' => 'Controls how generated ZIP archives are delivered to the browser.',
+            'summary' => 'Choose how generated ZIP archives are delivered to the browser.',
             'fields' => [
                 [
                     'key' => 'download_delivery_mode',
@@ -82,14 +82,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-backup',
         [
             'title' => 'Backup',
-            'summary' => 'Download your own data or a full site backup.',
+            'summary' => 'Create an author export or full site backup.',
             'group' => 'Plugins',
             'order' => 110,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Backup packages the core export bridge into downloadable ZIP archives.',
+                    'title' => 'Overview',
+                    'markdown' => 'Create downloadable ZIP archives from the core export data.',
                 ],
                 [
                     'title' => 'Author downloads',

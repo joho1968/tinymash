@@ -11,7 +11,7 @@
     },
     {
       "title": "Default save status",
-      "markdown": "Controls whether new content starts with **Published** or **Unpublished** as its default saved status."
+      "markdown": "Choose whether new content starts with **Published** or **Unpublished** as its default saved status."
     },
     {
       "title": "Aggregate new posts to the root stream by default",
@@ -27,7 +27,7 @@
     },
     {
       "title": "Secret links",
-      "markdown": "If the site allows secret links, you can generate a private link for your author space here without making the whole site public."
+      "markdown": "If the site allows secret links, you can generate access for your author space without making the whole site public. Choose an expiry from 1 to 365 days, or use 0 for no expiry."
     }
   ]
 }

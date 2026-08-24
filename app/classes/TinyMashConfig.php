@@ -591,6 +591,14 @@ class TinyMashConfig {
         return( true );
     }
 
+    public function getEditorDefaultMode() : string {
+        if ( $this->config_read ) {
+            return( $this->normalizeEditorMode( $this->config['editor']['default_mode'] ?? 'simple' ) );
+        }
+
+        return( 'simple' );
+    }
+
     public function getEditorAutosaveIntervalSeconds() : int {
         if ( $this->config_read && isset( $this->config['editor']['autosave_interval_seconds'] ) ) {
             return( $this->normalizeAutosaveIntervalSeconds( $this->config['editor']['autosave_interval_seconds'] ) );
@@ -879,6 +887,7 @@ class TinyMashConfig {
                 'editor_autosave_enabled' => $this->isEditorAutosaveEnabled(),
                 'editor_autosave_interval_seconds' => $this->getEditorAutosaveIntervalSeconds(),
                 'editor_classic_smileys_enabled' => $this->isClassicSmileysEnabled(),
+                'editor_default_mode' => $this->getEditorDefaultMode(),
                 'content_images_mode' => $this->getContentImagesMode(),
                 'content_image_driver' => $this->getContentImageDriverPreference(),
                 'content_image_max_width' => $this->getContentImageMaxWidth(),

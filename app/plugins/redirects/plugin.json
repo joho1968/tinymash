@@ -1,8 +1,8 @@
 {
     "key": "redirects",
     "name": "Redirects",
-    "version": "0.96.0",
-    "description": "Redirects a specific /path to a page or a post.",
+    "version": "0.97.0",
+    "description": "Redirects local paths to published pages or posts.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -11,12 +11,12 @@
     "capabilities": [
         "routes.public",
         "routes.admin",
-        "navigation.admin",
+        "admin.navigation",
         "storage.private"
     ],
     "static_export": {
         "mode": "placeholder",
-        "summary": "Redirect routes stay on the live site and exported references fall back to their live URLs."
+        "summary": "Keeps redirects on the live site and rewrites exported references to their live URLs."
     },
     "default_active": true,
     "stage": "early"

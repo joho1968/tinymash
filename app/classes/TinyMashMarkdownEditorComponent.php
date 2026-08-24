@@ -34,9 +34,9 @@ class TinyMashMarkdownEditorComponent {
         $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Text styles">';
         $html .= self::toolButton( 'wrap', 'bi-type-bold', 'Bold', [ 'prefix' => '**', 'suffix' => '**', 'placeholder' => 'bold text' ] );
         $html .= self::toolButton( 'wrap', 'bi-type-italic', 'Italic', [ 'prefix' => '*', 'suffix' => '*', 'placeholder' => 'italic text' ] );
-        $html .= self::toolButton( 'wrap', 'bi-type-strikethrough', 'Strikethrough', [ 'prefix' => '~~', 'suffix' => '~~', 'placeholder' => 'struck text' ] );
-        $html .= self::toolButton( 'wrap', 'bi-code-slash', 'Inline code', [ 'prefix' => '`', 'suffix' => '`', 'placeholder' => 'code' ] );
-        $html .= self::toolButton( 'wrap', 'bi-marker-tip', 'Mark / highlight', [ 'prefix' => '==', 'suffix' => '==', 'placeholder' => 'highlighted text' ] );
+        $html .= self::toolButton( 'wrap', 'bi-type-strikethrough', 'Strikethrough', [ 'prefix' => '~~', 'suffix' => '~~', 'placeholder' => 'struck text' ], '', 'tm-editor-simple-hidden' );
+        $html .= self::toolButton( 'wrap', 'bi-code-slash', 'Inline code', [ 'prefix' => '`', 'suffix' => '`', 'placeholder' => 'code' ], '', 'tm-editor-simple-hidden' );
+        $html .= self::toolButton( 'wrap', 'bi-marker-tip', 'Mark / highlight', [ 'prefix' => '==', 'suffix' => '==', 'placeholder' => 'highlighted text' ], '', 'tm-editor-simple-hidden' );
         $html .= '</div><div class="btn-group btn-group-sm" role="group" aria-label="Blocks">';
         $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Heading levels"><button class="btn btn-outline-secondary" type="button" data-tm-markdown-action="heading-apply" title="Apply heading level" aria-label="Apply heading level"><span class="bi bi-type-h1 me-1" aria-hidden="true"></span><span data-tm-markdown-heading-label>H1</span></button><button class="btn btn-outline-secondary px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Choose heading level" aria-label="Choose heading level"><span class="bi bi-three-dots-vertical" aria-hidden="true"></span></button><ul class="dropdown-menu">';
         foreach ( range( 1, 6 ) as $level ) {
@@ -44,15 +44,15 @@ class TinyMashMarkdownEditorComponent {
         }
         $html .= '</ul></div>';
         $html .= self::toolButton( 'prefix-lines', 'bi-blockquote-left', 'Blockquote', [ 'prefix' => '> ', 'placeholder' => 'Blockquote' ] );
-        $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Alerts"><button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Insert alert" aria-label="Insert alert"><span class="bi bi-exclamation-square" aria-hidden="true"></span></button><ul class="dropdown-menu">';
+        $html .= '<div class="btn-group btn-group-sm tm-editor-simple-hidden" role="group" aria-label="Alerts"><button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Insert alert" aria-label="Insert alert"><span class="bi bi-exclamation-square" aria-hidden="true"></span></button><ul class="dropdown-menu">';
         foreach ( [ 'PRIMARY' => 'text-primary', 'SECONDARY' => 'text-body-secondary', 'SUCCESS' => 'text-success', 'DANGER' => 'text-danger', 'WARNING' => 'text-warning', 'INFO' => 'text-info', 'LIGHT' => 'text-body-tertiary', 'DARK' => 'text-body-emphasis' ] as $type => $class ) {
             $html .= '<li><button class="dropdown-item" type="button" data-tm-markdown-action="callout" data-callout="' . $type . '" title="Insert ' . strtolower( $type ) . ' alert"><span class="bi bi-circle-fill ' . $class . ' me-2" aria-hidden="true"></span>' . ucfirst( strtolower( $type ) ) . '</button></li>';
         }
         $html .= '</ul></div>';
         $html .= self::toolButton( 'prefix-lines', 'bi-list-ul', 'Bullet list', [ 'prefix' => '- ', 'placeholder' => 'List item' ] );
-        $html .= self::toolButton( 'prefix-lines', 'bi-list-check', 'Task list', [ 'prefix' => '- [ ] ', 'placeholder' => 'Task item' ] );
-        $html .= self::toolButton( 'table', 'bi-table', 'Insert or convert table' );
-        $html .= self::toolButton( 'wrap-block', 'bi-braces-asterisk', 'Code block', [ 'prefix' => "```text\n", 'suffix' => "\n```", 'placeholder' => 'code' ], '<span class="d-none d-lg-inline ms-1">Block</span>' );
+        $html .= self::toolButton( 'prefix-lines', 'bi-list-check', 'Task list', [ 'prefix' => '- [ ] ', 'placeholder' => 'Task item' ], '', 'tm-editor-simple-hidden' );
+        $html .= self::toolButton( 'table', 'bi-table', 'Insert or convert table', [], '', 'tm-editor-simple-hidden' );
+        $html .= self::toolButton( 'wrap-block', 'bi-braces-asterisk', 'Code block', [ 'prefix' => "```text\n", 'suffix' => "\n```", 'placeholder' => 'code' ], '<span class="d-none d-lg-inline ms-1">Block</span>', 'tm-editor-simple-hidden' );
         $html .= '</div>';
         if ( $external_links || $internal_links || $images ) {
             $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Links">';
@@ -73,7 +73,7 @@ class TinyMashMarkdownEditorComponent {
             $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Emoji"><button class="btn btn-outline-secondary" id="tm-editor-open-emoji-picker" type="button" title="Open emoji picker" aria-label="Open emoji picker"><span class="bi bi-emoji-smile" aria-hidden="true"></span></button></div>';
         }
         if ( ! empty( $shortcodes ) ) {
-            $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Shortcodes"><button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Insert shortcode" aria-label="Insert shortcode"><span class="bi bi-braces" aria-hidden="true"></span></button><ul class="dropdown-menu dropdown-menu-end">';
+            $html .= '<div class="btn-group btn-group-sm tm-editor-simple-hidden" role="group" aria-label="Shortcodes"><button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Insert shortcode" aria-label="Insert shortcode"><span class="bi bi-braces" aria-hidden="true"></span></button><ul class="dropdown-menu dropdown-menu-end">';
             foreach ( $shortcodes as $shortcode ) {
                 if ( ! is_array( $shortcode ) ) {
                     continue;
@@ -114,9 +114,10 @@ class TinyMashMarkdownEditorComponent {
         return( $html . '</div></div>' );
     }
 
-    protected static function toolButton( string $action, string $icon, string $label, array $data = [], string $suffix_html = '' ) : string {
+    protected static function toolButton( string $action, string $icon, string $label, array $data = [], string $suffix_html = '', string $extra_classes = '' ) : string {
         $escape = static fn( string $value ) : string => htmlspecialchars( $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
-        $html = '<button class="btn btn-outline-secondary d-inline-flex align-items-center" type="button" data-tm-markdown-action="' . $escape( $action ) . '" title="' . $escape( $label ) . '" aria-label="' . $escape( $label ) . '"';
+        $button_classes = trim( 'btn btn-outline-secondary d-inline-flex align-items-center ' . $extra_classes );
+        $html = '<button class="' . $escape( $button_classes ) . '" type="button" data-tm-markdown-action="' . $escape( $action ) . '" title="' . $escape( $label ) . '" aria-label="' . $escape( $label ) . '"';
         foreach ( $data as $name => $value ) {
             $html .= ' data-' . $escape( $name ) . '="' . $escape( (string) $value ) . '"';
         }

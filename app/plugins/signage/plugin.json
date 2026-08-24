@@ -1,8 +1,8 @@
 {
     "key": "signage",
     "name": "Signage",
-    "version": "0.96.0",
-    "description": "Runs access-controlled looping presentations on display screens.",
+    "version": "0.97.0",
+    "description": "Runs access-controlled presentation loops on display screens.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -12,11 +12,12 @@
         "routes.public",
         "routes.admin",
         "admin.navigation",
+        "assets.public",
         "storage.private"
     ],
     "static_export": {
         "mode": "placeholder",
-        "summary": "Signage players and data routes remain on the live site through rewritten fallback URLs."
+        "summary": "Keeps Signage players and data routes on the live site and rewrites exported links to their live URLs."
     },
     "default_active": true,
     "stage": "early"

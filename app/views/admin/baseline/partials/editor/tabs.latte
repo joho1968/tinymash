@@ -5,7 +5,7 @@
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="tm-tab-preview" type="button" role="tab" aria-controls="tm-editor-preview-pane" aria-selected="false" data-mode="preview">Preview</button>
     </li>
-    <li class="nav-item" role="presentation">
+    <li class="nav-item tm-editor-simple-hidden" role="presentation">
         <button class="nav-link" id="tm-tab-metadata" type="button" role="tab" aria-controls="tm-editor-metadata-pane" aria-selected="false" data-mode="metadata">Options</button>
     </li>
     <li n:if="! empty( $editor_seo_enabled )" class="nav-item tm-editor-full-only" role="presentation">
@@ -22,14 +22,14 @@
             <label class="form-label small mb-1" for="tm-editor-title">Title</label>
             <input class="form-control" id="tm-editor-title" type="text" value="{$editor_draft['title']}">
         </div>
-        <div class="col-12 col-sm-6">
+        <div class="col-12 col-sm-6 tm-editor-simple-hidden">
             <label class="form-label small mb-1" for="tm-editor-entry-type">Type</label>
             <select class="form-select form-select-sm" id="tm-editor-entry-type">
                 <option value="post" n:attr="selected => $editor_draft['entry_type'] === 'post'">Post</option>
                 <option value="page" n:attr="selected => $editor_draft['entry_type'] === 'page'">Page</option>
             </select>
         </div>
-        <div class="col-12 col-sm-6">
+        <div class="col-12 col-sm-6 tm-editor-simple-hidden">
             <label class="form-label small mb-1" for="tm-editor-status-field">Status</label>
             <select class="form-select form-select-sm" id="tm-editor-status-field">
                 <option value="unpublished" n:attr="selected => ($editor_draft['status'] ?? 'unpublished') === 'unpublished'">Unpublished</option>

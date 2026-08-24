@@ -150,14 +150,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-notes',
         [
             'title' => 'Notes',
-            'summary' => 'A private per-user Markdown note inside admin.',
+            'summary' => 'Keep a private per-user Markdown note with revisions.',
             'group' => 'Plugins',
             'order' => 100,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it is',
-                    'markdown' => 'Notes gives each logged-in user one private note. It is only available in admin, never public, and never included in feeds.',
+                    'title' => 'Overview',
+                    'markdown' => 'Keep one private note per user. Notes stay in admin and never appear on public pages or in feeds.',
                 ],
                 [
                     'title' => 'Write, preview, and save',

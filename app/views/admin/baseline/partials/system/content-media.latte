@@ -10,6 +10,15 @@
                     <div class="small text-uppercase text-body-secondary mb-2">Editor defaults</div>
                     <div class="row g-3">
                         <div class="col-12">
+                            <label class="form-label small mb-1" for="tm-system-editor-default-mode">Default Composer mode</label>
+                            <select class="form-select" id="tm-system-editor-default-mode" name="editor_default_mode">
+                                <option value="simple" n:attr="selected => ($system_settings['editor_default_mode'] ?? 'simple') === 'simple'">Simple</option>
+                                <option value="focused" n:attr="selected => ($system_settings['editor_default_mode'] ?? 'simple') === 'focused'">Focused</option>
+                                <option value="full" n:attr="selected => ($system_settings['editor_default_mode'] ?? 'simple') === 'full'">Full</option>
+                            </select>
+                            <div class="form-text">Used for new accounts. Each account then remembers its last Composer choice.</div>
+                        </div>
+                        <div class="col-12">
                             <div class="form-check">
                                 <input class="form-check-input" id="tm-system-editor-autosave-enabled" name="editor_autosave_enabled" type="checkbox" n:attr="checked => $system_settings['editor_autosave_enabled']">
                                 <label class="form-check-label" for="tm-system-editor-autosave-enabled">Enable editor autosave sitewide</label>

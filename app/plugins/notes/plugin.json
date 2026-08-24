@@ -1,8 +1,8 @@
 {
     "key": "notes",
     "name": "Notes",
-    "version": "0.96.0",
-    "description": "Adds a private per-user notebook in the admin area, with revision snapshots.",
+    "version": "0.97.0",
+    "description": "Provides a private per-user Markdown notebook with revisions.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -10,8 +10,9 @@
     "bootstrap": "bootstrap.php",
     "capabilities": [
         "routes.admin",
-        "navigation.admin",
-        "storage.private"
+        "admin.navigation",
+        "storage.private",
+        "housekeeping"
     ],
     "default_active": false,
     "stage": "early"

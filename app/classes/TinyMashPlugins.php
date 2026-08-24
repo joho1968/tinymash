@@ -45,6 +45,7 @@ class TinyMashPlugins {
         'admin.theme',
         'help.catalog',
         'export.service',
+        'secret_links',
         'mailer',
     ];
 
@@ -674,8 +675,13 @@ class TinyMashPlugins {
         $this->cli_commands[$command] = [
             'plugin_key' => $plugin_key,
             'command' => $command,
-            'usage' => trim( (string) ( $definition['usage'] ?? '' ) ),
             'summary' => trim( (string) ( $definition['summary'] ?? '' ) ),
+            'arguments' => is_array( $definition['arguments'] ?? null ) ? $definition['arguments'] : [],
+            'options' => is_array( $definition['options'] ?? null ) ? $definition['options'] : [],
+            'exclusive_options' => is_array( $definition['exclusive_options'] ?? null ) ? $definition['exclusive_options'] : [],
+            'paired_options' => is_array( $definition['paired_options'] ?? null ) ? $definition['paired_options'] : [],
+            'examples' => is_array( $definition['examples'] ?? null ) ? $definition['examples'] : [],
+            'notes' => mb_trim( (string) ( $definition['notes'] ?? '' ) ),
             'order' => (int) ( $definition['order'] ?? 100 ),
             'handler' => $handler,
         ];

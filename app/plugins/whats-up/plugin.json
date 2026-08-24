@@ -1,8 +1,8 @@
 {
     "key": "whats-up",
     "name": "What's Up",
-    "version": "0.96.0",
-    "description": "Displays cached calendar events from configured iCalendar sources.",
+    "version": "0.97.0",
+    "description": "Shows cached calendar events from saved iCalendar sources.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -14,11 +14,13 @@
         "content.shortcodes",
         "theme.slots",
         "storage.private",
-        "housekeeping"
+        "housekeeping",
+        "assets.public",
+        "cli"
     ],
     "static_export": {
         "mode": "omit",
-        "summary": "Cached calendar shortcodes, slots, and controls are not currently rendered into static exports."
+        "summary": "Excludes calendar shortcodes, theme slots, and controls from static exports."
     },
     "default_active": true,
     "stage": "early"

@@ -1,8 +1,8 @@
 {
     "key": "backup",
     "name": "Backup",
-    "version": "0.96.0",
-    "description": "Adds downloadable author exports and site backups on top of the core export bridge.",
+    "version": "0.97.0",
+    "description": "Creates downloadable author exports and site backups.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -10,7 +10,8 @@
     "bootstrap": "bootstrap.php",
     "capabilities": [
         "routes.admin",
-        "navigation.admin"
+        "admin.navigation",
+        "housekeeping"
     ],
     "default_active": false,
     "stage": "early"

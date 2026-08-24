@@ -9,10 +9,12 @@ class TinyMashUserRepository {
     protected string $users_lock_filename;
     protected string $users_data_generation = '';
     protected array $invalid_user_files = [];
+    protected string $default_editor_mode;
 
-    public function __construct( string $users_directory ) {
+    public function __construct( string $users_directory, string $default_editor_mode = 'simple' ) {
         $this->users_directory = rtrim( $users_directory, DIRECTORY_SEPARATOR );
         $this->users_lock_filename = $this->users_directory . DIRECTORY_SEPARATOR . '.users.lock';
+        $this->default_editor_mode = $this->normalizeEditorMode( $default_editor_mode ) ?: 'simple';
     }
 
     public function getAllUsers() : array {
@@ -214,7 +216,7 @@ class TinyMashUserRepository {
                 'autosave_mode' => $autosave_mode,
                 'autosave_interval_seconds' => $autosave_interval_seconds,
                 'classic_smileys_mode' => $classic_smileys_mode,
-                'editor_mode' => $role === 'superadmin' ? 'full' : 'focused',
+                'editor_mode' => $this->default_editor_mode,
                 'theme_mode' => 'auto',
                 'timezone' => '',
                 'default_entry_type' => 'post',
@@ -1276,7 +1278,7 @@ class TinyMashUserRepository {
 
     protected function normalizeEditorMode( string $editor_mode ) : string {
         $editor_mode = strtolower( trim( $editor_mode ) );
-        if ( in_array( $editor_mode, [ 'focused', 'full' ], true ) ) {
+        if ( in_array( $editor_mode, [ 'simple', 'focused', 'full' ], true ) ) {
             return( $editor_mode );
         }
 

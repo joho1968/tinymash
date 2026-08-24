@@ -1,8 +1,8 @@
 {
     "key": "search",
     "name": "Search",
-    "version": "0.96.0",
-    "description": "Adds public content search for root and author spaces.",
+    "version": "0.97.0",
+    "description": "Provides public content search for the site and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -10,12 +10,12 @@
     "bootstrap": "bootstrap.php",
     "capabilities": [
         "routes.public",
-        "public.assets",
+        "assets.public",
         "export.static"
     ],
     "static_export": {
         "mode": "static-js",
-        "summary": "Scoped Search pages use local JavaScript and exported JSON indexes without live requests."
+        "summary": "Includes scoped Search pages, local JavaScript, and exported JSON indexes."
     },
     "default_active": false,
     "stage": "before"

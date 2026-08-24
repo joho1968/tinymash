@@ -333,6 +333,7 @@ class TinyMashConfigIO {
                 'editor_autosave_enabled' => $this->normalizeBoolean( $this->config['editor']['autosave_enabled'] ?? true ),
                 'editor_autosave_interval_seconds' => $this->normalizeAutosaveIntervalSeconds( $this->config['editor']['autosave_interval_seconds'] ?? 120 ),
                 'editor_classic_smileys_enabled' => $this->normalizeBoolean( $this->config['editor']['classic_smileys_enabled'] ?? true ),
+                'editor_default_mode' => $this->normalizeEditorMode( $this->config['editor']['default_mode'] ?? 'simple' ),
                 'content_images_mode' => (string) ( $this->config['media']['content_images_mode'] ?? 'authenticated' ),
                 'content_image_driver' => (string) ( $this->config['media']['image_driver'] ?? 'auto' ),
                 'content_image_max_width' => $this->normalizeImageDimension( $this->config['media']['image_max_width'] ?? 2560 ),
@@ -405,6 +406,7 @@ class TinyMashConfigIO {
             $this->config['editor']['autosave_enabled'] = (bool) ( $settings['editor_autosave_enabled'] ?? true );
             $this->config['editor']['autosave_interval_seconds'] = $this->normalizeAutosaveIntervalSeconds( $settings['editor_autosave_interval_seconds'] ?? $this->config['editor']['autosave_interval_seconds'] ?? 120 );
             $this->config['editor']['classic_smileys_enabled'] = (bool) ( $settings['editor_classic_smileys_enabled'] ?? true );
+            $this->config['editor']['default_mode'] = $this->normalizeEditorMode( $settings['editor_default_mode'] ?? $this->config['editor']['default_mode'] ?? 'simple' );
         } elseif ( $settings_group === 'head_tags' ) {
             $this->config['site']['head_tags'] = TinyMashConfig::normalizePublicHeadTags( $settings['head_tags'] ?? [] );
         } elseif ( $settings_group === 'media' ) {

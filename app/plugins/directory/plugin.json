@@ -1,8 +1,8 @@
 {
     "key": "directory",
     "name": "Links",
-    "version": "0.96.0",
-    "description": "Creates categorized link collections rendered through content shortcodes.",
+    "version": "0.97.0",
+    "description": "Creates categorized link collections for content shortcodes.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -12,11 +12,12 @@
         "routes.admin",
         "admin.navigation",
         "content.shortcodes",
+        "assets.public",
         "storage.private"
     ],
     "static_export": {
         "mode": "omit",
-        "summary": "Links shortcodes and plugin presentation are not currently included in static exports."
+        "summary": "Excludes Links shortcodes and plugin styles from static exports."
     },
     "default_active": true,
     "stage": "early"

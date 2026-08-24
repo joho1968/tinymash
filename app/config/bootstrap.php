@@ -105,7 +105,8 @@ $draft_repository = new app\classes\TinyMashDraftRepository(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'drafts'
 );
 $user_repository = new app\classes\TinyMashUserRepository(
-    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'users'
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'users',
+    $config->getEditorDefaultMode()
 );
 $markdown_renderer = new app\classes\TinyMashMarkdownRenderer();
 $date_formatter = new app\classes\TinyMashDateFormatter(

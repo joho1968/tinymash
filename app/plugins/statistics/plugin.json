@@ -1,8 +1,8 @@
 {
     "key": "statistics",
     "name": "Statistics",
-    "version": "0.96.0",
-    "description": "Collects public page views and shows sitewide and author-scoped reports in admin.",
+    "version": "0.97.0",
+    "description": "Collects public page views and provides site and author reports.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -11,14 +11,15 @@
     "capabilities": [
         "routes.public",
         "routes.admin",
-        "navigation.admin",
+        "admin.navigation",
         "settings.system",
         "theme.slots",
-        "storage.private"
+        "storage.private",
+        "housekeeping"
     ],
     "static_export": {
         "mode": "omit",
-        "summary": "Runtime view collection and reporting are intentionally excluded from static exports."
+        "summary": "Excludes page-view collection and reports from static exports."
     },
     "default_active": false,
     "stage": "early"

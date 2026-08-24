@@ -14,7 +14,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'title' => 'Footer',
-                'summary' => 'Two small public footer lines. Markdown, emoji, and classic smileys are supported.',
+                'summary' => 'Add up to two public footer lines with Markdown, emoji, and classic smileys.',
                 'fields' => [
                     [
                         'key' => 'footer_line_one',
@@ -29,6 +29,30 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                         'label' => 'Footer line 2',
                         'help' => 'Rendered as Markdown in public theme footer slots.',
                         'default' => '',
+                    ],
+                ],
+            ]
+        );
+    }
+
+    if ( ! $plugins->isCliRuntime() ) {
+        $plugins->registerHelpDocument(
+            $plugin_key,
+            'plugin-footer',
+            [
+                'title' => 'Footer',
+                'summary' => 'Show configured text in public theme footers.',
+                'group' => 'Plugins',
+                'order' => 124,
+                'roles' => [ 'author', 'admin' ],
+                'sections' => [
+                    [
+                        'title' => 'Overview',
+                        'markdown' => 'Add up to two lines to the footer slot of supported public themes.',
+                    ],
+                    [
+                        'title' => 'Formatting',
+                        'markdown' => 'Footer lines support inline Markdown, emoji shortcodes, and classic smileys. Empty lines are not rendered.',
                     ],
                 ],
             ]

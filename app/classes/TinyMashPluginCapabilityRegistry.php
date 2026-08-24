@@ -10,91 +10,119 @@ class TinyMashPluginCapabilityRegistry {
             'routes.public',
             [
                 'label' => 'Public routes',
-                'description' => 'The plugin adds public-facing route handlers.',
+                'description' => 'Adds public route handlers.',
             ]
         );
         $this->registerCapabilityDefinition(
             'routes.admin',
             [
                 'label' => 'Admin routes',
-                'description' => 'The plugin adds admin-facing route handlers.',
+                'description' => 'Adds admin route handlers.',
             ]
         );
         $this->registerCapabilityDefinition(
             'admin.navigation',
             [
                 'label' => 'Admin navigation',
-                'description' => 'The plugin contributes entries to admin navigation or section tools.',
+                'description' => 'Adds links or tools to admin navigation.',
             ]
         );
         $this->registerCapabilityDefinition(
             'settings.system',
             [
                 'label' => 'System settings',
-                'description' => 'The plugin exposes site-level settings under System.',
+                'description' => 'Adds site settings under System.',
             ]
         );
         $this->registerCapabilityDefinition(
             'settings.profile',
             [
                 'label' => 'Profile settings',
-                'description' => 'The plugin exposes author/account settings in Profile.',
+                'description' => 'Adds author or account settings under Profile.',
             ]
         );
         $this->registerCapabilityDefinition(
             'content.workflow',
             [
                 'label' => 'Content workflow',
-                'description' => 'The plugin extends drafting, revision, approval, or publishing behavior.',
+                'description' => 'Extends drafting, revision, approval, or publishing.',
             ]
         );
         $this->registerCapabilityDefinition(
             'content.shortcodes',
             [
                 'label' => 'Content shortcodes',
-                'description' => 'The plugin registers Markdown content shortcodes.',
+                'description' => 'Adds Markdown content shortcodes.',
             ]
         );
         $this->registerCapabilityDefinition(
             'media.ingest',
             [
                 'label' => 'Media ingest',
-                'description' => 'The plugin imports or creates media objects for the application.',
+                'description' => 'Imports or creates managed media.',
             ]
         );
         $this->registerCapabilityDefinition(
             'media.transform',
             [
                 'label' => 'Media transform',
-                'description' => 'The plugin adds media transformation or derivative-generation behavior.',
+                'description' => 'Adds media transformations or derivatives.',
             ]
         );
         $this->registerCapabilityDefinition(
             'import.content',
             [
                 'label' => 'Content import',
-                'description' => 'The plugin imports content from another system or format.',
+                'description' => 'Imports content from another system or format.',
             ]
         );
         $this->registerCapabilityDefinition(
             'export.static',
             [
                 'label' => 'Static export',
-                'description' => 'The plugin contributes public files to static site exports.',
+                'description' => 'Adds public files to static exports.',
             ]
         );
         $this->registerCapabilityDefinition(
             'metadata.public',
             [
                 'label' => 'Public metadata',
-                'description' => 'The plugin contributes validated metadata records to public document heads.',
+                'description' => 'Adds validated metadata to public document heads.',
             ]
         );
         $this->registerCapabilityDefinition(
             'theme.slots',
             [
                 'label' => 'Theme slots',
-                'description' => 'The plugin integrates with explicit public or admin theme slot surfaces.',
+                'description' => 'Adds content to public or admin theme slots.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
+            'assets.public',
+            [
+                'label' => 'Public assets',
+                'description' => 'Adds local CSS, JavaScript, fonts, or images to public pages.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
+            'storage.private',
+            [
+                'label' => 'Private storage',
+                'description' => 'Stores plugin data outside the public web root.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
+            'housekeeping',
+            [
+                'label' => 'Housekeeping',
+                'description' => 'Adds scheduled or maintenance work.',
+            ]
+        );
+        $this->registerCapabilityDefinition(
+            'cli',
+            [
+                'label' => 'CLI',
+                'description' => 'Adds command-line operations.',
             ]
         );
     }

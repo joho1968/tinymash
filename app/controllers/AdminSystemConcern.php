@@ -366,6 +366,128 @@ trait AdminSystemConcern {
         $this->app->redirect( $this->getSystemSectionUrl( 'smtp' ) );
     }
 
+    public function generateSystemSecretLink() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->app->redirect( $this->config->configGetLoginURL() );
+            return;
+        }
+        if ( ! $this->security->isSuperAdmin() ) {
+            $this->app->response()->status( 403 );
+            return;
+        }
+
+        $data = $this->app->request()->data->getData();
+        if ( ! is_array( $data ) ) {
+            $data = [];
+        }
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'Your session token is invalid. Please reload the page and try again.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'security' ) );
+            return;
+        }
+
+        try {
+            if ( $this->config->isSitePublic() ) {
+                throw new \InvalidArgumentException( 'secret_links_public_site' );
+            }
+            if ( ! $this->config->allowsSecretLinks() ) {
+                throw new \InvalidArgumentException( 'secret_links_disabled' );
+            }
+
+            $secret_link_service = $this->getSecretLinkService();
+            if ( ! is_object( $secret_link_service ) ) {
+                throw new \RuntimeException( 'Secret link service is unavailable.' );
+            }
+            $target = strtolower( trim( (string) ( $data['secret_link_target'] ?? 'site' ) ) );
+            $expiry_days = $this->validateSecretLinkExpiryDays( $data['secret_link_expiry_days'] ?? $this->config->getSecretLinkDefaultExpiryDays() );
+            $current_username = (string) ( $this->security->getCurrentUsername() ?? '' );
+            if ( $target === 'site' ) {
+                if ( ! method_exists( $secret_link_service, 'generateSiteSecretLink' ) ) {
+                    throw new \RuntimeException( 'Site secret links are unavailable.' );
+                }
+                $secret_link_service->generateSiteSecretLink( $current_username, $expiry_days );
+                $message = 'Site secret link generated.';
+            } else {
+                $user_repository = $this->getUserRepository();
+                $user = $user_repository !== null ? $user_repository->getUserByUsername( $target ) : null;
+                if ( ! is_array( $user ) ) {
+                    throw new \InvalidArgumentException( 'secret_link_target' );
+                }
+                if ( empty( $user['content_active'] ) ) {
+                    throw new \InvalidArgumentException( 'secret_links_author_locked' );
+                }
+                if ( ! method_exists( $secret_link_service, 'generateAuthorSecretLink' ) ) {
+                    throw new \RuntimeException( 'Author secret links are unavailable.' );
+                }
+                $secret_link_service->generateAuthorSecretLink( (string) $user['author_slug'], $current_username, $expiry_days );
+                $message = 'Secret link generated for ' . (string) $user['username'] . '.';
+            }
+
+            $this->setSystemNoticeFlash( 'success', $message );
+        } catch ( \InvalidArgumentException $e ) {
+            $message = match ( $e->getMessage() ) {
+                'secret_links_public_site' => 'Secret links are only used when the site is not public.',
+                'secret_links_disabled' => 'Secret links are currently disabled.',
+                'secret_links_author_locked' => 'That author space is not available.',
+                'secret_link_target' => 'Select a valid secret-link target.',
+                default => $this->getUserValidationMessage( $e->getMessage() ),
+            };
+            $this->setSystemNoticeFlash( 'danger', $message );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to generate system secret link (' . $e->getMessage() . ')' );
+            $this->setSystemNoticeFlash( 'danger', 'Secret link could not be generated right now.' );
+        }
+
+        $this->app->redirect( $this->getSystemSectionUrl( 'security' ) );
+    }
+
+    public function revokeSystemSecretLink() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->app->redirect( $this->config->configGetLoginURL() );
+            return;
+        }
+        if ( ! $this->security->isSuperAdmin() ) {
+            $this->app->response()->status( 403 );
+            return;
+        }
+
+        $data = $this->app->request()->data->getData();
+        if ( ! is_array( $data ) ) {
+            $data = [];
+        }
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'Your session token is invalid. Please reload the page and try again.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'security' ) );
+            return;
+        }
+
+        try {
+            $secret_link_service = $this->getSecretLinkService();
+            if ( ! is_object( $secret_link_service ) ) {
+                throw new \RuntimeException( 'Secret link service is unavailable.' );
+            }
+            $target = strtolower( trim( (string) ( $data['secret_link_target'] ?? '' ) ) );
+            if ( $target === 'site' ) {
+                $revoked = method_exists( $secret_link_service, 'revokeSiteSecretLink' ) && $secret_link_service->revokeSiteSecretLink();
+                $message = 'Site secret link revoked.';
+            } else {
+                $revoked = $target !== ''
+                    && method_exists( $secret_link_service, 'revokeAuthorSecretLink' )
+                    && $secret_link_service->revokeAuthorSecretLink( $target );
+                $message = 'Secret link revoked for ' . $target . '.';
+            }
+            if ( ! $revoked ) {
+                throw new \RuntimeException( 'Secret link revocation failed.' );
+            }
+            $this->setSystemNoticeFlash( 'success', $message );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to revoke system secret link (' . $e->getMessage() . ')' );
+            $this->setSystemNoticeFlash( 'danger', 'Secret link could not be revoked right now.' );
+        }
+
+        $this->app->redirect( $this->getSystemSectionUrl( 'security' ) );
+    }
+
     public function saveSystemUser() : void {
         if ( ! $this->security->isLoggedIn() ) {
             $this->app->redirect( $this->config->configGetLoginURL() );
@@ -571,6 +693,15 @@ trait AdminSystemConcern {
             }
             if ( $user['role'] === 'superadmin' && $user_repository->countUsersByRole( 'superadmin' ) <= 1 ) {
                 throw new \InvalidArgumentException( 'delete_last_superadmin' );
+            }
+
+            $secret_link_service = $this->getSecretLinkService();
+            if (
+                ! is_object( $secret_link_service )
+                || ! method_exists( $secret_link_service, 'revokeAuthorSecretLink' )
+                || ! $secret_link_service->revokeAuthorSecretLink( (string) $user['author_slug'] )
+            ) {
+                throw new \RuntimeException( 'The author secret link could not be revoked.' );
             }
 
             $move_result = $this->content_repository->moveAuthorEntriesToDeletedOwner( (string) $user['author_slug'], $username );
@@ -966,6 +1097,9 @@ trait AdminSystemConcern {
             'system_plugin_settings_page' => $system_plugin_settings_page,
             'system_selected_plugin' => $system_selected_plugin,
             'system_users' => $system_users,
+            'system_secret_links' => $system_section === 'security' ? $this->getSystemSecretLinksViewData( $system_users ) : [],
+            'system_secret_link_generate_url' => $this->app->get( 'admin.url' ) . '/system/secret-links/generate',
+            'system_secret_link_revoke_url' => $this->app->get( 'admin.url' ) . '/system/secret-links/revoke',
             'system_user_form' => $this->getSystemUserFormState(),
             'system_user_save_url' => $this->app->get( 'admin.url' ) . '/system/users/save',
             'system_user_toggle_url' => $this->app->get( 'admin.url' ) . '/system/users/toggle',
@@ -2188,6 +2322,55 @@ trait AdminSystemConcern {
         return( $users );
     }
 
+    protected function getSystemSecretLinksViewData( array $users ) : array {
+        $service = $this->getSecretLinkService();
+        $records = [];
+        $users_by_slug = [];
+        foreach ( $users as $user ) {
+            if ( ! is_array( $user ) || empty( $user['author_slug'] ) ) {
+                continue;
+            }
+            $users_by_slug[(string) $user['author_slug']] = $user;
+        }
+
+        if ( is_object( $service ) && method_exists( $service, 'getAllSecretLinks' ) ) {
+            foreach ( (array) $service->getAllSecretLinks() as $record ) {
+                if ( ! is_array( $record ) ) {
+                    continue;
+                }
+                $scope = (string) ( $record['scope'] ?? 'author' );
+                $author_slug = (string) ( $record['author_slug'] ?? '' );
+                $user = $users_by_slug[$author_slug] ?? [];
+                $records[] = [
+                    'target' => $scope === 'site' ? 'site' : $author_slug,
+                    'label' => $scope === 'site'
+                        ? 'Site'
+                        : ( (string) ( $user['display_name'] ?? '' ) !== '' ? (string) $user['display_name'] : $author_slug ),
+                    'author_slug' => $author_slug,
+                    'url' => method_exists( $service, 'buildSecretLinkUrl' )
+                        ? (string) $service->buildSecretLinkUrl( $record, (string) $this->app->get( 'app.url' ) )
+                        : '',
+                    'created_at_display' => $this->formatUtcDateTime( (string) ( $record['created_at_utc'] ?? '' ) ),
+                    'expires_at_display' => ( $record['expires_at_utc'] ?? null ) === null
+                        ? 'Never'
+                        : $this->formatUtcDateTime( (string) $record['expires_at_utc'] ),
+                    'suspended' => $scope === 'author' && ( ! is_array( $user ) || empty( $user['content_active'] ) ),
+                ];
+            }
+        }
+
+        return(
+            [
+                'available' => ! $this->config->isSitePublic() && $this->config->allowsSecretLinks(),
+                'site_public' => $this->config->isSitePublic(),
+                'system_enabled' => $this->config->allowsSecretLinks(),
+                'default_expiry_days' => $this->config->getSecretLinkDefaultExpiryDays(),
+                'records' => $records,
+                'users' => array_values( $users_by_slug ),
+            ]
+        );
+    }
+
     protected function getSystemReassignUsers( array $users ) : array {
         $reassign_users = [];
         foreach ( $users as $user ) {
@@ -2290,6 +2473,7 @@ trait AdminSystemConcern {
                 'email' => 'The e-mail address is not valid.',
                 'theme_mode' => 'The selected theme mode is not valid.',
                 'editor_mode' => 'The selected Composer mode is not valid.',
+                'editor_default_mode' => 'The site default Composer mode is not valid.',
                 'default_entry_type' => 'The default content type is not valid.',
                 'default_status' => 'The default publishing status is not valid.',
                 'site_name' => 'The site name is required.',
@@ -2301,6 +2485,8 @@ trait AdminSystemConcern {
                 'password_reset_throttle_window_minutes' => 'Password-reset throttle window must be between 1 and 1440 minutes.',
                 'password_reset_max_ip_requests' => 'Password-reset requests per IP must be between 1 and 100.',
                 'password_reset_max_identifier_requests' => 'Password-reset requests per username or e-mail must be between 1 and 100.',
+                'secret_link_default_expiry_days' => 'Secret-link expiry must be between 0 and 365 days.',
+                'secret_link_expiry_days' => 'Secret-link expiry must be between 0 and 365 days.',
                 'week_starts_on' => 'The selected week-start day is not valid.',
                 'login_message' => 'The login-screen message is not valid.',
                 'site_identity_image_upload' => 'That site image upload did not complete successfully.',

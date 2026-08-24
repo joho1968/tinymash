@@ -39,13 +39,17 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'rss-reader',
-                'usage' => 'tinymash rss-reader refresh [source-key]',
-                'summary' => 'Refresh configured RSS Reader sources.',
+                'summary' => 'Refresh saved RSS Reader sources.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Operation to run', 'choices' => [ 'refresh' ] ],
+                    [ 'name' => 'source-key', 'description' => 'Refresh only this saved source' ],
+                ],
+                'examples' => [
+                    'php8.4 bin/tinymash.php rss-reader refresh',
+                    'php8.4 bin/tinymash.php rss-reader refresh source-key',
+                ],
                 'order' => 247,
                 'handler' => static function( array $arguments ) use ( $service ) : void {
-                    if ( strtolower( trim( (string) ( $arguments[0] ?? '' ) ) ) !== 'refresh' ) {
-                        throw new \RuntimeException( 'usage: tinymash rss-reader refresh [source-key]' );
-                    }
                     $source_key = trim( (string) ( $arguments[1] ?? '' ) );
                     $result = $service->refreshSources( $source_key !== '' ? [ $source_key ] : null );
                     fwrite( STDOUT, 'refreshed: ' . (int) ( $result['refreshed'] ?? 0 ) . PHP_EOL );
@@ -79,7 +83,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         },
         [
             'label' => 'RSS Reader',
-            'description' => 'Displays cached recent items from one configured RSS or Atom source.',
+            'description' => 'Shows cached recent items from one saved RSS or Atom source.',
             'example' => '[rss source="example" limit="5"]',
             'dynamic' => true,
         ]
@@ -121,14 +125,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-rss-reader',
         [
             'title' => 'RSS Reader',
-            'summary' => 'Display cached RSS or Atom items from approved sources.',
+            'summary' => 'Show cached items from approved RSS and Atom sources.',
             'group' => 'Plugins',
             'order' => 145,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
                     'title' => 'Sources',
-                    'markdown' => 'RSS Reader sources are managed by superadmins because each source URL is fetched by the server. Public pages render cached items only and never fetch remote feeds during visitor requests.',
+                    'markdown' => 'Superadmins manage source URLs because the server fetches them. Public pages use cached items and never fetch remote feeds during visitor requests.',
                 ],
                 [
                     'title' => 'Shortcode',
@@ -140,7 +144,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Scope',
-                    'markdown' => 'RSS Reader displays cached feed items and links to their sources. It does not import items as tinymash content or fetch media attachments. Multiple sources require separate shortcodes.',
+                    'markdown' => 'Shows cached feed items with source links. It does not create tinymash content or fetch media attachments. Use a separate shortcode for each source.',
                 ],
             ],
         ]

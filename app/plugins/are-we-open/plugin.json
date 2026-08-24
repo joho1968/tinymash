@@ -1,8 +1,8 @@
 {
     "key": "are-we-open",
     "name": "Are we open",
-    "version": "0.96.0",
-    "description": "Displays local open or closed availability from configured hours.",
+    "version": "0.97.0",
+    "description": "Shows open or closed status from saved hours and exceptions.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -16,7 +16,7 @@
     ],
     "static_export": {
         "mode": "snapshot",
-        "summary": "Opening status and hours are rendered from current settings at export time."
+        "summary": "Renders opening status and hours from saved settings during export."
     },
     "default_active": true,
     "stage": "early"

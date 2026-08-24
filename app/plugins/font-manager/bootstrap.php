@@ -58,14 +58,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-font-manager',
         [
             'title' => 'Font manager',
-            'summary' => 'Manage local font files and assign them to public theme roles.',
+            'summary' => 'Manage local font files and assign them to theme roles.',
             'group' => 'Plugins',
             'order' => 146,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Font manager stores WOFF2/WOFF files locally, emits safe `@font-face` CSS, and assigns families to supported public theme roles.',
+                    'title' => 'Overview',
+                    'markdown' => 'Store WOFF2 or WOFF files locally, generate `@font-face` CSS, and assign families to supported theme roles.',
                 ],
                 [
                     'title' => 'Font roles',
@@ -77,7 +77,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Boundaries',
-                    'markdown' => 'It does not bundle fonts, fetch remote font CSS, load CDN assets, or provide arbitrary CSS editing. Only upload fonts you have the right to use and serve.',
+                    'markdown' => 'Remote font CSS, CDN assets, bundled fonts, and arbitrary CSS editing are not supported. Upload only fonts you have the right to serve.',
                 ],
             ],
         ]

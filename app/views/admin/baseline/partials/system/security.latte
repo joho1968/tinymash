@@ -44,7 +44,7 @@
                                 <input class="form-check-input" id="tm-system-allow-secret-links" name="allow_secret_links" type="checkbox" n:attr="checked => !empty($system_settings['allow_secret_links'])">
                                 <label class="form-check-label" for="tm-system-allow-secret-links">Allow secret links</label>
                             </div>
-                            <div class="form-text">Secret links only expose one author space on a non-public site.</div>
+                            <div class="form-text">Secret links can expose the site or one author space when the site is not public.</div>
                         </div>
                         <div class="col-12 col-md-6">
                             <div class="form-check">
@@ -55,8 +55,8 @@
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label small mb-1" for="tm-system-secret-link-default-expiry-days">Secret-link default expiry (days)</label>
-                            <input class="form-control font-monospace" id="tm-system-secret-link-default-expiry-days" name="secret_link_default_expiry_days" type="number" min="1" max="365" step="1" value="{$system_settings['secret_link_default_expiry_days'] ?? 60}">
-                            <div class="form-text">Used when an author generates or regenerates a secret link.</div>
+                            <input class="form-control font-monospace" id="tm-system-secret-link-default-expiry-days" name="secret_link_default_expiry_days" type="number" min="0" max="365" step="1" value="{$system_settings['secret_link_default_expiry_days'] ?? 60}">
+                            <div class="form-text">Used for new links. Set to 0 for no expiry.</div>
                         </div>
                     </div>
                 </div>
@@ -170,4 +170,98 @@
             </div>
         </div>
     </form>
+</section>
+
+<section class="p-3 bg-body border rounded-3 shadow-sm mt-3" data-tm-secret-link-management>
+    <div class="small text-uppercase text-body-secondary mb-2">Secret links</div>
+    <div class="fw-semibold mb-1">Guest access</div>
+    <div class="small text-body-secondary mb-3">Create access for the site or one author space. Links do not grant admin access.</div>
+
+    <form class="rounded-3 p-3 bg-body-secondary mb-3" method="post" action="{$system_secret_link_generate_url}">
+        <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label small mb-1" for="tm-system-secret-link-target">Target</label>
+                <select class="form-select" id="tm-system-secret-link-target" name="secret_link_target">
+                    <option value="site">Site</option>
+                    {foreach ($system_secret_links['users'] ?? []) as $user}
+                        <option value="{$user['author_slug']}" n:attr="disabled => empty($user['content_active'])">
+                            {$user['display_name'] ?: $user['username']} ({$user['username']}){if empty($user['content_active'])} — unavailable{/if}
+                        </option>
+                    {/foreach}
+                </select>
+            </div>
+            <div class="col-12 col-sm-5 col-md-3">
+                <label class="form-label small mb-1" for="tm-system-secret-link-expiry-days">Expiry (days)</label>
+                <input class="form-control font-monospace" id="tm-system-secret-link-expiry-days" name="secret_link_expiry_days" type="number" min="0" max="365" step="1" value="{$system_secret_links['default_expiry_days'] ?? 60}">
+            </div>
+            <div class="col-12 col-sm-auto">
+                <button class="btn btn-primary" type="submit" n:attr="disabled => empty($system_secret_links['available'])">Generate link</button>
+            </div>
+            <div class="col-12 small text-body-secondary">Set expiry to 0 for no expiry. Generating a link replaces the active link for that target.</div>
+        </div>
+    </form>
+
+    {if ! empty($system_secret_links['site_public'])}
+        <div class="small text-warning-emphasis mb-3">Secret links are only used when the site is not public.</div>
+    {elseif empty($system_secret_links['system_enabled'])}
+        <div class="small text-warning-emphasis mb-3">Enable secret links in the security settings above.</div>
+    {/if}
+
+    {if ! empty($system_secret_links['records'])}
+        <div class="table-responsive d-none d-md-block">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Target</th>
+                        <th scope="col">Link</th>
+                        <th scope="col">Expires</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {foreach $system_secret_links['records'] as $record}
+                        <tr>
+                            <th scope="row" class="fw-normal">
+                                <div>{$record['label']}</div>
+                                {if ! empty($record['author_slug'])}<div class="small text-body-secondary font-monospace">{$record['author_slug']}</div>{/if}
+                                {if ! empty($record['suspended'])}<div class="small text-warning-emphasis">Suspended</div>{/if}
+                            </th>
+                            <td><input class="form-control form-control-sm font-monospace" type="text" value="{$record['url']}" readonly aria-label="Secret link for {$record['label']}"></td>
+                            <td class="small text-nowrap">{$record['expires_at_display']}</td>
+                            <td class="text-end">
+                                <form method="post" action="{$system_secret_link_revoke_url}">
+                                    <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                                    <input type="hidden" name="secret_link_target" value="{$record['target']}">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {/foreach}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-grid d-md-none">
+            {foreach $system_secret_links['records'] as $record}
+                <div class="py-2 border-bottom d-grid gap-2">
+                    <div>
+                        <span class="fw-semibold">{$record['label']}</span>
+                        {if ! empty($record['author_slug'])}<span class="small text-body-secondary font-monospace">{$record['author_slug']}</span>{/if}
+                        {if ! empty($record['suspended'])}<span class="small text-warning-emphasis">Suspended</span>{/if}
+                    </div>
+                    <input class="form-control form-control-sm font-monospace" type="text" value="{$record['url']}" readonly aria-label="Secret link for {$record['label']}">
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <span class="small">Expires {$record['expires_at_display']}</span>
+                        <form method="post" action="{$system_secret_link_revoke_url}">
+                            <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                            <input type="hidden" name="secret_link_target" value="{$record['target']}">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
+                        </form>
+                    </div>
+                </div>
+            {/foreach}
+        </div>
+    {else}
+        <div class="small text-body-secondary">No active secret links.</div>
+    {/if}
 </section>

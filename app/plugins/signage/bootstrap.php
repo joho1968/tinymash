@@ -89,14 +89,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-signage',
         [
             'title' => 'Signage',
-            'summary' => 'Run key-protected looping screen presentations.',
+            'summary' => 'Run access-controlled presentation loops on display screens.',
             'group' => 'Plugins',
             'order' => 144,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
                     'title' => 'Loops and access',
-                    'markdown' => 'Each enabled loop has a launch URL containing its access key. Opening that URL authorizes the display browser and redirects to the clean loop URL. Regenerate the access key when a launch URL should no longer work.',
+                    'markdown' => 'Each enabled loop has a launch URL containing an access key. The launch URL authorizes the display browser and redirects to the clean loop URL. Regenerate the key to revoke an old launch URL.',
                 ],
                 [
                     'title' => 'Slides',

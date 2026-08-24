@@ -29,21 +29,21 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-photos',
         [
             'title' => 'Photos',
-            'summary' => 'Photo-post settings and explicit per-post gallery planning.',
+            'summary' => 'Add photo-post options and per-post galleries.',
             'group' => 'Plugins',
             'order' => 148,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Photos adds photo-post intent and explicit per-post gallery settings to the editor. A normal post can still contain many photos without becoming a gallery.',
+                    'title' => 'Overview',
+                    'markdown' => 'Add photo-post options and per-post gallery settings in the editor. Posts can contain multiple ordinary images without becoming galleries.',
                 ],
                 [
                     'title' => 'Gallery cover',
-                    'markdown' => 'The entry featured image is the gallery cover image. Photos does not add a separate cover selector.',
+                    'markdown' => 'The featured image is the gallery cover. There is no separate cover selector.',
                 ],
                 [
-                    'title' => 'Current limits',
+                    'title' => 'Limits',
                     'markdown' => 'Photos renders a gallery grid and local lightbox from selected tinymash media IDs. Ordinary inline-image lightboxes, virtual galleries, importer integration, and maps are not supported.',
                 ],
             ],

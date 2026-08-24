@@ -60,7 +60,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         [
             'title' => 'Fediverse',
-            'summary' => 'Default Mastodon-compatible account and publishing defaults for root-space posts.',
+            'summary' => 'Set the Mastodon-compatible account and defaults for root posts.',
             'fields' => [
                 [
                     'key' => 'root_instance_url',
@@ -106,7 +106,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'fediverse',
         [
             'title' => 'Fediverse',
-            'summary' => 'Mastodon-compatible account settings and defaults for your author space.',
+            'summary' => 'Set the Mastodon-compatible account and defaults for your author space.',
             'fields' => [
                 [
                     'key' => 'instance_url',
@@ -181,15 +181,13 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'fediverse',
-                'usage' => 'tinymash fediverse run-queue',
                 'summary' => 'Run the Fediverse delivery/removal queue without the rest of housekeeping.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Operation to run', 'choices' => [ 'run-queue' ] ],
+                ],
+                'examples' => [ 'php8.4 bin/tinymash.php fediverse run-queue' ],
                 'order' => 230,
-                'handler' => static function( array $arguments ) use ( $plugins, $plugin_key, $fediverse_service ) : void {
-                    $action = strtolower( trim( (string) ( $arguments[0] ?? '' ) ) );
-                    if ( $action !== 'run-queue' ) {
-                        throw new \RuntimeException( 'usage: tinymash fediverse run-queue' );
-                    }
-
+                'handler' => static function() use ( $plugins, $plugin_key, $fediverse_service ) : void {
                     $result = $fediverse_service->runQueue(
                         $plugins->getPluginSystemSettings( $plugin_key ),
                         [
@@ -271,14 +269,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-fediverse',
         [
             'title' => 'Fediverse',
-            'summary' => 'Queue public posts to Mastodon-compatible accounts, per author or for root-space posts.',
+            'summary' => 'Publish root and author posts to Mastodon-compatible accounts.',
             'group' => 'Plugins',
             'order' => 145,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'The Fediverse plugin sends public posts to Mastodon-compatible accounts. Pages are never sent.',
+                    'title' => 'Overview',
+                    'markdown' => 'Send public posts to Mastodon-compatible accounts. Pages are never sent.',
                 ],
                 [
                     'title' => 'How posting is controlled',
@@ -290,7 +288,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Delivery model',
-                    'markdown' => 'tinymash queues delivery work and hands it to housekeeping. Failed deliveries are retried with backoff, and repeated failures create an admin notification.',
+                    'markdown' => 'Delivery runs through the housekeeping queue. Failed deliveries retry with backoff; repeated failures create an admin notification.',
                 ],
             ],
         ]

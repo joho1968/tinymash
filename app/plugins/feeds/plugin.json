@@ -1,8 +1,8 @@
 {
     "key": "feeds",
     "name": "Feeds",
-    "version": "0.96.0",
-    "description": "Adds RSS 2.0, Atom 1.0, and JSON Feed endpoints for the front page and author spaces.",
+    "version": "0.97.0",
+    "description": "Provides RSS 2.0, Atom 1.0, and JSON Feed for the site and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -17,7 +17,7 @@
     ],
     "static_export": {
         "mode": "static",
-        "summary": "Enabled RSS, Atom, and JSON feeds are emitted as scoped static files with discovery links."
+        "summary": "Includes enabled RSS, Atom, and JSON feeds with discovery links."
     },
     "default_active": false,
     "stage": "before"

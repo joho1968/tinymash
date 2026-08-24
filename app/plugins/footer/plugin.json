@@ -1,8 +1,8 @@
 {
     "key": "footer",
     "name": "Footer",
-    "version": "0.96.0",
-    "description": "Renders configurable footer text in public theme footer slots.",
+    "version": "0.97.0",
+    "description": "Shows configured text in public theme footers.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -13,7 +13,7 @@
     ],
     "static_export": {
         "mode": "static",
-        "summary": "Configured footer content is rendered directly into exported pages."
+        "summary": "Includes configured footer content in exported pages."
     },
     "default_active": false,
     "stage": "late"

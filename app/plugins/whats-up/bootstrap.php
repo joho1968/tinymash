@@ -40,13 +40,13 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'whats-up',
-                'usage' => 'tinymash whats-up refresh',
-                'summary' => 'Refresh configured What\'s Up calendar sources.',
+                'summary' => 'Refresh saved What\'s Up calendar sources.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Operation to run', 'choices' => [ 'refresh' ] ],
+                ],
+                'examples' => [ 'php8.4 bin/tinymash.php whats-up refresh' ],
                 'order' => 245,
-                'handler' => static function( array $arguments ) use ( $service ) : void {
-                    if ( strtolower( trim( (string) ( $arguments[0] ?? '' ) ) ) !== 'refresh' ) {
-                        throw new \RuntimeException( 'usage: tinymash whats-up refresh' );
-                    }
+                'handler' => static function() use ( $service ) : void {
                     $result = $service->refreshSources();
                     fwrite( STDOUT, 'refreshed: ' . (int) ( $result['refreshed'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'failed: ' . (int) ( $result['failed'] ?? 0 ) . PHP_EOL );
@@ -96,10 +96,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     );
     foreach (
         [
-            'whatsup' => [ 'method' => 'renderWhatsUpHtml', 'label' => 'What\'s up', 'description' => 'Displays a compact yesterday, today, and tomorrow view.', 'example' => '[whatsup]' ],
-            'agenda' => [ 'method' => 'renderAgendaHtml', 'label' => 'Agenda', 'description' => 'Displays cached events as a chronological agenda.', 'example' => '[agenda future="30" limit="10"]' ],
-            'timeline' => [ 'method' => 'renderTimelineHtml', 'label' => 'Timeline', 'description' => 'Displays cached events on a visual timeline.', 'example' => '[timeline future="30" limit="10"]' ],
-            'calendar' => [ 'method' => 'renderCalendarHtml', 'label' => 'Calendar', 'description' => 'Displays a month grid with optional bounded month navigation.', 'example' => '[calendar past_months="1" future_months="1"]' ],
+            'whatsup' => [ 'method' => 'renderWhatsUpHtml', 'label' => 'What\'s up', 'description' => 'Shows a compact yesterday, today, and tomorrow view.', 'example' => '[whatsup]' ],
+            'agenda' => [ 'method' => 'renderAgendaHtml', 'label' => 'Agenda', 'description' => 'Shows cached events as a chronological agenda.', 'example' => '[agenda future="30" limit="10"]' ],
+            'timeline' => [ 'method' => 'renderTimelineHtml', 'label' => 'Timeline', 'description' => 'Shows cached events on a visual timeline.', 'example' => '[timeline future="30" limit="10"]' ],
+            'calendar' => [ 'method' => 'renderCalendarHtml', 'label' => 'Calendar', 'description' => 'Shows a month grid with bounded navigation.', 'example' => '[calendar past_months="1" future_months="1"]' ],
         ] as $shortcode_name => $definition
     ) {
         $plugins->registerShortcode(
@@ -157,14 +157,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-whats-up',
         [
             'title' => 'What\'s Up',
-            'summary' => 'Display cached iCalendar events in public content.',
+            'summary' => 'Show cached iCalendar events in public content.',
             'group' => 'Plugins',
             'order' => 143,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
                     'title' => 'Sources and refresh',
-                    'markdown' => 'Configure public HTTPS calendar URLs or upload local `.ics` files. Refresh occurs only through this admin page or the `tinymash whats-up refresh` CLI command; public page rendering reads cached events only.',
+                    'markdown' => 'Add public HTTPS calendar URLs or upload local `.ics` files. Refresh from admin or with `tinymash whats-up refresh`; public pages use cached events only.',
                 ],
                 [
                     'title' => 'Shortcodes',
@@ -172,7 +172,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Scope',
-                    'markdown' => 'What\'s Up is a calendar display plugin. It does not create content entries or handle bookings, reservations, scheduling, appointments, or ecommerce.',
+                    'markdown' => 'Shows calendar events only. It does not create content or manage bookings, reservations, schedules, appointments, or ecommerce.',
                 ],
             ],
         ]

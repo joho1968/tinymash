@@ -18,8 +18,8 @@ trait AdminEditorActionConcern {
         }
 
         $editor_mode = strtolower( trim( (string) ( $data['mode'] ?? '' ) ) );
-        if ( ! in_array( $editor_mode, [ 'focused', 'full' ], true ) ) {
-            $this->json( [ 'error' => 'Choose Focused or Full mode.' ], 422 );
+        if ( ! in_array( $editor_mode, [ 'simple', 'focused', 'full' ], true ) ) {
+            $this->json( [ 'error' => 'Choose Simple, Focused, or Full mode.' ], 422 );
             return;
         }
 
@@ -35,7 +35,7 @@ trait AdminEditorActionConcern {
             $this->json(
                 [
                     'mode' => (string) ( $saved_user['editor_mode'] ?? $editor_mode ),
-                    'message' => $editor_mode === 'focused' ? 'Focused mode enabled.' : 'Full mode enabled.',
+                    'message' => ucfirst( $editor_mode ) . ' mode enabled.',
                 ]
             );
         } catch ( \InvalidArgumentException $e ) {

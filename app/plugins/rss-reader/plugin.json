@@ -1,8 +1,8 @@
 {
     "key": "rss-reader",
     "name": "RSS Reader",
-    "version": "0.96.0",
-    "description": "Displays cached recent items from superadmin-approved RSS and Atom sources.",
+    "version": "0.97.0",
+    "description": "Shows cached items from approved RSS and Atom sources.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -10,14 +10,15 @@
     "bootstrap": "bootstrap.php",
     "capabilities": [
         "routes.admin",
-        "shortcodes",
-        "slots.public",
+        "content.shortcodes",
+        "theme.slots",
+        "assets.public",
         "housekeeping",
         "cli"
     ],
     "static_export": {
         "mode": "omit",
-        "summary": "Cached RSS Reader shortcodes and slots are not currently rendered into static exports."
+        "summary": "Excludes RSS Reader shortcodes and theme slots from static exports."
     },
     "default_active": false,
     "stage": "early"

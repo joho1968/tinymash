@@ -6,7 +6,8 @@ require_once __DIR__ . '/TinyMashLockedJsonFile.php';
 class TinyMashSecretLinkService {
 
     public const COOKIE_NAME = 'tinymashSecretLinks';
-    protected const DEFAULT_EXPIRY_DAYS = 60;
+    public const SCOPE_SITE = 'site';
+    public const SCOPE_AUTHOR = 'author';
     protected const MAX_EXPIRY_DAYS = 365;
 
     protected TinyMashConfig $config;
@@ -25,14 +26,40 @@ class TinyMashSecretLinkService {
         return( $this->normalizeExpiryDays( $this->config->getSecretLinkDefaultExpiryDays() ) );
     }
 
+    public function getSiteSecretLink() : ?array {
+        $record = $this->normalizeRecord( $this->readStore()['site'] ?? null, self::SCOPE_SITE );
+        return( is_array( $record ) && ! $this->isExpired( $record['expires_at_utc'] ) ? $record : null );
+    }
+
     public function getAuthorSecretLink( string $author_slug ) : ?array {
         $author_slug = $this->normalizeAuthorSlug( $author_slug );
         if ( $author_slug === '' ) {
             return( null );
         }
 
+        $record = $this->normalizeRecord( $this->readStore()['authors'][$author_slug] ?? null, self::SCOPE_AUTHOR, $author_slug );
+        return( is_array( $record ) && ! $this->isExpired( $record['expires_at_utc'] ) ? $record : null );
+    }
+
+    public function getAllSecretLinks() : array {
         $store = $this->readStore();
-        return( $this->normalizeRecord( $store['authors'][$author_slug] ?? null, $author_slug ) );
+        $records = [];
+        $site_record = $this->normalizeRecord( $store['site'] ?? null, self::SCOPE_SITE );
+        if ( is_array( $site_record ) && ! $this->isExpired( $site_record['expires_at_utc'] ) ) {
+            $records[] = $site_record;
+        }
+        foreach ( (array) ( $store['authors'] ?? [] ) as $author_slug => $candidate ) {
+            $record = $this->normalizeRecord( $candidate, self::SCOPE_AUTHOR, is_string( $author_slug ) ? $author_slug : '' );
+            if ( is_array( $record ) && ! $this->isExpired( $record['expires_at_utc'] ) ) {
+                $records[] = $record;
+            }
+        }
+
+        return( $records );
+    }
+
+    public function generateSiteSecretLink( string $created_by_username = '', ?int $expiry_days = null ) : array {
+        return( $this->generateSecretLink( self::SCOPE_SITE, '', $created_by_username, $expiry_days ) );
     }
 
     public function generateAuthorSecretLink( string $author_slug, string $created_by_username = '', ?int $expiry_days = null ) : array {
@@ -41,36 +68,25 @@ class TinyMashSecretLinkService {
             throw new \InvalidArgumentException( 'author_slug' );
         }
 
-        $created_at_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
-        $effective_expiry_days = $this->normalizeExpiryDays( $expiry_days ?? $this->getDefaultExpiryDays() );
-        $expires_at_utc = gmdate( 'Y-m-d\TH:i:s\Z', time() + ( $effective_expiry_days * 86400 ) );
-        $created_by_username = $this->normalizeAuthorSlug( $created_by_username );
+        return( $this->generateSecretLink( self::SCOPE_AUTHOR, $author_slug, $created_by_username, $expiry_days ) );
+    }
 
+    public function revokeSiteSecretLink() : bool {
         try {
-            $record = TinyMashLockedJsonFile::mutate(
-                $this->store_filename,
-                function( array $store ) use ( $author_slug, $created_at_utc, $expires_at_utc, $created_by_username ) : array {
-                    $store = $this->normalizeStore( $store );
-                    $record = [
-                        'author_slug' => $author_slug,
-                        'token' => $this->generateUniqueToken( $store ),
-                        'created_at_utc' => $created_at_utc,
-                        'expires_at_utc' => $expires_at_utc,
-                        'created_by_username' => $created_by_username,
-                    ];
-                    $store['authors'][$author_slug] = $record;
-                    return( [ 'data' => $store, 'result' => $record ] );
-                },
-                [ 'authors' => [] ]
+            return(
+                TinyMashLockedJsonFile::mutate(
+                    $this->store_filename,
+                    function( array $store ) : array {
+                        $store = $this->normalizeStore( $store );
+                        $store['site'] = null;
+                        return( [ 'data' => $store, 'result' => true ] );
+                    },
+                    $this->getEmptyStore()
+                ) === true
             );
-        } catch ( \Throwable $e ) {
-            throw new \RuntimeException( 'Unable to save secret link.', 0, $e );
+        } catch ( \Throwable ) {
+            return( false );
         }
-        if ( ! is_array( $record ) ) {
-            throw new \RuntimeException( 'Unable to save secret link.' );
-        }
-
-        return( $record );
     }
 
     public function revokeAuthorSecretLink( string $author_slug ) : bool {
@@ -88,7 +104,7 @@ class TinyMashSecretLinkService {
                         unset( $store['authors'][$author_slug] );
                         return( [ 'data' => $store, 'result' => true ] );
                     },
-                    [ 'authors' => [] ]
+                    $this->getEmptyStore()
                 ) === true
             );
         } catch ( \Throwable ) {
@@ -106,20 +122,10 @@ class TinyMashSecretLinkService {
             return( null );
         }
 
-        $store = $this->readStore();
-        foreach ( (array) ( $store['authors'] ?? [] ) as $author_slug => $candidate ) {
-            $record = $this->normalizeRecord( $candidate, is_string( $author_slug ) ? $author_slug : '' );
-            if ( ! is_array( $record ) ) {
-                continue;
+        foreach ( $this->getAllSecretLinks() as $record ) {
+            if ( hash_equals( (string) $record['token'], $token ) ) {
+                return( $record );
             }
-            if ( ! hash_equals( $record['token'], $token ) ) {
-                continue;
-            }
-            if ( $this->isExpired( (string) $record['expires_at_utc'] ) ) {
-                return( null );
-            }
-
-            return( $record );
         }
 
         return( null );
@@ -138,6 +144,20 @@ class TinyMashSecretLinkService {
         return( $record );
     }
 
+    public function currentVisitorCanAccessSite() : bool {
+        if ( ! $this->isEnabled() ) {
+            return( false );
+        }
+
+        foreach ( $this->getCurrentVisitorSecretLinkRecords() as $record ) {
+            if ( ( $record['scope'] ?? '' ) === self::SCOPE_SITE ) {
+                return( true );
+            }
+        }
+
+        return( false );
+    }
+
     public function currentVisitorCanAccessAuthor( string $author_slug ) : bool {
         $author_slug = $this->normalizeAuthorSlug( $author_slug );
         if ( $author_slug === '' || ! $this->isEnabled() ) {
@@ -145,15 +165,19 @@ class TinyMashSecretLinkService {
         }
 
         foreach ( $this->getCurrentVisitorSecretLinkRecords() as $record ) {
-            if ( ! is_array( $record ) ) {
-                continue;
+            if ( ( $record['scope'] ?? '' ) === self::SCOPE_SITE ) {
+                return( true );
             }
-            if ( ( $record['author_slug'] ?? '' ) === $author_slug ) {
+            if ( ( $record['scope'] ?? '' ) === self::SCOPE_AUTHOR && ( $record['author_slug'] ?? '' ) === $author_slug ) {
                 return( true );
             }
         }
 
         return( false );
+    }
+
+    public function currentVisitorHasSecretLinkAccess() : bool {
+        return( $this->isEnabled() && $this->getCurrentVisitorSecretLinkRecords() !== [] );
     }
 
     public function buildSecretLinkUrl( array $record, string $app_url ) : string {
@@ -164,6 +188,50 @@ class TinyMashSecretLinkService {
         }
 
         return( $app_url . '/s/' . rawurlencode( $token ) );
+    }
+
+    protected function generateSecretLink( string $scope, string $author_slug, string $created_by_username, ?int $expiry_days ) : array {
+        if ( ! in_array( $scope, [ self::SCOPE_SITE, self::SCOPE_AUTHOR ], true ) ) {
+            throw new \InvalidArgumentException( 'scope' );
+        }
+
+        $effective_expiry_days = $this->normalizeExpiryDays( $expiry_days ?? $this->getDefaultExpiryDays() );
+        $created_at_utc = gmdate( 'Y-m-d\TH:i:s\Z' );
+        $expires_at_utc = $effective_expiry_days === 0 ? null : gmdate( 'Y-m-d\TH:i:s\Z', time() + ( $effective_expiry_days * 86400 ) );
+        $created_by_username = $this->normalizeAuthorSlug( $created_by_username );
+
+        try {
+            $record = TinyMashLockedJsonFile::mutate(
+                $this->store_filename,
+                function( array $store ) use ( $scope, $author_slug, $created_at_utc, $expires_at_utc, $created_by_username ) : array {
+                    $store = $this->normalizeStore( $store );
+                    $record = [
+                        'scope' => $scope,
+                        'author_slug' => $author_slug,
+                        'token' => $this->generateUniqueToken( $store ),
+                        'created_at_utc' => $created_at_utc,
+                        'expires_at_utc' => $expires_at_utc,
+                        'created_by_username' => $created_by_username,
+                    ];
+                    if ( $scope === self::SCOPE_SITE ) {
+                        $store['site'] = $record;
+                    } else {
+                        $store['authors'][$author_slug] = $record;
+                    }
+                    return( [ 'data' => $store, 'result' => $record ] );
+                },
+                $this->getEmptyStore()
+            );
+        } catch ( \InvalidArgumentException $e ) {
+            throw $e;
+        } catch ( \Throwable $e ) {
+            throw new \RuntimeException( 'Unable to save secret link.', 0, $e );
+        }
+        if ( ! is_array( $record ) ) {
+            throw new \RuntimeException( 'Unable to save secret link.' );
+        }
+
+        return( $record );
     }
 
     protected function getCurrentVisitorSecretLinkRecords() : array {
@@ -193,10 +261,9 @@ class TinyMashSecretLinkService {
         $tokens = [];
         foreach ( explode( ',', $cookie_value ) as $token ) {
             $normalized_token = $this->normalizeToken( $token );
-            if ( $normalized_token === '' ) {
-                continue;
+            if ( $normalized_token !== '' ) {
+                $tokens[$normalized_token] = true;
             }
-            $tokens[$normalized_token] = true;
         }
 
         return( array_keys( $tokens ) );
@@ -205,6 +272,7 @@ class TinyMashSecretLinkService {
     protected function persistCookieRecords( array $records ) : void {
         $tokens = [];
         $expires_at_timestamp = 0;
+        $has_indefinite_record = false;
         foreach ( $records as $record ) {
             if ( ! is_array( $record ) ) {
                 continue;
@@ -214,7 +282,11 @@ class TinyMashSecretLinkService {
                 continue;
             }
             $tokens[$token] = true;
-            $record_expiry = strtotime( (string) ( $record['expires_at_utc'] ?? '' ) );
+            if ( array_key_exists( 'expires_at_utc', $record ) && $record['expires_at_utc'] === null ) {
+                $has_indefinite_record = true;
+                continue;
+            }
+            $record_expiry = $this->getUtcTimestamp( $record['expires_at_utc'] ?? null );
             if ( is_int( $record_expiry ) && $record_expiry > $expires_at_timestamp ) {
                 $expires_at_timestamp = $record_expiry;
             }
@@ -241,7 +313,7 @@ class TinyMashSecretLinkService {
             self::COOKIE_NAME,
             implode( ',', array_keys( $tokens ) ),
             [
-                'expires' => $expires_at_timestamp > 0 ? $expires_at_timestamp : ( time() + ( 60 * 86400 ) ),
+                'expires' => $has_indefinite_record ? 0 : $expires_at_timestamp,
                 'path' => '/',
                 'secure' => $secure_cookie,
                 'httponly' => true,
@@ -252,38 +324,55 @@ class TinyMashSecretLinkService {
     }
 
     protected function readStore() : array {
-        return( $this->normalizeStore( TinyMashLockedJsonFile::read( $this->store_filename, [ 'authors' => [] ] ) ) );
+        return( $this->normalizeStore( TinyMashLockedJsonFile::read( $this->store_filename, $this->getEmptyStore() ) ) );
     }
 
     protected function normalizeStore( array $store ) : array {
+        $site = $this->normalizeRecord( $store['site'] ?? null, self::SCOPE_SITE );
         $authors = [];
         foreach ( (array) ( $store['authors'] ?? [] ) as $author_slug => $record ) {
-            $normalized_record = $this->normalizeRecord( $record, is_string( $author_slug ) ? $author_slug : '' );
-            if ( ! is_array( $normalized_record ) ) {
-                continue;
+            $normalized_record = $this->normalizeRecord( $record, self::SCOPE_AUTHOR, is_string( $author_slug ) ? $author_slug : '' );
+            if ( is_array( $normalized_record ) ) {
+                $authors[$normalized_record['author_slug']] = $normalized_record;
             }
-            $authors[$normalized_record['author_slug']] = $normalized_record;
         }
 
-        return( [ 'authors' => $authors ] );
+        return( [ 'site' => $site, 'authors' => $authors ] );
     }
 
-    protected function normalizeRecord( mixed $record, string $fallback_author_slug = '' ) : ?array {
+    protected function normalizeRecord( mixed $record, string $fallback_scope = self::SCOPE_AUTHOR, string $fallback_author_slug = '' ) : ?array {
         if ( ! is_array( $record ) ) {
             return( null );
         }
 
-        $author_slug = $this->normalizeAuthorSlug( (string) ( $record['author_slug'] ?? $fallback_author_slug ) );
-        $token = $this->normalizeToken( (string) ( $record['token'] ?? '' ) );
-        $created_at_utc = trim( (string) ( $record['created_at_utc'] ?? '' ) );
-        $expires_at_utc = trim( (string) ( $record['expires_at_utc'] ?? '' ) );
-        $created_by_username = $this->normalizeAuthorSlug( (string) ( $record['created_by_username'] ?? '' ) );
-        if ( $author_slug === '' || $token === '' || $created_at_utc === '' || $expires_at_utc === '' ) {
+        $scope = strtolower( trim( (string) ( $record['scope'] ?? $fallback_scope ) ) );
+        if ( ! in_array( $scope, [ self::SCOPE_SITE, self::SCOPE_AUTHOR ], true ) ) {
             return( null );
+        }
+        $author_slug = $scope === self::SCOPE_AUTHOR
+            ? $this->normalizeAuthorSlug( (string) ( $record['author_slug'] ?? $fallback_author_slug ) )
+            : '';
+        $token = $this->normalizeToken( (string) ( $record['token'] ?? '' ) );
+        $created_at_utc = $this->normalizeUtcDateTime( $record['created_at_utc'] ?? null );
+        $created_by_username = $this->normalizeAuthorSlug( (string) ( $record['created_by_username'] ?? '' ) );
+        if ( $scope === self::SCOPE_AUTHOR && $author_slug === '' ) {
+            return( null );
+        }
+        if ( $token === '' || $created_at_utc === '' || ! array_key_exists( 'expires_at_utc', $record ) ) {
+            return( null );
+        }
+
+        $expires_at_utc = null;
+        if ( $record['expires_at_utc'] !== null ) {
+            $expires_at_utc = $this->normalizeUtcDateTime( $record['expires_at_utc'] );
+            if ( $expires_at_utc === '' ) {
+                return( null );
+            }
         }
 
         return(
             [
+                'scope' => $scope,
                 'author_slug' => $author_slug,
                 'token' => $token,
                 'created_at_utc' => $created_at_utc,
@@ -300,16 +389,13 @@ class TinyMashSecretLinkService {
 
     protected function normalizeToken( string $token ) : string {
         $token = trim( $token );
-        return( preg_replace( '/[^A-Za-z0-9_-]/', '', $token ) ?? '' );
+        return( preg_match( '/^[A-Za-z0-9_-]{24}$/D', $token ) === 1 ? $token : '' );
     }
 
     protected function normalizeExpiryDays( mixed $expiry_days ) : int {
         $expiry_days = (int) $expiry_days;
-        if ( $expiry_days < 1 ) {
-            return( self::DEFAULT_EXPIRY_DAYS );
-        }
-        if ( $expiry_days > self::MAX_EXPIRY_DAYS ) {
-            return( self::MAX_EXPIRY_DAYS );
+        if ( $expiry_days < 0 || $expiry_days > self::MAX_EXPIRY_DAYS ) {
+            throw new \InvalidArgumentException( 'expiry_days' );
         }
 
         return( $expiry_days );
@@ -317,11 +403,11 @@ class TinyMashSecretLinkService {
 
     protected function generateUniqueToken( array $store ) : string {
         $existing_tokens = [];
-        foreach ( (array) ( $store['authors'] ?? [] ) as $record ) {
-            if ( ! is_array( $record ) || empty( $record['token'] ) ) {
-                continue;
+        $records = array_merge( [ $store['site'] ?? null ], (array) ( $store['authors'] ?? [] ) );
+        foreach ( $records as $record ) {
+            if ( is_array( $record ) && ! empty( $record['token'] ) ) {
+                $existing_tokens[(string) $record['token']] = true;
             }
-            $existing_tokens[(string) $record['token']] = true;
         }
 
         for ( $attempt = 0; $attempt < 10; $attempt++ ) {
@@ -334,12 +420,39 @@ class TinyMashSecretLinkService {
         throw new \RuntimeException( 'Unable to allocate a unique secret-link token.' );
     }
 
-    protected function isExpired( string $expires_at_utc ) : bool {
-        $timestamp = strtotime( $expires_at_utc );
-        if ( ! is_int( $timestamp ) || $timestamp <= 0 ) {
-            return( true );
+    protected function isExpired( mixed $expires_at_utc ) : bool {
+        if ( $expires_at_utc === null ) {
+            return( false );
         }
 
-        return( $timestamp < time() );
+        $timestamp = $this->getUtcTimestamp( $expires_at_utc );
+        return( ! is_int( $timestamp ) || $timestamp <= time() );
+    }
+
+    protected function normalizeUtcDateTime( mixed $value ) : string {
+        $value = trim( (string) $value );
+        return( is_int( $this->getUtcTimestamp( $value ) ) ? $value : '' );
+    }
+
+    protected function getUtcTimestamp( mixed $value ) : ?int {
+        $value = trim( (string) $value );
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', $value ) !== 1 ) {
+            return( null );
+        }
+
+        $date = \DateTimeImmutable::createFromFormat( '!Y-m-d\TH:i:s\Z', $value, new \DateTimeZone( 'UTC' ) );
+        $errors = \DateTimeImmutable::getLastErrors();
+        if ( ! $date instanceof \DateTimeImmutable || ( is_array( $errors ) && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) ) {
+            return( null );
+        }
+        if ( $date->format( 'Y-m-d\TH:i:s\Z' ) !== $value ) {
+            return( null );
+        }
+
+        return( $date->getTimestamp() );
+    }
+
+    protected function getEmptyStore() : array {
+        return( [ 'site' => null, 'authors' => [] ] );
     }
 }

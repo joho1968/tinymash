@@ -37,7 +37,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         },
         [
             'label' => 'Open status',
-            'description' => 'Displays the current open or closed status.',
+            'description' => 'Shows the current open or closed status.',
             'example' => '[areweopen]',
             'dynamic' => true,
         ]
@@ -98,7 +98,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         },
         [
             'label' => 'Opening hours',
-            'description' => 'Displays the configured weekly opening hours.',
+            'description' => 'Shows the saved weekly opening hours.',
             'example' => '[areweopen-hours]',
             'dynamic' => true,
         ]
@@ -131,14 +131,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-are-we-open',
         [
             'title' => 'Are we open',
-            'summary' => 'Display local availability from configured hours.',
+            'summary' => 'Show open or closed status from saved hours and exceptions.',
             'group' => 'Plugins',
             'order' => 142,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Are we open renders open or closed availability from weekly hours, date exceptions, and an optional manual override.',
+                    'title' => 'Overview',
+                    'markdown' => 'Show open or closed status from weekly hours, date exceptions, and an optional manual override.',
                 ],
                 [
                     'title' => 'Shortcodes',
@@ -146,7 +146,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Scope',
-                    'markdown' => 'Display only. Bookings, reservations, ecommerce, staff scheduling, and appointments are not supported.',
+                    'markdown' => 'Shows availability only. It does not manage bookings, reservations, ecommerce, staff schedules, or appointments.',
                 ],
             ],
         ]

@@ -867,6 +867,32 @@ a.tm-downloads-file-link:hover {
     height: auto;
 }
 
+.tm-content-image {
+    max-width: 100%;
+}
+
+.tm-content-image > a {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.tm-content-image img {
+    max-width: 100%;
+    height: auto;
+}
+
+.tm-content-image-center {
+    text-align: center;
+}
+
+.tm-content-image-left {
+    text-align: left;
+}
+
+.tm-content-image-right {
+    text-align: right;
+}
+
 .tm-baseline-content img[src*="missing-imported-media.svg"] {
     display: block;
     width: min(100%, 18rem);
@@ -1046,6 +1072,21 @@ a.tm-downloads-file-link:hover {
     width: 100%;
     height: min(30rem, 60vh);
 }
+.tm-editor-simple-only,
+.tm-editor-simple-actions {
+    display: none !important;
+}
+.tm-editor-mode-simple .tm-editor-simple-only {
+    display: block !important;
+}
+.tm-editor-mode-simple .tm-editor-simple-actions {
+    display: flex !important;
+}
+.tm-editor-mode-simple #tm-editor-markdown {
+    font-family: inherit !important;
+}
+.tm-editor-mode-simple .tm-editor-simple-hidden,
+.tm-editor-mode-simple .tm-editor-full-only,
 .tm-editor-mode-focused .tm-editor-full-only {
     display: none !important;
 }

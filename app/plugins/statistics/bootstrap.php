@@ -124,7 +124,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         [
             'title' => 'Statistics',
-            'summary' => 'Collection and retention settings for the statistics plugin.',
+            'summary' => 'Set page-view collection and retention.',
             'fields' => [
                 [
                     'key' => 'collection_enabled',
@@ -170,7 +170,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'publishing',
         [
             'title' => 'Public statistics',
-            'summary' => 'Controls whether views of your author space and author-owned content are counted.',
+            'summary' => 'Choose whether views of your author space and content are counted.',
             'fields' => [
                 [
                     'key' => 'author_statistics_enabled',
@@ -188,22 +188,22 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-statistics',
         [
             'title' => 'Statistics',
-            'summary' => 'Public page-view counts for sitewide and author-space reporting.',
+            'summary' => 'Review public page views for the site and author spaces.',
             'group' => 'Plugins',
             'order' => 120,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it tracks',
-                    'markdown' => 'Statistics records public page views. It does not track admin pages or try to act as a full analytics suite.',
+                    'title' => 'Overview',
+                    'markdown' => 'Record public page views for site and author reports. Admin pages are not counted.',
                 ],
                 [
                     'title' => 'How it records',
-                    'markdown' => 'The plugin injects a small first-party script into the shared public footer slot. That script posts a page-view beacon back to tinymash.',
+                    'markdown' => 'A small first-party script in the public footer sends a page-view beacon back to tinymash.',
                 ],
                 [
                     'title' => 'Charts',
-                    'markdown' => 'The plugin uses numbers and small server-rendered SVG charts. That keeps it local-only, small, and dependency-free.',
+                    'markdown' => 'Reports use numbers and small server-rendered SVG charts. No chart library or remote service is loaded.',
                 ],
             ],
         ]
@@ -556,7 +556,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 return;
             }
 
-            if ( ! $config->isSitePublic() && ! $security->isLoggedIn() ) {
+            $secret_link_service = $plugins->getService( 'secret_links' );
+            $has_secret_link_access = is_object( $secret_link_service )
+                && method_exists( $secret_link_service, 'currentVisitorHasSecretLinkAccess' )
+                && (bool) $secret_link_service->currentVisitorHasSecretLinkAccess();
+            if ( ! $config->isSitePublic() && ! $security->isLoggedIn() && ! $has_secret_link_access ) {
                 $plugins->setResponseStatus( 403 );
                 return;
             }

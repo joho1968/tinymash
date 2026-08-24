@@ -20,7 +20,7 @@ class TinyMashDeployService {
         'optional_directories' => [ 'themes' ],
         'empty_directories' => [
             'plugins', 'data/content', 'data/drafts', 'data/media', 'data/plugins',
-            'data/runtime', 'data/runtime/latte-cache', 'users',
+            'data/runtime', 'data/runtime/latte-cache', 'tmp', 'users',
         ],
     ];
 
@@ -294,6 +294,7 @@ class TinyMashDeployService {
                     'autosave_enabled' => true,
                     'autosave_interval_seconds' => 120,
                     'classic_smileys_enabled' => true,
+                    'default_mode' => 'simple',
                 ],
                 'media' => [
                     'content_images_mode' => 'authenticated',

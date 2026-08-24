@@ -3,8 +3,8 @@
 {block content}
     {var $editor_plugin_tabs = is_array($editor_plugin_tabs ?? null) ? $editor_plugin_tabs : []}
     {var $editor_json_flags = \JSON_HEX_TAG | \JSON_HEX_APOS | \JSON_HEX_AMP | \JSON_HEX_QUOT}
-    {var $resolved_editor_mode = in_array(($editor_mode ?? 'full'), ['focused', 'full'], true) ? (string) $editor_mode : 'full'}
-    <div class="tm-editor-mode-{$resolved_editor_mode}" id="tm-editor-root" data-editor-url="{$editor_url}" data-editor-mode="{$resolved_editor_mode}" data-editor-mode-url="{$editor_mode_url}" data-preview-url="{$preview_url}" data-draft-url="{$draft_url}" data-draft-delete-url="{$draft_delete_url}" data-save-entry-url="{$publish_url}" data-cancel-url="{$editor_cancel_url}" data-slug-check-url="{$editor_slug_check_url}" data-media-picker-url="{$editor_media_picker_url}" data-image-upload-url="{$editor_image_upload['upload_url'] ?? ''}" data-images-enabled="{if ! empty( $editor_image_upload['enabled'] )}1{else}0{/if}" data-csrf-token="{$csrf_token}" data-current-author-slug="{$current_author_slug ?? ''}" data-loaded-entry-id="{$editor_loaded_entry_id}" data-loaded-entry-type="{$editor_draft['entry_type'] ?? ''}" data-loaded-entry-scope="{$editor_draft['scope'] ?? ''}" data-loaded-entry-author-slug="{$editor_draft['author_slug'] ?? ''}" data-loaded-draft-id="{$editor_loaded_draft_id}" data-loaded-revision-id="{$editor_loaded_revision_id}" data-attachment-session-id="{$editor_attachment_session_id ?? ''}" data-autosave-enabled="{if ! empty( $editor_autosave['enabled'] )}1{else}0{/if}" data-autosave-interval-seconds="{$editor_autosave['interval_seconds'] ?? 120}" data-emoji-data-url="/ext/emoji-picker-data/en/github/data" data-revisions-json='{json_encode($editor_revisions ?? [], $editor_json_flags)}' data-linkable-entries-json='{json_encode($editor_linkable_entries ?? [], $editor_json_flags)}' data-tag-suggestions-json='{json_encode($editor_tag_suggestions ?? [], $editor_json_flags)}' data-current-featured-image-json='{json_encode($editor_current_featured_image ?? [], $editor_json_flags)}' data-current-social-image-json='{json_encode($editor_current_social_image ?? [], $editor_json_flags)}'>
+    {var $resolved_editor_mode = in_array(($editor_mode ?? 'simple'), ['simple', 'focused', 'full'], true) ? (string) $editor_mode : 'simple'}
+    <div class="tm-editor-mode-{$resolved_editor_mode}" id="tm-editor-root" data-editor-url="{$editor_url}" data-editor-mode="{$resolved_editor_mode}" data-editor-mode-url="{$editor_mode_url}" data-preview-url="{$preview_url}" data-draft-url="{$draft_url}" data-draft-delete-url="{$draft_delete_url}" data-save-entry-url="{$publish_url}" data-cancel-url="{$editor_cancel_url}" data-slug-check-url="{$editor_slug_check_url}" data-media-picker-url="{$editor_media_picker_url}" data-image-upload-url="{$editor_image_upload['upload_url'] ?? ''}" data-images-enabled="{if ! empty( $editor_image_upload['enabled'] )}1{else}0{/if}" data-csrf-token="{$csrf_token}" data-current-author-slug="{$current_author_slug ?? ''}" data-loaded-entry-id="{$editor_loaded_entry_id}" data-loaded-entry-type="{$editor_draft['entry_type'] ?? ''}" data-loaded-entry-scope="{$editor_draft['scope'] ?? ''}" data-loaded-entry-author-slug="{$editor_draft['author_slug'] ?? ''}" data-loaded-draft-id="{$editor_loaded_draft_id}" data-loaded-revision-id="{$editor_loaded_revision_id}" data-attachment-session-id="{$editor_attachment_session_id ?? ''}" data-autosave-enabled="{if ! empty( $editor_autosave['enabled'] )}1{else}0{/if}" data-autosave-interval-seconds="{$editor_autosave['interval_seconds'] ?? 120}" data-direct-publish="{if empty( $content_moderation_required ) || ! empty( $is_superadmin )}1{else}0{/if}" data-emoji-data-url="/ext/emoji-picker-data/en/github/data" data-revisions-json='{json_encode($editor_revisions ?? [], $editor_json_flags)}' data-linkable-entries-json='{json_encode($editor_linkable_entries ?? [], $editor_json_flags)}' data-tag-suggestions-json='{json_encode($editor_tag_suggestions ?? [], $editor_json_flags)}' data-current-featured-image-json='{json_encode($editor_current_featured_image ?? [], $editor_json_flags)}' data-current-social-image-json='{json_encode($editor_current_social_image ?? [], $editor_json_flags)}'>
         {if ! empty( $editor_notice )}
             <div class="alert alert-{$editor_notice['type']} mb-3" role="alert">
                 <div>{$editor_notice['message']}</div>
@@ -32,6 +32,7 @@
             const editorModeUrl = editorRoot ? (editorRoot.dataset.editorModeUrl || '') : '';
             const editorModeButtons = Array.from(document.querySelectorAll('[data-editor-presentation-mode]'));
             const markdownField = document.getElementById('tm-editor-markdown');
+            const markdownLabel = document.querySelector('label[for="tm-editor-markdown"]');
             const titleField = document.getElementById('tm-editor-title');
             const entryTypeField = document.getElementById('tm-editor-entry-type');
             const scopeField = document.getElementById('tm-editor-scope');
@@ -67,6 +68,9 @@
             const saveEntryButton = document.getElementById('tm-editor-save-entry');
             const saveReturnButton = document.getElementById('tm-editor-save-return');
             const saveNewButton = document.getElementById('tm-editor-save-new');
+            const simpleSaveDraftButton = document.getElementById('tm-editor-simple-save-draft');
+            const simplePublishButton = document.getElementById('tm-editor-simple-publish');
+            const simpleDestination = document.getElementById('tm-editor-simple-destination');
             const saveActionButtons = Array.from(document.querySelectorAll('[data-tm-editor-save-action]'));
             const duplicateButton = document.getElementById('tm-editor-duplicate');
             const cancelButton = document.getElementById('tm-editor-cancel');
@@ -190,7 +194,9 @@
             const tagsAutocomplete = document.getElementById('tm-editor-tags-autocomplete');
             const emojiPickerModalElement = document.getElementById('tm-editor-emoji-modal');
             const emojiPickerElement = document.getElementById('tm-editor-emoji-picker');
-            let editorPresentationMode = editorRoot && editorRoot.dataset.editorMode === 'focused' ? 'focused' : 'full';
+            let editorPresentationMode = editorRoot && ['simple', 'focused', 'full'].includes(editorRoot.dataset.editorMode)
+                ? editorRoot.dataset.editorMode
+                : 'simple';
             let activeEditorTabMode = 'write';
             const externalLinkNewTabStorageKey = 'tinymash.editor.externalLinkNewTab';
             const internalLinkNewTabStorageKey = 'tinymash.editor.internalLinkNewTab';
@@ -480,6 +486,12 @@
                 if (saveEntryButton) {
                     saveEntryButton.disabled = disabled;
                 }
+                if (simplePublishButton) {
+                    simplePublishButton.disabled = disabled;
+                }
+                if (simpleSaveDraftButton) {
+                    simpleSaveDraftButton.disabled = disabled;
+                }
                 saveActionButtons.forEach((button) => {
                     button.disabled = disabled;
                 });
@@ -628,10 +640,11 @@
             }
 
             function applyEditorPresentationMode(mode) {
-                const normalizedMode = mode === 'focused' ? 'focused' : 'full';
+                const normalizedMode = ['simple', 'focused', 'full'].includes(mode) ? mode : 'simple';
                 editorPresentationMode = normalizedMode;
                 if (editorRoot) {
                     editorRoot.dataset.editorMode = normalizedMode;
+                    editorRoot.classList.toggle('tm-editor-mode-simple', normalizedMode === 'simple');
                     editorRoot.classList.toggle('tm-editor-mode-focused', normalizedMode === 'focused');
                     editorRoot.classList.toggle('tm-editor-mode-full', normalizedMode === 'full');
                 }
@@ -640,8 +653,54 @@
                     button.classList.toggle('active', active);
                     button.setAttribute('aria-pressed', active ? 'true' : 'false');
                 });
-                if (normalizedMode === 'focused' && (activeEditorTabMode === 'seo' || activeEditorTabMode.startsWith('plugin-'))) {
+                if (normalizedMode === 'simple' && !['write', 'preview'].includes(activeEditorTabMode)) {
                     setMode('write');
+                } else if (normalizedMode === 'focused' && (activeEditorTabMode === 'seo' || activeEditorTabMode.startsWith('plugin-'))) {
+                    setMode('write');
+                }
+                updateSimplePresentation();
+            }
+
+            function updateSimplePresentation() {
+                const contentType = entryTypeField && entryTypeField.value === 'page' ? 'Page' : 'Post';
+                const authorSlug = authorSlugField ? String(authorSlugField.value || '').trim() : '';
+                const destination = scopeField && scopeField.value === 'author'
+                    ? (authorSlug || currentAuthorSlug || 'author space')
+                    : 'main site';
+                const status = statusField ? statusField.value : 'unpublished';
+                const statusLabel = status === 'published' && loadedEntryId !== ''
+                    ? 'Published'
+                    : (status === 'scheduled' ? 'Scheduled' : 'Not published');
+
+                if (simpleDestination) {
+                    simpleDestination.textContent = contentType + ' · ' + destination + ' · ' + statusLabel;
+                }
+                if (simplePublishButton) {
+                    if (status === 'published' && loadedEntryId !== '') {
+                        simplePublishButton.textContent = 'Update';
+                    } else if (status === 'scheduled') {
+                        simplePublishButton.textContent = 'Schedule';
+                    } else {
+                        simplePublishButton.textContent = editorRoot && editorRoot.dataset.directPublish === '1'
+                            ? 'Publish'
+                            : 'Submit for review';
+                    }
+                }
+                if (markdownLabel) {
+                    markdownLabel.textContent = editorPresentationMode === 'simple' ? 'Content' : 'Markdown';
+                }
+            }
+
+            async function saveSimpleEntry() {
+                const previousStatus = statusField ? statusField.value : 'unpublished';
+                if (statusField && !['published', 'scheduled'].includes(statusField.value)) {
+                    statusField.value = 'published';
+                }
+                updateSimplePresentation();
+                const saved = await saveEntry('stay');
+                if (!saved && statusField) {
+                    statusField.value = previousStatus;
+                    updateSimplePresentation();
                 }
             }
 
@@ -1210,6 +1269,7 @@
                 updateParentPageOptions();
                 updateSuggestedSortOrder();
                 rebuildFeaturedImageOptions();
+                updateSimplePresentation();
             }
 
             function updateParentPageOptions() {
@@ -1503,6 +1563,9 @@
                 clearAutosaveTimer();
                 setTransientStatus(isAutosave ? 'Autosaving...' : 'Saving...');
                 saveButton.disabled = true;
+                if (simpleSaveDraftButton) {
+                    simpleSaveDraftButton.disabled = true;
+                }
 
                 draftSavePromise = (async () => {
                     const response = await fetch(draftUrl, {
@@ -1567,6 +1630,9 @@
                     draftSaveController = null;
                     draftSaveReason = '';
                     saveButton.disabled = false;
+                    if (simpleSaveDraftButton) {
+                        simpleSaveDraftButton.disabled = false;
+                    }
                     if (hasUnsavedChanges) {
                         scheduleAutosave();
                     }
@@ -1639,10 +1705,10 @@
 
             async function saveEntry(afterSave = 'stay') {
                 if (!saveEntryUrl) {
-                    return;
+                    return false;
                 }
                 if (saveEntryInFlight) {
-                    return;
+                    return false;
                 }
 
                 if (draftSaveInFlight) {
@@ -1739,6 +1805,7 @@
                             editorRoot.dataset.loadedEntryScope = loadedEntryScope;
                             editorRoot.dataset.loadedEntryAuthorSlug = loadedEntryAuthorSlug;
                         }
+                        updateSimplePresentation();
                     }
                     loadedDraftId = payload.draft_id || '';
                     if (editorRoot) {
@@ -1765,12 +1832,14 @@
                     } else if (afterSave === 'new') {
                         window.location.href = getEditorNewUrl();
                     }
+                    return true;
                 } catch (error) {
                     setTransientStatus(error.message || 'Save failed', 'text-danger');
                     if (publishedLink) {
                         publishedLink.classList.add('d-none');
                     }
                     console.error('[tinymash] content save error', error);
+                    return false;
                 } finally {
                     saveEntryInFlight = false;
                     saveButton.disabled = false;
@@ -1779,6 +1848,13 @@
             }
 
             function triggerSaveEntryShortcut() {
+                if (editorPresentationMode === 'simple') {
+                    if (!simplePublishButton || simplePublishButton.disabled) {
+                        return;
+                    }
+                    void saveSimpleEntry();
+                    return;
+                }
                 if (!saveEntryButton || saveEntryButton.disabled) {
                     return;
                 }
@@ -1997,7 +2073,9 @@
             });
             editorModeButtons.forEach((button) => {
                 button.addEventListener('click', () => {
-                    const requestedMode = button.dataset.editorPresentationMode === 'focused' ? 'focused' : 'full';
+                    const requestedMode = ['simple', 'focused', 'full'].includes(button.dataset.editorPresentationMode)
+                        ? button.dataset.editorPresentationMode
+                        : 'simple';
                     if (requestedMode !== editorPresentationMode) {
                         void saveEditorPresentationMode(requestedMode);
                     }
@@ -2278,6 +2356,16 @@
             if (saveButton) {
                 saveButton.addEventListener('click', () => {
                     saveDraft(false);
+                });
+            }
+            if (simpleSaveDraftButton) {
+                simpleSaveDraftButton.addEventListener('click', () => {
+                    void saveDraft(false);
+                });
+            }
+            if (simplePublishButton) {
+                simplePublishButton.addEventListener('click', () => {
+                    void saveSimpleEntry();
                 });
             }
             if (saveEntryButton) {

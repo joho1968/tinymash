@@ -1,7 +1,7 @@
 {
     "key": "blogger-import",
-    "name": "Blogger Import",
-    "version": "0.96.0",
+    "name": "Blogger import",
+    "version": "0.97.0",
     "description": "Imports posts and pages from a Blogger export into an author space.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -10,8 +10,10 @@
     "bootstrap": "bootstrap.php",
     "capabilities": [
         "routes.admin",
-        "navigation.author",
-        "storage.private"
+        "admin.navigation",
+        "import.content",
+        "storage.private",
+        "cli"
     ],
     "default_active": false,
     "stage": "early"

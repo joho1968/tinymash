@@ -167,6 +167,7 @@ trait TinyMashConfigNormalization {
         $this->config['editor']['autosave_enabled'] = $this->normalizeBoolean( $this->config['editor']['autosave_enabled'] ?? true );
         $this->config['editor']['autosave_interval_seconds'] = $this->normalizeAutosaveIntervalSeconds( $this->config['editor']['autosave_interval_seconds'] ?? 120 );
         $this->config['editor']['classic_smileys_enabled'] = $this->normalizeBoolean( $this->config['editor']['classic_smileys_enabled'] ?? true );
+        $this->config['editor']['default_mode'] = $this->normalizeEditorMode( $this->config['editor']['default_mode'] ?? 'simple' );
         $this->config['media']['content_images_mode'] = (string) ( in_array( strtolower( (string) ( $this->config['media']['content_images_mode'] ?? 'authenticated' ) ), [ 'disabled', 'admins_only', 'authenticated' ], true ) ? strtolower( (string) ( $this->config['media']['content_images_mode'] ?? 'authenticated' ) ) : 'authenticated' );
         $this->config['media']['image_driver'] = (string) ( in_array( strtolower( (string) ( $this->config['media']['image_driver'] ?? 'auto' ) ), [ 'auto', 'imagick', 'gd', 'none' ], true ) ? strtolower( (string) ( $this->config['media']['image_driver'] ?? 'auto' ) ) : 'auto' );
         $this->config['media']['image_max_width'] = $this->normalizeImageDimension( $this->config['media']['image_max_width'] ?? 2560 );
@@ -209,6 +210,11 @@ trait TinyMashConfigNormalization {
         }
 
         return( $interval_seconds );
+    }
+
+    protected function normalizeEditorMode( mixed $mode ) : string {
+        $mode = strtolower( trim( (string) $mode ) );
+        return( in_array( $mode, [ 'simple', 'focused', 'full' ], true ) ? $mode : 'simple' );
     }
 
     protected function normalizeRevisionRetentionLimit( mixed $value ) : int {
@@ -321,10 +327,10 @@ trait TinyMashConfigNormalization {
     }
 
     protected function normalizeSecretLinkExpiryDays( mixed $value ) : int {
-        $days = (int) $value;
-        if ( $days < 1 ) {
+        if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^\d{1,3}$/D', trim( $value ) ) === 1 ) ) {
             return( 60 );
         }
+        $days = (int) $value;
         if ( $days > 365 ) {
             return( 365 );
         }

@@ -3,7 +3,7 @@
 {block content}
     <div class="tm-scribe-reading">
         {if empty( $listing_context_title )}
-            <h1 n:class="($theme_settings['author_home_heading'] ?? 'enabled') === 'enabled' ? 'tm-scribe-author-home-title mb-5' : 'visually-hidden'">Posts by {$author_display_name ?? $author_slug ?? 'author'}</h1>
+            <h1 n:class="($theme_settings['author_home_heading'] ?? 'disabled') === 'enabled' ? 'tm-scribe-author-home-title mb-5' : 'visually-hidden'">Posts by {$author_display_name ?? $author_slug ?? 'author'}</h1>
         {/if}
         {if ! empty( $listing_context_title ) || ! empty( $listing_context_summary )}
             <header class="tm-scribe-listing-context mb-5">

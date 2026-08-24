@@ -7,6 +7,7 @@ use app\classes\TinyMashContentRenderer;
 use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
+use app\classes\TinyMashSecretLinkService;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
 
@@ -112,9 +113,36 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     }
 
     $security = $plugins->getService( 'security' );
-    if ( ! $security instanceof TinyMashSecurity ) {
+    $secret_link_service = $plugins->getService( 'secret_links' );
+    if ( ! $security instanceof TinyMashSecurity || ! $secret_link_service instanceof TinyMashSecretLinkService ) {
         throw new \RuntimeException( 'Required services for the Search plugin are not available.' );
     }
+
+    $plugins->registerHelpDocument(
+        $plugin_key,
+        'plugin-search',
+        [
+            'title' => 'Search',
+            'summary' => 'Search published content in the site or an author space.',
+            'group' => 'Plugins',
+            'order' => 125,
+            'roles' => [ 'author', 'admin' ],
+            'sections' => [
+                [
+                    'title' => 'Overview',
+                    'markdown' => 'Search published posts and pages within the current site or author-space scope.',
+                ],
+                [
+                    'title' => 'Visibility',
+                    'markdown' => 'Results follow normal content visibility and author scope. Drafts, unpublished content, and inaccessible author spaces are excluded.',
+                ],
+                [
+                    'title' => 'Static exports',
+                    'markdown' => 'Static exports include scoped Search pages, local JavaScript, and JSON indexes. Searches run in the browser without live requests.',
+                ],
+            ],
+        ]
+    );
 
     $render_not_found = static function( string $message = 'Page not found', string $author_slug = '' ) use ( $theme ) : void {
         \Flight::response()->status( 404 );
@@ -209,16 +237,26 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         'get',
         '/search',
-        static function() use ( $plugins, $config, $security, $theme, $search_service, $apply_author_theme_context, $render_not_found, $record_server_timing, $record_renderer_metrics, $record_repository_metrics, $emit_server_timing ) : void {
+        static function() use ( $plugins, $config, $security, $secret_link_service, $theme, $search_service, $apply_author_theme_context, $render_not_found, $record_server_timing, $record_renderer_metrics, $record_repository_metrics, $emit_server_timing ) : void {
             $request_started_at = microtime( true );
             $query_data = $plugins->getRequestQueryData();
             $query = $search_service->resolveQuery( $query_data );
             $author_slug = $search_service->resolveAuthorSlug( $query_data );
             $page = $search_service->resolvePage( $query_data );
-            $allow_private_author_content = ! $config->isSitePublic() && $security->isLoggedIn();
+            $secret_link_access = $author_slug !== ''
+                ? $secret_link_service->currentVisitorCanAccessAuthor( $author_slug )
+                : $secret_link_service->currentVisitorCanAccessSite();
+            $allow_private_author_content = ! $config->isSitePublic() && ( $security->isLoggedIn() || $secret_link_access );
             $apply_author_theme_context( $author_slug );
 
-            if ( ! $config->isSitePublic() && ! $security->isLoggedIn() ) {
+            if ( ! $config->isSitePublic() ) {
+                $response = \Flight::response();
+                $response->header( 'Vary', 'Cookie' );
+                $response->header( 'Cache-Control', 'private, no-store, max-age=0, must-revalidate' );
+                $response->header( 'X-Robots-Tag', 'noindex, nofollow, noarchive' );
+            }
+
+            if ( ! $config->isSitePublic() && ! $security->isLoggedIn() && ! $secret_link_access ) {
                 $render_not_found( 'This site is not public. Log in to view content.', $author_slug );
                 return;
             }

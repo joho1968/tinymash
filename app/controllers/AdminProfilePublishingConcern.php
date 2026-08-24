@@ -301,6 +301,16 @@ trait AdminProfilePublishingConcern {
                 continue;
             }
 
+            if ( (string) $setting_definition['key'] === 'content_width' && is_array( $setting_definition['options'] ?? null ) ) {
+                $setting_definition['options'] = array_values(
+                    array_filter(
+                        $setting_definition['options'],
+                        static fn( mixed $option_definition ) : bool => ! is_array( $option_definition )
+                            || (string) ( $option_definition['value'] ?? '' ) !== 'theme_default'
+                    )
+                );
+            }
+
             $override_schema[] = $setting_definition;
         }
 
@@ -324,6 +334,9 @@ trait AdminProfilePublishingConcern {
             $input_name = $this->getProfileThemeOverrideInputName( $setting_key );
             $system_value = trim( (string) ( $theme_settings[$setting_key] ?? ( $setting_definition['default'] ?? '' ) ) );
             $current_value = trim( (string) ( $form_state[$input_name] ?? $this->getCurrentProfileThemeSettingValue( $setting_key ) ) );
+            if ( $setting_key === 'content_width' && strtolower( $current_value ) === 'theme_default' ) {
+                $current_value = '';
+            }
             $setting_definition['input_name'] = $input_name;
             $setting_definition['current_value'] = $current_value;
             $setting_definition['system_value'] = $system_value;
@@ -574,7 +587,9 @@ trait AdminProfilePublishingConcern {
                 'record' => is_array( $secret_link_record ) ? $secret_link_record : [],
                 'url' => $secret_link_url,
                 'created_at_display' => is_array( $secret_link_record ) ? $this->formatUtcDateTime( (string) ( $secret_link_record['created_at_utc'] ?? '' ) ) : '',
-                'expires_at_display' => is_array( $secret_link_record ) ? $this->formatUtcDateTime( (string) ( $secret_link_record['expires_at_utc'] ?? '' ) ) : '',
+                'expires_at_display' => is_array( $secret_link_record )
+                    ? ( $secret_link_record['expires_at_utc'] === null ? 'Never' : $this->formatUtcDateTime( (string) $secret_link_record['expires_at_utc'] ) )
+                    : '',
             ]
         );
     }
@@ -628,13 +643,18 @@ trait AdminProfilePublishingConcern {
                     throw new \RuntimeException( 'Secret link generation is unavailable.' );
                 }
 
-                $secret_link_service->generateAuthorSecretLink( $author_slug, $current_username, $this->config->getSecretLinkDefaultExpiryDays() );
+                $expiry_days = $this->validateSecretLinkExpiryDays(
+                    $data['secret_link_expiry_days'] ?? $this->config->getSecretLinkDefaultExpiryDays()
+                );
+                $secret_link_service->generateAuthorSecretLink( $author_slug, $current_username, $expiry_days );
                 $this->setProfileNoticeFlash( 'success', 'Secret link generated for ~ /home/' . $author_slug . '.' );
             } else {
                 if ( ! method_exists( $secret_link_service, 'revokeAuthorSecretLink' ) ) {
                     throw new \RuntimeException( 'Secret link revocation is unavailable.' );
                 }
-                $secret_link_service->revokeAuthorSecretLink( $author_slug );
+                if ( ! $secret_link_service->revokeAuthorSecretLink( $author_slug ) ) {
+                    throw new \RuntimeException( 'Secret link revocation failed.' );
+                }
                 $this->setProfileNoticeFlash( 'success', 'Secret link revoked for ~ /home/' . $author_slug . '.' );
             }
         } catch ( \InvalidArgumentException $e ) {
@@ -642,6 +662,7 @@ trait AdminProfilePublishingConcern {
                 'secret_links_public_site' => 'Secret links are only used when the site is not public.',
                 'secret_links_disabled' => 'Secret links are currently disabled by the site administrator.',
                 'secret_links_author_locked' => 'Your public author space is currently locked.',
+                'secret_link_expiry_days' => 'Secret-link expiry must be between 0 and 365 days.',
                 default => 'Secret-link settings could not be saved right now.',
             };
             $this->setProfileNoticeFlash( 'danger', $message );

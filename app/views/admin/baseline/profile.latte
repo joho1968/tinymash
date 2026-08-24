@@ -182,12 +182,13 @@
                         <div class="rounded-3 p-3 bg-body-secondary">
                         <div class="row g-3">
                             <div class="col-12 col-lg-6">
-                                <label class="form-label small mb-1" for="tm-profile-editor-mode">Default Composer mode</label>
+                                <label class="form-label small mb-1" for="tm-profile-editor-mode">Last-used Composer mode</label>
                                 <select class="form-select" id="tm-profile-editor-mode" name="editor_mode">
+                                    <option value="simple" n:attr="selected => ($profile_form['editor_mode'] ?? 'full') === 'simple'">Simple</option>
                                     <option value="focused" n:attr="selected => ($profile_form['editor_mode'] ?? 'full') === 'focused'">Focused</option>
                                     <option value="full" n:attr="selected => ($profile_form['editor_mode'] ?? 'full') === 'full'">Full</option>
                                 </select>
-                                <div class="form-text">Used when Composer opens. Switching mode in Composer updates the same preference.</div>
+                                <div class="form-text">Switching modes in Composer updates this preference.</div>
                             </div>
                             <div class="col-12 col-lg-6">
                                 <label class="form-label small mb-1" for="tm-profile-classic-smileys-mode">Classic smileys</label>
@@ -197,7 +198,7 @@
                                     <option value="disabled" n:attr="selected => ($profile_form['classic_smileys_mode'] ?? 'inherit') === 'disabled'">Disabled</option>
                                 </select>
                                 <div class="form-text">
-                                    Controls whether classic smileys like <span class="font-monospace">:)</span>, <span class="font-monospace">8-)</span>, and <span class="font-monospace">:-\</span> are converted outside code blocks.
+                                    Convert classic smileys like <span class="font-monospace">:)</span>, <span class="font-monospace">8-)</span>, and <span class="font-monospace">:-\</span> outside code blocks.
                                 </div>
                             </div>
                             <div class="col-12 col-lg-6">
@@ -425,7 +426,7 @@
                                 <div class="small text-body-secondary mb-3">Invite a guest into your author space on a non-public site without exposing root content.</div>
                             </div>
                             {if ! empty( $profile_secret_links['record'] )}
-                                <div class="rounded-3 p-3 bg-body-secondary d-grid gap-2">
+                                <div class="d-grid gap-2">
                                     <div class="small text-uppercase text-body-secondary">Active link</div>
                                     <div class="font-monospace text-break">{$profile_secret_links['url'] ?? ''}</div>
                                     <div class="small text-body-secondary">
@@ -441,12 +442,23 @@
                                 {if ! empty( $profile_secret_links['site_public'] )}
                                     Secret links are only used when the site is not public.
                                 {elseif empty( $profile_secret_links['system_enabled'] )}
-                                    Secret links are currently disabled in System &gt; Site settings.
+                                    Secret links are currently disabled in System &gt; Security.
                                 {elseif empty( $profile_secret_links['content_active'] )}
                                     Your public author space is currently locked.
                                 {else}
-                                    New links currently expire after {$profile_secret_links['default_expiry_days'] ?? 60} days by default.
+                                    {if ($profile_secret_links['default_expiry_days'] ?? 60) === 0}
+                                        New links do not expire by default.
+                                    {else}
+                                        New links expire after {$profile_secret_links['default_expiry_days'] ?? 60} days by default.
+                                    {/if}
                                 {/if}
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-12 col-sm-5">
+                                    <label class="form-label small mb-1" for="tm-profile-secret-link-expiry-days">Expiry (days)</label>
+                                    <input class="form-control font-monospace" id="tm-profile-secret-link-expiry-days" name="secret_link_expiry_days" type="number" min="0" max="365" step="1" value="{($profile_form['secret_link_expiry_days'] ?? '') !== '' ? $profile_form['secret_link_expiry_days'] : ($profile_secret_links['default_expiry_days'] ?? 60)}">
+                                </div>
+                                <div class="col-12 col-sm-7 small text-body-secondary">Set to 0 for no expiry.</div>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
                                 <button

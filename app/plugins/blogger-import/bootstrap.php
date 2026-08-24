@@ -49,6 +49,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'keep_preview' => false,
             'media_dir' => '',
             'force_lock' => false,
+            'first_image_as_featured' => false,
         ];
 
         foreach ( array_slice( $arguments, 2 ) as $argument ) {
@@ -89,6 +90,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $options['force_lock'] = true;
                 continue;
             }
+            if ( $argument === '--first-image-as-featured' ) {
+                $options['first_image_as_featured'] = true;
+                continue;
+            }
 
             throw new \RuntimeException( 'Unknown option "' . $argument . '".' );
         }
@@ -116,16 +121,32 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'blogger-import',
-                'usage' => 'tinymash blogger-import <preview|import> <feed-file> --author=<username> [--aggregate-root] [--replace-existing-posts] [--skip-unpublished] [--media-dir=<path>] [--batch-size=<n>] [--memory-limit=<value>] [--keep-preview] [--force-lock]',
-                'summary' => 'Preview or import a Blogger Atom/XML export into an author space from the CLI.',
+                'summary' => 'Preview or import a Blogger Atom/XML export into an author space.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Preview the export or import it', 'choices' => [ 'preview', 'import' ] ],
+                    [ 'name' => 'feed-file', 'required' => true, 'description' => 'Readable Blogger Atom/XML export file' ],
+                ],
+                'options' => [
+                    [ 'name' => 'author', 'value' => true, 'required' => true, 'description' => 'Required local author account' ],
+                    [ 'name' => 'aggregate-root', 'description' => 'Also include imported posts in the root blogroll' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Replace posts with matching slugs' ],
+                    [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
+                    [ 'name' => 'first-image-as-featured', 'description' => 'Use the first imported post image as its featured image' ],
+                    [ 'name' => 'media-dir', 'value' => true, 'description' => 'Search this directory for local source media' ],
+                    [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
+                    [ 'name' => 'memory-limit', 'value' => true, 'default' => '512M', 'pattern' => '/^(?:-1|\d+[KMG]?)$/i', 'pattern_message' => 'The --memory-limit option must be -1 or a number with an optional K, M, or G suffix.', 'description' => 'Set the PHP memory limit for the import' ],
+                    [ 'name' => 'keep-preview', 'description' => 'Keep preview files after a completed import' ],
+                    [ 'name' => 'force-lock', 'description' => 'Replace a stale import lock for this author' ],
+                ],
+                'examples' => [
+                    'php8.4 bin/tinymash.php blogger-import preview takeout.xml --author=cajo',
+                    'php8.4 bin/tinymash.php blogger-import import takeout.xml --author=cajo --first-image-as-featured',
+                ],
+                'notes' => 'The target account may be inactive, but it must exist. Run preview before import when checking a new source file.',
                 'order' => 210,
                 'handler' => static function( array $arguments ) use ( $parse_cli_options, $write_preview_summary, $import_service, $import_preview_workspace_service, $plugin_key, $user_repository ) : void {
                     $options = $parse_cli_options( $arguments );
                     $action = (string) ( $options['action'] ?? '' );
-                    if ( ! in_array( $action, [ 'preview', 'import' ], true ) ) {
-                        throw new \RuntimeException( 'usage: tinymash blogger-import <preview|import> <feed-file> --author=<username> [--aggregate-root] [--replace-existing-posts] [--skip-unpublished] [--media-dir=<path>] [--batch-size=<n>] [--memory-limit=<value>] [--keep-preview] [--force-lock]' );
-                    }
-
                     $source_filename = trim( (string) ( $options['source'] ?? '' ) );
                     if ( $source_filename === '' || ! is_file( $source_filename ) || ! is_readable( $source_filename ) ) {
                         throw new \RuntimeException( 'The Blogger export file could not be read.' );
@@ -154,7 +175,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                         $author_slug,
                         ! empty( $options['replace_existing_posts'] ),
                         trim( (string) ( $options['media_dir'] ?? '' ) ),
-                        ! empty( $options['skip_unpublished'] )
+                        ! empty( $options['skip_unpublished'] ),
+                        ! empty( $options['first_image_as_featured'] )
                     );
 
                     $write_preview_summary( $preview );
@@ -207,6 +229,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $preview_url = $plugin_url . '/preview';
     $report_url = $plugin_url . '/report';
     $import_url = $plugin_url . '/run';
+    $unlock_url = $plugin_url . '/unlock';
     $max_execution_time = (int) ini_get( 'max_execution_time' );
     $import_batch_size = match ( true ) {
         $max_execution_time > 0 && $max_execution_time <= 30 => 1,
@@ -234,22 +257,26 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-blogger-import',
         [
             'title' => 'Blogger import',
-            'summary' => 'Import a Blogger export into your current author space.',
+            'summary' => 'Import posts and pages from a Blogger export into an author space.',
             'group' => 'Plugins',
             'order' => 120,
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it imports',
-                    'markdown' => 'Blogger import brings posts and pages from a Blogger export XML file into your current author space.',
+                    'title' => 'Overview',
+                    'markdown' => 'Import posts and pages from a Blogger export XML file into an author space.',
                 ],
                 [
                     'title' => 'Media',
-                    'markdown' => 'The importer can localize Blogger images through a matching local media export directory, and can fall back to bounded remote Blogger/Google image fetches when needed.',
+                    'markdown' => 'Preserves recognized Blogger image alignment, localizes images from an optional matching media-export directory, and can use each post’s first image as its featured image.',
                 ],
                 [
                     'title' => 'Duplicates',
                     'markdown' => 'Imports never overwrite existing tinymash entries. If a Blogger item collides with an existing slug and type, it is skipped and reported.',
+                ],
+                [
+                    'title' => 'Interrupted imports',
+                    'markdown' => 'Return to the same preview and choose **Resume import**. If an earlier import blocks a new preview, open that import or release its lock from the preview page.',
                 ],
             ],
         ]
@@ -323,6 +350,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
             $display_name = trim( (string) ( $user['display_name'] ?? '' ) );
             $label = $display_name !== '' ? ( $display_name . ' (' . $username . ')' ) : $username;
+            if ( empty( $user['active'] ) ) {
+                $label .= ' — sign-in disabled';
+            }
             $options[] = [
                 'username' => $username,
                 'label' => $label,
@@ -332,7 +362,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $options );
     };
 
-    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $config, $date_formatter, $import_service, $import_lock_service, $plugin_url, $preview_url, $report_url, $import_url, $login_url, $escape, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
+    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $config, $date_formatter, $import_service, $import_lock_service, $plugin_key, $plugin_url, $preview_url, $report_url, $import_url, $unlock_url, $login_url, $escape, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( $login_url );
             return;
@@ -450,6 +480,13 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '</div>';
             $body_html .= '</div>';
             $body_html .= '<div class="col-12">';
+            $body_html .= '<div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="blogger-import-first-featured" name="first_image_as_featured" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="blogger-import-first-featured">Use each post’s first image as its featured image</label>';
+            $body_html .= '<div class="form-text">Featured images can appear in theme listings. The image remains in the post body.</div>';
+            $body_html .= '</div>';
+            $body_html .= '</div>';
+            $body_html .= '<div class="col-12">';
             $body_html .= '<button class="btn btn-primary" type="submit"' . ( $runtime_available ? '' : ' disabled' ) . '>Preview import</button>';
             $body_html .= '</div>';
             $body_html .= '</form>';
@@ -474,15 +511,23 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $media_summary = is_array( $preview['media_summary'] ?? null ) ? $preview['media_summary'] : [];
             $replace_existing_posts = ! empty( $preview['replace_existing_posts'] );
             $skip_unpublished = ! empty( $preview['skip_unpublished'] );
+            $first_image_as_featured = ! empty( $preview['first_image_as_featured'] );
             $import_running = is_array( $import_state ) && (string) ( $import_state['status'] ?? '' ) === 'running';
             $import_finished = is_array( $import_state ) && (string) ( $import_state['status'] ?? '' ) === 'finished';
             $adjusted_source_duplicates = max( 0, (int) ( $preview['adjusted_source_duplicates'] ?? 0 ) );
             $adjusted_source_conflicts = is_array( $preview['adjusted_source_conflicts'] ?? null ) ? $preview['adjusted_source_conflicts'] : [];
             $has_conflicting_lock = is_array( $active_lock );
             $conflicting_lock_is_stale = $has_conflicting_lock && ! empty( $active_lock['is_stale'] );
-            $conflicting_lock_created_display = $has_conflicting_lock
-                ? $date_formatter->formatUtcDateTime( (string) ( $active_lock['created_at_utc'] ?? '' ) )
+            $conflicting_lock_updated_display = $has_conflicting_lock
+                ? $date_formatter->formatUtcDateTime( (string) ( $active_lock['updated_at_utc'] ?? $active_lock['created_at_utc'] ?? '' ) )
                 : '';
+            $conflicting_lock_owner = strtolower( trim( (string) ( $active_lock['created_by_username'] ?? '' ) ) );
+            $can_release_conflicting_lock = $has_conflicting_lock && ( $is_superadmin || ( $conflicting_lock_owner !== '' && $conflicting_lock_owner === strtolower( $username ) ) );
+            $conflicting_preview = $has_conflicting_lock && (string) ( $active_lock['importer_key'] ?? '' ) === $plugin_key
+                ? $import_service->getPreview( (string) ( $active_lock['token'] ?? '' ) )
+                : null;
+            $can_open_conflicting_preview = is_array( $conflicting_preview )
+                && (string) ( $conflicting_preview['created_by_username'] ?? $conflicting_preview['author_slug'] ?? '' ) === strtolower( $username );
             $body_html .= '<div class="col-12">';
             $body_html .= '<div class="d-flex flex-wrap gap-2 mb-3">';
             $body_html .= '<a class="btn btn-outline-secondary btn-sm" href="' . $escape( $plugin_url ) . '">Start over</a>';
@@ -499,15 +544,29 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             if ( $skip_unpublished && (int) ( $counts['skipped_unpublished'] ?? 0 ) > 0 ) {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Skipping ' . (int) ( $counts['skipped_unpublished'] ?? 0 ) . ' unpublished source entr' . ( (int) ( $counts['skipped_unpublished'] ?? 0 ) === 1 ? 'y' : 'ies' ) . ' for this import.</div>';
             }
+            if ( $first_image_as_featured ) {
+                $body_html .= '<div class="small text-body-secondary mt-1">The first imported image in each post will also become its featured image.</div>';
+            }
             if ( $adjusted_source_duplicates > 0 ) {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Adjusted ' . $adjusted_source_duplicates . ' duplicate slug conflict' . ( $adjusted_source_duplicates === 1 ? '' : 's' ) . ' inside the Blogger source export so the entries can still be imported.</div>';
             }
             if ( $has_conflicting_lock ) {
-                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import currently holds this author-space lock (created ' . $escape( $conflicting_lock_created_display !== '' ? $conflicting_lock_created_display : 'unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
+                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import holds this author-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
             }
             $body_html .= '</div>';
             $body_html .= '<div class="d-flex flex-wrap gap-2">';
-            $body_html .= '<button class="btn btn-outline-primary" id="blogger-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button>';
+            $body_html .= '<button class="btn btn-outline-primary" id="blogger-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-login-url="' . $escape( $login_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button>';
+            if ( $can_open_conflicting_preview ) {
+                $body_html .= '<a class="btn btn-outline-secondary" href="' . $escape( $preview_url . '?preview=' . rawurlencode( (string) ( $active_lock['token'] ?? '' ) ) ) . '">Open earlier import</a>';
+            }
+            if ( $can_release_conflicting_lock ) {
+                $body_html .= '<form method="post" action="' . $escape( $unlock_url ) . '" onsubmit="return confirm(\'Release the earlier import lock? An import still running in another tab will stop at its next batch.\');">';
+                $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $csrf_token ) . '">';
+                $body_html .= '<input type="hidden" name="preview_token" value="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '">';
+                $body_html .= '<input type="hidden" name="lock_token" value="' . $escape( (string) ( $active_lock['token'] ?? '' ) ) . '">';
+                $body_html .= '<button class="btn btn-outline-danger" type="submit">Release earlier lock</button>';
+                $body_html .= '</form>';
+            }
             $body_html .= '</div>';
             $body_html .= '</div>';
             if ( $conflicting_lock_is_stale ) {
@@ -739,6 +798,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     const forceLockCheckbox = document.getElementById('blogger-import-force-lock');
     const importUrl = startButton.dataset.importUrl || '';
     const pluginUrl = startButton.dataset.pluginUrl || '';
+    const loginUrl = startButton.dataset.loginUrl || '';
     const previewToken = startButton.dataset.previewToken || '';
     const csrfToken = startButton.dataset.csrfToken || '';
     let importInFlight = false;
@@ -803,10 +863,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     }).toString()
                 });
 
-                const payload = await response.json();
-                if (!response.ok) {
-                    throw new Error(payload.error || ('Import failed with status ' + response.status));
+                if (!window.TinyMashImportAdmin) {
+                    throw new Error('The import helper is unavailable. Reload this preview to resume.');
                 }
+                const payload = await window.TinyMashImportAdmin.readJsonResponse(response);
 
                 setProgress(payload);
                 if (payload.done) {
@@ -815,6 +875,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 }
             }
         } catch (error) {
+            if (error.requiresLogin && window.TinyMashImportAdmin) {
+                window.location.href = window.TinyMashImportAdmin.buildLoginUrl(loginUrl, window.location.pathname + window.location.search);
+                return;
+            }
             startButton.disabled = false;
             startButton.textContent = 'Resume import';
             if (previewTableWrap) {
@@ -822,7 +886,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
             if (progressSection && progressMessage) {
                 progressSection.classList.remove('d-none');
-                progressMessage.textContent = error.message || 'The Blogger import failed.';
+                progressMessage.textContent = error instanceof TypeError
+                    ? 'The request was interrupted. Reload this preview to resume.'
+                    : (error.message || 'The Blogger import failed.');
             }
             if (progressSpinner) {
                 progressSpinner.classList.add('d-none');
@@ -917,7 +983,8 @@ HTML;
                     $current_username,
                     ! empty( $data['replace_existing_posts'] ),
                     (string) ( $data['blogger_media_directory'] ?? '' ),
-                    ! empty( $data['skip_unpublished'] )
+                    ! empty( $data['skip_unpublished'] ),
+                    ! empty( $data['first_image_as_featured'] )
                 );
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'preview failed', $e );
@@ -935,6 +1002,51 @@ HTML;
                 $redirect_url .= '&media_dir=' . rawurlencode( (string) ( $preview['media_source_directory'] ?? '' ) );
             }
             $plugins->redirect( $redirect_url );
+        }
+    );
+
+    $plugins->registerRoute(
+        $plugin_key,
+        'post',
+        $unlock_url,
+        static function() use ( $plugins, $security, $import_service, $import_lock_service, $login_url, $plugin_url, $preview_url, $build_notice ) : void {
+            if ( ! $security->isLoggedIn() ) {
+                $plugins->redirect( $login_url );
+                return;
+            }
+
+            $data = $plugins->getRequestData();
+            if ( ! $security->validateCsrfToken( isset( $data['tinymash_csrf'] ) ? (string) $data['tinymash_csrf'] : '' ) ) {
+                $security->setFlash( 'blogger-import.notice', $build_notice( 'danger', 'Your session token is invalid. Please reload the page and try again.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
+
+            $preview_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['preview_token'] ?? '' ) ) ) ) ?? '';
+            $lock_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['lock_token'] ?? '' ) ) ) ) ?? '';
+            $preview = $preview_token !== '' ? $import_service->getPreview( $preview_token ) : null;
+            $current_username = strtolower( trim( (string) $security->getCurrentUsername() ) );
+            if ( ! is_array( $preview ) || (string) ( $preview['created_by_username'] ?? $preview['author_slug'] ?? '' ) !== $current_username ) {
+                $security->setFlash( 'blogger-import.notice', $build_notice( 'danger', 'That Blogger import preview is not available for the current account.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
+
+            $author_slug = (string) ( $preview['author_slug'] ?? '' );
+            $lock = $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service->getAuthorLock( $author_slug ) : null;
+            $lock_owner = strtolower( trim( (string) ( $lock['created_by_username'] ?? '' ) ) );
+            if ( ! is_array( $lock ) || $lock_token === '' || ! hash_equals( (string) ( $lock['token'] ?? '' ), $lock_token ) || ( ! $security->isSuperAdmin() && $lock_owner !== $current_username ) ) {
+                $security->setFlash( 'blogger-import.notice', $build_notice( 'danger', 'The earlier import lock could not be released.' ) );
+                $plugins->redirect( $preview_url . '?preview=' . rawurlencode( $preview_token ) );
+                return;
+            }
+
+            $released = $import_lock_service->releaseAuthorLock( $author_slug, $lock_token );
+            $security->setFlash(
+                'blogger-import.notice',
+                $build_notice( $released ? 'success' : 'danger', $released ? 'Released the earlier import lock.' : 'The earlier import lock could not be released.' )
+            );
+            $plugins->redirect( $preview_url . '?preview=' . rawurlencode( $preview_token ) );
         }
     );
 
@@ -985,6 +1097,9 @@ HTML;
                 $plugins->redirect( $plugin_url );
                 return;
             }
+
+            $security->touchAuthenticatedSession();
+            $security->closeSession();
 
             $result = [ 'done' => false ];
 

@@ -61,7 +61,7 @@
             </nav>
         {/if}
 
-        <div class="entry-content tm-scribe-prose" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
+        <div class="entry-content tm-scribe-prose{if ($entry['type'] ?? 'post') === 'post' && ($theme_settings['post_image_alignment'] ?? 'as_written') === 'centered'} tm-scribe-prose-images-centered{/if}" data-tm-syntax-root n:attr="data-tm-syntax-language-labels => ! empty( $theme_syntax_highlighting['language_labels'] ) ? '1' : null, data-tm-syntax-language-label-class => ! empty( $theme_syntax_highlighting['language_label_class'] ) ? $theme_syntax_highlighting['language_label_class'] : null">
             {$entry['content_body_html']|noescape}
         </div>
 

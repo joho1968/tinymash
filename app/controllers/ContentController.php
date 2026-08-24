@@ -406,6 +406,7 @@ class ContentController extends BaseController {
     }
 
     public function resolveSecretLink( string $token ) : void {
+        $this->applySecretLinkExchangeResponseHeaders();
         $secret_link_service = $this->getSecretLinkService();
         if ( ! is_object( $secret_link_service ) || ! method_exists( $secret_link_service, 'grantCurrentVisitorToken' ) ) {
             $this->renderSitePrivateNotFound();
@@ -415,6 +416,11 @@ class ContentController extends BaseController {
         $record = $secret_link_service->grantCurrentVisitorToken( $token );
         if ( ! is_array( $record ) ) {
             $this->renderSitePrivateNotFound();
+            return;
+        }
+
+        if ( ( $record['scope'] ?? '' ) === 'site' ) {
+            $this->app->redirect( '/' );
             return;
         }
 
@@ -432,7 +438,16 @@ class ContentController extends BaseController {
             return( true );
         }
 
-        return( $this->isAuthenticatedPublicVisitor() );
+        if ( $this->isAuthenticatedPublicVisitor() ) {
+            return( true );
+        }
+
+        $secret_link_service = $this->getSecretLinkService();
+        return(
+            is_object( $secret_link_service )
+            && method_exists( $secret_link_service, 'currentVisitorCanAccessSite' )
+            && (bool) $secret_link_service->currentVisitorCanAccessSite()
+        );
     }
 
     protected function canRenderAuthorSpace( string $author_slug ) : bool {
@@ -631,6 +646,7 @@ class ContentController extends BaseController {
     }
 
     protected function renderSitePrivateNotFound() : void {
+        $this->applyPrivateAccessResponseHeaders();
         $this->app->response()->status( 404 );
         $this->render(
             $this->theme->getTemplate( '404' ),
@@ -709,7 +725,8 @@ class ContentController extends BaseController {
         $last_modified = gmdate( 'D, d M Y H:i:s', $media_modified_at ) . ' GMT';
         header( 'ETag: ' . $etag );
         header( 'Last-Modified: ' . $last_modified );
-        header( 'Cache-Control: public, max-age=3600' );
+        header( 'Vary: Cookie' );
+        header( $this->config->isSitePublic() ? 'Cache-Control: public, max-age=3600' : 'Cache-Control: private, no-store, max-age=0, must-revalidate' );
         if ( $this->mediaRequestIsNotModified( $etag, $media_modified_at ) ) {
             $this->app->response()->status( 304 );
             return;
@@ -810,6 +827,13 @@ class ContentController extends BaseController {
         }
 
         $secret_link_service = $this->getSecretLinkService();
+        if (
+            is_object( $secret_link_service )
+            && method_exists( $secret_link_service, 'currentVisitorCanAccessSite' )
+            && (bool) $secret_link_service->currentVisitorCanAccessSite()
+        ) {
+            return( false );
+        }
         return(
             is_object( $secret_link_service )
             && method_exists( $secret_link_service, 'currentVisitorCanAccessAuthor' )
@@ -1015,16 +1039,38 @@ class ContentController extends BaseController {
         $response = $this->app->response();
         $response->header( 'Vary', 'Cookie' );
 
-        if ( $this->isAuthenticatedPublicVisitor() ) {
-            $response->header( 'Cache-Control', 'private, no-store, max-age=0, must-revalidate' );
-            $response->header( 'Pragma', 'no-cache' );
-            $response->header( 'Expires', '0' );
+        if ( $this->isAuthenticatedPublicVisitor() || $this->hasCurrentVisitorSecretLinkAccess() ) {
+            $this->applyPrivateAccessResponseHeaders();
             return;
         }
 
         $response->header( 'Cache-Control', 'public, max-age=60, stale-while-revalidate=30' );
         $response->header( 'Pragma', 'public' );
         $response->header( 'Expires', gmdate( 'D, d M Y H:i:s', time() + 60 ) . ' GMT' );
+    }
+
+    protected function applySecretLinkExchangeResponseHeaders() : void {
+        $this->applyPrivateAccessResponseHeaders();
+        $response = $this->app->response();
+        $response->header( 'Referrer-Policy', 'no-referrer' );
+        $response->header( 'X-Robots-Tag', 'noindex, nofollow, noarchive' );
+    }
+
+    protected function applyPrivateAccessResponseHeaders() : void {
+        $response = $this->app->response();
+        $response->header( 'Vary', 'Cookie' );
+        $response->header( 'Cache-Control', 'private, no-store, max-age=0, must-revalidate' );
+        $response->header( 'Pragma', 'no-cache' );
+        $response->header( 'Expires', '0' );
+    }
+
+    protected function hasCurrentVisitorSecretLinkAccess() : bool {
+        $secret_link_service = $this->getSecretLinkService();
+        return(
+            is_object( $secret_link_service )
+            && method_exists( $secret_link_service, 'currentVisitorHasSecretLinkAccess' )
+            && (bool) $secret_link_service->currentVisitorHasSecretLinkAccess()
+        );
     }
 
     protected function isAuthenticatedPublicVisitor() : bool {

@@ -97,8 +97,10 @@ use app\classes\TinyMashPasswordResetService;
 use app\classes\TinyMashComponentsReportService;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\InvalidArgumentException as ConsoleInvalidArgumentException;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -201,70 +203,13 @@ function stdinIsInteractive(): bool {
     return false;
 }
 
-function stripGlobalCliOptions(array $arguments): array {
-    $allow_root = false;
-    $filtered_arguments = [];
-
-    foreach ($arguments as $argument) {
-        if ($argument === '--allow-root') {
-            $allow_root = true;
-            continue;
-        }
-        $filtered_arguments[] = $argument;
-    }
-
-    return [
-        'arguments' => $filtered_arguments,
-        'allow_root' => $allow_root,
-    ];
-}
-
-function commandIsReadOnlyForRootGuard(array $arguments): bool {
-    $command = (string) ($arguments[0] ?? '');
-    if ($command === '' || in_array($command, ['help', '--help', '-h'], true)) {
-        return true;
-    }
-
-    $action = (string) ($arguments[1] ?? '');
-    if ($command === 'system') {
-        return in_array($action, ['status', 'plugins', 'themes'], true);
-    }
-    if ($command === 'maintenance') {
-        return $action === 'status';
-    }
-    if ($command === 'housekeeping') {
-        return $action === 'status';
-    }
-    if ($command === 'media') {
-        if ($action === 'usage') {
-            return true;
-        }
-        if ($action === 'cleanup') {
-            return in_array('--report-unused', $arguments, true)
-                || in_array('--dry-run', $arguments, true)
-                || !in_array('--generate-missing-derivatives', $arguments, true);
-        }
-    }
-    if ($command === 'benchmark') {
-        return $action === 'public';
-    }
-    if ($command === 'audit') {
-        return $action === 'remote-media';
-    }
-    if ($command === 'user') {
-        return $action === 'list';
-    }
-
-    return false;
-}
-
-function guardRootUserForCliCommand(array $arguments, bool $allow_root): void {
+function guardRootUserForCliCommand(bool $read_only, bool $allow_root): void {
     if (!isEffectiveRootUser()) {
         return;
     }
 
     $warning = 'tinymash: warning: running as root can leave runtime files owned by root; use the tinymash user when possible';
-    if (commandIsReadOnlyForRootGuard($arguments)) {
+    if ($read_only) {
         fwrite(STDERR, $warning . PHP_EOL);
         return;
     }
@@ -288,12 +233,12 @@ function guardRootUserForCliCommand(array $arguments, bool $allow_root): void {
 }
 
 function readUsers(): array {
-    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
     return ['users' => $repository->getAllUsers()];
 }
 
 function writeUsers(array $data): void {
-    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
     foreach (($data['users'] ?? []) as $user) {
         if (!is_array($user) || empty($user['username'])) {
             continue;
@@ -312,139 +257,15 @@ function writeUsers(array $data): void {
     }
 }
 
-function showHelp(): void {
-    $help = <<<TEXT
-tinymash
-========
-
-Usage
------
-  tinymash [--allow-root] <command> [options]
-
-Global option
--------------
-  --allow-root
-      allow mutating commands to run as root without an interactive confirmation
-
-Runtime
--------
-  help
-      show this help
-
-  system status
-      show a small runtime summary
-
-  system plugins
-      show plugin boot diagnostics
-
-  system themes
-      show theme manifest diagnostics
-
-  maintenance status
-      show current maintenance mode
-
-  maintenance on
-      enable maintenance mode in config
-
-  maintenance off
-      disable maintenance mode in config
-
-Cache and housekeeping
-----------------------
-  cache clear
-      remove compiled Latte cache files, the persistent content index cache, and cached public page responses
-
-  cache warm [--base-url=<url>] [--userpass=<user:pass>] [--author=<slug>] [--entries] [--entry-limit=<n>]
-      rebuild the persistent content index cache, prune expired cached public page responses, and proactively warm public listing pages
-
-  housekeeping status
-      show housekeeping policy and last-run state
-
-  housekeeping run [--no-plugins]
-      run core housekeeping now, and optionally active plugin housekeeping tasks
-
-  content publish-due
-      publish due scheduled content and enqueue active publication integrations
-
-Media
------
-  media usage [--owner=<root-or-author>] [--unused-only] [--limit=<n>]
-      report stored media usage from content, drafts, site/profile settings, and known media IDs in plugin settings
-
-  media cleanup [--dry-run] [--generate-missing-derivatives] [--report-unused] [--owner=<root-or-author>] [--limit=<n>]
-      report likely unused media or generate missing display/lightbox derivatives without rewriting originals
-
-Inspection
-----------
-  benchmark public [--base-url=<url>] [--userpass=<user:pass>] [--login-user=<username>] [--login-pass=<password>] [--author=<slug>] [--entry=<slug>] [--repeat=<n>]
-      fetch public URLs with curl and show timing summaries for root, author home, page 2, and an optional entry; can also benchmark the logged-in public path
-
-  audit remote-media [--author=<slug>] [--include-unpublished]
-      scan stored content for remote image URLs and report likely import misses versus intentional external embeds
-
-  check-updates [--notify]
-      run composer outdated/audit, write a cached components report, and optionally send notification e-mail
-
-Transfer
---------
-  deploy <target-directory>
-      build a deployable runtime tree from the explicit include-only deploy manifest
-
-  deploy audit <deployed-directory> [--manifest=<file>]
-      compare deployed application files with a version-2 deploy manifest without reading runtime state
-
-  export site <target-directory> [--with-plugins]
-      export config, users, content, drafts, and media into a portable directory
-
-  export author <username> <target-directory> [--with-plugins]
-      export one author profile plus owned content, drafts, and media
-
-  static-export author <username-or-author-slug> [--base-url=<url>] [--output=<directory>]
-      export one public author space as static HTML and local assets
-
-  static-export site [--base-url=<url>] [--exclude-author=<slug>] [--output=<directory>]
-      export root public pages and included public author spaces as static HTML and local assets
-
-  import site <source-directory> [--replace-existing] [--with-plugins]
-      import a site export bundle into the current runtime
-
-  import author <source-directory> <new-password> [--replace-existing] [--with-plugins]
-      import one author export bundle and assign a new login password
-
-Users
------
-  user list
-      list local tinymash users from users/*.json
-
-  user set-password <username> <password> [role]
-      create or update a local tinymash user
-TEXT;
-
-    fwrite(STDOUT, $help . PHP_EOL);
-
-    $plugin_commands = getPluginCliCommands();
-    if ($plugin_commands === []) {
-        return;
+function getCliEditorDefaultMode(): string {
+    $config = new TinyMashConfigIO();
+    if (!$config->getConfig()) {
+        return 'simple';
     }
 
-    fwrite(STDOUT, PHP_EOL . "Plugin commands" . PHP_EOL);
-    fwrite(STDOUT, "---------------" . PHP_EOL);
-    foreach ($plugin_commands as $plugin_command) {
-        if (!is_array($plugin_command)) {
-            continue;
-        }
-
-        $usage = trim((string) ($plugin_command['usage'] ?? ''));
-        $summary = trim((string) ($plugin_command['summary'] ?? ''));
-        if ($usage === '') {
-            continue;
-        }
-
-        fwrite(STDOUT, '  ' . $usage . PHP_EOL);
-        if ($summary !== '') {
-            fwrite(STDOUT, '      ' . $summary . PHP_EOL);
-        }
-    }
+    $settings = $config->getSystemSettings();
+    $mode = strtolower(trim((string) ($settings['editor_default_mode'] ?? 'simple')));
+    return in_array($mode, ['simple', 'focused', 'full'], true) ? $mode : 'simple';
 }
 
 function getPluginCliCommands(): array {
@@ -809,7 +630,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
     );
     $content_target_picker = new TinyMashContentTargetPickerService($content_repository);
     $draft_repository = new TinyMashDraftRepository(TINYMASH_DRAFTS_DIR);
-    $user_repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+    $user_repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, $config->getEditorDefaultMode());
     $markdown_renderer = new TinyMashMarkdownRenderer();
     $date_formatter = new TinyMashDateFormatter(
         $config->getLocaleDateFormat(),
@@ -2275,10 +2096,10 @@ function runDeployAudit(array $arguments): void {
             $target_directory = $argument;
             continue;
         }
-        fail('usage: tinymash deploy:audit <deployed-directory> [--manifest=<file>]', 2);
+        fail('only one deployed directory may be inspected', 2);
     }
     if ($target_directory === '') {
-        fail('usage: tinymash deploy:audit <deployed-directory> [--manifest=<file>]', 2);
+        fail('deployed directory is required', 2);
     }
 
     try {
@@ -2376,7 +2197,7 @@ function runExportAuthor(string $username, string $target_directory, bool $with_
 function runStaticExportAuthor(array $arguments): void {
     $author_slug = (string) ($arguments[0] ?? '');
     if ($author_slug === '') {
-        fail('usage: tinymash static-export:author <username-or-author-slug> [--base-url=<url>] [--output=<directory>]');
+        fail('author username or slug is required');
     }
 
     $options = parseStaticExportOptions(array_slice($arguments, 1));
@@ -2555,7 +2376,7 @@ function listUsers(): void {
     }
 }
 
-function setUserPassword(string $username, string $password, string $role = 'superadmin'): void {
+function setUserPassword(string $username, string $password, string $role = ''): void {
     $username = trim($username);
     if ($username === '') {
         fail('username must not be empty');
@@ -2564,7 +2385,16 @@ function setUserPassword(string $username, string $password, string $role = 'sup
         fail('password must not be empty');
     }
 
+    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
+    $existing = $repository->getUserByUsername($username);
+
     $role = strtolower(trim($role));
+    if ($role === '' && is_array($existing)) {
+        $role = strtolower(trim((string) ($existing['role'] ?? '')));
+    }
+    if ($role === '') {
+        fail('role is required when creating a user; use superadmin or creator');
+    }
     if ($role === 'admin') {
         $role = 'superadmin';
     }
@@ -2572,8 +2402,6 @@ function setUserPassword(string $username, string $password, string $role = 'sup
         fail('role must be superadmin or creator');
     }
 
-    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
-    $existing = $repository->getUserByUsername($username);
     $repository->saveUser(
         [
             'original_username' => is_array($existing) ? $username : '',
@@ -2605,35 +2433,6 @@ function runPluginCliCommand(string $command, array $arguments): bool {
     } catch (\Throwable $e) {
         fail($e->getMessage());
     }
-}
-
-function getTinymashRawCommandArguments(): array {
-    $argv = $_SERVER['argv'] ?? [];
-    if (!is_array($argv)) {
-        return [];
-    }
-
-    array_shift($argv);
-    $command_seen = false;
-    $arguments = [];
-    foreach ($argv as $argument) {
-        if (!is_string($argument)) {
-            continue;
-        }
-        if ($argument === '--allow-root') {
-            continue;
-        }
-        if (!$command_seen) {
-            if (str_starts_with($argument, '-')) {
-                continue;
-            }
-            $command_seen = true;
-            continue;
-        }
-        $arguments[] = $argument;
-    }
-
-    return $arguments;
 }
 
 function transformLegacyCliArgv(array $argv): array {
@@ -2748,6 +2547,7 @@ function buildSetupDefaultConfig(): array {
             'autosave_enabled' => true,
             'autosave_interval_seconds' => 120,
             'classic_smileys_enabled' => true,
+            'default_mode' => 'simple',
         ],
         'media' => [
             'content_images_mode' => 'authenticated',
@@ -2859,7 +2659,7 @@ function getSetupExistingSuperadmin(string $username = ''): ?array {
         return null;
     }
 
-    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
     if ($username !== '') {
         return $repository->getUserByUsername($username);
     }
@@ -2981,62 +2781,251 @@ function readSetupPasswordFromInput(InputInterface $input): string {
     return '';
 }
 
-class TinymashLegacyCommand extends Command {
+class TinymashConsoleApplication extends Application {
+    protected function getDefaultInputDefinition(): InputDefinition {
+        return new InputDefinition([
+            new InputArgument('command', InputArgument::REQUIRED, 'Command to run'),
+            new InputOption('help', 'h', InputOption::VALUE_NONE, 'Show command help, or list commands when no command is given'),
+            new InputOption('silent', null, InputOption::VALUE_NONE, 'Suppress all output'),
+            new InputOption('quiet', 'q', InputOption::VALUE_NONE, 'Show errors only'),
+            new InputOption('verbose', 'v|vv|vvv', InputOption::VALUE_NONE, 'Increase output detail: -v, -vv, or -vvv'),
+            new InputOption('version', 'V', InputOption::VALUE_NONE, 'Show the tinymash version'),
+            new InputOption('ansi', null, InputOption::VALUE_NEGATABLE, 'Force or disable ANSI output'),
+            new InputOption('no-interaction', 'n', InputOption::VALUE_NONE, 'Do not ask interactive questions'),
+        ]);
+    }
+}
+
+class TinymashCallableCommand extends Command {
     /** @var callable */
     protected $handler;
-    protected bool $read_only;
-    protected string $legacy_usage;
+    protected array $command_definition;
 
-    public function __construct(string $name, string $description, callable $handler, bool $read_only = false, string $legacy_usage = '', array $aliases = []) {
+    public function __construct(array $definition, callable $handler) {
         $this->handler = $handler;
-        $this->read_only = $read_only;
-        $this->legacy_usage = $legacy_usage !== '' ? $legacy_usage : $name;
-        parent::__construct($name);
-        $this->setDescription($description);
+        $this->command_definition = $definition;
+        parent::__construct((string) ($definition['name'] ?? ''));
+        $aliases = is_array($definition['aliases'] ?? null) ? $definition['aliases'] : [];
         if ($aliases !== []) {
             $this->setAliases($aliases);
         }
     }
 
     protected function configure(): void {
-        $this->ignoreValidationErrors();
-        $this->addArgument('tokens', InputArgument::IS_ARRAY | InputArgument::OPTIONAL, 'Command arguments and legacy options.');
-        $this->setHelp('Usage: php8.4 bin/tinymash.php ' . $this->legacy_usage);
+        configureTinymashCommand($this, $this->command_definition);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
-        guardRootUserForCliCommand(getTinymashRootGuardArguments($this->getName(), getTinymashRawCommandArguments(), $this->read_only), (bool) $input->getOption('allow-root'));
-        call_user_func($this->handler, getTinymashRawCommandArguments(), $input, $output);
+        validateTinymashCommandInput($input, $this->command_definition);
+        $read_only = !empty($this->command_definition['read_only']);
+        $read_only_when = $this->command_definition['read_only_when'] ?? null;
+        if (is_callable($read_only_when) && $read_only_when($input)) {
+            $read_only = true;
+        }
+        guardRootUserForCliCommand($read_only, (bool) $input->getOption('allow-root'));
+        call_user_func($this->handler, buildTinymashHandlerArguments($input, $this->command_definition), $input, $output);
         return Command::SUCCESS;
     }
 }
 
 class TinymashPluginBridgeCommand extends Command {
     protected string $plugin_command;
+    protected array $command_definition;
 
     public function __construct(array $definition) {
+        $this->command_definition = $definition;
         $this->plugin_command = (string) ($definition['command'] ?? '');
         parent::__construct($this->plugin_command);
-        $this->setDescription((string) ($definition['summary'] ?? 'Run a plugin command.'));
-        $usage = trim((string) ($definition['usage'] ?? ''));
-        if ($usage !== '') {
-            $this->setHelp('Usage: ' . $usage);
-        }
     }
 
     protected function configure(): void {
-        $this->ignoreValidationErrors();
-        $this->addArgument('tokens', InputArgument::IS_ARRAY | InputArgument::OPTIONAL, 'Plugin command arguments.');
+        configureTinymashCommand(
+            $this,
+            array_merge($this->command_definition, [
+                'name' => $this->plugin_command,
+                'description' => (string) ($this->command_definition['summary'] ?? 'Run a plugin command.'),
+            ])
+        );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
-        guardRootUserForCliCommand([$this->plugin_command], (bool) $input->getOption('allow-root'));
-        if (!runPluginCliCommand($this->plugin_command, getTinymashRawCommandArguments())) {
+        validateTinymashCommandInput($input, $this->command_definition);
+        guardRootUserForCliCommand(false, (bool) $input->getOption('allow-root'));
+        if (!runPluginCliCommand($this->plugin_command, buildTinymashHandlerArguments($input, $this->command_definition))) {
             throw new \RuntimeException('Plugin command is unavailable.');
         }
 
         return Command::SUCCESS;
     }
+}
+
+function configureTinymashCommand(Command $command, array $definition): void {
+    $command->setDescription(trim((string) ($definition['description'] ?? '')));
+
+    foreach ((array) ($definition['arguments'] ?? []) as $argument) {
+        if (!is_array($argument) || empty($argument['name'])) {
+            continue;
+        }
+        $mode = !empty($argument['required']) ? InputArgument::REQUIRED : InputArgument::OPTIONAL;
+        if (!empty($argument['multiple'])) {
+            $mode |= InputArgument::IS_ARRAY;
+        }
+        $command->addArgument(
+            (string) $argument['name'],
+            $mode,
+            (string) ($argument['description'] ?? ''),
+            $argument['default'] ?? null,
+            is_array($argument['choices'] ?? null) ? $argument['choices'] : []
+        );
+    }
+
+    foreach ((array) ($definition['options'] ?? []) as $option) {
+        if (!is_array($option) || empty($option['name'])) {
+            continue;
+        }
+        $mode = !empty($option['value']) ? InputOption::VALUE_REQUIRED : InputOption::VALUE_NONE;
+        if (!empty($option['multiple'])) {
+            $mode |= InputOption::VALUE_IS_ARRAY;
+        }
+        $command->addOption(
+            (string) $option['name'],
+            isset($option['shortcut']) ? (string) $option['shortcut'] : null,
+            $mode,
+            (string) ($option['description'] ?? ''),
+            $option['default'] ?? null,
+            is_array($option['choices'] ?? null) ? $option['choices'] : []
+        );
+    }
+
+    $help = [];
+    $examples = array_values(array_filter(array_map('trim', (array) ($definition['examples'] ?? []))));
+    if ($examples !== []) {
+        $help[] = "Examples:\n  " . implode("\n  ", $examples);
+    }
+    $notes = trim((string) ($definition['notes'] ?? ''));
+    if ($notes !== '') {
+        $help[] = $notes;
+    }
+    if ($help !== []) {
+        $command->setHelp(implode("\n\n", $help));
+    }
+}
+
+function validateTinymashCommandInput(InputInterface $input, array $definition): void {
+    foreach ((array) ($definition['arguments'] ?? []) as $argument) {
+        if (!is_array($argument) || empty($argument['name']) || empty($argument['choices'])) {
+            continue;
+        }
+        $value = $input->getArgument((string) $argument['name']);
+        if ($value !== null && $value !== '' && !in_array($value, (array) $argument['choices'], true)) {
+            throw new ConsoleInvalidArgumentException(sprintf(
+                'Invalid <%s> value "%s". Allowed values: %s.',
+                (string) $argument['name'],
+                (string) $value,
+                implode(', ', (array) $argument['choices'])
+            ));
+        }
+    }
+
+    foreach ((array) ($definition['options'] ?? []) as $option) {
+        if (!is_array($option) || empty($option['name'])) {
+            continue;
+        }
+        $name = (string) $option['name'];
+        $value = $input->getOption($name);
+        if (!empty($option['required']) && ($value === null || $value === '' || $value === [])) {
+            throw new ConsoleInvalidArgumentException('The --' . $name . ' option is required.');
+        }
+        if (!empty($option['integer']) && $value !== null && $value !== '' && filter_var($value, FILTER_VALIDATE_INT) === false) {
+            throw new ConsoleInvalidArgumentException('The --' . $name . ' option must be an integer.');
+        }
+        if (!empty($option['integer']) && $value !== null && $value !== '') {
+            $integer_value = (int) $value;
+            if (isset($option['min']) && $integer_value < (int) $option['min']) {
+                throw new ConsoleInvalidArgumentException('The --' . $name . ' option must be at least ' . (int) $option['min'] . '.');
+            }
+            if (isset($option['max']) && $integer_value > (int) $option['max']) {
+                throw new ConsoleInvalidArgumentException('The --' . $name . ' option must not exceed ' . (int) $option['max'] . '.');
+            }
+        }
+        if (!empty($option['pattern']) && $value !== null && $value !== '' && preg_match((string) $option['pattern'], (string) $value) !== 1) {
+            throw new ConsoleInvalidArgumentException((string) ($option['pattern_message'] ?? ('The --' . $name . ' option has an invalid value.')));
+        }
+        if (!empty($option['choices']) && $value !== null && $value !== '' && !in_array($value, (array) $option['choices'], true)) {
+            throw new ConsoleInvalidArgumentException(sprintf(
+                'Invalid --%s value "%s". Allowed values: %s.',
+                $name,
+                (string) $value,
+                implode(', ', (array) $option['choices'])
+            ));
+        }
+    }
+
+    foreach ((array) ($definition['exclusive_options'] ?? []) as $group) {
+        $selected = [];
+        foreach ((array) $group as $name) {
+            $value = $input->getOption((string) $name);
+            if ($value !== null && $value !== false && $value !== '' && $value !== []) {
+                $selected[] = '--' . $name;
+            }
+        }
+        if (count($selected) > 1) {
+            throw new ConsoleInvalidArgumentException('Use only one of ' . implode(' or ', $selected) . '.');
+        }
+    }
+
+    foreach ((array) ($definition['paired_options'] ?? []) as $group) {
+        $selected = [];
+        foreach ((array) $group as $name) {
+            $value = $input->getOption((string) $name);
+            if ($value !== null && $value !== false && $value !== '' && $value !== []) {
+                $selected[] = '--' . $name;
+            }
+        }
+        if ($selected !== [] && count($selected) !== count((array) $group)) {
+            throw new ConsoleInvalidArgumentException('Use ' . implode(' and ', array_map(static fn(string $name): string => '--' . $name, (array) $group)) . ' together.');
+        }
+    }
+}
+
+function buildTinymashHandlerArguments(InputInterface $input, array $definition): array {
+    $arguments = [];
+    foreach ((array) ($definition['arguments'] ?? []) as $argument) {
+        if (!is_array($argument) || empty($argument['name'])) {
+            continue;
+        }
+        $value = $input->getArgument((string) $argument['name']);
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                $arguments[] = (string) $item;
+            }
+            continue;
+        }
+        if ($value !== null && $value !== '') {
+            $arguments[] = (string) $value;
+        }
+    }
+
+    foreach ((array) ($definition['options'] ?? []) as $option) {
+        if (!is_array($option) || empty($option['name'])) {
+            continue;
+        }
+        $name = (string) $option['name'];
+        $value = $input->getOption($name);
+        if (empty($option['value'])) {
+            if ($value) {
+                $arguments[] = '--' . $name;
+            }
+            continue;
+        }
+        foreach (is_array($value) ? $value : [$value] as $item) {
+            if ($item !== null && $item !== '') {
+                $arguments[] = '--' . $name . '=' . (string) $item;
+            }
+        }
+    }
+
+    return $arguments;
 }
 
 class TinymashSetupCommand extends Command {
@@ -3046,30 +3035,29 @@ class TinymashSetupCommand extends Command {
 
     protected function configure(): void {
         $this
-            ->setDescription('Configure a deployed tinymash tree and create the first superadmin.')
+            ->setDescription('Configure a deployed installation and create its first superadmin.')
             ->addOption('site-name', null, InputOption::VALUE_REQUIRED, 'Site title')
             ->addOption('base-url', null, InputOption::VALUE_REQUIRED, 'Public base URL')
             ->addOption('language', null, InputOption::VALUE_REQUIRED, 'Default public language tag', 'en')
             ->addOption('timezone', null, InputOption::VALUE_REQUIRED, 'Default timezone', 'UTC')
             ->addOption('admin-user', null, InputOption::VALUE_REQUIRED, 'Superadmin username', 'admin')
-            ->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'Superadmin/admin e-mail address')
+            ->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'Superadmin email address')
             ->addOption('password-stdin', null, InputOption::VALUE_NONE, 'Read the superadmin password from STDIN')
             ->addOption('password-file', null, InputOption::VALUE_REQUIRED, 'Read the superadmin password from a file')
             ->addOption('public', null, InputOption::VALUE_NONE, 'Mark the site public')
             ->addOption('private', null, InputOption::VALUE_NONE, 'Keep the site private')
             ->addOption('update', null, InputOption::VALUE_NONE, 'Allow non-interactive updates to an existing config')
             ->setHelp(
-                "Interactive setup:\n"
-                . "  php8.4 bin/tinymash.php setup\n\n"
-                . "Automated setup:\n"
+                "Examples:\n"
+                . "  php8.4 bin/tinymash.php setup\n"
                 . "  printf '%s' \"\$PASSWORD\" | php8.4 bin/tinymash.php setup --site-name=\"My Site\" --base-url=https://example.com --password-stdin --no-interaction\n\n"
-                . "Existing configs are preserved. Reruns update only setup fields after confirmation, or with --update in non-interactive mode."
+                . "Existing configuration is preserved. Reruns update only setup fields after confirmation, or with --update in non-interactive mode."
             );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
         $io = new SymfonyStyle($input, $output);
-        guardRootUserForCliCommand(['setup'], (bool) $input->getOption('allow-root'));
+        guardRootUserForCliCommand(false, (bool) $input->getOption('allow-root'));
 
         $config_filename = dirname(__DIR__) . '/app/config/tinymash.json';
         $config_exists = is_file($config_filename) && trim((string) @file_get_contents($config_filename)) !== '';
@@ -3280,7 +3268,7 @@ class TinymashSetupCommand extends Command {
     }
 
     protected function saveSetupSuperadmin(string $username, string $email, string $password): void {
-        $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR);
+        $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
         $existing = $repository->getUserByUsername($username);
         $repository->saveUser(
             [
@@ -3320,7 +3308,7 @@ class TinymashUpgradePrepareCommand extends Command {
     protected function execute(InputInterface $input, OutputInterface $output): int {
         $io = new SymfonyStyle($input, $output);
         $dry_run = (bool) $input->getOption('dry-run');
-        guardRootUserForCliCommand($dry_run ? ['help'] : ['upgrade:prepare'], (bool) $input->getOption('allow-root'));
+        guardRootUserForCliCommand($dry_run, (bool) $input->getOption('allow-root'));
 
         $old_site_directory = trim((string) $input->getArgument('old-site-directory'));
         $allow_missing_extensions = (bool) $input->getOption('allow-missing-extensions');
@@ -3480,87 +3468,259 @@ class TinymashUpgradePrepareCommand extends Command {
     }
 }
 
-function getTinymashRootGuardArguments(string $command_name, array $arguments, bool $read_only): array {
-    if ($read_only) {
-        return ['help'];
-    }
-
-    return array_merge([$command_name], $arguments);
-}
-
 function buildTinymashConsoleApplication(): Application {
-    $application = new Application('tinymash', APP_VERSION);
-    $application->getDefinition()->addOption(new InputOption('allow-root', null, InputOption::VALUE_NONE, 'Allow mutating commands to run as root without confirmation.'));
+    $application = new TinymashConsoleApplication('tinymash', APP_VERSION);
+    $application->getDefinition()->addOption(new InputOption('allow-root', null, InputOption::VALUE_NONE, 'Allow mutating commands to run as root without confirmation'));
+    $application->get('help')
+        ->setDescription('Show help for a command.')
+        ->setHelp(
+            "Examples:\n"
+            . "  php8.4 bin/tinymash.php help cache:warm\n"
+            . "  php8.4 bin/tinymash.php cache:warm --help\n\n"
+            . "Run the list command to see every available command."
+        );
+    $application->get('list')
+        ->setDescription('List available commands.')
+        ->setHelp(
+            "Examples:\n"
+            . "  php8.4 bin/tinymash.php list\n"
+            . "  php8.4 bin/tinymash.php list --raw"
+        );
+    $application->get('completion')
+        ->setDescription('Generate a shell completion script.')
+        ->setHelp(
+            "Examples:\n"
+            . "  php8.4 bin/tinymash.php completion bash\n"
+            . "  php8.4 bin/tinymash.php completion fish\n"
+            . "  php8.4 bin/tinymash.php completion zsh\n\n"
+            . "Write the output to the completion file used by your shell."
+        );
     $application->addCommand(new TinymashSetupCommand());
     $application->addCommand(new TinymashUpgradePrepareCommand());
 
     $commands = [
-        new TinymashLegacyCommand('system:status', 'Show runtime status.', static fn() => printSystemStatus(), true, 'system:status', ['system-status']),
-        new TinymashLegacyCommand('system:plugins', 'Show plugin diagnostics.', static fn() => printSystemPluginDiagnostics(), true, 'system:plugins'),
-        new TinymashLegacyCommand('system:themes', 'Show theme manifest diagnostics.', static fn() => printSystemThemeDiagnostics(), true, 'system:themes'),
-        new TinymashLegacyCommand('maintenance:status', 'Show maintenance mode.', static fn() => printMaintenanceStatus(), true, 'maintenance:status'),
-        new TinymashLegacyCommand('maintenance:on', 'Enable maintenance mode.', static fn() => setMaintenance(true), false, 'maintenance:on'),
-        new TinymashLegacyCommand('maintenance:off', 'Disable maintenance mode.', static fn() => setMaintenance(false), false, 'maintenance:off'),
-        new TinymashLegacyCommand('cache:clear', 'Clear compiled and persistent runtime caches.', static fn() => clearCache(), false, 'cache:clear'),
-        new TinymashLegacyCommand('cache:warm', 'Warm content, media, and public-page caches.', static fn(array $arguments) => warmCache($arguments), false, 'cache:warm [--base-url=<url>] [--userpass=<user:pass>] [--author=<slug>] [--entries] [--entry-limit=<n>]'),
-        new TinymashLegacyCommand('housekeeping:status', 'Show housekeeping state.', static fn() => printHousekeepingStatus(), true, 'housekeeping:status'),
-        new TinymashLegacyCommand('housekeeping:run', 'Run housekeeping tasks.', static fn(array $arguments) => runHousekeeping(!in_array('--no-plugins', $arguments, true)), false, 'housekeeping:run [--no-plugins]'),
-        new TinymashLegacyCommand('content:publish-due', 'Publish due scheduled content.', static fn() => runScheduledPublishing(), false, 'content:publish-due'),
-        new TinymashLegacyCommand('media:usage', 'Report media usage.', static fn(array $arguments) => runMediaUsage($arguments), true, 'media:usage [--owner=<root-or-author>] [--unused-only] [--limit=<n>]'),
-        new TinymashLegacyCommand('media:cleanup', 'Report unused media or generate missing derivatives.', static fn(array $arguments) => runMediaCleanup($arguments), false, 'media:cleanup [--dry-run] [--generate-missing-derivatives] [--report-unused] [--owner=<root-or-author>] [--limit=<n>]'),
-        new TinymashLegacyCommand('benchmark:public', 'Benchmark public routes.', static fn(array $arguments) => runPublicBenchmark($arguments), true, 'benchmark:public [--base-url=<url>] [--userpass=<user:pass>] [--login-user=<username>] [--login-pass=<password>] [--author=<slug>] [--entry=<slug>] [--repeat=<n>]'),
-        new TinymashLegacyCommand('audit:remote-media', 'Scan content for remote image references.', static fn(array $arguments) => runRemoteMediaAudit($arguments), true, 'audit:remote-media [--author=<slug>] [--include-unpublished]'),
-        new TinymashLegacyCommand('check-updates', 'Check Composer package updates and advisories.', static fn(array $arguments) => runCheckUpdates(in_array('--notify', $arguments, true)), false, 'check-updates [--notify]'),
-        new TinymashLegacyCommand('deploy', 'Build a deployable runtime tree.', static function(array $arguments): void {
-            $target_directory = (string) ($arguments[0] ?? '');
-            if ($target_directory === '') {
-                fail('usage: tinymash deploy <target-directory>');
-            }
-            runDeploy($target_directory);
-        }, false, 'deploy <target-directory>'),
-        new TinymashLegacyCommand('deploy:audit', 'Compare deployed files with a deploy manifest.', static fn(array $arguments) => runDeployAudit($arguments), true, 'deploy:audit <deployed-directory> [--manifest=<file>]'),
-        new TinymashLegacyCommand('export:site', 'Export a site bundle.', static function(array $arguments): void {
-            $target_directory = (string) ($arguments[0] ?? '');
-            if ($target_directory === '') {
-                fail('usage: tinymash export:site <target-directory> [--with-plugins]');
-            }
-            runExportSite($target_directory, in_array('--with-plugins', $arguments, true));
-        }, false, 'export:site <target-directory> [--with-plugins]'),
-        new TinymashLegacyCommand('export:author', 'Export one author bundle.', static function(array $arguments): void {
-            $username = (string) ($arguments[0] ?? '');
-            $target_directory = (string) ($arguments[1] ?? '');
-            if ($username === '' || $target_directory === '') {
-                fail('usage: tinymash export:author <username> <target-directory> [--with-plugins]');
-            }
-            runExportAuthor($username, $target_directory, in_array('--with-plugins', $arguments, true));
-        }, false, 'export:author <username> <target-directory> [--with-plugins]'),
-        new TinymashLegacyCommand('static-export:author', 'Export one public author space as static files.', static fn(array $arguments) => runStaticExportAuthor($arguments), false, 'static-export:author <username-or-author-slug> [--base-url=<url>] [--output=<directory>]'),
-        new TinymashLegacyCommand('static-export:site', 'Export public site pages as static files.', static fn(array $arguments) => runStaticExportSite($arguments), false, 'static-export:site [--base-url=<url>] [--exclude-author=<slug>] [--output=<directory>]'),
-        new TinymashLegacyCommand('import:site', 'Import a site export bundle.', static function(array $arguments): void {
-            $source_directory = (string) ($arguments[0] ?? '');
-            if ($source_directory === '') {
-                fail('usage: tinymash import:site <source-directory> [--replace-existing] [--with-plugins]');
-            }
-            runImportSite($source_directory, in_array('--replace-existing', $arguments, true), in_array('--with-plugins', $arguments, true));
-        }, false, 'import:site <source-directory> [--replace-existing] [--with-plugins]'),
-        new TinymashLegacyCommand('import:author', 'Import one author export bundle.', static function(array $arguments): void {
-            $source_directory = (string) ($arguments[0] ?? '');
-            $new_password = (string) ($arguments[1] ?? '');
-            if ($source_directory === '' || $new_password === '') {
-                fail('usage: tinymash import:author <source-directory> <new-password> [--replace-existing] [--with-plugins]');
-            }
-            runImportAuthor($source_directory, $new_password, in_array('--replace-existing', $arguments, true), in_array('--with-plugins', $arguments, true));
-        }, false, 'import:author <source-directory> <new-password> [--replace-existing] [--with-plugins]'),
-        new TinymashLegacyCommand('user:list', 'List local users.', static fn() => listUsers(), true, 'user:list'),
-        new TinymashLegacyCommand('user:set-password', 'Create or update a local user password.', static function(array $arguments): void {
-            $username = (string) ($arguments[0] ?? '');
-            $password = (string) ($arguments[1] ?? '');
-            $role = (string) ($arguments[2] ?? 'superadmin');
-            if ($username === '' || $password === '') {
-                fail('usage: tinymash user:set-password <username> <password> [role]');
-            }
-            setUserPassword($username, $password, $role);
-        }, false, 'user:set-password <username> <password> [role]'),
+        new TinymashCallableCommand([
+            'name' => 'system:status',
+            'description' => 'Show the current runtime status.',
+            'aliases' => ['system-status'],
+            'read_only' => true,
+        ], static fn() => printSystemStatus()),
+        new TinymashCallableCommand([
+            'name' => 'system:plugins',
+            'description' => 'Show installed plugin status and boot diagnostics.',
+            'read_only' => true,
+        ], static fn() => printSystemPluginDiagnostics()),
+        new TinymashCallableCommand([
+            'name' => 'system:themes',
+            'description' => 'Show installed theme status and manifest diagnostics.',
+            'read_only' => true,
+        ], static fn() => printSystemThemeDiagnostics()),
+        new TinymashCallableCommand([
+            'name' => 'maintenance:status',
+            'description' => 'Show whether maintenance mode is enabled.',
+            'read_only' => true,
+        ], static fn() => printMaintenanceStatus()),
+        new TinymashCallableCommand([
+            'name' => 'maintenance:on',
+            'description' => 'Enable maintenance mode.',
+        ], static fn() => setMaintenance(true)),
+        new TinymashCallableCommand([
+            'name' => 'maintenance:off',
+            'description' => 'Disable maintenance mode.',
+        ], static fn() => setMaintenance(false)),
+        new TinymashCallableCommand([
+            'name' => 'cache:clear',
+            'description' => 'Clear compiled templates and persistent runtime caches.',
+        ], static fn() => clearCache()),
+        new TinymashCallableCommand([
+            'name' => 'cache:warm',
+            'description' => 'Warm content, media, and public page caches.',
+            'options' => [
+                ['name' => 'base-url', 'value' => true, 'description' => 'Use this public base URL instead of the configured URL'],
+                ['name' => 'userpass', 'value' => true, 'description' => 'Use HTTP Basic Authentication as USER:PASSWORD'],
+                ['name' => 'author', 'value' => true, 'description' => 'Warm only this author space'],
+                ['name' => 'entries', 'description' => 'Also warm individual content entries'],
+                ['name' => 'entry-limit', 'value' => true, 'integer' => true, 'min' => 0, 'description' => 'Limit warmed entries; 0 means no limit', 'default' => 0],
+            ],
+            'examples' => [
+                'php8.4 bin/tinymash.php cache:warm',
+                'php8.4 bin/tinymash.php cache:warm --author=cajo --entries --entry-limit=50',
+            ],
+        ], static fn(array $arguments) => warmCache($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'housekeeping:status',
+            'description' => 'Show housekeeping policy and the last recorded run.',
+            'read_only' => true,
+        ], static fn() => printHousekeepingStatus()),
+        new TinymashCallableCommand([
+            'name' => 'housekeeping:run',
+            'description' => 'Run housekeeping tasks now.',
+            'options' => [
+                ['name' => 'no-plugins', 'description' => 'Skip plugin housekeeping tasks'],
+            ],
+        ], static fn(array $arguments) => runHousekeeping(!in_array('--no-plugins', $arguments, true))),
+        new TinymashCallableCommand([
+            'name' => 'content:publish-due',
+            'description' => 'Publish scheduled content that is due.',
+        ], static fn() => runScheduledPublishing()),
+        new TinymashCallableCommand([
+            'name' => 'media:usage',
+            'description' => 'Report stored media and where it is referenced.',
+            'read_only' => true,
+            'options' => [
+                ['name' => 'owner', 'value' => true, 'description' => 'Limit results to root or one author slug'],
+                ['name' => 'unused-only', 'description' => 'Show only media without known references'],
+                ['name' => 'limit', 'value' => true, 'integer' => true, 'min' => 1, 'description' => 'Limit the number of listed records'],
+            ],
+        ], static fn(array $arguments) => runMediaUsage($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'media:cleanup',
+            'description' => 'Report unused media or generate missing display derivatives.',
+            'read_only_when' => static fn(InputInterface $input): bool => (bool) $input->getOption('report-unused')
+                || (bool) $input->getOption('dry-run')
+                || !(bool) $input->getOption('generate-missing-derivatives'),
+            'options' => [
+                ['name' => 'dry-run', 'description' => 'Report derivative work without writing files'],
+                ['name' => 'generate-missing-derivatives', 'description' => 'Create missing display and lightbox derivatives'],
+                ['name' => 'report-unused', 'description' => 'Report media without known references'],
+                ['name' => 'owner', 'value' => true, 'description' => 'Limit work to root or one author slug'],
+                ['name' => 'limit', 'value' => true, 'integer' => true, 'min' => 1, 'description' => 'Limit the number of checked records'],
+            ],
+            'exclusive_options' => [['generate-missing-derivatives', 'report-unused']],
+            'notes' => 'Without --generate-missing-derivatives, derivative processing is a dry run.',
+        ], static fn(array $arguments) => runMediaCleanup($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'benchmark:public',
+            'description' => 'Measure response times for selected public routes.',
+            'read_only' => true,
+            'options' => [
+                ['name' => 'base-url', 'value' => true, 'description' => 'Use this base URL instead of the configured URL'],
+                ['name' => 'userpass', 'value' => true, 'description' => 'Use HTTP Basic Authentication as USER:PASSWORD'],
+                ['name' => 'login-user', 'value' => true, 'description' => 'Log in to tinymash as this user before testing'],
+                ['name' => 'login-pass', 'value' => true, 'description' => 'Use this tinymash login password'],
+                ['name' => 'author', 'value' => true, 'description' => 'Include this author space'],
+                ['name' => 'entry', 'value' => true, 'description' => 'Include this content slug or path'],
+                ['name' => 'repeat', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 10, 'description' => 'Request each route this many times', 'default' => 3],
+            ],
+            'paired_options' => [['login-user', 'login-pass']],
+            'notes' => 'Use --login-user and --login-pass together. Command-line passwords may be visible to other local users; use a temporary test account when possible.',
+        ], static fn(array $arguments) => runPublicBenchmark($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'audit:remote-media',
+            'description' => 'Find remote image references in stored content.',
+            'read_only' => true,
+            'options' => [
+                ['name' => 'author', 'value' => true, 'description' => 'Scan only this author space'],
+                ['name' => 'include-unpublished', 'description' => 'Also scan drafts and unpublished content'],
+            ],
+        ], static fn(array $arguments) => runRemoteMediaAudit($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'check-updates',
+            'description' => 'Check Composer packages for updates and security advisories.',
+            'options' => [
+                ['name' => 'notify', 'description' => 'Send the configured system notification when needed'],
+            ],
+            'notes' => 'This command writes the current component report to data/runtime/components.json.',
+        ], static fn(array $arguments) => runCheckUpdates(in_array('--notify', $arguments, true))),
+        new TinymashCallableCommand([
+            'name' => 'deploy',
+            'description' => 'Build a deployable runtime tree.',
+            'arguments' => [
+                ['name' => 'target-directory', 'required' => true, 'description' => 'Directory to create or replace with the deploy tree'],
+            ],
+            'notes' => 'The target must not be the source tree or one of its parent directories.',
+        ], static fn(array $arguments) => runDeploy((string) $arguments[0])),
+        new TinymashCallableCommand([
+            'name' => 'deploy:audit',
+            'description' => 'Compare deployed files with a deploy manifest.',
+            'read_only' => true,
+            'arguments' => [
+                ['name' => 'deployed-directory', 'required' => true, 'description' => 'Deployed tinymash directory to inspect'],
+            ],
+            'options' => [
+                ['name' => 'manifest', 'value' => true, 'description' => 'Use this manifest instead of deploy-manifest.json'],
+            ],
+        ], static fn(array $arguments) => runDeployAudit($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'export:site',
+            'description' => 'Export site state to a portable directory.',
+            'arguments' => [
+                ['name' => 'target-directory', 'required' => true, 'description' => 'Directory to receive the export'],
+            ],
+            'options' => [
+                ['name' => 'with-plugins', 'description' => 'Include data exported by active plugins'],
+            ],
+        ], static fn(array $arguments) => runExportSite((string) $arguments[0], in_array('--with-plugins', $arguments, true))),
+        new TinymashCallableCommand([
+            'name' => 'export:author',
+            'description' => 'Export one author and their site state to a portable directory.',
+            'arguments' => [
+                ['name' => 'username', 'required' => true, 'description' => 'Author username to export'],
+                ['name' => 'target-directory', 'required' => true, 'description' => 'Directory to receive the export'],
+            ],
+            'options' => [
+                ['name' => 'with-plugins', 'description' => 'Include data exported by active plugins'],
+            ],
+        ], static fn(array $arguments) => runExportAuthor((string) $arguments[0], (string) $arguments[1], in_array('--with-plugins', $arguments, true))),
+        new TinymashCallableCommand([
+            'name' => 'static-export:author',
+            'description' => 'Export one public author space as static files.',
+            'arguments' => [
+                ['name' => 'author', 'required' => true, 'description' => 'Author username or public slug to export'],
+            ],
+            'options' => [
+                ['name' => 'base-url', 'value' => true, 'description' => 'Use this public base URL in generated files'],
+                ['name' => 'output', 'value' => true, 'description' => 'Write files to this directory instead of creating an archive'],
+            ],
+        ], static fn(array $arguments) => runStaticExportAuthor($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'static-export:site',
+            'description' => 'Export public site pages and author spaces as static files.',
+            'options' => [
+                ['name' => 'base-url', 'value' => true, 'description' => 'Use this public base URL in generated files'],
+                ['name' => 'exclude-author', 'value' => true, 'multiple' => true, 'description' => 'Exclude an author slug; repeat for more than one'],
+                ['name' => 'output', 'value' => true, 'description' => 'Write files to this directory instead of creating an archive'],
+            ],
+        ], static fn(array $arguments) => runStaticExportSite($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'import:site',
+            'description' => 'Import a site export bundle into the current installation.',
+            'arguments' => [
+                ['name' => 'source-directory', 'required' => true, 'description' => 'Directory containing the site export'],
+            ],
+            'options' => [
+                ['name' => 'replace-existing', 'description' => 'Replace conflicting site state'],
+                ['name' => 'with-plugins', 'description' => 'Import data handled by active plugins'],
+            ],
+        ], static fn(array $arguments) => runImportSite((string) $arguments[0], in_array('--replace-existing', $arguments, true), in_array('--with-plugins', $arguments, true))),
+        new TinymashCallableCommand([
+            'name' => 'import:author',
+            'description' => 'Import one author export bundle and set a new login password.',
+            'arguments' => [
+                ['name' => 'source-directory', 'required' => true, 'description' => 'Directory containing the author export'],
+                ['name' => 'new-password', 'required' => true, 'description' => 'New login password for the imported author'],
+            ],
+            'options' => [
+                ['name' => 'replace-existing', 'description' => 'Replace conflicting author state'],
+                ['name' => 'with-plugins', 'description' => 'Import data handled by active plugins'],
+            ],
+            'notes' => 'The password is visible in the process list and may enter shell history. Run this command only in a trusted local shell.',
+        ], static fn(array $arguments) => runImportAuthor((string) $arguments[0], (string) $arguments[1], in_array('--replace-existing', $arguments, true), in_array('--with-plugins', $arguments, true))),
+        new TinymashCallableCommand([
+            'name' => 'user:list',
+            'description' => 'List local users, roles, and account status.',
+            'read_only' => true,
+        ], static fn() => listUsers()),
+        new TinymashCallableCommand([
+            'name' => 'user:set-password',
+            'description' => 'Create a local user or replace an existing user password.',
+            'arguments' => [
+                ['name' => 'username', 'required' => true, 'description' => 'Local username to create or update'],
+                ['name' => 'password', 'required' => true, 'description' => 'New login password'],
+                ['name' => 'role', 'description' => 'Role for a new user; existing users keep their role when omitted', 'choices' => ['superadmin', 'creator']],
+            ],
+            'notes' => 'Use superadmin or creator when creating a user. Existing profile fields are preserved, but the account is enabled. The password is visible in the process list and may enter shell history.',
+        ], static fn(array $arguments) => setUserPassword((string) $arguments[0], (string) $arguments[1], (string) ($arguments[2] ?? ''))),
     ];
 
     foreach ($commands as $command) {

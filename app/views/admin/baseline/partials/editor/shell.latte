@@ -1,7 +1,7 @@
 {var $editor_identity_title = trim((string) ($editor_draft['title'] ?? ''))}
 {var $editor_identity_label = $editor_identity_title !== '' ? $editor_identity_title : 'Untitled content'}
 {var $editor_revision_count = count(is_array($editor_revisions ?? null) ? $editor_revisions : [])}
-{var $resolved_editor_mode = in_array(($editor_mode ?? 'full'), ['focused', 'full'], true) ? (string) $editor_mode : 'full'}
+{var $resolved_editor_mode = in_array(($editor_mode ?? 'simple'), ['simple', 'focused', 'full'], true) ? (string) $editor_mode : 'simple'}
 <section class="tm-editor-composer bg-body border rounded-3 p-3 overflow-hidden" style="min-width: 0;">
     <header class="mb-3 pb-3 border-bottom">
         <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-2 mb-3">
@@ -40,8 +40,10 @@
                         Autosave: off sitewide
                     {/if}
                 </div>
+                <div class="small text-body-secondary mt-1 tm-editor-simple-only" id="tm-editor-simple-destination"></div>
             </div>
             <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Composer presentation">
+                <button n:class="'btn', 'btn-outline-secondary', $resolved_editor_mode === 'simple' ? 'active'" type="button" data-editor-presentation-mode="simple" aria-pressed="{$resolved_editor_mode === 'simple' ? 'true' : 'false'}">Simple</button>
                 <button n:class="'btn', 'btn-outline-secondary', $resolved_editor_mode === 'focused' ? 'active'" type="button" data-editor-presentation-mode="focused" aria-pressed="{$resolved_editor_mode === 'focused' ? 'true' : 'false'}">Focused</button>
                 <button n:class="'btn', 'btn-outline-secondary', $resolved_editor_mode === 'full' ? 'active'" type="button" data-editor-presentation-mode="full" aria-pressed="{$resolved_editor_mode === 'full' ? 'true' : 'false'}">Full</button>
             </div>
@@ -49,7 +51,11 @@
 
         <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-2">
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <div class="btn-group btn-group-sm" role="group" aria-label="Save actions">
+                <div class="tm-editor-simple-actions flex-wrap align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" id="tm-editor-simple-save-draft" type="button">Save draft</button>
+                    <button class="btn btn-success btn-sm" id="tm-editor-simple-publish" type="button">Publish</button>
+                </div>
+                <div class="btn-group btn-group-sm tm-editor-simple-hidden" role="group" aria-label="Save actions">
                     <button class="btn btn-success d-inline-flex align-items-center gap-1" id="tm-editor-save-entry" type="button" title="Save (Ctrl/Cmd+Enter)" data-tm-editor-save-action><span class="bi bi-check2-circle" aria-hidden="true"></span><span>Save</span></button>
                     <button class="btn btn-success dropdown-toggle dropdown-toggle-split px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-tm-editor-save-action><span class="visually-hidden">More save actions</span></button>
                     <ul class="dropdown-menu">
@@ -60,7 +66,7 @@
                 </div>
                 <span id="tm-editor-save-status" class="small text-body-secondary" aria-live="polite"></span>
                 <a class="small text-decoration-none d-none" id="tm-editor-published-link" href="#" target="_blank" rel="noopener">Open published content</a>
-                <div n:class="'dropdown', $editor_revision_count === 0 ? 'd-none'" id="tm-editor-history-control">
+                <div n:class="'dropdown', 'tm-editor-simple-hidden', $editor_revision_count === 0 ? 'd-none'" id="tm-editor-history-control">
                     <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-inline-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <span class="bi bi-clock-history" aria-hidden="true"></span>
                         <span>History</span>
@@ -77,10 +83,10 @@
                         {/foreach}
                     </ul>
                 </div>
-                <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1{if empty( $editor_loaded_draft_id )} d-none{/if}" id="tm-editor-delete-current-draft" type="button"><span class="bi bi-trash" aria-hidden="true"></span><span>Delete draft</span></button>
+                <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1 tm-editor-simple-hidden{if empty( $editor_loaded_draft_id )} d-none{/if}" id="tm-editor-delete-current-draft" type="button"><span class="bi bi-trash" aria-hidden="true"></span><span>Delete draft</span></button>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-duplicate" type="button"><span class="bi bi-copy" aria-hidden="true"></span><span>Duplicate</span></button>
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 tm-editor-simple-hidden" id="tm-editor-duplicate" type="button"><span class="bi bi-copy" aria-hidden="true"></span><span>Duplicate</span></button>
                 <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="tm-editor-cancel" type="button"><span class="bi bi-x-circle" aria-hidden="true"></span><span>Cancel</span></button>
                 <a class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" href="{$entries_url}"><span class="bi bi-folder2-open" aria-hidden="true"></span><span>Content</span></a>
             </div>

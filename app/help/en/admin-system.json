@@ -7,7 +7,7 @@
   "sections": [
     {
       "title": "Site and security",
-      "markdown": "- **Site settings** covers identity, mail addresses, and basic site policy.\n- **Security** covers public/private behavior, password resets, forwarded IP handling, web cron fallback, and advanced runtime options such as the runtime umask."
+      "markdown": "- **Site settings** covers identity, mail addresses, and basic site policy.\n- **Security** covers public/private behavior, secret-link defaults and guest access, password resets, forwarded IP handling, web cron fallback, and advanced runtime options such as the runtime umask."
     },
     {
       "title": "Content and presentation",

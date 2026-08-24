@@ -51,14 +51,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-redirects',
         [
             'title' => 'Redirects',
-            'summary' => 'Preserve old public URLs by redirecting them to current tinymash content.',
+            'summary' => 'Redirect old public paths to current tinymash content.',
             'group' => 'Plugins',
             'order' => 120,
             'roles' => [ 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it does',
-                    'markdown' => 'Redirects a specific `/path` to a page or a post. One use for this plugin is for site migration and the preservation of permalinks. It does not support linking a path to an external target.',
+                    'title' => 'Overview',
+                    'markdown' => 'Redirect a local path to a published page or post. Use redirects to preserve old permalinks after a migration. External targets are not supported.',
                 ],
                 [
                     'title' => 'Matching',
@@ -66,7 +66,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Targets',
-                    'markdown' => 'Targets are internal only.',
+                    'markdown' => 'Targets are limited to local published content.',
                 ],
             ],
         ]

@@ -10,63 +10,63 @@ class TinyMashThemeSupportRegistry {
             'menus',
             [
                 'label' => 'Menus',
-                'description' => 'The theme can render documented menu locations.',
+                'description' => 'Renders documented menu locations.',
             ]
         );
         $this->registerSupportDefinition(
             'primary_menu',
             [
                 'label' => 'Primary menu',
-                'description' => 'The theme can render the primary site menu.',
+                'description' => 'Renders the primary site menu.',
             ]
         );
         $this->registerSupportDefinition(
             'sidebar_menu',
             [
                 'label' => 'Sidebar menu',
-                'description' => 'The theme can render the primary site menu as a sidebar tree.',
+                'description' => 'Renders the primary site menu as a sidebar tree.',
             ]
         );
         $this->registerSupportDefinition(
             'breadcrumbs',
             [
                 'label' => 'Breadcrumbs',
-                'description' => 'The theme can render breadcrumb trails for supported content views.',
+                'description' => 'Renders breadcrumb trails for supported content views.',
             ]
         );
         $this->registerSupportDefinition(
             'page_sidebar',
             [
                 'label' => 'Page sidebar',
-                'description' => 'The theme can render the published page structure as a sidebar surface.',
+                'description' => 'Renders the published page structure in a sidebar.',
             ]
         );
         $this->registerSupportDefinition(
             'after_content_child_pages',
             [
-                'label' => 'After-content child pages',
-                'description' => 'The theme can render child-page navigation after page content.',
+                'label' => 'Child pages after content',
+                'description' => 'Renders child-page navigation after page content.',
             ]
         );
         $this->registerSupportDefinition(
             'footer_menu',
             [
                 'label' => 'Footer menu',
-                'description' => 'The theme can render a dedicated footer menu location.',
+                'description' => 'Renders a dedicated footer menu location.',
             ]
         );
         $this->registerSupportDefinition(
             'public_background',
             [
                 'label' => 'Public background',
-                'description' => 'The theme can render the configured public background image.',
+                'description' => 'Renders the configured public background image.',
             ]
         );
         $this->registerSupportDefinition(
             'syntax_highlighting',
             [
                 'label' => 'Syntax highlighting',
-                'description' => 'The theme can integrate with the syntax-highlighting plugin for fenced code blocks.',
+                'description' => 'Supports fenced code highlighting through the Syntax highlighting plugin.',
             ]
         );
     }

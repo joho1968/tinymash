@@ -106,6 +106,7 @@ Public sample files live under `samples/`:
 
 - `samples/server/nginx.sample.conf`
 - `samples/server/apache.sample.conf`
+- `samples/server/admin-http-basic-auth.md`
 - `samples/server/php-fpm.sample.conf`
 - `samples/server/php-opcache-production.ini`
 - `samples/server/php-opcache-development.ini`

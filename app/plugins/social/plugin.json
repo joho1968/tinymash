@@ -1,8 +1,8 @@
 {
     "key": "social",
     "name": "Social",
-    "version": "0.96.0",
-    "description": "Manages site and profile social links with local accessible icons.",
+    "version": "0.97.0",
+    "description": "Manages site and profile links with local accessible icons.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -11,14 +11,14 @@
     "capabilities": [
         "routes.admin",
         "admin.navigation",
-        "shortcodes",
-        "public.slots",
-        "public.assets",
+        "content.shortcodes",
+        "theme.slots",
+        "assets.public",
         "storage.private"
     ],
     "static_export": {
         "mode": "static",
-        "summary": "Configured social links and their local presentation assets are included in exported pages."
+        "summary": "Includes configured social links and local presentation assets in exported pages."
     },
     "default_active": true,
     "stage": "early"

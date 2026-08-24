@@ -1,8 +1,8 @@
 {
     "key": "seo",
     "name": "SEO",
-    "version": "0.96.0",
-    "description": "Adds generated robots.txt and sitemap.xml output plus AI crawler advisory rules.",
+    "version": "0.97.0",
+    "description": "Generates robots.txt and sitemap.xml with optional AI-crawler advisory rules.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
     "website": "https://tinymash.joho.se",
@@ -14,7 +14,7 @@
     ],
     "static_export": {
         "mode": "omit",
-        "summary": "Plugin SEO routes and overrides are not exported; core page metadata remains in the generated HTML."
+        "summary": "Excludes generated SEO routes and overrides; core page metadata remains in exported HTML."
     },
     "default_active": false,
     "stage": "before"

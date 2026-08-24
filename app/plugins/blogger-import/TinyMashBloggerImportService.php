@@ -31,7 +31,7 @@ class TinyMashBloggerImportService {
         return( class_exists( '\SimpleXMLElement' ) && function_exists( 'simplexml_load_string' ) );
     }
 
-    public function createPreviewFromUpload( array $file, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false ) : array {
+    public function createPreviewFromUpload( array $file, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $first_image_as_featured = false ) : array {
         if ( empty( $file['tmp_name'] ) || ! is_string( $file['tmp_name'] ) || ! is_file( $file['tmp_name'] ) ) {
             throw new \RuntimeException( 'A Blogger export file is required.' );
         }
@@ -41,16 +41,17 @@ class TinyMashBloggerImportService {
             throw new \RuntimeException( 'The Blogger export file could not be read.' );
         }
 
-        return( $this->createPreviewFromXml( $xml, $author_slug, $aggregate_to_root, $created_by_username, $replace_existing_posts, $media_source_directory, $skip_unpublished ) );
+        return( $this->createPreviewFromXml( $xml, $author_slug, $aggregate_to_root, $created_by_username, $replace_existing_posts, $media_source_directory, $skip_unpublished, $first_image_as_featured ) );
     }
 
-    public function createPreviewFromXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false ) : array {
+    public function createPreviewFromXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $first_image_as_featured = false ) : array {
         $preview = $this->parseXml( $xml, $author_slug, $aggregate_to_root, $media_source_directory, $skip_unpublished );
         $preview['token'] = $this->generateToken();
         $preview['created_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
         $preview['created_by_username'] = $this->normalizeSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
         $preview['replace_existing_posts'] = $replace_existing_posts;
         $preview['skip_unpublished'] = $skip_unpublished;
+        $preview['first_image_as_featured'] = $first_image_as_featured;
 
         $workspace_directory = $this->getWorkspaceDirectory( $preview['token'] );
         if ( ! is_dir( $workspace_directory ) && ! @ mkdir( $workspace_directory, 0775, true ) && ! is_dir( $workspace_directory ) ) {
@@ -279,7 +280,7 @@ class TinyMashBloggerImportService {
 
                 try {
                     $attached_media_ids = [];
-                    $entry = $this->applyImportedMediaToEntry( $entry, (string) ( $state['author_slug'] ?? '' ), $media_index, $attached_media_ids );
+                    $entry = $this->applyImportedMediaToEntry( $entry, (string) ( $state['author_slug'] ?? '' ), $media_index, $attached_media_ids, ! empty( $preview['first_image_as_featured'] ) );
                     $saved_entry = $this->content_repository->importEditorEntry(
                         $entry,
                         (string) ( $entry['status'] ?? 'published' ),
@@ -354,7 +355,7 @@ class TinyMashBloggerImportService {
 
             try {
                 $attached_media_ids = [];
-                $entry = $this->applyImportedMediaToEntry( $entry, (string) ( $preview['author_slug'] ?? '' ), $this->getMediaIndex( (string) ( $preview['token'] ?? '' ) ), $attached_media_ids );
+                $entry = $this->applyImportedMediaToEntry( $entry, (string) ( $preview['author_slug'] ?? '' ), $this->getMediaIndex( (string) ( $preview['token'] ?? '' ) ), $attached_media_ids, ! empty( $preview['first_image_as_featured'] ) );
                 $saved_entry = $this->content_repository->importEditorEntry(
                     $entry,
                     (string) ( $entry['status'] ?? 'published' ),
@@ -748,11 +749,49 @@ class TinyMashBloggerImportService {
             return( $content );
         }
 
+        $image_blocks = [];
+        $placeholder_prefix = '@@TINYMASH_BLOGGER_IMAGE_BLOCK_' . bin2hex( random_bytes( 8 ) ) . '_';
+        $content = preg_replace_callback(
+            '#<div\b(?=[^>]*\bclass=["\'][^"\']*\bseparator\b[^"\']*["\'])[^>]*>.*?</div>#is',
+            function( array $matches ) use ( &$image_blocks, $placeholder_prefix ) : string {
+                $markup = $this->convertBloggerImageBlockToMarkdown( (string) ( $matches[0] ?? '' ) );
+                if ( $markup === '' ) {
+                    return( '' );
+                }
+
+                $placeholder = $placeholder_prefix . count( $image_blocks ) . '@@';
+                $image_blocks[$placeholder] = "\n\n" . $markup . "\n\n";
+                return( $placeholder );
+            },
+            $content
+        ) ?? $content;
+
+        $content = preg_replace_callback(
+            '#<div\b(?=[^>]*\bstyle=["\'][^"\']*(?:text-align|float)\s*:\s*(?:center|left|right)[^"\']*["\'])[^>]*>.*?<img\b.*?</div>#is',
+            function( array $matches ) use ( &$image_blocks, $placeholder_prefix ) : string {
+                $markup = $this->convertBloggerImageBlockToMarkdown( (string) ( $matches[0] ?? '' ) );
+                if ( $markup === '' ) {
+                    return( '' );
+                }
+
+                $placeholder = $placeholder_prefix . count( $image_blocks ) . '@@';
+                $image_blocks[$placeholder] = "\n\n" . $markup . "\n\n";
+                return( $placeholder );
+            },
+            $content
+        ) ?? $content;
+
         $content = preg_replace_callback(
             '#<table\b[^>]*\bclass=["\'][^"\']*tr-caption-container[^"\']*["\'][^>]*>.*?</table>#is',
-            function( array $matches ) : string {
+            function( array $matches ) use ( &$image_blocks, $placeholder_prefix ) : string {
                 $markdown = $this->convertBloggerImageBlockToMarkdown( (string) ( $matches[0] ?? '' ) );
-                return( $markdown !== '' ? "\n\n" . $markdown . "\n\n" : '' );
+                if ( $markdown === '' ) {
+                    return( '' );
+                }
+
+                $placeholder = $placeholder_prefix . count( $image_blocks ) . '@@';
+                $image_blocks[$placeholder] = "\n\n" . $markdown . "\n\n";
+                return( $placeholder );
             },
             $content
         ) ?? $content;
@@ -778,7 +817,7 @@ class TinyMashBloggerImportService {
             $content
         ) ?? $content;
 
-        return( $content );
+        return( ! empty( $image_blocks ) ? strtr( $content, $image_blocks ) : $content );
     }
 
     protected function convertBloggerImageBlockToMarkdown( string $html ) : string {
@@ -790,7 +829,7 @@ class TinyMashBloggerImportService {
         libxml_clear_errors();
         $document = new \DOMDocument( '1.0', 'UTF-8' );
         $loaded = $document->loadHTML(
-            '<!DOCTYPE html><html><body><div id="tm-blogger-image-root">' . $html . '</div></body></html>',
+            '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><div id="tm-blogger-image-root">' . $html . '</div></body></html>',
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
         );
         libxml_clear_errors();
@@ -828,16 +867,52 @@ class TinyMashBloggerImportService {
             }
         }
 
-        $markdown = $this->buildMarkdownImage( $src, $alt, $href );
-        if ( $markdown === '' ) {
+        if ( trim( $src ) === '' ) {
             return( '' );
         }
 
-        if ( $caption !== '' ) {
-            $markdown .= "\n\n" . $caption;
+        $alignment = $this->extractBloggerImageAlignment( $root );
+        $figure_classes = [ 'tm-content-image' ];
+        if ( $alignment !== '' ) {
+            $figure_classes[] = 'tm-content-image-' . $alignment;
         }
 
-        return( $markdown );
+        $image_html = '<img src="' . htmlspecialchars( $src, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '" alt="' . htmlspecialchars( $alt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '">';
+        if ( trim( $href ) !== '' ) {
+            $image_html = '<a href="' . htmlspecialchars( $href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '">' . $image_html . '</a>';
+        }
+
+        $markup = '<figure class="' . implode( ' ', $figure_classes ) . '">' . $image_html;
+        if ( $caption !== '' ) {
+            $markup .= '<figcaption>' . htmlspecialchars( $caption, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</figcaption>';
+        }
+        $markup .= '</figure>';
+
+        return( $markup );
+    }
+
+    protected function extractBloggerImageAlignment( \DOMElement $root ) : string {
+        $alignment = '';
+        foreach ( $root->getElementsByTagName( '*' ) as $element ) {
+            if ( ! $element instanceof \DOMElement ) {
+                continue;
+            }
+
+            $align = strtolower( trim( (string) $element->getAttribute( 'align' ) ) );
+            if ( in_array( $align, [ 'center', 'left', 'right' ], true ) ) {
+                $alignment = $align;
+            }
+
+            $style = (string) $element->getAttribute( 'style' );
+            if ( preg_match( '/(?:^|;)\s*float\s*:\s*(left|right)\b/i', $style, $matches ) === 1 ) {
+                return( strtolower( (string) ( $matches[1] ?? '' ) ) );
+            }
+            if ( preg_match( '/(?:^|;)\s*text-align\s*:\s*(center|left|right)\b/i', $style, $matches ) === 1 ) {
+                $alignment = strtolower( (string) ( $matches[1] ?? '' ) );
+            }
+        }
+
+        return( $alignment );
     }
 
     protected function extractImageAltFromHtml( string $html ) : string {
@@ -1194,7 +1269,7 @@ class TinyMashBloggerImportService {
         );
     }
 
-    protected function applyImportedMediaToEntry( array $entry, string $author_slug, array $media_index, array &$attached_media_ids = [] ) : array {
+    protected function applyImportedMediaToEntry( array $entry, string $author_slug, array $media_index, array &$attached_media_ids = [], bool $first_image_as_featured = false ) : array {
         if ( ! $this->media_import_bridge instanceof TinyMashMediaImportBridge ) {
             return( $entry );
         }
@@ -1215,6 +1290,9 @@ class TinyMashBloggerImportService {
         }
 
         $entry['content'] = trim( $content );
+        if ( $first_image_as_featured && (string) ( $entry['entry_type'] ?? '' ) === 'post' && empty( $entry['featured_image_media_id'] ) && is_array( $first_media ) ) {
+            $entry = $this->applyFeaturedImageToEntry( $entry, $first_media, $attached_media_ids );
+        }
         return( $entry );
     }
 
@@ -1222,12 +1300,12 @@ class TinyMashBloggerImportService {
         $previous_errors = libxml_use_internal_errors( true );
         libxml_clear_errors();
         $document = new \DOMDocument( '1.0', 'UTF-8' );
-        $html = '<!DOCTYPE html><html><body><div id="tm-import-root">' . $content . '</div></body></html>';
+        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><div id="tm-import-root">' . $content . '</div></body></html>';
         $loaded = $document->loadHTML( $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
         libxml_clear_errors();
         libxml_use_internal_errors( $previous_errors );
         if ( ! $loaded ) {
-            return( $entry );
+            return( $content );
         }
 
         $root = $document->getElementById( 'tm-import-root' );
@@ -1269,10 +1347,7 @@ class TinyMashBloggerImportService {
                 $image->setAttribute( 'alt', (string) $resolved_media['alt_text'] );
             }
 
-            if ( ! is_array( $first_media ) ) {
-                $first_media = $resolved_media;
-            }
-
+            $featured_media = $resolved_media;
             $parent = $image->parentNode;
             if ( $parent instanceof \DOMElement && strtolower( $parent->tagName ) === 'a' ) {
                 $href_url = $this->normalizeMediaSourceUrl( (string) $parent->getAttribute( 'href' ) );
@@ -1280,8 +1355,12 @@ class TinyMashBloggerImportService {
                     $resolved_href_media = $this->resolveImportedMediaForSourceUrl( $href_url, $author_slug, $media_index, [], $imported_media );
                     if ( is_array( $resolved_href_media ) && ! empty( $resolved_href_media['url'] ) ) {
                         $parent->setAttribute( 'href', (string) $resolved_href_media['url'] );
+                        $featured_media = $resolved_href_media;
                     }
                 }
+            }
+            if ( ! is_array( $first_media ) ) {
+                $first_media = $featured_media;
             }
         }
 
@@ -1318,15 +1397,16 @@ class TinyMashBloggerImportService {
                 if ( $resolved_media_id !== '' ) {
                     $attached_media_ids[$resolved_media_id] = $resolved_media_id;
                 }
-                if ( ! is_array( $first_media ) ) {
-                    $first_media = $resolved_media;
-                }
-
+                $featured_media = $resolved_media;
                 if ( $href_url !== '' ) {
                     $resolved_href_media = $this->resolveImportedMediaForSourceUrl( $href_url, $author_slug, $media_index, [], $imported_media );
                     if ( is_array( $resolved_href_media ) && ! empty( $resolved_href_media['url'] ) ) {
                         $href_url = (string) $resolved_href_media['url'];
+                        $featured_media = $resolved_href_media;
                     }
+                }
+                if ( ! is_array( $first_media ) ) {
+                    $first_media = $featured_media;
                 }
 
                 $image_markdown = '![' . str_replace( [ '[', ']' ], [ '\[', '\]' ], $this->normalizeText( $alt_text ) ) . '](' . (string) $resolved_media['url'] . ')';
@@ -1373,6 +1453,29 @@ class TinyMashBloggerImportService {
         ) ?? $content;
 
         return( $content );
+    }
+
+    protected function applyFeaturedImageToEntry( array $entry, array $media, array &$attached_media_ids ) : array {
+        $media_id = trim( (string) ( $media['media_id'] ?? '' ) );
+        if ( $media_id === '' ) {
+            return( $entry );
+        }
+
+        $attached_media_ids[$media_id] = $media_id;
+        $entry['featured_image_media_id'] = $media_id;
+        $entry['featured_image'] = [
+            'media_id' => $media_id,
+            'owner_username' => (string) ( $media['owner_username'] ?? '' ),
+            'filename' => (string) ( $media['filename'] ?? '' ),
+            'url' => (string) ( $media['url'] ?? '' ),
+            'alt_text' => (string) ( $media['alt_text'] ?? '' ),
+            'mime' => (string) ( $media['mime'] ?? '' ),
+            'width' => (int) ( $media['width'] ?? 0 ),
+            'height' => (int) ( $media['height'] ?? 0 ),
+            'bytes' => (int) ( $media['bytes'] ?? 0 ),
+            'derivative_key' => (string) ( $media['metadata']['derivative_key'] ?? 'stored_primary' ),
+        ];
+        return( $entry );
     }
 
     protected function attachImportedMediaToSavedEntry( string $author_slug, array $saved_entry, array $attached_media_ids ) : void {

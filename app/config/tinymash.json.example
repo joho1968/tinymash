@@ -48,7 +48,8 @@
     "editor": {
         "autosave_enabled": true,
         "autosave_interval_seconds": 120,
-        "classic_smileys_enabled": true
+        "classic_smileys_enabled": true,
+        "default_mode": "simple"
     },
     "media": {
         "content_images_mode": "authenticated",

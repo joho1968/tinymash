@@ -147,7 +147,7 @@ trait AdminProfileSettingsConcern {
 
         $section_fields = match ( $profile_section ) {
             'editor' => [ 'editor_mode', 'autosave_mode', 'autosave_interval_seconds', 'classic_smileys_mode' ],
-            'publishing' => [ 'default_entry_type', 'default_status', 'default_aggregate_to_root', 'discourage_search_indexing' ],
+            'publishing' => [ 'default_entry_type', 'default_status', 'default_aggregate_to_root', 'discourage_search_indexing', 'secret_link_expiry_days' ],
             'appearance' => [ 'public_theme_key', 'public_screen_mode', 'public_theme_content_width', 'public_theme_landing_page_path', 'public_banner_source', 'public_background_source', 'public_background_render_mode' ],
             'fediverse' => [],
             default => [ 'display_name', 'email', 'timezone', 'current_password', 'new_password', 'confirm_password' ],
@@ -200,6 +200,9 @@ trait AdminProfileSettingsConcern {
         }
 
         $editor_mode = strtolower( trim( (string) ( $data['editor_mode'] ?? 'full' ) ) );
+        if ( ! in_array( $editor_mode, [ 'simple', 'focused', 'full' ], true ) ) {
+            $editor_mode = $this->config->getEditorDefaultMode();
+        }
 
         $default_entry_type = strtolower( trim( (string) ( $data['default_entry_type'] ?? 'post' ) ) );
         if ( ! in_array( $default_entry_type, [ 'post', 'page' ], true ) ) {
@@ -225,6 +228,7 @@ trait AdminProfileSettingsConcern {
             'default_status' => $default_status,
             'default_aggregate_to_root' => ! empty( $data['default_aggregate_to_root'] ),
             'discourage_search_indexing' => ! empty( $data['discourage_search_indexing'] ),
+            'secret_link_expiry_days' => trim( (string) ( $data['secret_link_expiry_days'] ?? '' ) ),
             'public_theme_key' => $this->normalizeProfilePublicThemeKey( (string) ( $data['public_theme_key'] ?? $this->getCurrentProfilePublicThemeKey() ) ),
             'public_screen_mode' => $this->normalizeProfilePublicScreenMode( (string) ( $data['public_screen_mode'] ?? $this->getCurrentProfilePublicScreenMode() ) ),
             'public_theme_content_width' => trim( (string) ( $data['public_theme_content_width'] ?? $this->getCurrentProfileThemeContentWidth() ) ),
@@ -288,7 +292,7 @@ trait AdminProfileSettingsConcern {
         }
 
         $editor_mode = strtolower( trim( (string) ( $data['editor_mode'] ?? 'full' ) ) );
-        if ( ! in_array( $editor_mode, [ 'focused', 'full' ], true ) ) {
+        if ( ! in_array( $editor_mode, [ 'simple', 'focused', 'full' ], true ) ) {
             throw new \InvalidArgumentException( 'editor_mode' );
         }
 

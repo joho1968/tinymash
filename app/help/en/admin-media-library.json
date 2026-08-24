@@ -3,7 +3,7 @@
   "roles": ["admin"],
   "order": 21,
   "title": "Media library",
-  "summary": "Use this page to review stored media and decide what can safely stay, be marked for cleanup, or be removed.",
+  "summary": "Review stored media, usage, cleanup status, and permanent deletion.",
   "sections": [
     {
       "title": "Filters",

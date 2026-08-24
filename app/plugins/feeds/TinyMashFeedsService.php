@@ -7,6 +7,7 @@ use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashMarkdownRenderer;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
+use app\classes\TinyMashSecretLinkService;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
 
@@ -18,6 +19,7 @@ class TinyMashFeedsService {
     protected string $plugin_key;
     protected TinyMashConfig $config;
     protected TinyMashSecurity $security;
+    protected ?TinyMashSecretLinkService $secret_link_service;
     protected TinyMashContentRepository $content_repository;
     protected TinyMashContentRenderer $content_renderer;
     protected TinyMashMarkdownRenderer $markdown_renderer;
@@ -29,6 +31,7 @@ class TinyMashFeedsService {
         string $plugin_key,
         TinyMashConfig $config,
         TinyMashSecurity $security,
+        ?TinyMashSecretLinkService $secret_link_service,
         TinyMashContentRepository $content_repository,
         TinyMashContentRenderer $content_renderer,
         TinyMashMarkdownRenderer $markdown_renderer,
@@ -39,6 +42,7 @@ class TinyMashFeedsService {
         $this->plugin_key = $plugin_key;
         $this->config = $config;
         $this->security = $security;
+        $this->secret_link_service = $secret_link_service;
         $this->content_repository = $content_repository;
         $this->content_renderer = $content_renderer;
         $this->markdown_renderer = $markdown_renderer;
@@ -47,12 +51,14 @@ class TinyMashFeedsService {
     }
 
     public function getDiscoveryTags( array $context ) : array {
-        if ( empty( $context['static_export'] ) && ! $this->siteIsAccessible() ) {
-            return( [] );
-        }
-
         $page_context = is_array( $context['page_context'] ?? null ) ? $context['page_context'] : [];
         $scope = (string) ( $page_context['scope'] ?? 'root' );
+        $access_author_slug = $scope === 'author'
+            ? $this->normalizeAuthorSlug( (string) ( $page_context['author_slug'] ?? '' ) )
+            : null;
+        if ( empty( $context['static_export'] ) && ! $this->siteIsAccessible( $access_author_slug ) ) {
+            return( [] );
+        }
         $site_name = mb_trim( (string) ( $context['site_name'] ?? 'Site' ) );
         $feed_base_path = '/feed';
         $feed_title = $site_name !== '' ? $site_name : 'Site';
@@ -174,7 +180,8 @@ class TinyMashFeedsService {
 
     protected function buildFeedContext( ?string $author_slug, array $options ) : ?array {
         $static_export = ! empty( $options['static_export'] );
-        if ( ! $static_export && ! $this->siteIsAccessible() ) {
+        $author_slug = $author_slug !== null ? $this->normalizeAuthorSlug( $author_slug ) : null;
+        if ( ! $static_export && ! $this->siteIsAccessible( $author_slug ) ) {
             return( null );
         }
 
@@ -198,7 +205,6 @@ class TinyMashFeedsService {
         $feed_base_path = '/feed';
 
         if ( $author_slug !== null ) {
-            $author_slug = $this->normalizeAuthorSlug( $author_slug );
             if ( $author_slug === '' || ! $this->authorIsAccessible( $author_slug ) || ! $this->authorFeedsEnabled( $author_slug ) ) {
                 return( null );
             }
@@ -417,8 +423,19 @@ class TinyMashFeedsService {
         return( $output );
     }
 
-    protected function siteIsAccessible() : bool {
-        return( $this->config->isSitePublic() || $this->security->isLoggedIn() );
+    protected function siteIsAccessible( ?string $author_slug = null ) : bool {
+        if ( $this->config->isSitePublic() || $this->security->isLoggedIn() ) {
+            return( true );
+        }
+
+        return(
+            $this->secret_link_service instanceof TinyMashSecretLinkService
+            && (
+                $author_slug === null
+                    ? $this->secret_link_service->currentVisitorCanAccessSite()
+                    : $this->secret_link_service->currentVisitorCanAccessAuthor( $author_slug )
+            )
+        );
     }
 
     protected function authorIsAccessible( string $author_slug ) : bool {

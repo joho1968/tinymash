@@ -1,7 +1,7 @@
 {
     "key": "terminal",
     "name": "Terminal",
-    "description": "Linux-terminal inspired public theme with local-only assets and no Bootstrap dependency.",
+    "description": "Terminal-inspired theme with local assets and no Bootstrap dependency.",
     "version": "1.0.0",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
@@ -50,7 +50,7 @@
                     "label": "Off"
                 }
             ],
-            "help": "Controls where the primary site menu is rendered when a menu is configured."
+            "help": "Show the primary menu in the header or sidebar, or hide it."
         },
         {
             "key": "footer_menu_position",
@@ -67,11 +67,11 @@
                     "label": "Off"
                 }
             ],
-            "help": "Controls whether the configured footer menu is rendered by this theme."
+            "help": "Show the footer menu in the footer, or hide it."
         },
         {
             "key": "root_landing_mode",
-            "label": "Root start page",
+            "label": "Site home page",
             "type": "select",
             "default": "blogroll",
             "options": [
@@ -84,15 +84,15 @@
                     "label": "Static page"
                 }
             ],
-            "help": "Controls whether the public root space starts on the aggregated post list or a published static page."
+            "help": "Use the post list or a published page as the site home page."
         },
         {
             "key": "landing_page_path",
-            "label": "Root landing page path",
+            "label": "Site home page content",
             "type": "text",
             "lookup": "published_pages",
             "default": "",
-            "help": "Used when `Static page` is selected. Choose one of the published root pages."
+            "help": "Choose the published root page used when `Static page` is selected."
         },
         {
             "key": "content_width",
@@ -130,7 +130,7 @@
                     "label": "Full"
                 }
             ],
-            "help": "Bounds the main public content area using tinymash width presets instead of free-form pixel settings."
+            "help": "Set the maximum width of the main content area."
         },
         {
             "key": "show_search",
@@ -147,11 +147,11 @@
                     "label": "Disabled"
                 }
             ],
-            "help": "Controls whether the public search form is shown when the Search plugin is active."
+            "help": "Show public search when the Search plugin is active."
         },
         {
             "key": "enable_syntax_highlighting",
-            "label": "Enable syntax highlighting",
+            "label": "Syntax highlighting",
             "type": "select",
             "requires_plugin": "syntax-highlighting",
             "default": "enabled",
@@ -165,7 +165,7 @@
                     "label": "Disabled"
                 }
             ],
-            "help": "Uses local highlight.js assets for fenced code blocks in this theme."
+            "help": "Highlight fenced code blocks with the local highlight.js assets."
         },
         {
             "key": "show_tags",
@@ -182,7 +182,7 @@
                     "label": "Disabled"
                 }
             ],
-            "help": "Controls whether entry tags are shown publicly in this theme when tags are enabled sitewide."
+            "help": "Show entry tags when tags are enabled for the site."
         },
         {
             "key": "terminal_palette",
@@ -223,7 +223,7 @@
                     "label": "Classic Linux"
                 }
             ],
-            "help": "Controls the terminal color preset. Each preset includes coordinated dark and light variants plus a 16-color ANSI-style palette."
+            "help": "Choose the terminal palette. Each option includes light, dark, and 16-color variants."
         },
         {
             "key": "page_sidebar_style",
@@ -240,11 +240,11 @@
                     "label": "Disabled"
                 }
             ],
-            "help": "Controls whether the page tree appears in the sidebar."
+            "help": "Show the page tree in the sidebar, or hide it."
         },
         {
             "key": "top_navigation_depth",
-            "label": "Top navigation depth",
+            "label": "Fallback page-tree depth",
             "type": "select",
             "default": "1",
             "options": [
@@ -265,7 +265,7 @@
                     "label": "3rd level"
                 }
             ],
-            "help": "Used for the fallback page-tree menu when no primary menu is configured and the position is set to `Header`."
+            "help": "Set the depth of the page tree shown in the header when no primary menu is configured."
         },
         {
             "key": "page_breadcrumbs",
@@ -282,11 +282,11 @@
                     "label": "Disabled"
                 }
             ],
-            "help": "Controls whether page breadcrumb trails are shown above page content."
+            "help": "Show breadcrumb trails above page content."
         },
         {
             "key": "page_children_after_content",
-            "label": "After-content child pages",
+            "label": "Child pages after content",
             "type": "select",
             "default": "subpages",
             "options": [
@@ -300,14 +300,14 @@
                 },
                 {
                     "value": "subpages",
-                    "label": "Sub pages"
+                    "label": "Subpages"
                 }
             ],
-            "help": "Controls whether published child pages are listed after page content."
+            "help": "List published child pages after page content."
         },
         {
             "key": "post_summary_fallback",
-            "label": "Short summary format for posts",
+            "label": "Posts without summaries",
             "type": "select",
             "default": "words",
             "options": [
@@ -324,14 +324,14 @@
                     "label": "Only title"
                 }
             ],
-            "help": "Controls what the root and author post lists show when a post has no explicit summary."
+            "help": "Choose what post lists show when a post has no summary."
         },
         {
             "key": "post_summary_fallback_words",
-            "label": "Short summary words",
+            "label": "Short summary length",
             "type": "text",
             "default": "40",
-            "help": "Used when `Short summary` is selected. Invalid values fall back to 40."
+            "help": "Set the maximum words used by `Short summary`. Invalid values use 40."
         }
     ]
 }

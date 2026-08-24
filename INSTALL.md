@@ -47,7 +47,7 @@ If you are building one yourself, create a clean deploy tree with:
 php8.4 bin/tinymash.php deploy /tmp/tinymash-deploy
 ```
 
-That produces a clean runtime tree with empty `data/`, `users/`, and runtime directories instead of copying a live site.
+That produces a clean runtime tree with empty `data/`, `users/`, and `tmp/` directories instead of copying a live site. Existing source `tmp/` contents are never included.
 
 ## 2. Copy tinymash to the server
 
@@ -73,7 +73,18 @@ Use the shipped sample configs as your starting point:
 
 - `samples/server/nginx.sample.conf`
 - `samples/server/apache.sample.conf`
+- `samples/server/admin-http-basic-auth.md` for optional admin-only HTTP Basic authentication
 - `samples/server/php-fpm.sample.conf`
+
+Give each tinymash installation its own PHP session name. Use a short cookie-safe value that starts with a letter, and keep that value stable across upgrades:
+
+```ini
+php_admin_value[session.name] = TINYMASHEXAMPLE
+```
+
+This avoids session-cookie name collisions when installations share a hostname. PHP's `session.gc_maxlifetime` setting controls how long an inactive server-side session remains available; set it globally or for the site's PHP-FPM pool according to your login policy. If several sites share Redis-backed sessions, also give each site an explicit Redis session prefix.
+
+Tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before Tinymash can authorize them. If you want an additional HTTP Basic layer, use the shipped Apache/Nginx examples to limit it to the admin URL for either a top-level or sub-URL installation, then verify that public routes and routed media still reach Tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging in the web-server access log.
 
 If you want explicit OPcache settings, use:
 

@@ -371,6 +371,22 @@
     border-radius: 0 !important;
 }
 
+.tm-scribe-prose-images-centered > p > img:only-child {
+    display: block;
+    margin-inline: auto;
+}
+
+.tm-scribe-prose-images-centered > p > a:only-child {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+}
+
+.tm-scribe-prose-images-centered > p > a:only-child > img:only-child {
+    display: block;
+}
+
 .tm-scribe-prose .img-thumbnail {
     padding: 0;
     border: 0;

@@ -32,7 +32,7 @@ $request_uri = (string) ( $_SERVER['REQUEST_URI'] ?? '/' );
 $request_path = (string) ( parse_url( $request_uri, PHP_URL_PATH ) ?? '/' );
 $request_query = (string) ( parse_url( $request_uri, PHP_URL_QUERY ) ?? '' );
 $normalized_request_path = preg_replace( '#/+#', '/', $request_path ) ?? $request_path;
-$strip_path_characters = "~><[]\\.=\\$!@%#^;:'*_(){}+";
+$strip_path_characters = "~><[]\\.=\\$!@%#^;:'*(){}+";
 if ( $normalized_request_path === '' ) {
     $normalized_request_path = '/';
 }
@@ -371,6 +371,14 @@ $router->get( $config->configGetAdminURL() . '/system/@section', function( strin
 $router->post( $config->configGetAdminURL() . '/system/settings', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->saveSystemSettings();
+});
+$router->post( $config->configGetAdminURL() . '/system/secret-links/generate', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->generateSystemSecretLink();
+});
+$router->post( $config->configGetAdminURL() . '/system/secret-links/revoke', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->revokeSystemSecretLink();
 });
 $router->post( $config->configGetAdminURL() . '/system/notifications/dismiss', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );

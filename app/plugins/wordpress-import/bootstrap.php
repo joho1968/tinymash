@@ -132,16 +132,32 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'wordpress-import',
-                'usage' => 'tinymash wordpress-import <preview|import> <wxr-file> --author=<username> [--aggregate-root] [--replace-existing-posts] [--replace-existing-pages] [--skip-unpublished] [--import-menus] [--batch-size=<n>] [--memory-limit=<value>] [--keep-preview] [--force-lock]',
-                'summary' => 'Preview or import a WordPress WXR export into an author space from the CLI.',
+                'summary' => 'Preview or import a WordPress WXR export into an author space.',
+                'arguments' => [
+                    [ 'name' => 'action', 'required' => true, 'description' => 'Preview the export or import it', 'choices' => [ 'preview', 'import' ] ],
+                    [ 'name' => 'wxr-file', 'required' => true, 'description' => 'Readable WordPress WXR export file' ],
+                ],
+                'options' => [
+                    [ 'name' => 'author', 'value' => true, 'required' => true, 'description' => 'Required local author account' ],
+                    [ 'name' => 'aggregate-root', 'description' => 'Also include imported posts in the root blogroll' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Replace posts with matching slugs' ],
+                    [ 'name' => 'replace-existing-pages', 'description' => 'Replace pages with matching slugs' ],
+                    [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
+                    [ 'name' => 'import-menus', 'description' => 'Import recognized WordPress menus' ],
+                    [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
+                    [ 'name' => 'memory-limit', 'value' => true, 'default' => '512M', 'pattern' => '/^(?:-1|\d+[KMG]?)$/i', 'pattern_message' => 'The --memory-limit option must be -1 or a number with an optional K, M, or G suffix.', 'description' => 'Set the PHP memory limit for the import' ],
+                    [ 'name' => 'keep-preview', 'description' => 'Keep preview files after a completed import' ],
+                    [ 'name' => 'force-lock', 'description' => 'Replace a stale import lock for this author' ],
+                ],
+                'examples' => [
+                    'php8.4 bin/tinymash.php wordpress-import preview export.xml --author=cajo',
+                    'php8.4 bin/tinymash.php wordpress-import import export.xml --author=cajo --import-menus',
+                ],
+                'notes' => 'The target account may be inactive, but it must exist. Run preview before import when checking a new source file.',
                 'order' => 220,
                 'handler' => static function( array $arguments ) use ( $parse_cli_options, $write_preview_summary, $import_service, $import_preview_workspace_service, $plugin_key, $user_repository ) : void {
                     $options = $parse_cli_options( $arguments );
                     $action = (string) ( $options['action'] ?? '' );
-                    if ( ! in_array( $action, [ 'preview', 'import' ], true ) ) {
-                        throw new \RuntimeException( 'usage: tinymash wordpress-import <preview|import> <wxr-file> --author=<username> [--aggregate-root] [--replace-existing-posts] [--replace-existing-pages] [--skip-unpublished] [--import-menus] [--batch-size=<n>] [--memory-limit=<value>] [--keep-preview] [--force-lock]' );
-                    }
-
                     $source_filename = trim( (string) ( $options['source'] ?? '' ) );
                     if ( $source_filename === '' || ! is_file( $source_filename ) || ! is_readable( $source_filename ) ) {
                         throw new \RuntimeException( 'The WordPress export file could not be read.' );
@@ -236,6 +252,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $preview_url = $plugin_url . '/preview';
     $report_url = $plugin_url . '/report';
     $import_url = $plugin_url . '/run';
+    $unlock_url = $plugin_url . '/unlock';
     $max_execution_time = (int) ini_get( 'max_execution_time' );
     $import_batch_size = match ( true ) {
         $max_execution_time > 0 && $max_execution_time <= 30 => 1,
@@ -269,16 +286,20 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'roles' => [ 'author', 'admin' ],
             'sections' => [
                 [
-                    'title' => 'What it imports',
-                    'markdown' => 'WordPress import brings posts and pages from a WXR/XML export into an author space. It preserves timestamps, status, and page-parent relationships where the source export provides them.',
+                    'title' => 'Overview',
+                    'markdown' => 'Import posts and pages from a WordPress WXR/XML export into an author space. Timestamps, status, and available page-parent relationships are preserved.',
                 ],
                 [
                     'title' => 'Menus',
-                    'markdown' => 'WordPress import can optionally map recognized WordPress navigation menus into tinymash `primary` and `footer` menu locations. This currently uses menu-name heuristics and only runs when menu import is enabled explicitly.',
+                    'markdown' => 'Optionally map recognized WordPress menus to the tinymash `primary` and `footer` locations. Matching uses menu names and runs only when menu import is enabled.',
                 ],
                 [
                     'title' => 'Media',
-                    'markdown' => 'The importer localizes WordPress media from the exported attachment set, common WordPress upload URLs, and the source site when those files are still reachable.',
+                    'markdown' => 'Localizes media from exported attachments, common WordPress upload URLs, and reachable source-site files.',
+                ],
+                [
+                    'title' => 'Interrupted imports',
+                    'markdown' => 'Return to the same preview and choose **Resume import**. If an earlier import blocks a new preview, open that import or release its lock from the preview page.',
                 ],
             ],
         ]
@@ -352,6 +373,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
             $display_name = trim( (string) ( $user['display_name'] ?? '' ) );
             $label = $display_name !== '' ? ( $display_name . ' (' . $username . ')' ) : $username;
+            if ( empty( $user['active'] ) ) {
+                $label .= ' — sign-in disabled';
+            }
             $options[] = [
                 'username' => $username,
                 'label' => $label,
@@ -361,7 +385,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $options );
     };
 
-    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $date_formatter, $import_service, $import_lock_service, $plugin_url, $preview_url, $report_url, $import_url, $login_url, $escape, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
+    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $date_formatter, $import_service, $import_lock_service, $plugin_key, $plugin_url, $preview_url, $report_url, $import_url, $unlock_url, $login_url, $escape, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( $login_url );
             return;
@@ -503,9 +527,16 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $adjusted_source_conflicts = is_array( $preview['adjusted_source_conflicts'] ?? null ) ? $preview['adjusted_source_conflicts'] : [];
             $has_conflicting_lock = is_array( $active_lock );
             $conflicting_lock_is_stale = $has_conflicting_lock && ! empty( $active_lock['is_stale'] );
-            $conflicting_lock_created_display = $has_conflicting_lock
-                ? $date_formatter->formatUtcDateTime( (string) ( $active_lock['created_at_utc'] ?? '' ) )
+            $conflicting_lock_updated_display = $has_conflicting_lock
+                ? $date_formatter->formatUtcDateTime( (string) ( $active_lock['updated_at_utc'] ?? $active_lock['created_at_utc'] ?? '' ) )
                 : '';
+            $conflicting_lock_owner = strtolower( trim( (string) ( $active_lock['created_by_username'] ?? '' ) ) );
+            $can_release_conflicting_lock = $has_conflicting_lock && ( $is_superadmin || ( $conflicting_lock_owner !== '' && $conflicting_lock_owner === strtolower( $username ) ) );
+            $conflicting_preview = $has_conflicting_lock && (string) ( $active_lock['importer_key'] ?? '' ) === $plugin_key
+                ? $import_service->getPreview( (string) ( $active_lock['token'] ?? '' ) )
+                : null;
+            $can_open_conflicting_preview = is_array( $conflicting_preview )
+                && (string) ( $conflicting_preview['created_by_username'] ?? $conflicting_preview['author_slug'] ?? '' ) === strtolower( $username );
 
             $body_html .= '<div class="col-12"><div class="d-flex flex-wrap gap-2 mb-3"><a class="btn btn-outline-secondary btn-sm" href="' . $escape( $plugin_url ) . '">Start over</a></div>';
             $body_html .= '<section class="">';
@@ -545,10 +576,21 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Adjusted ' . $adjusted_source_duplicates . ' duplicate slug conflict' . ( $adjusted_source_duplicates === 1 ? '' : 's' ) . ' inside the WordPress source export so the entries can still be imported.</div>';
             }
             if ( $has_conflicting_lock ) {
-                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import currently holds this author-space lock (created ' . $escape( $conflicting_lock_created_display !== '' ? $conflicting_lock_created_display : 'unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
+                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import holds this author-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
             }
             $body_html .= '</div><div class="d-flex flex-wrap gap-2">';
-            $body_html .= '<button class="btn btn-outline-primary" id="wordpress-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button>';
+            $body_html .= '<button class="btn btn-outline-primary" id="wordpress-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-login-url="' . $escape( $login_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button>';
+            if ( $can_open_conflicting_preview ) {
+                $body_html .= '<a class="btn btn-outline-secondary" href="' . $escape( $preview_url . '?preview=' . rawurlencode( (string) ( $active_lock['token'] ?? '' ) ) ) . '">Open earlier import</a>';
+            }
+            if ( $can_release_conflicting_lock ) {
+                $body_html .= '<form method="post" action="' . $escape( $unlock_url ) . '" onsubmit="return confirm(\'Release the earlier import lock? An import still running in another tab will stop at its next batch.\');">';
+                $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $csrf_token ) . '">';
+                $body_html .= '<input type="hidden" name="preview_token" value="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '">';
+                $body_html .= '<input type="hidden" name="lock_token" value="' . $escape( (string) ( $active_lock['token'] ?? '' ) ) . '">';
+                $body_html .= '<button class="btn btn-outline-danger" type="submit">Release earlier lock</button>';
+                $body_html .= '</form>';
+            }
             $body_html .= '</div></div>';
             if ( $conflicting_lock_is_stale ) {
                 $body_html .= '<div class="form-check mt-3">';
@@ -723,6 +765,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     const forceLockCheckbox = document.getElementById('wordpress-import-force-lock');
     const importUrl = startButton.dataset.importUrl || '';
     const pluginUrl = startButton.dataset.pluginUrl || '';
+    const loginUrl = startButton.dataset.loginUrl || '';
     const previewToken = startButton.dataset.previewToken || '';
     const csrfToken = startButton.dataset.csrfToken || '';
     let importInFlight = false;
@@ -787,10 +830,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     }).toString()
                 });
 
-                const payload = await response.json();
-                if (!response.ok) {
-                    throw new Error(payload.error || ('Import failed with status ' + response.status));
+                if (!window.TinyMashImportAdmin) {
+                    throw new Error('The import helper is unavailable. Reload this preview to resume.');
                 }
+                const payload = await window.TinyMashImportAdmin.readJsonResponse(response);
 
                 setProgress(payload);
                 if (payload.done) {
@@ -799,6 +842,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 }
             }
         } catch (error) {
+            if (error.requiresLogin && window.TinyMashImportAdmin) {
+                window.location.href = window.TinyMashImportAdmin.buildLoginUrl(loginUrl, window.location.pathname + window.location.search);
+                return;
+            }
             startButton.disabled = false;
             startButton.textContent = 'Resume import';
             if (previewTableWrap) {
@@ -806,7 +853,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
             if (progressSection && progressMessage) {
                 progressSection.classList.remove('d-none');
-                progressMessage.textContent = error.message || 'The WordPress import failed.';
+                progressMessage.textContent = error instanceof TypeError
+                    ? 'The request was interrupted. Reload this preview to resume.'
+                    : (error.message || 'The WordPress import failed.');
             }
             if (progressSpinner) {
                 progressSpinner.classList.add('d-none');
@@ -895,6 +944,51 @@ HTML;
     $plugins->registerRoute(
         $plugin_key,
         'post',
+        $unlock_url,
+        static function() use ( $plugins, $security, $import_service, $import_lock_service, $login_url, $plugin_url, $preview_url, $build_notice ) : void {
+            if ( ! $security->isLoggedIn() ) {
+                $plugins->redirect( $login_url );
+                return;
+            }
+
+            $data = $plugins->getRequestData();
+            if ( ! $security->validateCsrfToken( isset( $data['tinymash_csrf'] ) ? (string) $data['tinymash_csrf'] : '' ) ) {
+                $security->setFlash( 'wordpress-import.notice', $build_notice( 'danger', 'Your session token is invalid. Please reload the page and try again.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
+
+            $preview_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['preview_token'] ?? '' ) ) ) ) ?? '';
+            $lock_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['lock_token'] ?? '' ) ) ) ) ?? '';
+            $preview = $preview_token !== '' ? $import_service->getPreview( $preview_token ) : null;
+            $current_username = strtolower( trim( (string) $security->getCurrentUsername() ) );
+            if ( ! is_array( $preview ) || (string) ( $preview['created_by_username'] ?? $preview['author_slug'] ?? '' ) !== $current_username ) {
+                $security->setFlash( 'wordpress-import.notice', $build_notice( 'danger', 'That WordPress import preview is not available for the current account.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
+
+            $author_slug = (string) ( $preview['author_slug'] ?? '' );
+            $lock = $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service->getAuthorLock( $author_slug ) : null;
+            $lock_owner = strtolower( trim( (string) ( $lock['created_by_username'] ?? '' ) ) );
+            if ( ! is_array( $lock ) || $lock_token === '' || ! hash_equals( (string) ( $lock['token'] ?? '' ), $lock_token ) || ( ! $security->isSuperAdmin() && $lock_owner !== $current_username ) ) {
+                $security->setFlash( 'wordpress-import.notice', $build_notice( 'danger', 'The earlier import lock could not be released.' ) );
+                $plugins->redirect( $preview_url . '?preview=' . rawurlencode( $preview_token ) );
+                return;
+            }
+
+            $released = $import_lock_service->releaseAuthorLock( $author_slug, $lock_token );
+            $security->setFlash(
+                'wordpress-import.notice',
+                $build_notice( $released ? 'success' : 'danger', $released ? 'Released the earlier import lock.' : 'The earlier import lock could not be released.' )
+            );
+            $plugins->redirect( $preview_url . '?preview=' . rawurlencode( $preview_token ) );
+        }
+    );
+
+    $plugins->registerRoute(
+        $plugin_key,
+        'post',
         $import_url,
         static function() use ( $plugins, $security, $import_service, $login_url, $plugin_url, $preview_url, $report_url, $build_notice, $emit_json, $is_json_request, $import_batch_size, $log_plugin_error ) : void {
             $expects_json = $is_json_request();
@@ -939,6 +1033,9 @@ HTML;
                 $plugins->redirect( $plugin_url );
                 return;
             }
+
+            $security->touchAuthenticatedSession();
+            $security->closeSession();
 
             $result = [ 'done' => false ];
             try {

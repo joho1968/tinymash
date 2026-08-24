@@ -675,12 +675,12 @@ trait AdminEditorStateConcern {
         $username = $this->security->getCurrentUsername();
         $user_repository = $this->getUserRepository();
         if ( ! is_string( $username ) || $username === '' || $user_repository === null ) {
-            return( 'full' );
+            return( $this->config->getEditorDefaultMode() );
         }
 
         $user = $user_repository->getUserByUsername( $username );
-        $editor_mode = strtolower( trim( (string) ( $user['editor_mode'] ?? 'full' ) ) );
-        return( in_array( $editor_mode, [ 'focused', 'full' ], true ) ? $editor_mode : 'full' );
+        $editor_mode = strtolower( trim( (string) ( $user['editor_mode'] ?? '' ) ) );
+        return( in_array( $editor_mode, [ 'simple', 'focused', 'full' ], true ) ? $editor_mode : $this->config->getEditorDefaultMode() );
     }
 
     protected function buildEditorResponseEntry( array $entry ) : array {
