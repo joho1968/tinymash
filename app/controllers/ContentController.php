@@ -726,7 +726,7 @@ class ContentController extends BaseController {
         header( 'ETag: ' . $etag );
         header( 'Last-Modified: ' . $last_modified );
         header( 'Vary: Cookie' );
-        header( $this->config->isSitePublic() ? 'Cache-Control: public, max-age=3600' : 'Cache-Control: private, no-store, max-age=0, must-revalidate' );
+        header( $this->config->isSitePublic() ? 'Cache-Control: public, max-age=3600' : 'Cache-Control: private, max-age=900, must-revalidate' );
         if ( $this->mediaRequestIsNotModified( $etag, $media_modified_at ) ) {
             $this->app->response()->status( 304 );
             return;

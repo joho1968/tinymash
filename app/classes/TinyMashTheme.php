@@ -528,7 +528,7 @@ class TinyMashTheme {
 
         foreach ( $this->user_repository->getPublicThemeSettings( $author_slug, $this->getThemeKey() ) as $setting_key => $setting_value ) {
             if ( is_string( $setting_key ) && array_key_exists( $setting_key, $settings ) ) {
-                if ( $setting_key === 'content_width' && strtolower( trim( (string) $setting_value ) ) === 'theme_default' ) {
+                if ( $setting_key === 'content_width' && in_array( strtolower( trim( (string) $setting_value ) ), [ '', 'theme_default' ], true ) ) {
                     continue;
                 }
                 $settings[$setting_key] = $setting_value;

@@ -2,6 +2,11 @@
 
 Notable changes in tinymash
 
+## 0.97.1 - 2026-08-24
+
+- Fixed minor browser cache issue on non-public sites
+- The Scribe theme now honors selected site or author-space content width
+
 ## 0.97.0 - 2026-08-24
 
 - Added a Simple Composer mode for routine title/content/photo publishing with direct draft and publish actions
@@ -15,7 +20,7 @@ Notable changes in tinymash
 - Updated safe Composer components
 - Updated Bootstrap, highlight.js, emoji picker, and emoji data assets
 - Secret links can now grant either whole-site or author-space guest access on non-public sites
-- Secret-link requests now use private, non-cacheable responses with crawler and referrer protections
+- Secret-link exchanges and private pages now use non-cacheable responses with crawler and referrer protections
 - Author links are revoked on author deletion and suspended while author content is disabled.
 - Browser-based Blogger, WordPress, and Bludit imports now recover cleanly from expired sessions and interrupted batches
 - Blogger import now preserves recognized image alignment and UTF-8 text while localizing image markup
@@ -94,7 +99,7 @@ This should still be considered a beta version, albeit a reasonably stable beta 
 
 - Fediverse previews refresh when the Fediverse composer tab is selected, use Metadata Summary when present, and show clearer readiness badges.
 - Search results now highlight matched terms in titles and summaries.
-- What's Up remote calendar requests now identify with the current platform version instead of a stale plugin-specific version.
+- What's Up remote calendar requests now identify with the current platform version
 
 ## 0.91.0 - 2026-06-03
 

@@ -88,8 +88,11 @@
 
 .tm-scribe-reading {
     width: 100%;
-    max-width: var(--tm-scribe-measure);
     margin-inline: auto;
+}
+
+.tm-theme-scribe .tm-content-width-default .tm-scribe-reading {
+    max-width: var(--tm-scribe-measure);
 }
 
 .tm-theme-scribe.tm-has-public-background .tm-scribe-reading {

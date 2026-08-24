@@ -1,7 +1,7 @@
 {
     "key": "notes",
     "name": "Notes",
-    "version": "0.97.0",
+    "version": "0.97.1",
     "description": "Provides a private per-user Markdown notebook with revisions.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",
