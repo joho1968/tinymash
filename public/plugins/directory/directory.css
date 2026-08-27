@@ -222,6 +222,12 @@
     text-underline-offset: 0.18em;
 }
 
+.tm-directory-link-group-items-list .tm-directory-link-anchor {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+}
+
 .tm-directory-link-anchor::after {
     content: "";
     display: inline-block;

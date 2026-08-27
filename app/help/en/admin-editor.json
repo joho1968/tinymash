@@ -4,10 +4,12 @@
   "order": 30,
   "title": "Composer",
   "summary": "Write, preview, and save content.",
+  "documentation_url": "https://tinymash.joho.se/docs/publishing/composer",
+  "documentation_label": "Composer",
   "sections": [
     {
-      "title": "Focused and Full modes",
-      "markdown": "- **Focused** keeps ordinary writing and publishing controls visible while hiding advanced metadata, SEO, and plugin tabs.\n- **Full** exposes the complete composer.\n- Both modes use the same content, draft, revision, validation, and save behavior. Switching modes does not clear hidden settings."
+      "title": "Composer modes",
+      "markdown": "- **Simple** keeps routine writing, draft, and publish actions visible.\n- **Focused** adds common publishing controls.\n- **Full** exposes advanced metadata, SEO, and plugin fields.\n\nAll modes use the same content and save behavior. Switching modes does not clear hidden settings."
     },
     {
       "title": "Write, Preview, and Options",
@@ -23,7 +25,7 @@
     },
     {
       "title": "Links, tags, emoji, and smileys",
-      "markdown": "- The toolbar inserts common Markdown patterns, including fenced code blocks.\n- Internal and external links use dedicated pickers.\n- Tags are entered in **Options** and autocomplete as you type.\n- Markdown underline uses `++text++`.\n- Type `:` in the editor to autocomplete emoji shortcodes such as `:blush:`.\n- The emoji button opens the full picker, including skin-tone variants.\n- Classic smileys such as `:)`, `8-)`, and `:-\\` follow the site default and your profile override.\n- Use the **Markdown reference** for the full syntax and support list."
+      "markdown": "The toolbar inserts common Markdown and opens the link and emoji pickers. Tags are entered in **Options**. Type `:` to autocomplete emoji shortcodes. Open **Markdown reference** for supported syntax."
     }
   ]
 }

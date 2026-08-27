@@ -126,6 +126,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'RSS Reader',
             'summary' => 'Show cached items from approved RSS and Atom sources.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/rss-reader',
+            'documentation_label' => 'RSS Reader',
             'group' => 'Plugins',
             'order' => 145,
             'roles' => [ 'admin' ],

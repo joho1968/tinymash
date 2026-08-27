@@ -78,6 +78,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Downloads',
             'summary' => 'Create managed download folders and routed file downloads.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/downloads',
+            'documentation_label' => 'Downloads',
             'group' => 'Plugins',
             'order' => 135,
             'roles' => [ 'creator', 'admin' ],
@@ -92,7 +94,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Files',
-                    'markdown' => 'Files are stored outside public asset paths and served through a download route that records a count and the most recent download time. One or more files can be uploaded into a folder at once. File metadata rows can be saved individually without reloading the whole Downloads page. Counts are visible to admins/authors in the Downloads management page, not on the public listing.',
+                    'markdown' => 'Files stay outside public asset paths and are served through routed URLs. Upload one or more files into a folder; download counts and recent activity remain visible only in management.',
                 ],
                 [
                     'title' => 'Linking from content',
@@ -100,11 +102,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Browsing',
-                    'markdown' => 'Public folder pages show a `..` folder when visitors can move up within the active browsing root. Shortcode links keep that root contained to the embedded starting folder. Admins can disable browsing the bare `/downloads` root index without disabling direct folder or file URLs.',
+                    'markdown' => 'Public folder pages show `..` when visitors can move up within the current browsing root. A shortcode keeps browsing inside its starting folder. Disabling the bare root index does not disable direct folder or file URLs.',
                 ],
                 [
                     'title' => 'Accepted formats',
-                    'markdown' => 'Downloads accepts common archives, office documents, plain data files, images, and video files. These are treated as downloadable files only; the plugin does not process image/video metadata or render them as managed media.',
+                    'markdown' => 'Accepted files are downloads only. Images and videos are not processed as managed media.',
                 ],
                 [
                     'title' => 'File dates',

@@ -182,6 +182,12 @@ body {
     line-height: 1.7;
 }
 
+.tm-timeline-entry .tm-timeline-meta a,
+.tm-timeline-entry .tm-timeline-content a:not(.btn):not(.tm-downloads-file-link) {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
 .tm-timeline-content pre {
     padding: 1rem;
     border-radius: 0;

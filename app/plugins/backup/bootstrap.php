@@ -83,6 +83,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Backup',
             'summary' => 'Create an author export or full site backup.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/backup',
+            'documentation_label' => 'Backup',
             'group' => 'Plugins',
             'order' => 110,
             'roles' => [ 'author', 'admin' ],

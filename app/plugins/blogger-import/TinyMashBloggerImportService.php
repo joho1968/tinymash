@@ -48,7 +48,7 @@ class TinyMashBloggerImportService {
         $preview = $this->parseXml( $xml, $author_slug, $aggregate_to_root, $media_source_directory, $skip_unpublished );
         $preview['token'] = $this->generateToken();
         $preview['created_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
-        $preview['created_by_username'] = $this->normalizeSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
+        $preview['created_by_username'] = $this->normalizeAuthorSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
         $preview['replace_existing_posts'] = $replace_existing_posts;
         $preview['skip_unpublished'] = $skip_unpublished;
         $preview['first_image_as_featured'] = $first_image_as_featured;
@@ -403,7 +403,7 @@ class TinyMashBloggerImportService {
             throw new \RuntimeException( 'The Blogger import runtime is not available. SimpleXML is required.' );
         }
 
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         if ( $author_slug === '' ) {
             throw new \RuntimeException( 'A valid target author is required for Blogger import.' );
         }
@@ -973,6 +973,10 @@ class TinyMashBloggerImportService {
         return( $this->content_repository->normalizeEditorSlug( $value ) );
     }
 
+    protected function normalizeAuthorSlug( string $value ) : string {
+        return( $this->content_repository->normalizeAuthorSlug( $value ) );
+    }
+
     protected function normalizeMediaSourceDirectory( string $directory ) : string {
         $directory = function_exists( 'mb_trim' ) ? mb_trim( $directory ) : trim( $directory );
         if ( $directory === '' ) {
@@ -1483,7 +1487,7 @@ class TinyMashBloggerImportService {
             return;
         }
 
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         $entry_id = trim( (string) ( $saved_entry['id'] ?? '' ) );
         if ( $author_slug === '' || $entry_id === '' || empty( $attached_media_ids ) ) {
             return;

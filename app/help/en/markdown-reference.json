@@ -3,7 +3,9 @@
   "roles": ["author", "admin"],
   "order": 70,
   "title": "Markdown reference",
-  "summary": "Reference for the Markdown syntax and extensions supported by tinymash. tinymash renders CommonMark with the GitHub-flavored features already in use in the composer, including tables, task lists, strikethrough, fenced code blocks, and inline code.",
+  "summary": "Supported Markdown syntax and tinymash text extensions.",
+  "documentation_url": "https://tinymash.joho.se/docs/publishing/composer",
+  "documentation_label": "Composer",
   "sections": [
     {
       "title": "Headings",

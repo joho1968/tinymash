@@ -90,6 +90,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Signage',
             'summary' => 'Run access-controlled presentation loops on display screens.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/signage',
+            'documentation_label' => 'Signage',
             'group' => 'Plugins',
             'order' => 144,
             'roles' => [ 'admin' ],

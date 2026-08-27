@@ -1,7 +1,7 @@
 {
     "key": "rss-reader",
     "name": "RSS Reader",
-    "version": "0.97.1",
+    "version": "0.98.0",
     "description": "Shows cached items from approved RSS and Atom sources.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

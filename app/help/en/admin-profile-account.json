@@ -4,6 +4,8 @@
   "order": 40,
   "title": "Profile: Account",
   "summary": "Account settings for the current user.",
+  "documentation_url": "https://tinymash.joho.se/docs/administration/users-and-permissions",
+  "documentation_label": "Users and permissions",
   "sections": [
     {
       "title": "Username/Author",

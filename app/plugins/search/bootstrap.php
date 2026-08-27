@@ -124,6 +124,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Search',
             'summary' => 'Search published content in the site or an author space.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/search',
+            'documentation_label' => 'Search',
             'group' => 'Plugins',
             'order' => 125,
             'roles' => [ 'author', 'admin' ],

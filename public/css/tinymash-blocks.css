@@ -230,6 +230,12 @@ html[data-bs-theme="dark"] .tm-blocks-card-cover-title {
     line-height: 1.7;
 }
 
+.tm-blocks-entry-meta a,
+.tm-blocks-content a:not(.btn):not(.tm-downloads-file-link) {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
 .tm-blocks-content pre {
     padding: 1rem;
     border-radius: 0;

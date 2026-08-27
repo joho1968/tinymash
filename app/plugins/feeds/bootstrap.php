@@ -69,6 +69,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Feeds',
             'summary' => 'Provide RSS, Atom, and JSON Feed for the site and author spaces.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/feeds',
+            'documentation_label' => 'Feeds',
             'group' => 'Plugins',
             'order' => 123,
             'roles' => [ 'author', 'admin' ],

@@ -569,3 +569,15 @@ $router->get('/@segment', function( string $segment ) use( $app, $router, $confi
     );
     $content->pathRoot( $segment );
 });
+
+$router->get('/*', function( \flight\net\Route $route ) use( $app, $router, $config ) {
+    $content = new ContentController(
+        $app,
+        $router,
+        $config,
+        $app->get( 'content.repository' ),
+        $app->get( 'content.renderer' ),
+        $app->get( 'theme' )
+    );
+    $content->pathNested( $route->splat );
+}, true );

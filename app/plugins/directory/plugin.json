@@ -1,7 +1,7 @@
 {
     "key": "directory",
     "name": "Links",
-    "version": "0.97.1",
+    "version": "0.98.0",
     "description": "Creates categorized link collections for content shortcodes.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

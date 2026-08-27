@@ -174,7 +174,7 @@
                         helpModal.addEventListener('show.bs.modal', loadHelpContent);
                         helpModalBody.addEventListener('click', (event) => {
                             const trigger = event.target.closest('[data-help-contexts]');
-                            if (!trigger) {
+                            if (!trigger || trigger === helpModal || !helpModalBody.contains(trigger)) {
                                 return;
                             }
                             const selection = window.getSelection ? window.getSelection() : null;

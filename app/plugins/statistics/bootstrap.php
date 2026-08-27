@@ -189,6 +189,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Statistics',
             'summary' => 'Review public page views for the site and author spaces.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/statistics',
+            'documentation_label' => 'Statistics',
             'group' => 'Plugins',
             'order' => 120,
             'roles' => [ 'author', 'admin' ],

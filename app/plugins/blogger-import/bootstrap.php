@@ -129,7 +129,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 'options' => [
                     [ 'name' => 'author', 'value' => true, 'required' => true, 'description' => 'Required local author account' ],
                     [ 'name' => 'aggregate-root', 'description' => 'Also include imported posts in the root blogroll' ],
-                    [ 'name' => 'replace-existing-posts', 'description' => 'Replace posts with matching slugs' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Delete the target author\'s posts before import' ],
                     [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
                     [ 'name' => 'first-image-as-featured', 'description' => 'Use the first imported post image as its featured image' ],
                     [ 'name' => 'media-dir', 'value' => true, 'description' => 'Search this directory for local source media' ],
@@ -258,6 +258,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Blogger import',
             'summary' => 'Import posts and pages from a Blogger export into an author space.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/blogger-import',
+            'documentation_label' => 'Blogger import',
             'group' => 'Plugins',
             'order' => 120,
             'roles' => [ 'author', 'admin' ],

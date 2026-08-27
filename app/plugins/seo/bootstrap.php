@@ -64,6 +64,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'SEO',
             'summary' => 'Generate robots.txt and sitemap.xml with optional AI-crawler advisory rules.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/seo',
+            'documentation_label' => 'SEO',
             'group' => 'Plugins',
             'order' => 140,
             'roles' => [ 'author', 'admin' ],

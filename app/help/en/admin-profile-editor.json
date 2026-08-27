@@ -4,6 +4,8 @@
   "order": 50,
   "title": "Profile: Editor",
   "summary": "Editor preferences for the current user.",
+  "documentation_url": "https://tinymash.joho.se/docs/publishing/composer",
+  "documentation_label": "Composer",
   "sections": [
     {
       "title": "Autosave mode",

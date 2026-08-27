@@ -45,8 +45,8 @@ class TinyMashStaticExportService {
     }
 
     public function createAuthorArtifact( string $owner_username, string $author_slug, array $options = [] ) : array {
-        $author_slug = $this->normalizeSlug( $author_slug );
-        $owner_username = $this->normalizeSlug( $owner_username );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
+        $owner_username = $this->normalizeAuthorSlug( $owner_username );
         if ( $author_slug === '' || $owner_username === '' ) {
             throw new \InvalidArgumentException( 'author_slug' );
         }
@@ -70,7 +70,7 @@ class TinyMashStaticExportService {
     }
 
     public function createSiteArtifact( string $owner_username, array $options = [] ) : array {
-        $owner_username = $this->normalizeSlug( $owner_username );
+        $owner_username = $this->normalizeAuthorSlug( $owner_username );
         if ( $owner_username === '' ) {
             throw new \InvalidArgumentException( 'owner_username' );
         }
@@ -83,7 +83,7 @@ class TinyMashStaticExportService {
                     'scope' => 'site',
                     'owner_username' => $owner_username,
                     'base_url' => $this->resolveBaseUrl( $options ),
-                    'excluded_authors' => $this->normalizeSlugList( $options['exclude_authors'] ?? [] ),
+                    'excluded_authors' => $this->normalizeAuthorSlugList( $options['exclude_authors'] ?? [] ),
                     'retention_seconds' => 21600,
                 ],
                 function( string $bundle_directory ) use ( $options ) : array {
@@ -94,7 +94,7 @@ class TinyMashStaticExportService {
     }
 
     public function exportAuthorToDirectory( string $author_slug, string $target_directory, array $options = [] ) : array {
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         if ( $author_slug === '' || ! $this->authorCanBeExported( $author_slug ) ) {
             throw new \InvalidArgumentException( 'author_slug' );
         }
@@ -128,7 +128,7 @@ class TinyMashStaticExportService {
         $this->resetExportState();
         $target_created = $this->prepareTargetDirectory( $target_directory );
         try {
-            $excluded_authors = $this->normalizeSlugList( $options['exclude_authors'] ?? [] );
+            $excluded_authors = $this->normalizeAuthorSlugList( $options['exclude_authors'] ?? [] );
             $included_authors = array_values(
                 array_filter(
                     $this->content_repository->getPublicAuthorSlugs(),
@@ -246,7 +246,7 @@ class TinyMashStaticExportService {
     }
 
     protected function renderAuthorHome( string $author_slug, int $page = 1 ) : string {
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         $this->applyAuthorThemeContext( $author_slug );
         $author_home = $this->content_repository->getAuthorHomePage( $author_slug, $this->config->getDefaultLanguage(), max( 1, $page ), self::POSTS_PER_PAGE );
         if ( ! is_array( $author_home ) ) {
@@ -285,7 +285,7 @@ class TinyMashStaticExportService {
             throw new \InvalidArgumentException( 'entry' );
         }
 
-        $author_slug = (string) ( $entry['scope'] ?? '' ) === 'author' ? $this->normalizeSlug( (string) ( $entry['author_slug'] ?? '' ) ) : '';
+        $author_slug = (string) ( $entry['scope'] ?? '' ) === 'author' ? $this->normalizeAuthorSlug( (string) ( $entry['author_slug'] ?? '' ) ) : '';
         $this->applyAuthorThemeContext( $author_slug );
         $tag_scope = $author_slug !== '' ? 'author' : 'root';
         $rendered_entry = $this->decorateRenderedEntryWithTagLinks(
@@ -319,7 +319,7 @@ class TinyMashStaticExportService {
         }
 
         if ( $scope === 'author' ) {
-            $author_slug = $this->normalizeSlug( $author_slug );
+            $author_slug = $this->normalizeAuthorSlug( $author_slug );
             $this->applyAuthorThemeContext( $author_slug );
             $tag_page = $this->content_repository->getAuthorTagPage( $author_slug, $tag, $this->config->getDefaultLanguage(), $page, self::POSTS_PER_PAGE );
             $base_path = '/' . rawurlencode( $author_slug ) . '/tags/' . rawurlencode( $tag );
@@ -413,7 +413,7 @@ class TinyMashStaticExportService {
     }
 
     protected function buildAuthorRoutePlan( string $author_slug ) : array {
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         $routes = [];
         $pagination = $this->content_repository->getAuthorHomePaginationMeta( $author_slug, self::POSTS_PER_PAGE ) ?? [];
         for ( $page = 1; $page <= max( 1, (int) ( $pagination['total_pages'] ?? 1 ) ); $page++ ) {
@@ -951,12 +951,12 @@ class TinyMashStaticExportService {
     }
 
     protected function authorCanBeExported( string $author_slug ) : bool {
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         return( $author_slug !== '' && $this->content_repository->hasPublicAuthor( $author_slug ) && $this->user_repository->isAuthorContentPublic( $author_slug ) );
     }
 
     protected function applyAuthorThemeContext( string $author_slug ) : void {
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         if ( $author_slug === '' ) {
             $this->theme->clearThemeKeyOverride();
             return;
@@ -1235,7 +1235,11 @@ class TinyMashStaticExportService {
         return( trim( $value, '-_' ) );
     }
 
-    protected function normalizeSlugList( mixed $values ) : array {
+    protected function normalizeAuthorSlug( string $value ) : string {
+        return( $this->content_repository->normalizeAuthorSlug( $value ) );
+    }
+
+    protected function normalizeAuthorSlugList( mixed $values ) : array {
         if ( is_string( $values ) ) {
             $values = preg_split( '/[\s,]+/', $values ) ?: [];
         }
@@ -1245,7 +1249,7 @@ class TinyMashStaticExportService {
 
         $slugs = [];
         foreach ( $values as $value ) {
-            $slug = $this->normalizeSlug( (string) $value );
+            $slug = $this->normalizeAuthorSlug( (string) $value );
             if ( $slug !== '' ) {
                 $slugs[$slug] = true;
             }

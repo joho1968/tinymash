@@ -93,14 +93,14 @@
                             {var $parent_page_depth = max(0, (int) ($parent_page_option['depth'] ?? 0))}
                             {var $parent_page_indent = str_repeat('&nbsp;&nbsp;&nbsp;', $parent_page_depth)}
                             <option
-                                value="{$parent_page_option['slug']}"
+                                value="{$parent_page_option['parent_reference']}"
                                 data-entry-id="{$parent_page_option['id']}"
                                 data-scope="{$parent_page_option['scope']}"
                                 data-author-slug="{$parent_page_option['author_slug']}"
                                 data-parent-slug="{$parent_page_option['parent_slug']}"
                                 data-sort-order="{$parent_page_option['sort_order']}"
                                 data-depth="{$parent_page_depth}"
-                                n:attr="selected => $editor_draft['parent_slug'] === $parent_page_option['slug'] && $editor_draft['scope'] === $parent_page_option['scope'] && ( $editor_draft['scope'] !== 'author' || $editor_draft['author_slug'] === $parent_page_option['author_slug'] )"
+                                n:attr="selected => $editor_draft['parent_slug'] === $parent_page_option['parent_reference'] && $editor_draft['scope'] === $parent_page_option['scope'] && ( $editor_draft['scope'] !== 'author' || $editor_draft['author_slug'] === $parent_page_option['author_slug'] )"
                             >{$parent_page_indent|noescape}{$parent_page_option['title']} · {$parent_page_option['display_path']}</option>
                         {/foreach}
                     </select>

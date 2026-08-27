@@ -137,8 +137,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 'options' => [
                     [ 'name' => 'root', 'description' => 'Import into the root site; this is the default' ],
                     [ 'name' => 'author', 'value' => true, 'description' => 'Import into this local author account' ],
-                    [ 'name' => 'replace-existing-posts', 'description' => 'Replace posts with matching slugs' ],
-                    [ 'name' => 'replace-existing-pages', 'description' => 'Replace pages with matching slugs' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Delete existing target posts before import' ],
+                    [ 'name' => 'replace-existing-pages', 'description' => 'Delete existing target pages before import' ],
                     [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
                     [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
                     [ 'name' => 'keep-preview', 'description' => 'Keep preview files after a completed import' ],
@@ -252,6 +252,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Bludit import',
             'summary' => 'Import posts and pages from a local Bludit site into root or an author space.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/bludit-import',
+            'documentation_label' => 'Bludit import',
             'group' => 'Plugins',
             'order' => 122,
             'roles' => [ 'author', 'admin' ],

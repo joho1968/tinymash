@@ -79,3 +79,9 @@ After reloading the web server, verify all of these separately:
 3. the public home page does not require HTTP Basic authentication
 4. `/s/<token>` reaches Tinymash without an HTTP Basic prompt
 5. a valid site or author secret link can load its permitted content and media
+
+## Whole-site protection and Markdown Sync
+
+Markdown Sync can send through whole-site HTTP Basic authentication without an endpoint exception. Add the web-server username and password under `http_basic` in the owner-readable Markdown Sync profile. The client sends that credential through the standard `Authorization` header and sends the scoped Markdown Sync token separately.
+
+Keep the profile outside the published Markdown collection and source control. On Unix-like systems, give it mode `600`. Whole-site protection still prevents browser-based secret links from working unless those visitors also have the HTTP Basic credential.

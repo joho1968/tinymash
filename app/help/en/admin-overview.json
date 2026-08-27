@@ -4,6 +4,8 @@
   "order": 10,
   "title": "Dashboard",
   "summary": "Review site status and open common admin areas.",
+  "documentation_url": "https://tinymash.joho.se/docs/administration",
+  "documentation_label": "Administration",
   "sections": [
     {
       "title": "Overview",

@@ -56,7 +56,7 @@ class TinyMashBluditImportService {
         );
         $preview['token'] = $this->generateToken();
         $preview['created_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
-        $preview['created_by_username'] = $this->normalizeSlug( $created_by_username !== '' ? $created_by_username : ( $target_scope === 'author' ? $target_author_slug : 'root' ) );
+        $preview['created_by_username'] = $this->normalizeAuthorSlug( $created_by_username !== '' ? $created_by_username : ( $target_scope === 'author' ? $target_author_slug : 'root' ) );
         $preview['replace_existing_posts'] = $replace_existing_posts;
         $preview['replace_existing_pages'] = $replace_existing_pages;
         $preview['skip_unpublished'] = $skip_unpublished;
@@ -526,7 +526,7 @@ class TinyMashBluditImportService {
                 'source_homepage' => trim( (string) ( $site['homepage'] ?? '' ) ),
                 'source_timezone' => $site_timezone,
                 'target_scope' => $target_scope === 'author' ? 'author' : 'root',
-                'target_author_slug' => $target_scope === 'author' ? $this->normalizeSlug( $target_author_slug ) : '',
+                'target_author_slug' => $target_scope === 'author' ? $this->normalizeAuthorSlug( $target_author_slug ) : '',
                 'counts' => $counts,
                 'entries' => $entries,
                 'uploads_directory' => is_dir( $uploads_root ) ? $uploads_root : '',
@@ -906,7 +906,7 @@ class TinyMashBluditImportService {
 
     protected function getTargetLockKey( array $preview ) : string {
         return( (string) ( $preview['target_scope'] ?? 'root' ) === 'author'
-            ? $this->normalizeSlug( (string) ( $preview['target_author_slug'] ?? '' ) )
+            ? $this->normalizeAuthorSlug( (string) ( $preview['target_author_slug'] ?? '' ) )
             : 'root'
         );
     }
@@ -952,8 +952,8 @@ class TinyMashBluditImportService {
         return( preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( $token ) ) ) ?? '' );
     }
 
-    protected function normalizeSlug( string $value ) : string {
-        return( preg_replace( '/[^a-z0-9_-]/', '', strtolower( trim( $value ) ) ) ?? '' );
+    protected function normalizeAuthorSlug( string $value ) : string {
+        return( $this->content_repository->normalizeAuthorSlug( $value ) );
     }
 
     protected function writeJsonFile( string $filename, array $payload ) : void {

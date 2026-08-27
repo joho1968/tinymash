@@ -101,6 +101,7 @@
             "fediverse": true,
             "feeds": true,
             "footer": true,
+            "markdown-sync": true,
             "notes": true,
             "redirects": true,
             "rss-reader": true,

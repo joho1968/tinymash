@@ -151,6 +151,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Notes',
             'summary' => 'Keep a private per-user Markdown note with revisions.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/notes',
+            'documentation_label' => 'Notes',
             'group' => 'Plugins',
             'order' => 100,
             'roles' => [ 'author', 'admin' ],

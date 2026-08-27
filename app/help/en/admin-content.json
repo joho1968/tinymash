@@ -4,6 +4,8 @@
   "order": 20,
   "title": "Content library",
   "summary": "Saved content, drafts, and moderation queues.",
+  "documentation_url": "https://tinymash.joho.se/docs/publishing/organizing-content",
+  "documentation_label": "Organizing content",
   "sections": [
     {
       "title": "Tabs",

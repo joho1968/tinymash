@@ -131,6 +131,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Weather',
             'summary' => 'Show cached weather from saved provider feeds.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/weather',
+            'documentation_label' => 'Weather',
             'group' => 'Plugins',
             'order' => 144,
             'roles' => [ 'admin' ],
@@ -145,7 +147,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Shortcode',
-                    'markdown' => 'Use `[weather location="home"]` for compact output. If exactly one location is configured, `[weather]` uses that location. Useful variants include `[weather location="home" forecast="0"]`, `[weather location="home" forecast="7" layout="horizontal"]`, and `[weather location="home" details="location,icon,temperature,condition,wind"]`. Attributes include `provider="open-meteo"`, `current="true"`, `forecast="3"`, `layout="compact|vertical|horizontal"`, `units="metric|imperial"`, `wind_units="ms|kmh|mph"`, `details="location,icon,temperature,condition,wind"`, and `attribution="true"`.',
+                    'markdown' => 'Use `[weather location="home"]` for compact output. `[weather]` uses the only configured location. Forecast, layout, units, details, and attribution can be changed with shortcode attributes.',
                 ],
                 [
                     'title' => 'Theme slots',

@@ -270,6 +270,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Fediverse',
             'summary' => 'Publish root and author posts to Mastodon-compatible accounts.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/fediverse',
+            'documentation_label' => 'Fediverse',
             'group' => 'Plugins',
             'order' => 145,
             'roles' => [ 'author', 'admin' ],

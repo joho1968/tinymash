@@ -8,7 +8,7 @@ Run commands from the tinymash runtime root:
 php8.4 bin/tinymash.php list
 ```
 
-`bin/tinymash.php` is the only shipped CLI entrypoint. Symfony Console provides command discovery, per-command help, ANSI color support, and standard options such as `--no-ansi`, `--no-interaction`, and `--verbose`.
+`bin/tinymash.php` is the only CLI entrypoint included in a release. Symfony Console provides command discovery, per-command help, ANSI color support, and standard options such as `--no-ansi`, `--no-interaction`, and `--verbose`.
 
 ```bash
 php8.4 bin/tinymash.php help setup

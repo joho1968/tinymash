@@ -158,6 +158,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'What\'s Up',
             'summary' => 'Show cached iCalendar events in public content.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/whats-up',
+            'documentation_label' => 'What\'s Up',
             'group' => 'Plugins',
             'order' => 143,
             'roles' => [ 'admin' ],
@@ -168,7 +170,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Shortcodes',
-                    'markdown' => 'Use `[whatsup]` for a compact three-day view, `[agenda]` for a list, `[timeline]` for visual chronology, and `[calendar]` for a month grid. List attributes include `source="calendar-key"` (or comma-separated keys), `past="0"`, `future="30"`, and `limit="10"`. Calendar navigation uses `past_months` and `future_months`.',
+                    'markdown' => 'Use `[whatsup]` for a compact view, `[agenda]` for a list, `[timeline]` for chronology, and `[calendar]` for a month grid. Source, date range, item limit, and calendar navigation can be changed with shortcode attributes.',
                 ],
                 [
                     'title' => 'Scope',

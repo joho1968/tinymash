@@ -52,6 +52,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Redirects',
             'summary' => 'Redirect old public paths to current tinymash content.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/redirects',
+            'documentation_label' => 'Redirects',
             'group' => 'Plugins',
             'order' => 120,
             'roles' => [ 'admin' ],

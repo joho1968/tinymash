@@ -53,6 +53,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Tiny links',
             'summary' => 'Create short links for published content.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/tiny-links',
+            'documentation_label' => 'Tiny links',
             'group' => 'Plugins',
             'order' => 125,
             'roles' => [ 'admin' ],

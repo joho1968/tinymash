@@ -132,6 +132,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Are we open',
             'summary' => 'Show open or closed status from saved hours and exceptions.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/are-we-open',
+            'documentation_label' => 'Are we open',
             'group' => 'Plugins',
             'order' => 142,
             'roles' => [ 'admin' ],

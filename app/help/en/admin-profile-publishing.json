@@ -4,6 +4,8 @@
   "order": 60,
   "title": "Profile: Publishing",
   "summary": "Default publishing values and public author-space settings.",
+  "documentation_url": "https://tinymash.joho.se/docs/publishing/author-spaces",
+  "documentation_label": "Author spaces",
   "sections": [
     {
       "title": "Default content type",

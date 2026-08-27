@@ -59,6 +59,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Font manager',
             'summary' => 'Manage local font files and assign them to theme roles.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/font-manager',
+            'documentation_label' => 'Font manager',
             'group' => 'Plugins',
             'order' => 146,
             'roles' => [ 'admin' ],
@@ -73,7 +75,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Display',
-                    'markdown' => 'The Display setting is the CSS `font-display` value. `swap` shows fallback text immediately and swaps to the custom font when ready. `auto` lets the browser decide. `block` can briefly hide text. `fallback` gives the custom font a short chance before keeping fallback text. `optional` uses the custom font only if it loads very quickly. This setting is not stored in the font file.',
+                    'markdown' => 'Display maps to CSS `font-display`. `swap` shows fallback text immediately and replaces it when the font loads. The other values retain their standard browser behavior. This setting is not stored in the font file.',
                 ],
                 [
                     'title' => 'Boundaries',

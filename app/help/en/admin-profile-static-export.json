@@ -4,6 +4,8 @@
   "order": 70,
   "title": "Profile: Static export",
   "summary": "Download a static ZIP of your public author space.",
+  "documentation_url": "https://tinymash.joho.se/docs/imports-exports/static-export",
+  "documentation_label": "Static export",
   "sections": [
     {
       "title": "What is included",

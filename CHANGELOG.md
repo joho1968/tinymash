@@ -2,6 +2,19 @@
 
 Notable changes in tinymash
 
+## 0.98.0 - 2026-08-26
+
+- Added Markdown Sync for publishing/importing a Markdown page tree below a selected page
+- Kept temporary files separate between installations and made CLI cleanup use the same location as the web app
+- Fixed dynamic shortcode output being saved in the public page cache
+- Improved DocsMatter theme scrolling, navigation, code blocks, and accessibility
+- Fixed author spaces with underscores in their account names
+- Improved link visibility in Blocks and Timeline
+- Added public credits for bundled software and artwork
+- Updated minor components and linked in-app help to the public manual
+- Tightened CLI help and rejected invalid input earlier
+- Added the source for the public manual, see https://tinymash.joho.se/docs
+
 ## 0.97.1 - 2026-08-24
 
 - Fixed minor browser cache issue on non-public sites

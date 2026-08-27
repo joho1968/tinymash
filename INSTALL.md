@@ -2,7 +2,7 @@
 
 This document covers the normal way to install tinymash on a server.
 
-tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It does not need a database server, but it does need a working PHP runtime, a web server pointed at `public/`, and writable runtime directories. The current development line is also smoke-tested with PHP 8.5.x.
+tinymash is a flat-file CMS and publishing platform for PHP 8.4+. It does not need a database server, but it does need a working PHP runtime, a web server pointed at `public/`, and writable runtime directories. The current development line is also smoke-tested with PHP 8.5.x.
 
 The usual production path is:
 
@@ -14,7 +14,7 @@ The usual production path is:
 
 ## What you need
 
-- PHP `8.4.1` or newer; PHP `8.5.x` is also smoke-tested
+- PHP `8.4+`; PHP `8.5.x` is also smoke-tested
 - a web server such as Nginx or Apache
 - PHP-FPM or another supported PHP SAPI
 - local filesystem write access for runtime data
@@ -69,7 +69,7 @@ The document root must be:
 
 Do not point the web server at the repository root or runtime root.
 
-Use the shipped sample configs as your starting point:
+Use the included sample configurations as your starting point:
 
 - `samples/server/nginx.sample.conf`
 - `samples/server/apache.sample.conf`
@@ -84,7 +84,9 @@ php_admin_value[session.name] = TINYMASHEXAMPLE
 
 This avoids session-cookie name collisions when installations share a hostname. PHP's `session.gc_maxlifetime` setting controls how long an inactive server-side session remains available; set it globally or for the site's PHP-FPM pool according to your login policy. If several sites share Redis-backed sessions, also give each site an explicit Redis session prefix.
 
-Tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before Tinymash can authorize them. If you want an additional HTTP Basic layer, use the shipped Apache/Nginx examples to limit it to the admin URL for either a top-level or sub-URL installation, then verify that public routes and routed media still reach Tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging in the web-server access log.
+Give each PHP-FPM pool its own writable temporary root. Tinymash prefers `sys_temp_dir`, then `TMP`, `TMPDIR`, and `TEMP`, with the installation's `tmp/` directory as the final fallback. `upload_tmp_dir` remains PHP's upload-staging setting. The included PHP-FPM sample has these settings.
+
+Tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before Tinymash can authorize them. If you want an additional HTTP Basic layer, use the included Apache/Nginx examples to limit it to the admin URL for either a top-level or sub-URL installation, then verify that public routes and routed media still reach Tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging in the web-server access log.
 
 If you want explicit OPcache settings, use:
 
@@ -209,7 +211,7 @@ If you use the Fediverse plugin actively, also schedule:
 
 There is also a sample cron file at `samples/cron/tinymash.cron`.
 
-Run these cron entries as the tinymash runtime user. Running mutating CLI commands as `root` requires confirmation or `--allow-root` and can leave runtime files owned by root.
+Run these cron entries under the same operating-system user as the PHP-FPM pool. Running mutating CLI commands as `root` requires confirmation or `--allow-root` and can leave runtime files owned by root.
 
 ## 8. First checks
 
@@ -228,6 +230,7 @@ Before you call the installation done, check these things:
 - stale `data/`, `users/`, or `tmp/` left from an older site
 - `site.base_url` not set correctly
 - missing write permissions for `data/`, `users/`, or `tmp/`
+- one temporary root shared by PHP-FPM pools running as different users
 - treating web-cron fallback as the same thing as a real scheduler
 
 ## Installing from a source checkout

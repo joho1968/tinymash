@@ -15,6 +15,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Syntax highlighting',
             'summary' => 'Highlight fenced code blocks in supported public themes.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/code-highlighting',
+            'documentation_label' => 'Syntax highlighting',
             'group' => 'Plugins',
             'order' => 126,
             'roles' => [ 'author', 'admin' ],

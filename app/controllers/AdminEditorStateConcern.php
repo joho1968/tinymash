@@ -464,12 +464,15 @@ trait AdminEditorStateConcern {
             }
 
             $slug = (string) ( $entry_option['slug'] ?? '' );
+            $storage_slug = (string) ( $entry_option['storage_slug'] ?? '' );
             $path = (string) ( $entry_option['path'] ?? $slug );
             $page_options[] = [
                 'id' => (string) ( $entry_option['id'] ?? '' ),
                 'scope' => (string) ( $entry_option['scope'] ?? 'root' ),
                 'author_slug' => (string) ( $entry_option['author_slug'] ?? '' ),
                 'slug' => $slug,
+                'storage_slug' => $storage_slug,
+                'parent_reference' => $storage_slug !== '' ? $storage_slug : $slug,
                 'path' => $path,
                 'parent_slug' => (string) ( $entry_option['parent_slug'] ?? '' ),
                 'sort_order' => (int) ( $entry_option['sort_order'] ?? 0 ),
@@ -552,7 +555,7 @@ trait AdminEditorStateConcern {
             . "\n"
             . (string) ( $page_option['author_slug'] ?? '' )
             . "\n"
-            . (string) ( $page_option['slug'] ?? '' );
+            . (string) ( $page_option['parent_reference'] ?? $page_option['slug'] ?? '' );
         foreach ( $grouped_options[$child_group_key] ?? [] as $child_option ) {
             $this->appendEditorParentPageOptionBranch( $sorted_options, $grouped_options, $child_option, $depth + 1 );
         }

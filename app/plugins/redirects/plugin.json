@@ -1,7 +1,7 @@
 {
     "key": "redirects",
     "name": "Redirects",
-    "version": "0.97.1",
+    "version": "0.98.0",
     "description": "Redirects local paths to published pages or posts.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

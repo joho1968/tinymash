@@ -30,6 +30,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Photos',
             'summary' => 'Add photo-post options and per-post galleries.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/photos',
+            'documentation_label' => 'Photos',
             'group' => 'Plugins',
             'order' => 148,
             'roles' => [ 'author', 'admin' ],

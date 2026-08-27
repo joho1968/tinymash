@@ -140,8 +140,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 'options' => [
                     [ 'name' => 'author', 'value' => true, 'required' => true, 'description' => 'Required local author account' ],
                     [ 'name' => 'aggregate-root', 'description' => 'Also include imported posts in the root blogroll' ],
-                    [ 'name' => 'replace-existing-posts', 'description' => 'Replace posts with matching slugs' ],
-                    [ 'name' => 'replace-existing-pages', 'description' => 'Replace pages with matching slugs' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Delete the target author\'s posts before import' ],
+                    [ 'name' => 'replace-existing-pages', 'description' => 'Delete the target author\'s pages before import' ],
                     [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
                     [ 'name' => 'import-menus', 'description' => 'Import recognized WordPress menus' ],
                     [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
@@ -281,6 +281,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'WordPress import',
             'summary' => 'Import posts and pages from a WordPress WXR export into an author space.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/wordpress-import',
+            'documentation_label' => 'WordPress import',
             'group' => 'Plugins',
             'order' => 121,
             'roles' => [ 'author', 'admin' ],

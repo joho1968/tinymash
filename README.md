@@ -1,6 +1,6 @@
 # tinymash
 
-tinymash is a flat-file CMS and publishing platform for PHP 8.4.1+. It stores content on disk, does not require a database server, and ships with both a public site and an admin interface. The current development line is also smoke-tested with PHP 8.5.x.
+tinymash is a flat-file CMS and publishing platform for PHP 8.4+. It stores content on disk, does not require a database server, and comes with both a public site and an admin interface. The current development line is also smoke-tested with PHP 8.5.x.
 
 It is built for self-hosted publishing: pages, posts, author spaces, themes, plugins, media, tags, feeds, maintenance tasks, and a CLI for day-to-day operations.
 
@@ -14,9 +14,9 @@ tinymash is a good fit if you want:
 - multiple authors without adding a lot of platform weight
 - a PHP application that stays readable and easy to deploy
 
-## What ships with it
+## What comes with it
 
-The shipped runtime includes:
+The runtime includes:
 
 - a web-based admin interface
 - flat-file content, draft, user, and media storage
@@ -43,7 +43,7 @@ The full step-by-step version is in `INSTALL.md`.
 
 ## Runtime requirements
 
-- PHP `8.4.1` or newer; PHP `8.5.x` is also smoke-tested
+- PHP `8.4+`; PHP `8.5.x` is also smoke-tested
 - a web server such as Nginx or Apache
 - PHP-FPM or another supported PHP SAPI
 - writable `data/`, `users/`, and `tmp/` directories
@@ -70,7 +70,7 @@ For ordinary public and admin use, tinymash can run with a small PHP memory limi
 
 ## Compatibility
 
-- Tinymash 1.x requires PHP `8.4.1` or newer. PHP `8.5` is tested.
+- Tinymash 1.x requires PHP `8.4+`. PHP `8.5` is tested.
 - Patch and minor releases should preserve configuration, users, content, drafts, media, and plugin data.
 - Upgrades use `upgrade:prepare` to create a clean sibling installation. Do not overwrite an existing installation.
 - Required data migrations will be documented with the release.
@@ -117,7 +117,7 @@ Public sample files live under `samples/`:
 ## Files and paths
 
 - `public/`: web root
-- `app/config/tinymash.json`: main runtime configuration; deploy packages ship `app/config/tinymash.json.example` as the safe starting point
+- `app/config/tinymash.json`: main runtime configuration; deploy packages include `app/config/tinymash.json.example` as the safe starting point
 - `data/`: content, drafts, media, caches, plugin/theme data
 - `users/`: user records
 - `tmp/`: temporary runtime files
@@ -139,10 +139,12 @@ tinymash uses a small set of bundled third-party packages and frontend assets, i
 
 - Bootstrap
 - Bootstrap Icons
+- Flight and Runway
 - highlight.js
 - emoji-picker-element and bundled emoji picker data
-- `flightphp/core`
-- `flightphp/runway`
-- `latte/latte`
-- `league/commonmark`
-- `symfony/mailer`
+- Latte
+- League CommonMark
+- Meteocons by Bas Milius
+- sabre/vobject
+- SortableJS
+- Symfony Console and Symfony Mailer

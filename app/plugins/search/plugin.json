@@ -1,7 +1,7 @@
 {
     "key": "search",
     "name": "Search",
-    "version": "0.97.1",
+    "version": "0.98.0",
     "description": "Provides public content search for the site and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

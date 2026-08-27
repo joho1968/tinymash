@@ -35,6 +35,7 @@ class ContentController extends BaseController {
         $this->content_repository = $content_repository;
         $this->content_renderer = $content_renderer;
         $this->theme = $theme;
+        $this->resetShortcodeRequestState();
     }
 
     public function home() : void {
@@ -157,6 +158,61 @@ class ContentController extends BaseController {
 
         $root_entry_lookup_started_at = microtime( true );
         $root_entry = $this->content_repository->getRootEntryByPath( $first . '/' . $second, $this->config->getDefaultLanguage() );
+        $this->recordServerTiming( 'lookup', $root_entry_lookup_started_at );
+        if ( is_array( $root_entry ) ) {
+            $this->renderEntry( $root_entry );
+            return;
+        }
+
+        $this->app->notFound();
+    }
+
+    public function pathNested( string $path ) : void {
+        $path = trim( $path, '/' );
+        $separator_position = strpos( $path, '/' );
+        if ( $path === '' || $separator_position === false ) {
+            $this->app->notFound();
+            return;
+        }
+
+        $first = substr( $path, 0, $separator_position );
+        $remaining_path = substr( $path, $separator_position + 1 );
+        if ( $first === '' || $remaining_path === '' ) {
+            $this->app->notFound();
+            return;
+        }
+
+        if ( $this->content_repository->hasPublicAuthor( $first ) ) {
+            if ( ! $this->canRenderAuthorSpace( $first ) ) {
+                $this->renderSitePrivateNotFound();
+                return;
+            }
+            $this->applyAuthorThemeContext( $first );
+            if ( $this->renderCachedPublicPageIfAvailable() ) {
+                return;
+            }
+            $author_entry_lookup_started_at = microtime( true );
+            $author_entry = $this->content_repository->getAuthorEntryByPath( $first, $remaining_path, $this->config->getDefaultLanguage() );
+            $this->recordServerTiming( 'lookup', $author_entry_lookup_started_at );
+            if ( is_array( $author_entry ) ) {
+                $this->renderEntry( $author_entry );
+                return;
+            }
+
+            $this->app->notFound();
+            return;
+        }
+
+        if ( ! $this->canRenderRootSpace() ) {
+            $this->renderSitePrivateNotFound();
+            return;
+        }
+        if ( $this->renderCachedPublicPageIfAvailable() ) {
+            return;
+        }
+
+        $root_entry_lookup_started_at = microtime( true );
+        $root_entry = $this->content_repository->getRootEntryByPath( $path, $this->config->getDefaultLanguage() );
         $this->recordServerTiming( 'lookup', $root_entry_lookup_started_at );
         if ( is_array( $root_entry ) ) {
             $this->renderEntry( $root_entry );
@@ -850,7 +906,6 @@ class ContentController extends BaseController {
         $this->applyPublicPageResponseHeaders();
         $public_page_cache = $this->getPublicPageCache();
         if ( ! $this->shouldUsePublicPageCache() || ! $public_page_cache instanceof TinyMashPublicPageCache ) {
-            $this->resetShortcodeRequestState();
             $render_started_at = microtime( true );
             $this->render( $view_name, $data );
             $this->recordServerTiming( 'view', $render_started_at );
@@ -864,7 +919,6 @@ class ContentController extends BaseController {
 
         ob_start();
         try {
-            $this->resetShortcodeRequestState();
             $render_started_at = microtime( true );
             $this->render( $view_name, $data );
             $html = (string) ob_get_clean();

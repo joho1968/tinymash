@@ -4,6 +4,8 @@
   "order": 21,
   "title": "Media library",
   "summary": "Review stored media, usage, cleanup status, and permanent deletion.",
+  "documentation_url": "https://tinymash.joho.se/docs/publishing/media",
+  "documentation_label": "Media",
   "sections": [
     {
       "title": "Filters",

@@ -42,6 +42,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             [
                 'title' => 'Footer',
                 'summary' => 'Show configured text in public theme footers.',
+                'documentation_url' => 'https://tinymash.joho.se/docs/plugins/footer',
+                'documentation_label' => 'Footer',
                 'group' => 'Plugins',
                 'order' => 124,
                 'roles' => [ 'author', 'admin' ],

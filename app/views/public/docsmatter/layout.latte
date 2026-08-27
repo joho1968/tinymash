@@ -91,22 +91,69 @@
         {/if}
         <script>
             (() => {
+                const pageTreeBranchStorageKey = 'tinymashDocsMatterPageBranch:' + {=json_encode((string) $home_url . '|' . $theme_author_space_slug)|noescape};
+
+                function retainPageTreeBranch() {
+                    const branchSelector = '[data-tm-docsmatter-page-branch]';
+                    const activeBranches = Array.from(document.querySelectorAll('[data-tm-docsmatter-page-branch-active="1"]'));
+                    if (activeBranches.length > 0) {
+                        const activeBranch = activeBranches[activeBranches.length - 1];
+                        const activeBranchUrl = activeBranch.getAttribute('data-tm-docsmatter-page-branch') || '';
+                        if (activeBranchUrl !== '') {
+                            try {
+                                window.sessionStorage.setItem(pageTreeBranchStorageKey, activeBranchUrl);
+                            } catch {
+                            }
+                        }
+                        return;
+                    }
+
+                    let retainedBranchUrl = '';
+                    try {
+                        retainedBranchUrl = String(window.sessionStorage.getItem(pageTreeBranchStorageKey) || '');
+                    } catch {
+                        retainedBranchUrl = '';
+                    }
+                    if (retainedBranchUrl === '') {
+                        return;
+                    }
+
+                    document.querySelectorAll('.tm-docsmatter-page-tree-root').forEach((pageTree) => {
+                        const retainedBranches = Array.from(pageTree.querySelectorAll(branchSelector))
+                            .filter((branch) => branch.getAttribute('data-tm-docsmatter-page-branch') === retainedBranchUrl);
+                        retainedBranches.forEach((retainedBranch) => {
+                            let branch = retainedBranch;
+                            while (branch && pageTree.contains(branch)) {
+                                branch.hidden = false;
+                                const parent = branch.parentElement;
+                                branch = parent ? parent.closest(branchSelector) : null;
+                            }
+                        });
+                    });
+                }
+
                 function scrollCurrentNavigationIntoView() {
-                    const activeLink = document.querySelector('.tm-docsmatter-page-link.current, .tm-docsmatter-page-link.ancestor');
-                    if (!activeLink) {
+                    let activeLinks = Array.from(document.querySelectorAll('.tm-docsmatter-page-link.current'));
+                    if (activeLinks.length === 0) {
+                        activeLinks = Array.from(document.querySelectorAll('.tm-docsmatter-page-link.ancestor'));
+                    }
+                    if (activeLinks.length === 0) {
                         return;
                     }
                     window.setTimeout(() => {
-                        const scrollRoot = activeLink.closest('.tm-docsmatter-sidebar, .offcanvas-body');
-                        if (!scrollRoot) {
-                            activeLink.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
-                            return;
-                        }
-
-                        const rootRect = scrollRoot.getBoundingClientRect();
-                        const linkRect = activeLink.getBoundingClientRect();
-                        const relativeTop = linkRect.top - rootRect.top + scrollRoot.scrollTop;
-                        scrollRoot.scrollTop = Math.max(0, relativeTop - Math.max(24, ((rootRect.height - linkRect.height) / 2)));
+                        const linksByScrollRoot = new Map();
+                        activeLinks.forEach((activeLink) => {
+                            const scrollRoot = activeLink.closest('.tm-docsmatter-sidebar, .offcanvas-body');
+                            if (scrollRoot) {
+                                linksByScrollRoot.set(scrollRoot, activeLink);
+                            }
+                        });
+                        linksByScrollRoot.forEach((activeLink, scrollRoot) => {
+                            const rootRect = scrollRoot.getBoundingClientRect();
+                            const linkRect = activeLink.getBoundingClientRect();
+                            const relativeTop = linkRect.top - rootRect.top + scrollRoot.scrollTop;
+                            scrollRoot.scrollTop = Math.max(0, relativeTop - Math.max(24, ((rootRect.height - linkRect.height) / 2)));
+                        });
                     }, 10);
                 }
 
@@ -156,9 +203,46 @@
                     tocRoot.classList.remove('d-none');
                 }
 
+                function restoreGeneratedFragment(initialFragment) {
+                    if (initialFragment === '') {
+                        return;
+                    }
+
+                    let fragmentId = '';
+                    try {
+                        fragmentId = decodeURIComponent(initialFragment.replace(/^#/, ''));
+                    } catch (error) {
+                        fragmentId = '';
+                    }
+                    const fragmentTarget = fragmentId !== '' ? document.getElementById(fragmentId) : null;
+                    if (fragmentTarget) {
+                        const revealFragment = () => {
+                            window.requestAnimationFrame(() => {
+                                window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search + initialFragment);
+                                fragmentTarget.scrollIntoView({ behavior: 'auto', block: 'start' });
+                            });
+                        };
+                        if (document.readyState === 'complete') {
+                            revealFragment();
+                        } else {
+                            window.addEventListener('load', revealFragment, { once: true });
+                        }
+                    } else {
+                        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search + initialFragment);
+                    }
+                }
+
                 function setupDocsMatterChrome() {
+                    const initialFragment = /^#tm-docsmatter-section-\d+$/.test(window.location.hash)
+                        ? window.location.hash
+                        : '';
+                    if (initialFragment !== '') {
+                        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+                    }
+                    retainPageTreeBranch();
                     scrollCurrentNavigationIntoView();
                     buildOnPageNavigation();
+                    restoreGeneratedFragment(initialFragment);
                 }
 
                 if (document.readyState === 'loading') {
@@ -401,7 +485,7 @@
             })();
         </script>
 
-        <header n:if="$theme_show_public_chrome" class="container-fluid px-0 bg-body fixed-top z-3 tm-docsmatter-header">
+        <header n:if="$theme_show_public_chrome" class="container-fluid px-0 bg-body fixed-top tm-docsmatter-header">
             <div class="container-fluid tm-docsmatter-header-inner">
                 <div class="d-flex align-items-center gap-2 h-100">
                     <button n:if="$theme_has_mobile_panel" class="btn btn-outline-secondary btn-sm d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tm-docsmatter-sidebar" aria-controls="tm-docsmatter-sidebar" aria-label="Browse site navigation" title="Browse">
@@ -514,7 +598,7 @@
         </div>
 
         <div class="container-fluid px-0 flex-grow-1 tm-docsmatter-shell">
-            <div class="row g-0 h-100">
+            <div class="row g-0">
                 <aside n:if="$theme_desktop_sidebar_content" class="col-lg-4 col-xl-3 d-none d-lg-block tm-docsmatter-sidebar-column bg-body-tertiary">
                     <div class="tm-docsmatter-sidebar menu-area">
                         {include './partials/sidebar-content.latte',

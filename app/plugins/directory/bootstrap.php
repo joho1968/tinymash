@@ -143,6 +143,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Links',
             'summary' => 'Create categorized link collections for content shortcodes.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/links',
+            'documentation_label' => 'Links',
             'group' => 'Plugins',
             'order' => 138,
             'roles' => [ 'creator', 'admin' ],

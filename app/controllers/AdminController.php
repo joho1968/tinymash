@@ -453,8 +453,7 @@ class AdminController extends BaseController {
         $html = '<div class="row g-4 tm-help-modal-grid">';
         $html .= '<div class="col-12 col-xl-4 d-flex">';
         $html .= '<section class="position-xl-sticky tm-help-index-panel w-100" style="top: 1rem;">';
-        $html .= '<div class="d-flex align-items-center justify-content-between gap-2 mb-2 px-1">';
-        $html .= '<div class="small text-uppercase text-body-secondary fw-semibold mb-0">Contents</div>';
+        $html .= '<div class="d-flex justify-content-end mb-2 px-1 d-xl-none">';
         $html .= '<button class="btn btn-outline-secondary btn-sm d-xl-none" type="button" data-bs-toggle="collapse" data-bs-target="#tm-help-index-collapse" aria-expanded="false" aria-controls="tm-help-index-collapse" title="Toggle table of contents" aria-label="Toggle table of contents">';
         $html .= '<i class="bi bi-list" aria-hidden="true"></i>';
         $html .= '</button>';
@@ -536,6 +535,18 @@ class AdminController extends BaseController {
                 if ( $section_markdown !== '' && $this->markdown_renderer !== null ) {
                     $html .= '<div class="tm-help-content">' . $this->markdown_renderer->render( $section_markdown ) . '</div>';
                 }
+                $html .= '</div>';
+            }
+
+            $documentation_url = trim( (string) ( $document['documentation_url'] ?? '' ) );
+            if ( $documentation_url !== '' ) {
+                $documentation_label = trim( (string) ( $document['documentation_label'] ?? '' ) );
+                $documentation_label = $documentation_label !== '' ? $documentation_label : 'Documentation';
+                $html .= '<div class="small mt-3 tm-help-documentation">';
+                $html .= '<span class="text-body-secondary">Documentation:</span> ';
+                $html .= '<a href="' . htmlspecialchars( $documentation_url, ENT_QUOTES, 'UTF-8' ) . '" target="_blank" rel="noopener noreferrer">';
+                $html .= htmlspecialchars( $documentation_label, ENT_QUOTES, 'UTF-8' );
+                $html .= '</a>';
                 $html .= '</div>';
             }
 

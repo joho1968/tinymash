@@ -52,6 +52,10 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashComponents
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashSecretLinkService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashLinkIntegrityService.php' );
 
+if ( PHP_SAPI !== 'cli' ) {
+    tinymash_sync_runtime_temp_hint();
+}
+
 use Latte\Engine;
 
 $app = Flight::app();

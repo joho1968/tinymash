@@ -1,7 +1,7 @@
 {
     "key": "backup",
     "name": "Backup",
-    "version": "0.97.1",
+    "version": "0.98.0",
     "description": "Creates downloadable author exports and site backups.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

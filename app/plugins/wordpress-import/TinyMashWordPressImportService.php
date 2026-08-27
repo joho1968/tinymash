@@ -56,7 +56,7 @@ class TinyMashWordPressImportService {
         $preview = $this->parseXml( $xml, $author_slug, $aggregate_to_root, $skip_unpublished, $import_menus );
         $preview['token'] = $this->generateToken();
         $preview['created_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
-        $preview['created_by_username'] = $this->normalizeSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
+        $preview['created_by_username'] = $this->normalizeAuthorSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
         $preview['replace_existing_posts'] = $replace_existing_posts;
         $preview['replace_existing_pages'] = $replace_existing_pages;
         $preview['skip_unpublished'] = $skip_unpublished;
@@ -356,7 +356,7 @@ class TinyMashWordPressImportService {
             throw new \RuntimeException( 'The WordPress import runtime is not available. SimpleXML is required.' );
         }
 
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         if ( $author_slug === '' ) {
             throw new \RuntimeException( 'A valid target author is required for WordPress import.' );
         }
@@ -827,7 +827,7 @@ class TinyMashWordPressImportService {
     }
 
     protected function buildImportedEntryUrl( string $author_slug, string $entry_slug ) : string {
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         $entry_slug = trim( preg_replace( '@/+@', '/', $entry_slug ) ?? '', '/' );
         return( '/' . rawurlencode( $author_slug ) . '/' . str_replace( '%2F', '/', rawurlencode( $entry_slug ) ) );
     }
@@ -1332,7 +1332,7 @@ class TinyMashWordPressImportService {
             return;
         }
 
-        $author_slug = $this->normalizeSlug( $author_slug );
+        $author_slug = $this->normalizeAuthorSlug( $author_slug );
         $entry_id = trim( (string) ( $saved_entry['id'] ?? '' ) );
         if ( $author_slug === '' || $entry_id === '' || empty( $attached_media_ids ) ) {
             return;
@@ -1798,6 +1798,10 @@ class TinyMashWordPressImportService {
 
     protected function normalizeSlug( string $value ) : string {
         return( $this->content_repository->normalizeEditorSlug( $value ) );
+    }
+
+    protected function normalizeAuthorSlug( string $value ) : string {
+        return( $this->content_repository->normalizeAuthorSlug( $value ) );
     }
 
     protected function writeJsonFile( string $filename, array $payload ) : void {

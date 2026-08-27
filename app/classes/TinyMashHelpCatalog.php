@@ -116,6 +116,8 @@ class TinyMashHelpCatalog {
             'title' => $title,
             'summary' => trim( (string) ( $document['summary'] ?? '' ) ),
             'sections' => $this->normalizeSections( $document['sections'] ?? [] ),
+            'documentation_url' => $this->normalizeDocumentationUrl( (string) ( $document['documentation_url'] ?? '' ) ),
+            'documentation_label' => $this->normalizeDocumentationLabel( (string) ( $document['documentation_label'] ?? '' ), $title ),
             'group' => trim( (string) ( $document['group'] ?? 'Plugins' ) ) !== '' ? trim( (string) ( $document['group'] ?? 'Plugins' ) ) : 'Plugins',
             'order' => (int) ( $document['order'] ?? 1000 ),
             'roles' => $this->normalizeRoles( $document['roles'] ?? [] ),
@@ -173,6 +175,11 @@ class TinyMashHelpCatalog {
                     'title' => (string) ( $data['title'] ?? ucfirst( str_replace( '-', ' ', $context ) ) ),
                     'summary' => (string) ( $data['summary'] ?? '' ),
                     'sections' => $this->normalizeSections( $data['sections'] ?? [] ),
+                    'documentation_url' => $this->normalizeDocumentationUrl( (string) ( $data['documentation_url'] ?? '' ) ),
+                    'documentation_label' => $this->normalizeDocumentationLabel(
+                        (string) ( $data['documentation_label'] ?? '' ),
+                        (string) ( $data['title'] ?? ucfirst( str_replace( '-', ' ', $context ) ) )
+                    ),
                     'group' => trim( (string) ( $data['group'] ?? 'Core' ) ) !== '' ? trim( (string) ( $data['group'] ?? 'Core' ) ) : 'Core',
                     'order' => (int) ( $data['order'] ?? 100 ),
                     'roles' => $this->normalizeRoles( $data['roles'] ?? [] ),
@@ -218,6 +225,34 @@ class TinyMashHelpCatalog {
         }
 
         return( $normalized_roles );
+    }
+
+    protected function normalizeDocumentationUrl( string $url ) : string {
+        $url = trim( $url );
+        if ( $url === '' || strlen( $url ) > 500 || filter_var( $url, FILTER_VALIDATE_URL ) === false ) {
+            return( '' );
+        }
+
+        $parts = parse_url( $url );
+        if ( ! is_array( $parts )
+            || strtolower( (string) ( $parts['scheme'] ?? '' ) ) !== 'https'
+            || trim( (string) ( $parts['host'] ?? '' ) ) === ''
+            || isset( $parts['user'] )
+            || isset( $parts['pass'] )
+        ) {
+            return( '' );
+        }
+
+        return( $url );
+    }
+
+    protected function normalizeDocumentationLabel( string $label, string $fallback ) : string {
+        $label = mb_trim( $label );
+        if ( $label === '' ) {
+            $label = mb_trim( $fallback );
+        }
+
+        return( mb_substr( $label !== '' ? $label : 'Documentation', 0, 120 ) );
     }
 
     protected function normalizeRole( string $role ) : string {

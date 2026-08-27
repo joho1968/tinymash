@@ -143,6 +143,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         [
             'title' => 'Social',
             'summary' => 'Show site and profile links with local accessible icons.',
+            'documentation_url' => 'https://tinymash.joho.se/docs/plugins/social',
+            'documentation_label' => 'Social',
             'group' => 'Plugins',
             'order' => 145,
             'roles' => [ 'author', 'admin' ],
@@ -153,7 +155,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Placement',
-                    'markdown' => '`[social]` uses profile links when the rendered author/profile context has configured profile links. Automatic author/profile output falls back to site links when **Use site links when profile links are empty** is enabled. `[social scope="site"]` always renders the site links from `/admin/social`. `[social scope="profile"]` only renders links for the current author/profile context and returns nothing when that profile has no Social links. Shortcode layouts are `icons`, `list`, and `cards`, for example `[social layout="cards"]`.',
+                    'markdown' => '`[social]` uses profile links in an author context and site links elsewhere. Use `scope="site"` or `scope="profile"` to require one source. Layouts are `icons`, `list`, and `cards`.',
                 ],
             ],
         ]
