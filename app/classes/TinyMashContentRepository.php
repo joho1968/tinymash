@@ -2118,6 +2118,7 @@ class TinyMashContentRepository {
                 'slug' => $normalized_entry['slug'],
                 'storage_slug' => $normalized_entry['storage_slug'],
                 'status' => $normalized_entry['status'],
+                'published_at_utc' => $normalized_entry['published_at_utc'],
                 'aggregate_to_root' => $normalized_entry['aggregate_to_root'],
                 'sticky' => $normalized_entry['sticky'],
                 'featured' => $normalized_entry['featured'],

@@ -1,7 +1,7 @@
 {
     "format": "tinymash-deploy",
     "format_version": 2,
-    "built_at_utc": "2026-08-28T08:28:27Z",
+    "built_at_utc": "2026-08-28T09:03:34Z",
     "application": {
         "version": "0.98.2"
     },
@@ -152,8 +152,8 @@
                 "sha256": "4e7f1b57429f67228274f93a9bb79971445f6351accf470058d4932c683cf8c3"
             },
             "app/classes/TinyMashContentRepository.php": {
-                "bytes": 237333,
-                "sha256": "43dd131885364346c2cee55b686cfde5bfed0505d05b1479fd4fde03e638ec26"
+                "bytes": 237410,
+                "sha256": "0ea5c6885b141145b140e1e96bbe987fd323283b3e75d5bc6f28caf6d31899be"
             },
             "app/classes/TinyMashContentTargetPickerService.php": {
                 "bytes": 5284,
