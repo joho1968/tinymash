@@ -30,6 +30,7 @@
 
             const editorRoot = document.getElementById('tm-editor-root');
             const editorModeUrl = editorRoot ? (editorRoot.dataset.editorModeUrl || '') : '';
+            const emojiDataUrl = editorRoot ? (editorRoot.dataset.emojiDataUrl || '/ext/emoji-picker-data/en/github/data') : '/ext/emoji-picker-data/en/github/data';
             const editorModeButtons = Array.from(document.querySelectorAll('[data-editor-presentation-mode]'));
             const markdownField = document.getElementById('tm-editor-markdown');
             const markdownLabel = document.querySelector('label[for="tm-editor-markdown"]');
@@ -110,7 +111,6 @@
                 : ('session_' + Math.random().toString(36).slice(2, 12));
             const autosaveEnabled = editorRoot ? (editorRoot.dataset.autosaveEnabled === '1') : false;
             const autosaveIntervalSeconds = editorRoot ? Math.min(180, Math.max(30, Number.parseInt(editorRoot.dataset.autosaveIntervalSeconds || '120', 10) || 120)) : 120;
-            const emojiDataUrl = editorRoot ? (editorRoot.dataset.emojiDataUrl || '/ext/emoji-picker-data/en/github/data') : '/ext/emoji-picker-data/en/github/data';
             function parseEditorDatasetJson(key, fallback = []) {
                 if (!editorRoot || !editorRoot.dataset || !Object.prototype.hasOwnProperty.call(editorRoot.dataset, key)) {
                     return fallback;
@@ -190,7 +190,6 @@
             const imagePickerUploadButton = document.getElementById('tm-editor-image-picker-upload');
             const imagePickerInsertSelectedButton = document.getElementById('tm-editor-image-picker-insert-selected');
             const featuredImageSourceButtons = document.querySelectorAll('#tm-editor-featured-image-modal [data-source]');
-            const emojiAutocomplete = document.getElementById('tm-editor-emoji-autocomplete');
             const tagsAutocomplete = document.getElementById('tm-editor-tags-autocomplete');
             const emojiPickerModalElement = document.getElementById('tm-editor-emoji-modal');
             const emojiPickerElement = document.getElementById('tm-editor-emoji-picker');
@@ -218,16 +217,10 @@
             let draftSaveController = null;
             let draftSaveReason = '';
             let editorStateVersion = 0;
+            let editorChangeVersion = 0;
             let pendingDeleteDraftId = '';
             let pendingDeleteDraftTitle = '';
             let pendingDeleteIsCurrent = false;
-            let emojiAutocompleteEntries = [];
-            let emojiAutocompletePromise = null;
-            let emojiAutocompleteMatches = [];
-            let emojiAutocompleteIndex = -1;
-            let emojiAutocompleteTokenStart = -1;
-            let emojiAutocompleteTokenEnd = -1;
-            let emojiAutocompleteRequestId = 0;
             let tagAutocompleteMatches = [];
             let tagAutocompleteIndex = -1;
             let internalLinkFilterTouched = false;
@@ -559,6 +552,7 @@
             }
 
             function markDirty() {
+                editorChangeVersion += 1;
                 hasUnsavedChanges = true;
                 setTransientStatus('Unsaved changes');
                 if (publishedLink) {
@@ -979,81 +973,6 @@
                 return uploadedPayloads;
             }
 
-            async function ensureEmojiAutocompleteEntries() {
-                if (emojiAutocompleteEntries.length > 0) {
-                    return emojiAutocompleteEntries;
-                }
-                if (emojiAutocompletePromise) {
-                    return emojiAutocompletePromise;
-                }
-
-                emojiAutocompletePromise = fetch(emojiDataUrl)
-                    .then((response) => {
-                        if (!response.ok) {
-                            throw new Error('Emoji data could not be loaded.');
-                        }
-                        return response.json();
-                    })
-                    .then((payload) => {
-                        const entries = [];
-                        const seen = new Set();
-                        if (Array.isArray(payload)) {
-                            payload.forEach((emojiRecord) => {
-                                if (!emojiRecord || typeof emojiRecord !== 'object' || typeof emojiRecord.emoji !== 'string') {
-                                    return;
-                                }
-
-                                const annotation = typeof emojiRecord.annotation === 'string' ? emojiRecord.annotation : '';
-                                const tags = Array.isArray(emojiRecord.tags) ? emojiRecord.tags.filter((tag) => typeof tag === 'string') : [];
-                                const shortcodes = Array.isArray(emojiRecord.shortcodes) ? emojiRecord.shortcodes.filter((shortcode) => typeof shortcode === 'string' && shortcode !== '') : [];
-                                const normalizedShortcodes = shortcodes.map((shortcode) => shortcode.toLowerCase()).filter((shortcode, index, values) => shortcode !== '' && values.indexOf(shortcode) === index);
-                                shortcodes.forEach((shortcode, index) => {
-                                    const normalizedShortcode = shortcode.toLowerCase();
-                                    if (seen.has(normalizedShortcode)) {
-                                        return;
-                                    }
-
-                                    seen.add(normalizedShortcode);
-                                    entries.push({
-                                        emoji: emojiRecord.emoji,
-                                        shortcode: normalizedShortcode,
-                                        annotation: annotation,
-                                        searchText: normalizedShortcodes.concat([ annotation ]).concat(tags).join(' ').toLowerCase(),
-                                        aliases: normalizedShortcodes,
-                                        primary: index === 0
-                                    });
-                                });
-                            });
-                        }
-
-                        emojiAutocompleteEntries = entries.sort((left, right) => {
-                            if (left.primary !== right.primary) {
-                                return left.primary ? -1 : 1;
-                            }
-                            return left.shortcode.localeCompare(right.shortcode);
-                        });
-
-                        return emojiAutocompleteEntries;
-                    })
-                    .catch((error) => {
-                        emojiAutocompletePromise = null;
-                        throw error;
-                    });
-
-                return emojiAutocompletePromise;
-            }
-
-            function hideEmojiAutocomplete() {
-                emojiAutocompleteMatches = [];
-                emojiAutocompleteIndex = -1;
-                emojiAutocompleteTokenStart = -1;
-                emojiAutocompleteTokenEnd = -1;
-                if (emojiAutocomplete) {
-                    emojiAutocomplete.classList.add('d-none');
-                    emojiAutocomplete.innerHTML = '';
-                }
-            }
-
             function syncEmojiPickerTheme() {
                 if (!emojiPickerElement) {
                     return;
@@ -1062,154 +981,6 @@
                 const theme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
                 emojiPickerElement.classList.toggle('dark', theme === 'dark');
                 emojiPickerElement.classList.toggle('light', theme !== 'dark');
-            }
-
-            function renderEmojiAutocomplete() {
-                if (!emojiAutocomplete) {
-                    return;
-                }
-                if (emojiAutocompleteMatches.length === 0) {
-                    hideEmojiAutocomplete();
-                    return;
-                }
-
-                emojiAutocomplete.innerHTML = emojiAutocompleteMatches.map((entry, index) => {
-                    const active = index === emojiAutocompleteIndex;
-                    return ''
-                        + '<button class="list-group-item list-group-item-action d-flex align-items-center gap-2'
-                        + (active ? ' active' : '')
-                        + '" type="button" data-emoji-index="' + index + '" role="option" aria-selected="' + (active ? 'true' : 'false') + '">'
-                        + '<span class="tm-emoji fs-5" aria-hidden="true">' + escapeHtml(entry.emoji) + '</span>'
-                        + '<span class="d-flex flex-column align-items-start text-start">'
-                        + '<span class="font-monospace">:' + escapeHtml(entry.shortcode) + ':</span>'
-                        + '<span class="small opacity-75">' + escapeHtml(entry.annotation || '') + '</span>'
-                        + '</span>'
-                        + '</button>';
-                }).join('');
-                positionEmojiAutocomplete();
-                emojiAutocomplete.classList.remove('d-none');
-            }
-
-            function positionEmojiAutocomplete() {
-                if (!emojiAutocomplete || !markdownField || emojiAutocompleteMatches.length === 0) {
-                    return;
-                }
-
-                const viewportGap = 12;
-                const fieldRect = markdownField.getBoundingClientRect();
-                const anchorElement = emojiAutocomplete.offsetParent instanceof HTMLElement ? emojiAutocomplete.offsetParent : markdownField.parentElement;
-                const anchorRect = anchorElement instanceof HTMLElement ? anchorElement.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth };
-                const popupWidth = Math.max(220, Math.min(fieldRect.width - 24, 420, anchorRect.width - (viewportGap * 2), window.innerWidth - (viewportGap * 2)));
-                const maxHeight = Math.max(160, Math.min(288, window.innerHeight - (viewportGap * 2)));
-                const popupHeight = Math.min(emojiAutocomplete.scrollHeight || maxHeight, maxHeight);
-                const fieldLeft = markdownField.offsetLeft || Math.max(0, fieldRect.left - anchorRect.left);
-                const fieldTop = markdownField.offsetTop || Math.max(0, fieldRect.top - anchorRect.top);
-                const fieldBottom = fieldTop + (markdownField.offsetHeight || fieldRect.height);
-                const left = Math.max(0, Math.min(fieldLeft + 12, anchorRect.width - popupWidth));
-                let top = fieldBottom + 8;
-                if (fieldRect.bottom + 8 + popupHeight + viewportGap > window.innerHeight) {
-                    if (fieldRect.top - popupHeight - 8 >= viewportGap) {
-                        top = Math.max(0, fieldTop - popupHeight - 8);
-                    } else {
-                        top = Math.max(fieldTop + 8, Math.max(viewportGap, Math.min(fieldRect.top + 8, window.innerHeight - popupHeight - viewportGap)) - anchorRect.top);
-                    }
-                }
-
-                emojiAutocomplete.style.left = left + 'px';
-                emojiAutocomplete.style.top = top + 'px';
-                emojiAutocomplete.style.width = popupWidth + 'px';
-                emojiAutocomplete.style.maxHeight = maxHeight + 'px';
-            }
-
-            function getEmojiShortcodeQuery() {
-                if (!markdownField) {
-                    return null;
-                }
-
-                const selectionStart = markdownField.selectionStart;
-                const selectionEnd = markdownField.selectionEnd;
-                if (selectionStart !== selectionEnd) {
-                    return null;
-                }
-
-                const textBeforeCursor = markdownField.value.slice(0, selectionStart);
-                const shortcodePattern = new RegExp('(^|[\\s([>{])(:[a-z0-9_+-]{1,40})$', 'i');
-                const match = textBeforeCursor.match(shortcodePattern);
-                if (!match) {
-                    return null;
-                }
-
-                return {
-                    query: match[2].slice(1).toLowerCase(),
-                    start: selectionStart - match[2].length,
-                    end: selectionStart
-                };
-            }
-
-            function applyEmojiShortcode(entry) {
-                if (!markdownField || emojiAutocompleteTokenStart < 0 || emojiAutocompleteTokenEnd < emojiAutocompleteTokenStart) {
-                    return;
-                }
-
-                const nextCharacter = markdownField.value.charAt(emojiAutocompleteTokenEnd);
-                const suffix = nextCharacter === '' || /\s/.test(nextCharacter) ? ' ' : '';
-                markdownField.setRangeText(':' + entry.shortcode + ':' + suffix, emojiAutocompleteTokenStart, emojiAutocompleteTokenEnd, 'end');
-                markdownField.focus();
-                hideEmojiAutocomplete();
-                markDirty();
-            }
-
-            async function updateEmojiAutocomplete() {
-                const requestId = ++emojiAutocompleteRequestId;
-                const shortcodeQuery = getEmojiShortcodeQuery();
-                if (!shortcodeQuery) {
-                    hideEmojiAutocomplete();
-                    return;
-                }
-
-                try {
-                    const entries = await ensureEmojiAutocompleteEntries();
-                    if (requestId !== emojiAutocompleteRequestId) {
-                        return;
-                    }
-
-                    const latestShortcodeQuery = getEmojiShortcodeQuery();
-                    if (
-                        !latestShortcodeQuery
-                        || latestShortcodeQuery.query !== shortcodeQuery.query
-                        || latestShortcodeQuery.start !== shortcodeQuery.start
-                        || latestShortcodeQuery.end !== shortcodeQuery.end
-                    ) {
-                        return;
-                    }
-
-                    const query = shortcodeQuery.query;
-                    emojiAutocompleteTokenStart = shortcodeQuery.start;
-                    emojiAutocompleteTokenEnd = shortcodeQuery.end;
-                    emojiAutocompleteMatches = entries
-                        .filter((entry) => {
-                            return entry.shortcode.startsWith(query)
-                                || String(entry.searchText || '').includes(query)
-                                || (Array.isArray(entry.aliases) && entry.aliases.some((alias) => alias.startsWith(query)));
-                        })
-                        .sort((left, right) => {
-                            const leftPrefix = left.shortcode.startsWith(query) ? 1 : 0;
-                            const rightPrefix = right.shortcode.startsWith(query) ? 1 : 0;
-                            if (leftPrefix !== rightPrefix) {
-                                return rightPrefix - leftPrefix;
-                            }
-                            if (left.primary !== right.primary) {
-                                return left.primary ? -1 : 1;
-                            }
-                            return left.shortcode.localeCompare(right.shortcode);
-                        })
-                        .slice(0, 8);
-                    emojiAutocompleteIndex = emojiAutocompleteMatches.length > 0 ? 0 : -1;
-                    renderEmojiAutocomplete();
-                } catch (error) {
-                    hideEmojiAutocomplete();
-                    console.error('[tinymash] emoji autocomplete error', error);
-                }
             }
 
             function updateFieldVisibility() {
@@ -1560,6 +1331,7 @@
                 draftSaveReason = isAutosave ? 'autosave' : 'manual';
                 draftSaveController = new AbortController();
                 const requestStateVersion = editorStateVersion;
+                const requestChangeVersion = editorChangeVersion;
                 clearAutosaveTimer();
                 setTransientStatus(isAutosave ? 'Autosaving...' : 'Saving...');
                 saveButton.disabled = true;
@@ -1587,31 +1359,38 @@
                     if (requestStateVersion !== editorStateVersion) {
                         return null;
                     }
+                    const hasNewerChanges = requestChangeVersion !== editorChangeVersion;
                     loadedDraftId = payload.draft_id || (payload.draft && payload.draft.draft_id) || loadedDraftId;
                     if (editorRoot) {
                         editorRoot.dataset.loadedDraftId = loadedDraftId;
                     }
-                    syncFeaturedImageStateFromPayload(payload.draft || null);
-                    syncSeoSocialImageStateFromPayload(payload.draft || null);
-                    if (tagsField && payload.draft && Array.isArray(payload.draft.tags)) {
-                        tagsField.value = payload.draft.tags.join(', ');
+                    if (!hasNewerChanges) {
+                        syncFeaturedImageStateFromPayload(payload.draft || null);
+                        syncSeoSocialImageStateFromPayload(payload.draft || null);
+                        if (tagsField && payload.draft && Array.isArray(payload.draft.tags)) {
+                            tagsField.value = payload.draft.tags.join(', ');
+                        }
+                        if (publishedAtLocalField && payload.draft && typeof payload.draft.published_at_local === 'string') {
+                            publishedAtLocalField.value = payload.draft.published_at_local;
+                        }
+                        if (payload.draft && typeof payload.draft.fallback_cover_color === 'string') {
+                            applyFallbackCoverColorValue(payload.draft.fallback_cover_color);
+                        }
+                        hydrateEditorPluginSettings(payload.draft && payload.draft.plugin_settings ? payload.draft.plugin_settings : {});
                     }
-                    if (publishedAtLocalField && payload.draft && typeof payload.draft.published_at_local === 'string') {
-                        publishedAtLocalField.value = payload.draft.published_at_local;
-                    }
-                    if (payload.draft && typeof payload.draft.fallback_cover_color === 'string') {
-                        applyFallbackCoverColorValue(payload.draft.fallback_cover_color);
-                    }
-                    hydrateEditorPluginSettings(payload.draft && payload.draft.plugin_settings ? payload.draft.plugin_settings : {});
                     updateDeleteDraftVisibility();
                     refreshCollections(payload.collections || null);
-                    hasUnsavedChanges = false;
                     updateParentPageOptions();
-                    if (payload.updated_at_display) {
-                        updateEditingIdentity('Editing draft for "' + getEditorTitleLabel('Untitled content') + '"');
-                        updateStateSummary('Last updated ' + payload.updated_at_display);
+                    if (hasNewerChanges) {
+                        setTransientStatus('Unsaved changes');
+                    } else {
+                        hasUnsavedChanges = false;
+                        if (payload.updated_at_display) {
+                            updateEditingIdentity('Editing draft for "' + getEditorTitleLabel('Untitled content') + '"');
+                            updateStateSummary('Last updated ' + payload.updated_at_display);
+                        }
+                        setTransientStatus(payload.updated_at_display ? ((isAutosave ? 'Autosaved ' : 'Saved ') + payload.updated_at_display) : (isAutosave ? 'Autosaved' : 'Saved'), 'text-success');
                     }
-                    setTransientStatus(payload.updated_at_display ? ((isAutosave ? 'Autosaved ' : 'Saved ') + payload.updated_at_display) : (isAutosave ? 'Autosaved' : 'Saved'), 'text-success');
                     return payload;
                 })();
 
@@ -2091,6 +1870,8 @@
                 authorSlugField,
                 parentSlugField,
                 summaryField,
+                publishedAtLocalField,
+                tagsField,
                 seoTitleField,
                 seoDescriptionField,
                 seoSocialTitleField,
@@ -2285,74 +2066,6 @@
                     setFeaturedImage(button.getAttribute('data-media-id') || '');
                 });
             }
-            if (markdownField) {
-                markdownField.addEventListener('input', updateEmojiAutocomplete);
-                markdownField.addEventListener('click', updateEmojiAutocomplete);
-                markdownField.addEventListener('blur', () => {
-                    window.setTimeout(hideEmojiAutocomplete, 150);
-                });
-                markdownField.addEventListener('keydown', (event) => {
-                    if (emojiAutocompleteMatches.length === 0) {
-                        return;
-                    }
-
-                    if (event.key === 'ArrowDown') {
-                        event.preventDefault();
-                        emojiAutocompleteIndex = emojiAutocompleteIndex >= emojiAutocompleteMatches.length - 1 ? 0 : emojiAutocompleteIndex + 1;
-                        renderEmojiAutocomplete();
-                        return;
-                    }
-                    if (event.key === 'ArrowUp') {
-                        event.preventDefault();
-                        emojiAutocompleteIndex = emojiAutocompleteIndex <= 0 ? emojiAutocompleteMatches.length - 1 : emojiAutocompleteIndex - 1;
-                        renderEmojiAutocomplete();
-                        return;
-                    }
-                    if (event.key === 'Escape') {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        hideEmojiAutocomplete();
-                        return;
-                    }
-                    if (event.key === 'Enter' || event.key === 'Tab') {
-                        const activeEntry = emojiAutocompleteMatches[emojiAutocompleteIndex];
-                        if (!activeEntry) {
-                            return;
-                        }
-                        event.preventDefault();
-                        applyEmojiShortcode(activeEntry);
-                    }
-                });
-            }
-            if (emojiAutocomplete) {
-                emojiAutocomplete.addEventListener('mousedown', (event) => {
-                    event.preventDefault();
-                });
-                emojiAutocomplete.addEventListener('click', (event) => {
-                    const button = event.target.closest('[data-emoji-index]');
-                    if (!button) {
-                        return;
-                    }
-
-                    const selectedIndex = Number(button.getAttribute('data-emoji-index'));
-                    if (!Number.isInteger(selectedIndex) || !emojiAutocompleteMatches[selectedIndex]) {
-                        return;
-                    }
-
-                    applyEmojiShortcode(emojiAutocompleteMatches[selectedIndex]);
-                });
-                window.addEventListener('resize', () => {
-                    if (!emojiAutocomplete.classList.contains('d-none')) {
-                        positionEmojiAutocomplete();
-                    }
-                });
-                window.addEventListener('scroll', () => {
-                    if (!emojiAutocomplete.classList.contains('d-none')) {
-                        positionEmojiAutocomplete();
-                    }
-                }, true);
-            }
-
             if (saveButton) {
                 saveButton.addEventListener('click', () => {
                     saveDraft(false);

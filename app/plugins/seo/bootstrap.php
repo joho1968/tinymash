@@ -5,6 +5,7 @@ require_once __DIR__ . '/TinyMashSeoService.php';
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashPlugins;
+use app\classes\TinyMashRobotsService;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
 
@@ -19,9 +20,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $content_repository = $plugins->getService( 'content.repository' );
     $theme = $plugins->getService( 'theme' );
     $user_repository = $plugins->getService( 'user.repository' );
+    $robots_service = $plugins->getService( 'robots.service' );
 
     if ( ! $config instanceof TinyMashConfig
         || ! $content_repository instanceof TinyMashContentRepository
+        || ! $robots_service instanceof TinyMashRobotsService
         || ! $theme instanceof TinyMashTheme
         || ! $user_repository instanceof TinyMashUserRepository ) {
         throw new \RuntimeException( 'Required services for the SEO plugin are not available.' );
@@ -31,13 +34,13 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         [
             'title' => 'SEO',
-            'summary' => 'Configure robots.txt, sitemap.xml, and AI-crawler advisory rules.',
+            'summary' => 'Configure sitemap.xml and optional rules added to robots.txt.',
             'fields' => [
                 [
                     'key' => 'robots_enabled',
                     'type' => 'checkbox',
-                    'label' => 'Enable generated robots.txt',
-                    'help' => 'When disabled, `/robots.txt` returns 404.',
+                    'label' => 'Enable SEO rules in robots.txt',
+                    'help' => 'Core exclusions remain active when disabled.',
                     'default' => 1,
                 ],
                 [
@@ -63,7 +66,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-seo',
         [
             'title' => 'SEO',
-            'summary' => 'Generate robots.txt and sitemap.xml with optional AI-crawler advisory rules.',
+            'summary' => 'Add sitemap, crawler rules, and entry metadata.',
             'documentation_url' => 'https://tinymash.joho.se/docs/plugins/seo',
             'documentation_label' => 'SEO',
             'group' => 'Plugins',
@@ -72,7 +75,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'sections' => [
                 [
                     'title' => 'Overview',
-                    'markdown' => 'Generate `/robots.txt`, `/sitemap.xml`, and entry SEO metadata while respecting tinymash visibility and indexing settings.',
+                    'markdown' => 'Generate `/sitemap.xml`, add optional rules to core `/robots.txt`, and expose entry SEO metadata while respecting tinymash visibility and indexing settings.',
                 ],
                 [
                     'title' => 'Social image order',
@@ -93,6 +96,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $seo_service = new TinyMashSeoService(
         $config,
         $content_repository,
+        $robots_service,
         $theme,
         $user_repository,
         $plugins->getPluginSystemSettings( $plugin_key )
@@ -109,22 +113,6 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $set_cache_headers = static function() : void {
         \Flight::response()->header( 'Cache-Control', 'public, max-age=300, s-maxage=300' );
     };
-
-    $plugins->registerRoute(
-        $plugin_key,
-        'get',
-        '/robots.txt',
-        static function() use ( $seo_service, $render_not_found, $set_cache_headers ) : void {
-            if ( ! $seo_service->robotsEnabled() ) {
-                $render_not_found();
-                return;
-            }
-
-            \Flight::response()->header( 'Content-Type', 'text/plain; charset=UTF-8' );
-            $set_cache_headers();
-            echo $seo_service->buildRobotsTxt();
-        }
-    );
 
     $plugins->registerRoute(
         $plugin_key,

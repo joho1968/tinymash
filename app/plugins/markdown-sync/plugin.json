@@ -1,7 +1,7 @@
 {
     "key": "markdown-sync",
     "name": "Markdown Sync",
-    "version": "0.98.0",
+    "version": "0.98.1",
     "description": "Synchronizes a local Markdown collection below a receiver-selected page.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

@@ -67,6 +67,32 @@
     .tm-weather-horizontal:not(.tm-weather-admin-preview) .tm-weather-current-main {
         margin-left: 0;
     }
+
+    .tm-weather-horizontal.tm-weather-current-only:not(.tm-weather-admin-preview) .tm-weather-current {
+        grid-column: 1 / -1;
+        margin-top: 0;
+    }
+
+    .tm-weather-horizontal.tm-weather-current-only.tm-weather-has-header:not(.tm-weather-admin-preview) .tm-weather-header {
+        grid-column: 1;
+    }
+
+    .tm-weather-horizontal.tm-weather-current-only.tm-weather-has-header:not(.tm-weather-admin-preview) .tm-weather-current {
+        grid-column: 2;
+    }
+}
+
+@container tm-weather (min-width: 700px) {
+    .tm-weather-horizontal.tm-weather-current-only.tm-weather-has-header:not(.tm-weather-admin-preview) {
+        grid-template-columns: minmax(8rem, .65fr) minmax(16rem, 1.1fr) auto;
+    }
+
+    .tm-weather-horizontal.tm-weather-current-only.tm-weather-has-header:not(.tm-weather-admin-preview) .tm-weather-attribution {
+        grid-column: 3;
+        align-self: center;
+        margin-top: 0;
+        text-align: right;
+    }
 }
 
 .tm-weather:not(.tm-weather-admin-preview) .tm-weather-header,

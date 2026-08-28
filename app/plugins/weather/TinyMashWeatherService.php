@@ -267,18 +267,25 @@ class TinyMashWeatherService {
         if ( ! $show_current && $forecast_days === 0 ) {
             $show_current = true;
         }
+        $current_time = $show_current ? (string) ( $feed['current']['time'] ?? '' ) : '';
+        $forecast_days_for_render = $forecast_days > 0
+            ? $this->getForecastDaysForRender( (array) $feed['daily'], $forecast_days, $current_time )
+            : [];
         $show_attribution = $this->normalizeBoolean( $attributes['attribution'] ?? true );
         $stale = $this->isFeedStale( $feed, (int) $settings['defaults']['stale_hours'], $now );
         $status = (string) ( $feed['status'] ?? '' );
 
         $admin_preview = $this->normalizeBoolean( $attributes['admin_preview'] ?? false );
         $slot = $this->normalizeSlotName( (string) ( $attributes['slot'] ?? '' ) );
+        $has_header = ! empty( $details['location'] ) || $stale || $status === 'error';
         $classes = 'tm-weather tm-weather-' . $layout .
                    ( $slot !== '' ? ' tm-weather-slot tm-weather-slot-' . $slot : '' ) .
+                   ( $show_current && empty( $forecast_days_for_render ) ? ' tm-weather-current-only' : '' ) .
+                   ( $has_header ? ' tm-weather-has-header' : '' ) .
                    ( $stale ? ' tm-weather-stale' : '' ) .
                    ( $admin_preview ? ' tm-weather-admin-preview' : '' );
         $html = '<div class="tm-weather-container" data-tm-heading-scope="component"><div class="' . $this->escape( $classes ) . '" data-weather-location="' . $this->escape( $location_key ) . '" data-weather-provider="' . $this->escape( $provider ) . '">';
-        if ( ! empty( $details['location'] ) || $stale || $status === 'error' ) {
+        if ( $has_header ) {
             $html .= '<div class="tm-weather-header">';
             if ( $admin_preview && ! empty( $details['location'] ) ) {
                 $html .= '<div><div class="tm-weather-kicker">Weather</div>';
@@ -307,15 +314,13 @@ class TinyMashWeatherService {
         if ( $show_current ) {
             $html .= $this->renderCurrentHtml( (array) $feed['current'], $units, $wind_units, $details, (string) ( $location['timezone'] ?? '' ) );
         }
-        if ( $forecast_days > 0 ) {
-            $current_time = $show_current ? (string) ( $feed['current']['time'] ?? '' ) : '';
-            $html .=
-                $this->renderForecastHtml(
-                    $this->getForecastDaysForRender( (array) $feed['daily'], $forecast_days, $current_time ),
-                    $units,
-                    substr( $current_time, 0, 10 ),
-                    $layout
-                );
+        if ( ! empty( $forecast_days_for_render ) ) {
+            $html .= $this->renderForecastHtml(
+                $forecast_days_for_render,
+                $units,
+                substr( $current_time, 0, 10 ),
+                $layout
+            );
         }
         if ( $show_attribution ) {
             $label = (string) ( $feed['attribution_label'] ?? 'Open-Meteo' );

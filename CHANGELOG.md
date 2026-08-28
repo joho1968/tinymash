@@ -2,6 +2,13 @@
 
 Notable changes in tinymash
 
+## 0.98.1 - 2026-08-28
+
+- Fixed duplicated posts restoring the original publish date after it was changed
+- Kept crawler exclusions active when the SEO plugin is disabled
+- Fixed typed emoji suggestions in Composer
+- Made current-only horizontal Weather output compact
+
 ## 0.98.0 - 2026-08-26
 
 - Added Markdown Sync for publishing/importing a Markdown page tree below a selected page

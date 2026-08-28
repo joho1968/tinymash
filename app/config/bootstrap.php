@@ -34,6 +34,7 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashLockedJson
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashImportLockService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashImportPreviewWorkspaceService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPublicPageCache.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashRobotsService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashHousekeepingService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashThemeRegistry.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashThemeSupportRegistry.php' );
@@ -83,6 +84,7 @@ $router = $app->router();
 
 $config = new \app\classes\TinyMashConfig( $app, $router );
 $config->getConfig();
+$robots_service = new app\classes\TinyMashRobotsService( $config );
 
 $security = new app\classes\TinyMashSecurity(
     $app,
@@ -253,6 +255,7 @@ $app->set( 'media.review_store', $media_review_store );
 $app->set( 'import.lock_service', $import_lock_service );
 $app->set( 'import.preview_workspaces', $import_preview_workspace_service );
 $app->set( 'public.page_cache', $public_page_cache );
+$app->set( 'robots.service', $robots_service );
 $app->set( 'media.capability_registry', $media_capability_registry );
 $app->set( 'media.derivative_registry', $media_derivative_registry );
 $app->set( 'theme.support_registry', $theme_support_registry );

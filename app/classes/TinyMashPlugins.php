@@ -30,6 +30,7 @@ class TinyMashPlugins {
         'content.renderer',
         'shortcode.registry',
         'menu.service',
+        'robots.service',
         'media.metadata_store',
         'media.import_map_store',
         'media.import_bridge',

@@ -485,8 +485,36 @@
                         + '<span class="d-flex flex-column align-items-start text-start"><span class="font-monospace">:' + escapeHtml(entry.shortcode) + ':</span>'
                         + '<span class="small opacity-75">' + escapeHtml(entry.annotation) + '</span></span></button>';
                 }).join("");
-                autocomplete.style.top = (field.offsetHeight + 8) + "px";
+                positionEmojiAutocomplete();
                 autocomplete.classList.remove("d-none");
+            }
+            function positionEmojiAutocomplete() {
+                if (!autocomplete || autocompleteMatches.length === 0) { return; }
+                var viewportGap = 12;
+                var fieldRect = field.getBoundingClientRect();
+                var anchorElement = autocomplete.offsetParent instanceof HTMLElement ? autocomplete.offsetParent : field.parentElement;
+                var anchorRect = anchorElement instanceof HTMLElement
+                    ? anchorElement.getBoundingClientRect()
+                    : { left: 0, top: 0, width: window.innerWidth };
+                var popupWidth = Math.max(220, Math.min(fieldRect.width - 24, 420, anchorRect.width - (viewportGap * 2), window.innerWidth - (viewportGap * 2)));
+                var maxHeight = Math.max(160, Math.min(288, window.innerHeight - (viewportGap * 2)));
+                var popupHeight = Math.min(autocomplete.scrollHeight || maxHeight, maxHeight);
+                var fieldLeft = field.offsetLeft || Math.max(0, fieldRect.left - anchorRect.left);
+                var fieldTop = field.offsetTop || Math.max(0, fieldRect.top - anchorRect.top);
+                var fieldBottom = fieldTop + (field.offsetHeight || fieldRect.height);
+                var left = Math.max(0, Math.min(fieldLeft + 12, anchorRect.width - popupWidth));
+                var top = fieldBottom + 8;
+                if (fieldRect.bottom + 8 + popupHeight + viewportGap > window.innerHeight) {
+                    if (fieldRect.top - popupHeight - 8 >= viewportGap) {
+                        top = Math.max(0, fieldTop - popupHeight - 8);
+                    } else {
+                        top = Math.max(fieldTop + 8, Math.max(viewportGap, Math.min(fieldRect.top + 8, window.innerHeight - popupHeight - viewportGap)) - anchorRect.top);
+                    }
+                }
+                autocomplete.style.left = left + "px";
+                autocomplete.style.top = top + "px";
+                autocomplete.style.width = popupWidth + "px";
+                autocomplete.style.maxHeight = maxHeight + "px";
             }
             function applyEmojiShortcode(entry) {
                 if (!entry || autocompleteTokenStart < 0 || autocompleteTokenEnd < autocompleteTokenStart) { return; }
@@ -518,8 +546,9 @@
                     console.error("[tinymash] emoji autocomplete error", error);
                 });
             }
-            if (autocomplete && autocomplete.id !== "tm-editor-emoji-autocomplete") {
+            if (autocomplete) {
                 field.addEventListener("input", updateEmojiAutocomplete);
+                field.addEventListener("click", updateEmojiAutocomplete);
                 field.addEventListener("keydown", function (event) {
                     if (autocompleteMatches.length === 0) { return; }
                     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -543,6 +572,12 @@
                     if (!button) { return; }
                     applyEmojiShortcode(autocompleteMatches[Number(button.dataset.tmMarkdownEmojiIndex)]);
                 });
+                window.addEventListener("resize", function () {
+                    if (!autocomplete.classList.contains("d-none")) { positionEmojiAutocomplete(); }
+                });
+                window.addEventListener("scroll", function () {
+                    if (!autocomplete.classList.contains("d-none")) { positionEmojiAutocomplete(); }
+                }, true);
             }
             editor.addEventListener("click", function (event) {
                 var button = event.target.closest("[data-tm-markdown-action]");

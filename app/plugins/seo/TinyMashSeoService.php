@@ -2,6 +2,7 @@
 
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashContentRepository;
+use app\classes\TinyMashRobotsService;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
 
@@ -21,6 +22,7 @@ class TinyMashSeoService {
 
     protected TinyMashConfig $config;
     protected TinyMashContentRepository $content_repository;
+    protected TinyMashRobotsService $robots_service;
     protected TinyMashTheme $theme;
     protected TinyMashUserRepository $user_repository;
     protected array $settings;
@@ -28,12 +30,14 @@ class TinyMashSeoService {
     public function __construct(
         TinyMashConfig $config,
         TinyMashContentRepository $content_repository,
+        TinyMashRobotsService $robots_service,
         TinyMashTheme $theme,
         TinyMashUserRepository $user_repository,
         array $settings = []
     ) {
         $this->config = $config;
         $this->content_repository = $content_repository;
+        $this->robots_service = $robots_service;
         $this->theme = $theme;
         $this->user_repository = $user_repository;
         $this->settings = $this->normalizeSettings( $settings );
@@ -46,7 +50,7 @@ class TinyMashSeoService {
                 'robots_enabled' => $this->settings['robots_enabled'],
                 'sitemap_enabled' => $this->settings['sitemap_enabled'],
                 'disallow_ai_crawlers' => $this->settings['disallow_ai_crawlers'],
-                'robots_url' => $this->settings['robots_enabled'] ? '/robots.txt' : '',
+                'robots_url' => '/robots.txt',
                 'sitemap_url' => $this->settings['sitemap_enabled'] ? '/sitemap.xml' : '',
             ]
         );
@@ -151,7 +155,7 @@ class TinyMashSeoService {
                 'robots_enabled' => $this->settings['robots_enabled'],
                 'sitemap_enabled' => $this->settings['sitemap_enabled'],
                 'disallow_ai_crawlers' => $this->settings['disallow_ai_crawlers'],
-                'robots_url' => $this->settings['robots_enabled'] ? '/robots.txt' : '',
+                'robots_url' => '/robots.txt',
                 'sitemap_url' => $this->settings['sitemap_enabled'] ? '/sitemap.xml' : '',
                 'canonical_url' => $meta_url,
                 'robots' => $robots,
@@ -181,35 +185,21 @@ class TinyMashSeoService {
     }
 
     public function buildRobotsTxt() : string {
-        $lines = [];
-
-        if ( ! $this->config->isSitePublic() || $this->config->discouragesSearchIndexing() ) {
-            $lines[] = 'User-agent: *';
-            $lines[] = 'Disallow: /';
-            return( implode( "\n", $lines ) . "\n" );
+        if ( ! $this->settings['robots_enabled'] ) {
+            return( $this->robots_service->buildRobotsTxt() );
         }
 
-        $lines[] = 'User-agent: *';
-        $lines[] = 'Allow: /';
-
+        $disallow_paths = [];
         foreach ( $this->getDiscouragedAuthorSlugs() as $author_slug ) {
-            $lines[] = 'Disallow: /' . $author_slug;
-            $lines[] = 'Disallow: /' . $author_slug . '/';
+            $disallow_paths[] = '/' . $author_slug;
+            $disallow_paths[] = '/' . $author_slug . '/';
         }
 
-        if ( $this->settings['sitemap_enabled'] ) {
-            $lines[] = 'Sitemap: ' . $this->buildAbsoluteUrl( '/sitemap.xml' );
-        }
-
-        if ( $this->settings['disallow_ai_crawlers'] ) {
-            foreach ( self::AI_CRAWLER_USER_AGENTS as $user_agent ) {
-                $lines[] = '';
-                $lines[] = 'User-agent: ' . $user_agent;
-                $lines[] = 'Disallow: /';
-            }
-        }
-
-        return( implode( "\n", $lines ) . "\n" );
+        return( $this->robots_service->buildRobotsTxt(
+            $disallow_paths,
+            $this->settings['sitemap_enabled'] ? $this->buildAbsoluteUrl( '/sitemap.xml' ) : '',
+            $this->settings['disallow_ai_crawlers'] ? self::AI_CRAWLER_USER_AGENTS : []
+        ) );
     }
 
     public function buildSitemapXml() : string {

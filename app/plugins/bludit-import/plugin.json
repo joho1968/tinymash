@@ -1,7 +1,7 @@
 {
     "key": "bludit-import",
     "name": "Bludit import",
-    "version": "0.98.0",
+    "version": "0.98.1",
     "description": "Imports posts and pages from a local Bludit site tree into root or an author space.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

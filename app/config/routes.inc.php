@@ -38,11 +38,15 @@ if ( $normalized_request_path === '' ) {
 }
 
 $admin_url = '/' . trim( (string) $config->configGetAdminURL(), '/' );
-if ( $normalized_request_path === $admin_url || str_starts_with( $normalized_request_path, $admin_url . '/' ) ) {
+$login_url = '/' . trim( (string) $config->configGetLoginURL(), '/' );
+$is_admin_request = $normalized_request_path === $admin_url || str_starts_with( $normalized_request_path, $admin_url . '/' );
+$is_login_request = $normalized_request_path === $login_url;
+if ( $is_admin_request || $is_login_request ) {
     header( 'Cache-Control: private, no-store, max-age=0, must-revalidate' );
     header( 'X-Content-Type-Options: nosniff' );
     header( 'Referrer-Policy: no-referrer' );
     header( 'X-Frame-Options: DENY' );
+    header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
 }
 
 $path_segments = array_values( array_filter( explode( '/', ltrim( $normalized_request_path, '/' ) ), static fn( string $segment ) : bool => $segment !== '' ) );
@@ -141,6 +145,29 @@ $app->map('notFound', function () use ( $router, $app ) {
         return;
     }
     $app->view()->render('404.latte', ['title' => 'Page not found']);
+});
+
+$router->get('/robots.txt', function() use ( $app ) {
+    $robots_service = $app->has( 'robots.service' ) ? $app->get( 'robots.service' ) : null;
+    if ( ! $robots_service instanceof \app\classes\TinyMashRobotsService ) {
+        $app->response()->status( 500 );
+        $app->response()->header( 'Content-Type', 'text/plain; charset=UTF-8' );
+        echo "User-agent: *\nDisallow: /\n";
+        return;
+    }
+
+    $robots_txt = $robots_service->buildRobotsTxt();
+    $seo_service = $app->has( 'public.seo.service' ) ? $app->get( 'public.seo.service' ) : null;
+    if ( is_object( $seo_service )
+        && method_exists( $seo_service, 'robotsEnabled' )
+        && method_exists( $seo_service, 'buildRobotsTxt' )
+        && $seo_service->robotsEnabled() ) {
+        $robots_txt = (string) $seo_service->buildRobotsTxt();
+    }
+
+    $app->response()->header( 'Content-Type', 'text/plain; charset=UTF-8' );
+    $app->response()->header( 'Cache-Control', 'public, max-age=300, s-maxage=300' );
+    echo $robots_txt;
 });
 
 $router->get('/favicon.ico', function() use ( $app, $config ) {
