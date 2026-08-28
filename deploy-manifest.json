@@ -1,9 +1,9 @@
 {
     "format": "tinymash-deploy",
     "format_version": 2,
-    "built_at_utc": "2026-08-28T07:35:38Z",
+    "built_at_utc": "2026-08-28T08:28:27Z",
     "application": {
-        "version": "0.98.1"
+        "version": "0.98.2"
     },
     "site": {
         "name": "tinymash",
@@ -104,8 +104,8 @@
         "algorithm": "sha256",
         "files": {
             "CHANGELOG.md": {
-                "bytes": 6294,
-                "sha256": "5d34bcd0a4c2bd9bb68dc60e01f0ed35ebf81f129645d2c7165f6a6f6d29573c"
+                "bytes": 6388,
+                "sha256": "7bcc1694c100e87080c8fa4cd4d327557debf6262578630cc038d3a93a868823"
             },
             "CLI.md": {
                 "bytes": 12240,
@@ -333,7 +333,7 @@
             },
             "app/config/globals.inc.php": {
                 "bytes": 14233,
-                "sha256": "7dd40963fc4a8a24de7a551846c6883290b465a7c5ace9527b9ad233194b05f3"
+                "sha256": "e52673eed9b41772172d5ade452fb1dea3a5c87fc06db0d680bd19334133d256"
             },
             "app/config/index.php": {
                 "bytes": 6,
@@ -457,7 +457,7 @@
             },
             "app/plugins/are-we-open/plugin.json": {
                 "bytes": 685,
-                "sha256": "52b9d72449a5d446f29201a96007f6bf1f47d49b95b1b90add99e7d8d5044bc3"
+                "sha256": "2a1fbd843913624658d1debbec05ae7c89732176bb72e86e90ddf065a4599872"
             },
             "app/plugins/backup/TinyMashBackupArchiveService.php": {
                 "bytes": 24322,
@@ -469,7 +469,7 @@
             },
             "app/plugins/backup/plugin.json": {
                 "bytes": 489,
-                "sha256": "729343e84c200495c4a2bd86021aab2613930eefd58876d3c4d0e18db1a7236d"
+                "sha256": "e71897afec7ec69b4e9854e4251bf4b5c9df3af712b24c9ad11d72cba04877f5"
             },
             "app/plugins/blogger-import/TinyMashBloggerImportService.php": {
                 "bytes": 73009,
@@ -481,7 +481,7 @@
             },
             "app/plugins/blogger-import/plugin.json": {
                 "bytes": 563,
-                "sha256": "acac02344b46db5f08830ae0691e1113c557509879cae3e404f9f8c7d6f3d3a4"
+                "sha256": "96516d83535a37a0d56c04ab66c92b0e90eafba8503e694a1b82f3eca1f46a16"
             },
             "app/plugins/bludit-import/TinyMashBluditImportService.php": {
                 "bytes": 43886,
@@ -493,7 +493,7 @@
             },
             "app/plugins/bludit-import/plugin.json": {
                 "bytes": 577,
-                "sha256": "f8c092cd7322ea7d606973975684c753cf1b9eb7558e8e2284c37157ce670191"
+                "sha256": "caba84c14e066174bde655d940eb8c7557d8047241a5f274da8c5aad50a68584"
             },
             "app/plugins/directory/TinyMashDirectoryService.php": {
                 "bytes": 67693,
@@ -505,7 +505,7 @@
             },
             "app/plugins/directory/plugin.json": {
                 "bytes": 695,
-                "sha256": "b8a8d23e51346dc868a6331a919f3ae901a7407211a1c69d2b77840386b929b0"
+                "sha256": "5bda08864049be603b9c8de4b2d6126b798a436051f8286ac9392ecb7a096eff"
             },
             "app/plugins/downloads/TinyMashDownloadsService.php": {
                 "bytes": 49067,
@@ -517,7 +517,7 @@
             },
             "app/plugins/downloads/plugin.json": {
                 "bytes": 706,
-                "sha256": "59ba70fb35f1cba76a74edc54b1ab52d186cf143064f1ac41fb7b373f6d32037"
+                "sha256": "567810aeaea15fefc4c80ba4a5ed01954e6412c4dbdce1dec88a86f00b57f866"
             },
             "app/plugins/fediverse/TinyMashFediverseService.php": {
                 "bytes": 64566,
@@ -529,7 +529,7 @@
             },
             "app/plugins/fediverse/plugin.json": {
                 "bytes": 612,
-                "sha256": "ab022ed12fb47aa0345d6bcaaad8143ba0bc4eccf98d9765d7039ee93e0f9446"
+                "sha256": "ddbe9bdd968137a010f9cee593753108489058eed88520968fd392dbe236eb2b"
             },
             "app/plugins/feeds/TinyMashFeedsService.php": {
                 "bytes": 23600,
@@ -541,7 +541,7 @@
             },
             "app/plugins/feeds/plugin.json": {
                 "bytes": 706,
-                "sha256": "3d5141386c50d960977a5e872be0fe7e56e034f028189fab5c0355e74430a87e"
+                "sha256": "c2e7498b7ef0be167dfe1ed51764d45256c752c6b01d9a3bd34b1bf0ba19a6a3"
             },
             "app/plugins/font-manager/TinyMashFontManagerService.php": {
                 "bytes": 31348,
@@ -553,7 +553,7 @@
             },
             "app/plugins/font-manager/plugin.json": {
                 "bytes": 709,
-                "sha256": "52b87d917230714c013a3c9426c74ae43c8a9a9209048accf60df5343dadf6af"
+                "sha256": "e0d028f86dd4223426f8f7edec0bc04d3cd6d9a32c70ef8c4d03f47c9d5c1cee"
             },
             "app/plugins/footer/bootstrap.php": {
                 "bytes": 3594,
@@ -561,7 +561,7 @@
             },
             "app/plugins/footer/plugin.json": {
                 "bytes": 559,
-                "sha256": "852e541d17ce0e5add312873fa98f0f42fe3f11d091ab61c3097e23cfe71c241"
+                "sha256": "0f7d8ae7b7fac48a265f38989890c9d37bbf0ce6b475c13d9e29c63981ea02f2"
             },
             "app/plugins/markdown-sync/TinyMashMarkdownCollectionLinkResolver.php": {
                 "bytes": 9062,
@@ -589,7 +589,7 @@
             },
             "app/plugins/markdown-sync/plugin.json": {
                 "bytes": 619,
-                "sha256": "eff9dd6406ed296ba794f9bb25ad05e50149d494a1d09e37da75455df8b154b9"
+                "sha256": "337e2f3380df8b20b820b30df5aeaea1454ced500cd36431b80809a7e40248d0"
             },
             "app/plugins/notes/TinyMashNotesRepository.php": {
                 "bytes": 29619,
@@ -601,7 +601,7 @@
             },
             "app/plugins/notes/plugin.json": {
                 "bytes": 522,
-                "sha256": "4b9e0c174b70bc41087c1c4e62c2d31cff7961d64b36aa3de9f421e5aeab28c3"
+                "sha256": "37a6cf67bdd7a5c424fef0971ce665115e38d54370e1eef35c9176ea375501ea"
             },
             "app/plugins/photos/TinyMashPhotosService.php": {
                 "bytes": 53824,
@@ -613,7 +613,7 @@
             },
             "app/plugins/photos/plugin.json": {
                 "bytes": 597,
-                "sha256": "f3af3e597c9fd4634f8e65d66f8fb0346672f00461899eb003023ba40f962b92"
+                "sha256": "7ffef3306290f8f2b83dfbf980497ce58a1f9f5ba9037cf2c1b95169aaf76550"
             },
             "app/plugins/redirects/TinyMashRedirectsService.php": {
                 "bytes": 13275,
@@ -625,7 +625,7 @@
             },
             "app/plugins/redirects/plugin.json": {
                 "bytes": 687,
-                "sha256": "e5fb26369dea26c79f3cc0aec3c76d45911cb023b898554deb9b032125697036"
+                "sha256": "38e0fe70dc72ee071663bbaa32bf47df909b177e1f1301402919acd037137864"
             },
             "app/plugins/rss-reader/TinyMashRssReaderService.php": {
                 "bytes": 47660,
@@ -637,7 +637,7 @@
             },
             "app/plugins/rss-reader/plugin.json": {
                 "bytes": 706,
-                "sha256": "e3bbb98d671da7ed8c32c47cf53b93a4eb75c82b546df89fc9fdce5c5ef82ef2"
+                "sha256": "fefd087c01ba11a74b3e55c2daddda2bcf035e76573955d58f906f9d6e490399"
             },
             "app/plugins/search/TinyMashSearchService.php": {
                 "bytes": 21678,
@@ -649,7 +649,7 @@
             },
             "app/plugins/search/plugin.json": {
                 "bytes": 653,
-                "sha256": "c76edf9bfe751a3b3e1e9f3ab215cf7b3d1baf9bc1ea66fd14ec84000448e860"
+                "sha256": "87ab45e653de3d05d15a2f8666eacb9de4d85099251aeb899f9e97dd25598e73"
             },
             "app/plugins/seo/TinyMashSeoService.php": {
                 "bytes": 27078,
@@ -661,7 +661,7 @@
             },
             "app/plugins/seo/plugin.json": {
                 "bytes": 633,
-                "sha256": "f2a455bc63f396dd748781be407fcc6f068b4f7927da7ee48b2cf629261f2e5a"
+                "sha256": "1e0566cf01ade1a468ba037bbabd6d06458bb46f89ec4d2b655a2647b2c71a0a"
             },
             "app/plugins/signage/TinyMashSignageService.php": {
                 "bytes": 47327,
@@ -673,7 +673,7 @@
             },
             "app/plugins/signage/plugin.json": {
                 "bytes": 736,
-                "sha256": "ec2100f17bc0acb9a6d8dbf2985e0a94fd55b138531059e1aca7c276d9b71e0a"
+                "sha256": "a3d4aadaed1e1f041f36aef9921800d21f36faee4e19217d7cf71213305fbda6"
             },
             "app/plugins/social/TinyMashSocialService.php": {
                 "bytes": 31018,
@@ -685,7 +685,7 @@
             },
             "app/plugins/social/plugin.json": {
                 "bytes": 734,
-                "sha256": "d6a3b1a7d38e94c2b9850b6166a5dd16f30e2681f0b0f3a91cac12adfad9338b"
+                "sha256": "71dc2a37174a500763a6176e4bbfe3238d29c9fed6cbd59be220d36cb8c97e33"
             },
             "app/plugins/statistics/TinyMashStatisticsRepository.php": {
                 "bytes": 25796,
@@ -697,7 +697,7 @@
             },
             "app/plugins/statistics/plugin.json": {
                 "bytes": 748,
-                "sha256": "2151bf1e0dab6ba0b7f5ed24d19750f02470f62ed1cab787e820157ae11ed9f3"
+                "sha256": "6092b0e12eee6a4541dc3398cf376b7c7fc7951dad17492c268d9c987d5d738f"
             },
             "app/plugins/syntax-highlighting/bootstrap.php": {
                 "bytes": 1563,
@@ -705,7 +705,7 @@
             },
             "app/plugins/syntax-highlighting/plugin.json": {
                 "bytes": 657,
-                "sha256": "5f6b6e2724ece4514dfd1ba01dd3024b02791dc204ec6a302c22918a3e6d6f81"
+                "sha256": "cdcf1e3cdf692b44e7c916a3fde0c67b61d754402776e2513153831d253ba4b6"
             },
             "app/plugins/tiny-links/TinyMashTinyLinksService.php": {
                 "bytes": 17568,
@@ -717,7 +717,7 @@
             },
             "app/plugins/tiny-links/plugin.json": {
                 "bytes": 686,
-                "sha256": "85d869823d34e890063f566293d8009bd6c524112e1e53fa0de40e7f9f651eab"
+                "sha256": "996fe6a48c44351b306edda74c11ac31cbff101cd9823eff15d02eb2c118e432"
             },
             "app/plugins/weather/TinyMashWeatherService.php": {
                 "bytes": 84755,
@@ -729,7 +729,7 @@
             },
             "app/plugins/weather/plugin.json": {
                 "bytes": 760,
-                "sha256": "6d441722c054f9ecf2090329442806abb65cb2f34a3923cfbb6fd91238714f78"
+                "sha256": "90f2337ad981e398252866dac161ca13761dc4a88cac6e16842a9a5c40513cd3"
             },
             "app/plugins/whats-up/TinyMashWhatsUpService.php": {
                 "bytes": 57446,
@@ -741,7 +741,7 @@
             },
             "app/plugins/whats-up/plugin.json": {
                 "bytes": 770,
-                "sha256": "238e316ac0d0b6e12d9b3738ec99de009d4cf8967c7122fd373da9eeeedf03ff"
+                "sha256": "b6f7295916bccee79bb2f642f57627231f89cf7a84206f7d08037e4c60160660"
             },
             "app/plugins/wordpress-import/TinyMashWordPressImportService.php": {
                 "bytes": 84442,
@@ -753,7 +753,7 @@
             },
             "app/plugins/wordpress-import/plugin.json": {
                 "bytes": 573,
-                "sha256": "55d17db135ee13254460b783c69d1368c6d8c3e565f234b52e30d887596f027a"
+                "sha256": "d3c804043edbef7d3c60652945225673f4d94ebf90d75d8d174cd15b7ddfe842"
             },
             "app/themes/admin/baseline/theme.json": {
                 "bytes": 799,
@@ -804,8 +804,8 @@
                 "sha256": "2b3abe940c98b493a90d718ac948aa93aaa3785c00543a8b851da74df39250b9"
             },
             "app/views/admin/baseline/editor.latte": {
-                "bytes": 120522,
-                "sha256": "d522bdab2e0aa431c352f9c5c92bc454731705277864a499459196b853d0f5fe"
+                "bytes": 120971,
+                "sha256": "60ab84824b83668d564feb3521865cb4732fe6bb738de5ae23aee7174f30013a"
             },
             "app/views/admin/baseline/entries.latte": {
                 "bytes": 84006,

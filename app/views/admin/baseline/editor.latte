@@ -1332,6 +1332,7 @@
                 draftSaveController = new AbortController();
                 const requestStateVersion = editorStateVersion;
                 const requestChangeVersion = editorChangeVersion;
+                const requestPayload = buildDraftPayload();
                 clearAutosaveTimer();
                 setTransientStatus(isAutosave ? 'Autosaving...' : 'Saving...');
                 saveButton.disabled = true;
@@ -1347,7 +1348,7 @@
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest'
                         },
-                        body: JSON.stringify(buildDraftPayload()),
+                        body: JSON.stringify(requestPayload),
                         signal: draftSaveController.signal
                     });
 
@@ -1359,7 +1360,9 @@
                     if (requestStateVersion !== editorStateVersion) {
                         return null;
                     }
-                    const hasNewerChanges = requestChangeVersion !== editorChangeVersion;
+                    const publishDateChanged = !!publishedAtLocalField
+                        && publishedAtLocalField.value !== requestPayload.published_at_local;
+                    const hasNewerChanges = requestChangeVersion !== editorChangeVersion || publishDateChanged;
                     loadedDraftId = payload.draft_id || (payload.draft && payload.draft.draft_id) || loadedDraftId;
                     if (editorRoot) {
                         editorRoot.dataset.loadedDraftId = loadedDraftId;
@@ -1370,7 +1373,12 @@
                         if (tagsField && payload.draft && Array.isArray(payload.draft.tags)) {
                             tagsField.value = payload.draft.tags.join(', ');
                         }
-                        if (publishedAtLocalField && payload.draft && typeof payload.draft.published_at_local === 'string') {
+                        if (
+                            publishedAtLocalField
+                            && publishedAtLocalField.value === requestPayload.published_at_local
+                            && payload.draft
+                            && typeof payload.draft.published_at_local === 'string'
+                        ) {
                             publishedAtLocalField.value = payload.draft.published_at_local;
                         }
                         if (payload.draft && typeof payload.draft.fallback_cover_color === 'string') {

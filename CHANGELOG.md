@@ -2,6 +2,10 @@
 
 Notable changes in tinymash
 
+## 0.98.2 - 2026-08-28
+
+- Fixed publish dates reverting on duplicated posts in some browsers
+
 ## 0.98.1 - 2026-08-28
 
 - Fixed duplicated posts restoring the original publish date after it was changed
