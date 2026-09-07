@@ -147,6 +147,41 @@ $app->map('notFound', function () use ( $router, $app ) {
     $app->view()->render('404.latte', ['title' => 'Page not found']);
 });
 
+$router->post('/_tinymash/health', function() use ( $app ) {
+    if ( ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' )
+        || ! defined( 'TINYMASH_UPDATE_TRANSACTION_ID' )
+        || ! $app->has( 'update.health_service' ) ) {
+        $app->response()->status( 404 );
+        return;
+    }
+    $service = $app->get( 'update.health_service' );
+    if ( ! $service instanceof \app\classes\TinyMashUpdateHealthService ) {
+        $app->response()->status( 503 );
+        return;
+    }
+    try {
+        $journal = $service->complete( (string) TINYMASH_UPDATE_TRANSACTION_ID, (string) APP_VERSION );
+        $app->response()->status( 200 );
+        header( 'Content-Type: application/json; charset=UTF-8' );
+        header( 'Cache-Control: no-store' );
+        header( 'X-Content-Type-Options: nosniff' );
+        header( 'Referrer-Policy: no-referrer' );
+        header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
+        echo json_encode( [
+            'status' => 'complete',
+            'version' => (string) ( $journal['target_version'] ?? '' ),
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR );
+    } catch ( \Throwable ) {
+        $app->response()->status( 409 );
+        header( 'Content-Type: application/json; charset=UTF-8' );
+        header( 'Cache-Control: no-store' );
+        header( 'X-Content-Type-Options: nosniff' );
+        header( 'Referrer-Policy: no-referrer' );
+        header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
+        echo '{"error":"The updated site did not pass its health check."}';
+    }
+});
+
 $router->get('/robots.txt', function() use ( $app ) {
     $robots_service = $app->has( 'robots.service' ) ? $app->get( 'robots.service' ) : null;
     if ( ! $robots_service instanceof \app\classes\TinyMashRobotsService ) {
@@ -398,6 +433,14 @@ $router->get( $config->configGetAdminURL() . '/system/@section', function( strin
 $router->post( $config->configGetAdminURL() . '/system/settings', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->saveSystemSettings();
+});
+$router->post( $config->configGetAdminURL() . '/system/updates/stage', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->stageSystemUpdate();
+});
+$router->post( $config->configGetAdminURL() . '/system/updates/handoff', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->createSystemUpdateHandoff();
 });
 $router->post( $config->configGetAdminURL() . '/system/secret-links/generate', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );

@@ -12,6 +12,240 @@ if (!defined('TINYMASH_RUNNING')) {
     define('TINYMASH_RUNNING', true);
 }
 
+function findEarlyCliCommand(array $arguments): string {
+    foreach (array_slice($arguments, 1) as $argument) {
+        if (!is_string($argument) || $argument === '' || str_starts_with($argument, '-')) {
+            continue;
+        }
+        return $argument;
+    }
+
+    return '';
+}
+
+function printEarlyUpdateRecoveryHelp(): void {
+    fwrite(
+        STDOUT,
+        "Description:\n"
+        . "  Inspect or recover an interrupted in-app update.\n\n"
+        . "Usage:\n"
+        . "  update:recover [<action>] [--allow-root]\n\n"
+        . "Arguments:\n"
+        . "  action  status, resume, or rollback [default: status]\n\n"
+        . "Options:\n"
+        . "  --allow-root  Allow recovery to run as root\n"
+        . "  -h, --help    Show this help\n"
+    );
+}
+
+function readEarlyUpdateJson(string $filename, int $maximum_bytes): array {
+    $size = @filesize($filename);
+    if (is_link($filename) || !is_file($filename) || !is_readable($filename)
+        || !is_int($size) || $size < 2 || $size > $maximum_bytes) {
+        throw new \RuntimeException('The update recovery files are unavailable.');
+    }
+    try {
+        $value = json_decode((string) file_get_contents($filename), true, 32, JSON_THROW_ON_ERROR);
+    } catch (\Throwable) {
+        throw new \RuntimeException('The update recovery files are invalid.');
+    }
+    if (!is_array($value)) {
+        throw new \RuntimeException('The update recovery files are invalid.');
+    }
+
+    return $value;
+}
+
+function assertEarlyUpdatePathOwner(string $path, int $owner, bool $private): void {
+    if (PHP_OS_FAMILY === 'Windows') {
+        return;
+    }
+    $stat = @lstat($path);
+    $mode = is_array($stat) ? (int) ($stat['mode'] ?? 0) : 0;
+    if (!is_array($stat) || (int) ($stat['uid'] ?? -1) !== $owner
+        || ($mode & 0022) !== 0 || ($private && ($mode & 0077) !== 0)) {
+        throw new \RuntimeException('The update recovery files are not privately owned.');
+    }
+}
+
+function loadEarlyUpdateRecoveryService(string $installation_root): app\classes\TinyMashUpdateCliRecoveryService {
+    $runtime_directory = $installation_root . '/data/runtime';
+    $journal_filename = $runtime_directory . '/update-transaction.json';
+    $installation_stat = @lstat($installation_root . '/app');
+    $installation_owner = is_array($installation_stat) ? (int) ($installation_stat['uid'] ?? -1) : -1;
+    if ($installation_owner < 0) {
+        throw new \RuntimeException('The installation owner could not be verified.');
+    }
+    assertEarlyUpdatePathOwner($journal_filename, $installation_owner, true);
+    $journal = readEarlyUpdateJson($journal_filename, 1048576);
+    $transaction_id = (string) ($journal['transaction_id'] ?? '');
+    $manifest_sha256 = (string) ($journal['steps']['worker_runtime']['manifest_sha256'] ?? '');
+    if ((string) ($journal['format'] ?? '') !== 'tinymash-update-transaction'
+        || preg_match('/^[a-f0-9]{32}$/D', $transaction_id) !== 1
+        || preg_match('/^[a-f0-9]{64}$/D', $manifest_sha256) !== 1) {
+        throw new \RuntimeException('No recoverable update transaction is available.');
+    }
+
+    $recovery_root = $runtime_directory . '/update-transactions';
+    $transaction_directory = $recovery_root . '/transaction-' . $transaction_id;
+    $worker_root = $transaction_directory . '/worker-runtime';
+    assertEarlyUpdatePathOwner($recovery_root, $installation_owner, false);
+    assertEarlyUpdatePathOwner($transaction_directory, $installation_owner, true);
+    assertEarlyUpdatePathOwner($worker_root, $installation_owner, true);
+    $real_worker_root = @realpath($worker_root);
+    if (is_link($recovery_root) || is_link($transaction_directory) || is_link($worker_root)
+        || !is_string($real_worker_root) || !hash_equals($worker_root, rtrim($real_worker_root, DIRECTORY_SEPARATOR))) {
+        throw new \RuntimeException('The update recovery worker is unavailable.');
+    }
+
+    $manifest_filename = $worker_root . '/manifest.json';
+    assertEarlyUpdatePathOwner($manifest_filename, $installation_owner, false);
+    $actual_manifest_sha256 = @hash_file('sha256', $manifest_filename);
+    if (!is_string($actual_manifest_sha256) || !hash_equals($manifest_sha256, $actual_manifest_sha256)) {
+        throw new \RuntimeException('The update recovery worker is unavailable.');
+    }
+    $manifest = readEarlyUpdateJson($manifest_filename, 65536);
+    $files = is_array($manifest['files'] ?? null) ? $manifest['files'] : [];
+    $service_path = 'app/classes/TinyMashUpdateCliRecoveryService.php';
+    if ((string) ($manifest['format'] ?? '') !== 'tinymash-update-worker-runtime'
+        || (int) ($manifest['schema'] ?? 0) !== 1
+        || !isset($files[$service_path])) {
+        throw new \RuntimeException('This transaction does not include CLI recovery.');
+    }
+    foreach ($files as $relative_path => $metadata) {
+        $relative_path = (string) $relative_path;
+        $metadata = is_array($metadata) ? $metadata : [];
+        $segments = explode('/', $relative_path);
+        if ($relative_path === '' || str_starts_with($relative_path, '/')
+            || in_array('', $segments, true) || in_array('.', $segments, true) || in_array('..', $segments, true)
+            || preg_match('/[\x00-\x1F\x7F\\\\]/', $relative_path) === 1) {
+            throw new \RuntimeException('The update recovery worker is invalid.');
+        }
+        $filename = $worker_root . '/' . $relative_path;
+        assertEarlyUpdatePathOwner($filename, $installation_owner, false);
+        $real_filename = @realpath($filename);
+        $expected_bytes = $metadata['bytes'] ?? null;
+        $expected_sha256 = (string) ($metadata['sha256'] ?? '');
+        if (is_link($filename) || !is_file($filename) || !is_readable($filename)
+            || !is_string($real_filename) || !str_starts_with($real_filename, $real_worker_root . DIRECTORY_SEPARATOR)
+            || !is_int($expected_bytes) || $expected_bytes < 1 || @filesize($filename) !== $expected_bytes
+            || preg_match('/^[a-f0-9]{64}$/D', $expected_sha256) !== 1
+            || !hash_equals($expected_sha256, (string) @hash_file('sha256', $filename))) {
+            throw new \RuntimeException('The update recovery worker is invalid.');
+        }
+    }
+
+    require $worker_root . '/' . $service_path;
+    return new app\classes\TinyMashUpdateCliRecoveryService(
+        $installation_root,
+        $recovery_root,
+        $journal_filename,
+        $runtime_directory
+    );
+}
+
+function printEarlyUpdateRecoveryStatus(array $status): void {
+    $managed = is_array($status['steps']['managed_files'] ?? null) ? $status['steps']['managed_files'] : [];
+    $rows = [
+        'Installed version' => (string) ($status['installed_version'] ?? 'unknown'),
+        'Target version' => (string) ($status['target_version'] ?? 'unknown'),
+        'Phase' => (string) ($status['phase'] ?? 'unknown'),
+    ];
+    if ((int) ($managed['total'] ?? 0) > 0) {
+        $rows['Application files'] = (int) ($managed['completed'] ?? 0) . ' of ' . (int) $managed['total'];
+    }
+    if ((string) ($status['error'] ?? '') !== '') {
+        $rows['Error'] = (string) $status['error'];
+    }
+    $width = max(...array_map('strlen', array_keys($rows)));
+    fwrite(STDOUT, "tinymash update recovery\n========================\n");
+    foreach ($rows as $label => $value) {
+        fwrite(STDOUT, '  ' . str_pad($label, $width) . '  ' . $value . PHP_EOL);
+    }
+}
+
+function runEarlyUpdateRecovery(array $arguments): never {
+    if (in_array('--help', $arguments, true) || in_array('-h', $arguments, true)) {
+        printEarlyUpdateRecoveryHelp();
+        exit(0);
+    }
+
+    $command_seen = false;
+    $action = 'status';
+    $action_seen = false;
+    foreach (array_slice($arguments, 1) as $argument) {
+        if (!is_string($argument) || $argument === '') {
+            continue;
+        }
+        if (!$command_seen && $argument === 'update:recover') {
+            $command_seen = true;
+            continue;
+        }
+        if (in_array($argument, ['--allow-root', '--no-interaction', '-n'], true)) {
+            continue;
+        }
+        if (str_starts_with($argument, '-')) {
+            fwrite(STDERR, 'tinymash: unknown recovery option ' . $argument . PHP_EOL);
+            exit(2);
+        }
+        if ($action_seen) {
+            fwrite(STDERR, "tinymash: update:recover accepts one action\n");
+            exit(2);
+        }
+        $action = strtolower($argument);
+        $action_seen = true;
+    }
+    if (!in_array($action, ['status', 'resume', 'rollback'], true)) {
+        fwrite(STDERR, "tinymash: recovery action must be status, resume, or rollback\n");
+        exit(2);
+    }
+
+    $is_root = (function_exists('posix_geteuid') && posix_geteuid() === 0)
+        || (function_exists('posix_getegid') && posix_getegid() === 0);
+    if ($is_root) {
+        fwrite(STDERR, "tinymash: warning: use the tinymash user for update recovery\n");
+        if ($action !== 'status' && !in_array('--allow-root', $arguments, true)) {
+            fwrite(STDERR, "tinymash: refusing mutating recovery as root without --allow-root\n");
+            exit(1);
+        }
+    }
+
+    try {
+        $service = loadEarlyUpdateRecoveryService(dirname(__DIR__));
+        $status = $service->run($action);
+        printEarlyUpdateRecoveryStatus($status);
+        exit(0);
+    } catch (\Throwable $exception) {
+        fwrite(STDERR, 'tinymash: ' . $exception->getMessage() . PHP_EOL);
+        exit(1);
+    }
+}
+
+$early_cli_command = findEarlyCliCommand($argv ?? []);
+if ($early_cli_command === 'update:recover') {
+    runEarlyUpdateRecovery($argv ?? []);
+}
+
+require_once __DIR__ . '/../app/classes/TinyMashWriterGate.php';
+
+$cli_setup_request = false;
+foreach (array_slice($argv ?? [], 1) as $argument) {
+    if (!is_string($argument) || $argument === '' || str_starts_with($argument, '-')) {
+        continue;
+    }
+    $cli_setup_request = $argument === 'setup';
+    break;
+}
+$cli_writer_lease = null;
+if (!$cli_setup_request) {
+    try {
+        $cli_writer_lease = (new app\classes\TinyMashWriterGate(__DIR__ . '/../data/runtime'))->acquireShared();
+    } catch (\Throwable) {
+        fwrite(STDERR, "tinymash: a site update is in progress\n");
+        exit(1);
+    }
+}
+
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../app/config/globals.inc.php';
 require_once __DIR__ . '/../app/classes/TinyMashConfig.php';
@@ -95,6 +329,8 @@ use app\classes\TinyMashMailer;
 use app\classes\TinyMashNotificationService;
 use app\classes\TinyMashPasswordResetService;
 use app\classes\TinyMashComponentsReportService;
+use app\classes\TinyMashWriterGate;
+use app\classes\TinyMashWriterLease;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\InvalidArgumentException as ConsoleInvalidArgumentException;
@@ -232,6 +468,10 @@ function guardRootUserForCliCommand(bool $read_only, bool $allow_root): void {
     }
 }
 
+function acquireCliWriterLease(): TinyMashWriterLease {
+    return (new TinyMashWriterGate(TINYMASH_RUNTIME_DIR))->acquireShared();
+}
+
 function readUsers(): array {
     $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
     return ['users' => $repository->getAllUsers()];
@@ -258,6 +498,11 @@ function writeUsers(array $data): void {
 }
 
 function getCliEditorDefaultMode(): string {
+    $config_filename = dirname(__DIR__) . '/app/config/tinymash.json';
+    if (!is_file($config_filename)) {
+        return 'simple';
+    }
+
     $config = new TinyMashConfigIO();
     if (!$config->getConfig()) {
         return 'simple';
@@ -3083,6 +3328,7 @@ class TinymashSetupCommand extends Command {
             $io->error('Fix the failed preflight checks and run setup again.');
             return Command::FAILURE;
         }
+        $writer_lease = acquireCliWriterLease();
 
         try {
             $config = loadSetupConfigArray($config_filename);
@@ -3528,6 +3774,19 @@ function buildTinymashConsoleApplication(): Application {
             'name' => 'maintenance:off',
             'description' => 'Disable maintenance mode.',
         ], static fn() => setMaintenance(false)),
+        new TinymashCallableCommand([
+            'name' => 'update:recover',
+            'description' => 'Inspect or recover an interrupted in-app update.',
+            'arguments' => [
+                ['name' => 'action', 'description' => 'Recovery action', 'default' => 'status', 'choices' => ['status', 'resume', 'rollback']],
+            ],
+            'examples' => [
+                'php8.4 bin/tinymash.php update:recover status',
+                'php8.4 bin/tinymash.php update:recover resume',
+                'php8.4 bin/tinymash.php update:recover rollback',
+            ],
+            'notes' => 'Resume completes the pending file replacement and CLI health check. Rollback is available only before the updated site resumes writes.',
+        ], static fn() => null),
         new TinymashCallableCommand([
             'name' => 'cache:clear',
             'description' => 'Clear compiled templates and persistent runtime caches.',

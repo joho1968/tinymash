@@ -13,7 +13,7 @@ trait AdminContentConcern {
         }
 
         $active_tab = $this->normalizeContentBatchTab( (string) ( $query['tab'] ?? 'entries' ) );
-        $content_filters = $this->normalizeContentFilters( $query );
+        $content_filters = $this->resolveContentFiltersForRequest( $query, $active_tab );
         $this->renderAdmin(
             'entries',
             [
@@ -401,6 +401,71 @@ trait AdminContentConcern {
                 'trash_page' => $this->normalizeContentPage( $data['trash_page'] ?? 1 ),
             ]
         );
+    }
+
+    protected function resolveContentFiltersForRequest( array $query, string $active_tab ) : array {
+        $active_tab = $this->normalizeContentBatchTab( $active_tab );
+        $defaults = $this->normalizeContentFilters( [] );
+        $filters = array_replace( $defaults, $this->getContentStickyFilters() );
+
+        if ( strtolower( trim( (string) ( $query['content_filters'] ?? '' ) ) ) === 'reset' ) {
+            foreach ( $defaults as $key => $value ) {
+                if ( str_starts_with( $key, $active_tab . '_' ) ) {
+                    $filters[$key] = $value;
+                }
+            }
+            $this->setContentStickyFilters( $filters );
+            return( $filters );
+        }
+
+        $normalized_query = $this->normalizeContentFilters( $query );
+        $has_filter_input = false;
+        foreach ( array_keys( $defaults ) as $key ) {
+            if ( ! array_key_exists( $key, $query ) ) {
+                continue;
+            }
+
+            $filters[$key] = $normalized_query[$key];
+            $has_filter_input = true;
+        }
+
+        $active_filter_keys = $active_tab === 'entries'
+            ? [ 'entries_owner', 'entries_title', 'entries_type', 'entries_tree' ]
+            : [ $active_tab . '_owner', $active_tab . '_title', $active_tab . '_type' ];
+        $active_filters_submitted = false;
+        foreach ( $active_filter_keys as $key ) {
+            if ( array_key_exists( $key, $query ) ) {
+                $active_filters_submitted = true;
+                break;
+            }
+        }
+        $active_page_key = $active_tab . '_page';
+        if ( $active_filters_submitted && ! array_key_exists( $active_page_key, $query ) ) {
+            $filters[$active_page_key] = 1;
+        }
+
+        if ( $has_filter_input ) {
+            $this->setContentStickyFilters( $filters );
+        }
+
+        return( $filters );
+    }
+
+    protected function getContentStickyFilters() : array {
+        if ( session_status() !== PHP_SESSION_ACTIVE ) {
+            return( [] );
+        }
+
+        $filters = $_SESSION['tinymash_content_filters'] ?? [];
+        return( is_array( $filters ) ? $this->normalizeContentFilters( $filters ) : [] );
+    }
+
+    protected function setContentStickyFilters( array $filters ) : void {
+        if ( session_status() !== PHP_SESSION_ACTIVE ) {
+            return;
+        }
+
+        $_SESSION['tinymash_content_filters'] = $this->normalizeContentFilters( $filters );
     }
 
     protected function normalizeContentTreeMode( mixed $value ) : bool {

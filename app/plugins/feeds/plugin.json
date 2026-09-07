@@ -1,7 +1,7 @@
 {
     "key": "feeds",
     "name": "Feeds",
-    "version": "0.98.2",
+    "version": "0.99.2",
     "description": "Provides RSS 2.0, Atom 1.0, and JSON Feed for the site and author spaces.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

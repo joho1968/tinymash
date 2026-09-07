@@ -258,6 +258,16 @@ The command stages every policy-owned file, verifies source and destination hash
 
 See `INSTALL.md` for the complete staged existing-installation upgrade procedure.
 
+Recover an interrupted in-app update from the installation directory:
+
+```bash
+php8.4 bin/tinymash.php update:recover status
+php8.4 bin/tinymash.php update:recover resume
+php8.4 bin/tinymash.php update:recover rollback
+```
+
+This command loads the transaction's verified sealed recovery worker before normal application boot, so it remains available while updater maintenance blocks ordinary CLI commands. `resume` completes pending managed-file work and the local deploy health check. `rollback` is available only after replacement began and before the updated site resumes writes. Run recovery as the installation owner; mutating recovery refuses root unless `--allow-root` is explicitly supplied.
+
 ## Export And Import
 
 Export the whole site:

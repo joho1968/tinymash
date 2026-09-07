@@ -69,6 +69,16 @@ The document root must be:
 
 Do not point the web server at the repository root or runtime root.
 
+A hosting account may keep the tinymash installation below a broader site-definition directory:
+
+```text
+/var/www/example/                  site definition with logs, temp, and host files
+└── tinymash/                      installation root
+    └── public/                    web document root
+```
+
+Only the installation root is covered by `deploy:audit` and in-app managed-file replacement. Site-definition siblings are not application files.
+
 Use the included sample configurations as your starting point:
 
 - `samples/server/nginx.sample.conf`
@@ -84,9 +94,11 @@ php_admin_value[session.name] = TINYMASHEXAMPLE
 
 This avoids session-cookie name collisions when installations share a hostname. PHP's `session.gc_maxlifetime` setting controls how long an inactive server-side session remains available; set it globally or for the site's PHP-FPM pool according to your login policy. If several sites share Redis-backed sessions, also give each site an explicit Redis session prefix.
 
-Give each PHP-FPM pool its own writable temporary root. Tinymash prefers `sys_temp_dir`, then `TMP`, `TMPDIR`, and `TEMP`, with the installation's `tmp/` directory as the final fallback. `upload_tmp_dir` remains PHP's upload-staging setting. The included PHP-FPM sample has these settings.
+Give each PHP-FPM pool its own writable temporary root. tinymash prefers `sys_temp_dir`, then `TMP`, `TMPDIR`, and `TEMP`, with the installation's `tmp/` directory as the final fallback. `upload_tmp_dir` remains PHP's upload-staging setting. The included PHP-FPM sample has these settings.
 
-Tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before Tinymash can authorize them. If you want an additional HTTP Basic layer, use the included Apache/Nginx examples to limit it to the admin URL for either a top-level or sub-URL installation, then verify that public routes and routed media still reach Tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging in the web-server access log.
+For `open_basedir`, allow the complete installation root plus explicit site-level directories PHP actually uses, such as its temporary and PHP log directories. Nginx-only authentication files do not need PHP access.
+
+tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before tinymash can authorize them. If you want an additional HTTP Basic layer, use the included Apache/Nginx examples to limit it to the admin URL for either a top-level or sub-URL installation, then verify that public routes and routed media still reach tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging in the web-server access log.
 
 If you want explicit OPcache settings, use:
 
@@ -149,6 +161,8 @@ Use it as reference only; do not overwrite an existing `app/config/tinymash.json
 ## Upgrading an existing installation
 
 Do not copy a new release over the old application tree. Removed PHP, plugin, theme, vendor, or public files can remain executable after an overlay.
+
+Installations on `0.98.2` or earlier need the manual sibling procedure below to reach `0.99.2`; their release artifact does not contain the guarded web updater. The immutable `0.99.0` archive also predates the updater. For `0.99.1`, the manual sibling procedure is recommended: an in-app update started there still uses its original recovery worker, including its interruption-recovery limitations. After a site is running `0.99.2`, later compatible signed releases use the corrected recovery behavior from **System > Updates**.
 
 Use a staged sibling directory and run the preparation command from the new release root:
 

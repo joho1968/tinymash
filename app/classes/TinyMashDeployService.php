@@ -6,6 +6,11 @@ require_once __DIR__ . '/TinyMashDeployPolicy.php';
 
 class TinyMashDeployService {
 
+    protected const REPOSITORY_METADATA_NAMES = [
+        '.codeberg', '.git', '.gitattributes', '.github', '.gitignore', '.gitkeep',
+        '.gitlab', '.gitmodules', '.hg', '.hgignore', '.svn',
+    ];
+
     protected const DEPLOY_ALLOWED_MANIFEST_PATHS = [
         'root_files' => [
             'CHANGELOG.md', 'CLI.md', 'INSTALL.md', 'LICENSE', 'README.md',
@@ -766,6 +771,12 @@ class TinyMashDeployService {
         $relative_path = $this->normalizeRelativePath( $relative_path );
         if ( $relative_path === '' ) {
             return( false );
+        }
+
+        foreach ( explode( '/', $relative_path ) as $path_segment ) {
+            if ( in_array( strtolower( $path_segment ), self::REPOSITORY_METADATA_NAMES, true ) ) {
+                return( true );
+            }
         }
 
         if ( in_array( $relative_path, $this->exclude_paths, true ) ) {

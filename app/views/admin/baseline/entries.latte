@@ -144,7 +144,7 @@
                                 </div>
                                 <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
                                     <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
-                                    <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}">Reset</a>
+                                    <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?content_filters=reset">Reset</a>
                                 </div>
                                 <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
                                     Showing {count($entries)} ({$filtered_counts['entries'] ?? count($entries)})
@@ -335,7 +335,7 @@
                                 </div>
                                 <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
                                     <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
-                                    <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=drafts">Reset</a>
+                                    <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=drafts&amp;content_filters=reset">Reset</a>
                                 </div>
                                 <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
                                     Showing {count($entry_drafts)} ({$filtered_counts['drafts'] ?? count($entry_drafts)})
@@ -474,7 +474,7 @@
                                     </div>
                                     <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
                                         <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
-                                        <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=moderation">Reset</a>
+                                        <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=moderation&amp;content_filters=reset">Reset</a>
                                     </div>
                                     <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
                                         Showing {count($pending_review_entries)} ({$filtered_counts['pending_review'] ?? count($pending_review_entries)})
@@ -605,7 +605,7 @@
                             </div>
                             <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
                                 <button class="btn btn-sm btn-outline-secondary" type="submit">Filter</button>
-                                <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=trash&entries_tree={$entries_tree_filter}">Reset</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="{$entries_url}?tab=trash&amp;content_filters=reset">Reset</a>
                             </div>
                             <div class="col-12 col-md-auto ms-md-auto small text-body-secondary">
                                 Showing {count($trash_entries)} ({$filtered_counts['trash'] ?? count($trash_entries)})

@@ -1,0 +1,176 @@
+{var $updates = is_array($system_update_availability ?? null) ? $system_update_availability : []}
+{var $update_status = (string) ($updates['status'] ?? 'unavailable')}
+{var $release = is_array($updates['release'] ?? null) ? $updates['release'] : []}
+{var $stage = is_array($system_update_stage ?? null) ? $system_update_stage : []}
+
+<section class="p-3 bg-body border rounded-3 shadow-sm">
+    <div class="small text-uppercase text-body-secondary mb-2">Updates</div>
+    <h1 class="h5 mb-1">tinymash updates</h1>
+    <p class="small text-body-secondary mb-3">Checks for signed stable releases.</p>
+
+    {if ! empty($updates['refresh_failed']) && $update_status !== 'unavailable'}
+        <div class="alert alert-warning" role="alert">The latest check failed. The last verified result is shown.</div>
+    {/if}
+
+    <div class="bg-body-secondary rounded-3 p-3">
+        <dl class="row mb-0">
+            <dt class="col-sm-4 fw-normal text-body-secondary">Installed version</dt>
+            <dd class="col-sm-8 font-monospace">{$updates['installed_version'] ?? 'Unknown'}</dd>
+
+            {if $update_status === 'available'}
+                <dt class="col-sm-4 fw-normal text-body-secondary">Available version</dt>
+                <dd class="col-sm-8 font-monospace">{$updates['available_version']}</dd>
+                <dt class="col-sm-4 fw-normal text-body-secondary">Compatibility</dt>
+                <dd class="col-sm-8">Compatible with this installation</dd>
+                {if ! empty($updates['released_at_display'])}
+                    <dt class="col-sm-4 fw-normal text-body-secondary">Released</dt>
+                    <dd class="col-sm-8">{$updates['released_at_display']}</dd>
+                {/if}
+            {elseif $update_status === 'current'}
+                <dt class="col-sm-4 fw-normal text-body-secondary">Status</dt>
+                <dd class="col-sm-8">tinymash is up to date.</dd>
+            {elseif $update_status === 'ahead'}
+                <dt class="col-sm-4 fw-normal text-body-secondary">Status</dt>
+                <dd class="col-sm-8">This installation is newer than the current stable release.</dd>
+            {else}
+                <dt class="col-sm-4 fw-normal text-body-secondary">Status</dt>
+                <dd class="col-sm-8">Release information is unavailable. Try again later.</dd>
+            {/if}
+        </dl>
+
+        {if $update_status === 'available' && ! empty($release['release_notes_url'])}
+            <p class="mb-0 mt-2"><a class="link-offset-2" href="{$release['release_notes_url']}" target="_blank" rel="noopener noreferrer">Release notes</a></p>
+        {/if}
+
+        {if $update_status === 'available' && empty($stage)}
+            <form method="post" action="{$system_update_stage_url}" class="mt-3">
+                <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
+                <button type="submit" class="btn btn-primary">Download and check</button>
+                <p class="small text-body-secondary mt-2 mb-0">Downloads and checks the release without changing this site.</p>
+            </form>
+        {elseif ! empty($stage)}
+            <div class="mt-4">
+                <h2 class="h6 mb-1">Package checked</h2>
+                <p class="small text-body-secondary mb-3">
+                    {if ! empty($stage['preflight_ok'])}All checks passed. This site has not been changed.{else}The package is valid, but this installation is not ready to update.{/if}
+                </p>
+                <div class="table-responsive d-none d-sm-block">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Check</th>
+                                <th scope="col">Result</th>
+                                <th scope="col">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {foreach $stage['checks'] ?? [] as $check}
+                                <tr>
+                                    <th scope="row" class="fw-normal">{$check['check'] ?? ''}</th>
+                                    <td>{if ! empty($check['ok'])}Passed{else}Failed{/if}</td>
+                                    <td class="text-body-secondary">{$check['detail'] ?? ''}</td>
+                                </tr>
+                            {/foreach}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-sm-none">
+                    {foreach $stage['checks'] ?? [] as $check}
+                        <div class="py-2 border-bottom">
+                            <div class="d-flex gap-2 justify-content-between align-items-start">
+                                <span class="fw-semibold">{$check['check'] ?? ''}</span>
+                                <span>{if ! empty($check['ok'])}Passed{else}Failed{/if}</span>
+                            </div>
+                            <div class="small text-body-secondary mt-1">{$check['detail'] ?? ''}</div>
+                        </div>
+                    {/foreach}
+                </div>
+                {if ! empty($stage['errors'])}
+                    <ul class="small text-danger mt-3 mb-0">
+                        {foreach $stage['errors'] as $error}<li>{$error}</li>{/foreach}
+                    </ul>
+                {/if}
+
+                {if ! empty($stage['preflight_ok'])}
+                    <div
+                        id="tm-update-installer"
+                        class="mt-4 pt-3 border-top"
+                        data-handoff-url="{$system_update_handoff_url}"
+                        data-health-url="{$system_update_health_url}"
+                    >
+                        <div data-tm-update-confirm>
+                            <h2 class="h6 mb-1">Install update</h2>
+                            <p class="small text-body-secondary mb-3">The site will be unavailable while application files are replaced and checked.</p>
+                            <form data-tm-update-form>
+                                <div class="mb-3">
+                                    <label class="form-label" for="tm-update-current-password">Current password</label>
+                                    <input class="form-control" id="tm-update-current-password" name="current_password" type="password" autocomplete="current-password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Install update</button>
+                                <p class="small text-danger-emphasis mt-2 mb-0" role="alert" hidden data-tm-update-confirm-error></p>
+                            </form>
+                        </div>
+
+                        <div data-tm-update-progress hidden>
+                            <h2 class="h6 mb-1" tabindex="-1" data-tm-update-progress-heading>Update progress</h2>
+                            <p class="small text-body-secondary mb-3" data-tm-update-summary aria-live="polite">Preparing the update.</p>
+                            <div class="progress mb-3" role="progressbar" aria-label="Application files replaced" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden data-tm-update-progressbar>
+                                <div class="progress-bar" style="width: 0%" data-tm-update-progressbar-value></div>
+                            </div>
+                            <dl class="row small mb-0" data-tm-update-steps>
+                                <dt class="col-sm-7 fw-normal">Rollback copy</dt>
+                                <dd class="col-sm-5" data-tm-update-step="code_rollback">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Recovery worker</dt>
+                                <dd class="col-sm-5" data-tm-update-step="worker_runtime">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Target release</dt>
+                                <dd class="col-sm-5" data-tm-update-step="target_release">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Site backup</dt>
+                                <dd class="col-sm-5" data-tm-update-step="site_backup">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Site data recheck</dt>
+                                <dd class="col-sm-5" data-tm-update-step="backup_recheck">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Application files</dt>
+                                <dd class="col-sm-5" data-tm-update-step="managed_files">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Installed-file audit</dt>
+                                <dd class="col-sm-5" data-tm-update-step="final_audit">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">PHP code cache</dt>
+                                <dd class="col-sm-5" data-tm-update-step="opcache">Waiting</dd>
+                                <dt class="col-sm-7 fw-normal">Updated-site check</dt>
+                                <dd class="col-sm-5" data-tm-update-step="health_check">Waiting</dd>
+                            </dl>
+                            <p class="small text-danger-emphasis mt-3 mb-0" role="alert" hidden data-tm-update-error></p>
+                            <div class="d-flex flex-wrap gap-2 mt-3" hidden data-tm-update-actions>
+                                <button type="button" class="btn btn-primary" hidden data-tm-update-resume>Resume update</button>
+                                <a class="link-body-emphasis link-offset-2 align-self-center" href="{$system_update_return_url}" hidden data-tm-update-reload>Reload Updates</a>
+                                <span class="w-100 d-sm-none" aria-hidden="true"></span>
+                                <button type="button" class="btn btn-danger ms-sm-auto" hidden data-tm-update-rollback>Roll back</button>
+                            </div>
+                        </div>
+                    </div>
+                    <script src="/js/tinymash-admin-update.js"></script>
+                {/if}
+            </div>
+        {/if}
+    </div>
+
+    {if $update_status !== 'unavailable'}
+        <details class="mt-3">
+            <summary class="small text-body-secondary">Technical details</summary>
+            <dl class="row small mt-3 mb-0">
+                <dt class="col-sm-4 fw-normal text-body-secondary">Verified</dt>
+                <dd class="col-sm-8">{$updates['verified_at_display'] ?? 'Unknown'}</dd>
+                <dt class="col-sm-4 fw-normal text-body-secondary">Signing key</dt>
+                <dd class="col-sm-8 font-monospace">{$updates['signing_key_id'] ?? 'Unknown'}</dd>
+                {if ! empty($stage['checked_at_display'])}
+                    <dt class="col-sm-4 fw-normal text-body-secondary">Package checked</dt>
+                    <dd class="col-sm-8">{$stage['checked_at_display']}</dd>
+                {/if}
+                {if $update_status === 'available'}
+                    <dt class="col-sm-4 fw-normal text-body-secondary">PHP</dt>
+                    <dd class="col-sm-8 font-monospace">{$release['php']['minimum'] ?? 'Unknown'}{if ! empty($release['php']['maximum_exclusive'])}–{$release['php']['maximum_exclusive']} (exclusive){/if}</dd>
+                    <dt class="col-sm-4 fw-normal text-body-secondary">Required extensions</dt>
+                    <dd class="col-sm-8 font-monospace">{implode(', ', $release['required_extensions'] ?? [])}</dd>
+                {/if}
+            </dl>
+        </details>
+    {/if}
+</section>

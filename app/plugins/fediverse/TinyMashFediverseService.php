@@ -580,7 +580,8 @@ class TinyMashFediverseService {
         $title = $this->normalizeStatusFragmentText( (string) ( $entry['title'] ?? '' ) );
         $summary = $this->normalizeStatusFragmentText( (string) ( $entry['summary'] ?? '' ) );
         $excerpt = $summary !== '' ? $summary : $this->buildExcerptFromMarkdown( (string) ( $entry['content'] ?? '' ) );
-        $hashtags = $this->buildHashtags( is_array( $entry['tags'] ?? null ) ? $entry['tags'] : [] );
+        $hashtag_list = $this->buildHashtagList( is_array( $entry['tags'] ?? null ) ? $entry['tags'] : [] );
+        $hashtags = implode( ' ', $hashtag_list );
         $url = ! empty( $entry_settings['include_link_back'] ) ? $this->buildAbsoluteEntryUrl( $entry ) : '';
 
         $parts = $this->buildStatusParts( $excerpt, $hashtags, $url );
@@ -597,19 +598,35 @@ class TinyMashFediverseService {
                     'title' => $title,
                     'excerpt' => $excerpt,
                     'hashtags' => $hashtags,
+                    'omitted_hashtag_count' => 0,
                     'link_back_url' => $url,
                     'include_link_back' => $url !== '',
                 ]
             );
         }
 
-        if ( $excerpt !== '' ) {
-            $remaining = $character_limit - mb_strlen( $hashtags ) - ( $url !== '' ? mb_strlen( $url ) : 0 ) - 6;
-            if ( $remaining < 40 ) {
-                $remaining = 40;
+        $original_hashtag_count = count( $hashtag_list );
+        while ( $hashtag_list !== [] ) {
+            $hashtags = implode( ' ', $hashtag_list );
+            $fixed_status = implode( "\n\n", $this->buildStatusParts( '', $hashtags, $url ) );
+            if ( mb_strlen( $fixed_status ) <= $character_limit ) {
+                break;
             }
-            $excerpt = mb_substr( $excerpt, 0, max( 0, $remaining - 1 ) );
-            $excerpt = rtrim( $excerpt, " \t\n\r\0\x0B.,;:-" ) . '…';
+
+            array_pop( $hashtag_list );
+        }
+        $hashtags = implode( ' ', $hashtag_list );
+
+        if ( $excerpt !== '' ) {
+            $fixed_status = implode( "\n\n", $this->buildStatusParts( '', $hashtags, $url ) );
+            $remaining = $character_limit - mb_strlen( $fixed_status ) - ( $fixed_status !== '' ? 2 : 0 );
+            if ( $remaining <= 0 ) {
+                $excerpt = '';
+            } elseif ( mb_strlen( $excerpt ) > $remaining ) {
+                $excerpt = $remaining === 1
+                    ? '…'
+                    : rtrim( mb_substr( $excerpt, 0, $remaining - 1 ), " \t\n\r\0\x0B.,;:-" ) . '…';
+            }
         }
 
         $parts = $this->buildStatusParts( $excerpt, $hashtags, $url );
@@ -626,6 +643,7 @@ class TinyMashFediverseService {
                 'title' => $title,
                 'excerpt' => $excerpt,
                 'hashtags' => $hashtags,
+                'omitted_hashtag_count' => $original_hashtag_count - count( $hashtag_list ),
                 'link_back_url' => $url,
                 'include_link_back' => $url !== '',
             ]
@@ -656,6 +674,10 @@ class TinyMashFediverseService {
 
         if ( ! empty( $preview['will_truncate'] ) ) {
             $warnings[] = 'The generated Fediverse post exceeded the configured character limit. This outbound preview has already been shortened.';
+        }
+
+        if ( (int) ( $preview['omitted_hashtag_count'] ?? 0 ) > 0 ) {
+            $warnings[] = 'Some tags were omitted because the generated Fediverse post reached the configured character limit.';
         }
 
         if ( $summary === '' && $status_text !== '' ) {
@@ -693,7 +715,7 @@ class TinyMashFediverseService {
         return( array_values( array_unique( $warnings ) ) );
     }
 
-    protected function buildHashtags( array $tags, int $limit = 4 ) : string {
+    protected function buildHashtagList( array $tags ) : array {
         $hashtags = [];
         foreach ( $tags as $tag ) {
             if ( ! is_scalar( $tag ) && $tag !== null ) {
@@ -712,12 +734,9 @@ class TinyMashFediverseService {
             }
 
             $hashtags[] = $hashtag;
-            if ( count( $hashtags ) >= $limit ) {
-                break;
-            }
         }
 
-        return( implode( ' ', $hashtags ) );
+        return( $hashtags );
     }
 
     protected function buildExcerptFromMarkdown( string $markdown ) : string {

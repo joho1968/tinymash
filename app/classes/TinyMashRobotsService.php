@@ -53,7 +53,7 @@ class TinyMashRobotsService {
     public function getCoreDisallowPaths() : array {
         $admin_path = $this->normalizeRoutePath( (string) $this->config->configGetAdminURL() );
         $login_path = $this->normalizeRoutePath( (string) $this->config->configGetLoginURL() );
-        $paths = [ $admin_path, '/s/' ];
+        $paths = [ $admin_path, '/s/', '/_tinymash/' ];
         if ( $login_path !== '' && ! $this->pathIsWithin( $login_path, $admin_path ) ) {
             $paths[] = $login_path;
         }

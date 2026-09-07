@@ -5,9 +5,29 @@ if ( empty( TINYMASH_RUNNING ) ) {
     die( 'We do not seem to have all the bits configured' );
 }
 
+$ds = DIRECTORY_SEPARATOR;
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashWriterGate.php' );
+
+$writer_gate = new app\classes\TinyMashWriterGate(
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime'
+);
+$web_writer_lease = null;
+if ( PHP_SAPI !== 'cli' && ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
+    try {
+        $web_writer_lease = $writer_gate->acquireShared();
+    } catch ( \Throwable ) {
+        http_response_code( 503 );
+        header( 'Content-Type: text/html; charset=UTF-8' );
+        header( 'Cache-Control: no-store' );
+        header( 'Retry-After: 30' );
+        header( 'X-Robots-Tag: noindex, nofollow' );
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Site update</title><style>body{margin:0;padding:2rem;font:1rem/1.5 system-ui,sans-serif}main{max-width:42rem;margin:10vh auto}h1{font-size:1.5rem;margin:0 0 .5rem}p{margin:0}</style></head><body><main><h1>Site update in progress</h1><p>Try again in a moment.</p></main></body></html>';
+        exit;
+    }
+}
+
 require_once( 'globals.inc.php' );
 require_once dirname(__FILE__, 2 ) . '/include/defines.inc.php';
-$ds = DIRECTORY_SEPARATOR;
 require_once( __DIR__ . $ds . '..' . $ds . '..' . $ds . 'vendor' . $ds . 'autoload.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashConfig.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashSecurity.php' );
@@ -50,6 +70,17 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMailer.php
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashNotificationService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPasswordResetService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashComponentsReportService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateCheckService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateErrorPolicy.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateJournal.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateRecoveryArtifactService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateRecoveryAccessService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateRecoveryEntryPoint.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateRecoveryWorker.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateHealthService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdatePreparationService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateStageService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateInstallerService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashSecretLinkService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashLinkIntegrityService.php' );
 
@@ -231,6 +262,48 @@ $components_report_service = new app\classes\TinyMashComponentsReportService(
     dirname( __FILE__, 3 ),
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'components.json'
 );
+$update_check_service = new app\classes\TinyMashUpdateCheckService(
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'update-check.json'
+);
+$update_stage_service = new app\classes\TinyMashUpdateStageService(
+    tinymash_get_runtime_temp_subdirectory( 'tinymash-updates' ),
+    dirname( __FILE__, 3 )
+);
+$update_journal = new app\classes\TinyMashUpdateJournal(
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'update-transaction.json'
+);
+$update_preparation_service = new app\classes\TinyMashUpdatePreparationService(
+    $update_stage_service,
+    $update_journal,
+    dirname( __FILE__, 3 ),
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'update-transactions',
+    static function( string $target_directory ) use ( $export_service, $plugins ) : array {
+        $manifest = $export_service->exportSite( $target_directory, $plugins, true );
+        foreach ( (array) ( $manifest['plugin_exports'] ?? [] ) as $result ) {
+            if ( is_array( $result ) && (string) ( $result['status'] ?? '' ) === 'error' ) {
+                throw new \RuntimeException( 'A plugin could not add its data to the update backup.' );
+            }
+        }
+        return( $manifest );
+    },
+    static fn( string $target_directory ) : array => $export_service->inspectSiteImport( $target_directory )
+);
+$update_installer_service = new app\classes\TinyMashUpdateInstallerService(
+    $update_journal,
+    $writer_gate,
+    dirname( __FILE__, 3 ),
+    static fn( array $journal ) : array => $update_preparation_service->verifyRecoveryArtifacts( $journal ),
+    static fn( array $availability ) : array => $update_preparation_service->prepare( $availability )
+);
+$update_recovery_access_service = new app\classes\TinyMashUpdateRecoveryAccessService(
+    $update_journal,
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'update-transactions'
+);
+$update_health_service = new app\classes\TinyMashUpdateHealthService(
+    $update_journal,
+    $writer_gate,
+    dirname( __FILE__, 3 )
+);
 $secret_link_service = new app\classes\TinyMashSecretLinkService(
     $config,
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'secret-links.json'
@@ -272,37 +345,47 @@ $app->set( 'mailer', $mailer );
 $app->set( 'notification.service', $notification_service );
 $app->set( 'password_reset.service', $password_reset_service );
 $app->set( 'components.report_service', $components_report_service );
+$app->set( 'update.check_service', $update_check_service );
+$app->set( 'update.stage_service', $update_stage_service );
+$app->set( 'update.preparation_service', $update_preparation_service );
+$app->set( 'update.installer_service', $update_installer_service );
+$app->set( 'update.recovery_access_service', $update_recovery_access_service );
+$app->set( 'update.health_service', $update_health_service );
+$app->set( 'writer.gate', $writer_gate );
 $app->set( 'secret_links', $secret_link_service );
 $app->set( 'security', $security );
 
-// Early plugin stages.
 $plugins_directories = [
     dirname( __FILE__, 2 ) . DIRECTORY_SEPARATOR . 'plugins',
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'plugins',
 ];
-try {
-    $plugins->discoverDirectories( $plugins_directories );
-    $plugins->bootStage( 'before' );
-    $plugins->bootStage( 'early' );
-} catch( \Throwable $e ) {
-    error_log( basename( __FILE__ ) . ': Unable to discover plugins ("' . $e->getMessage() . '")' );
+if ( ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
+    try {
+        $plugins->discoverDirectories( $plugins_directories );
+        $plugins->bootStage( 'before' );
+        $plugins->bootStage( 'early' );
+    } catch( \Throwable $e ) {
+        error_log( basename( __FILE__ ) . ': Unable to discover plugins ("' . $e->getMessage() . '")' );
+    }
 }
 
 require_once 'routes.inc.php';
 
-try {
-    $plugins->bootStage( 'after' );
-} catch( \Throwable $e ) {
-    error_log( basename( __FILE__ ) . ': Unable to complete plugin boot stages ("' . $e->getMessage() . '")' );
+if ( ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
+    try {
+        $plugins->bootStage( 'after' );
+    } catch( \Throwable $e ) {
+        error_log( basename( __FILE__ ) . ': Unable to complete plugin boot stages ("' . $e->getMessage() . '")' );
+    }
+
+    try {
+        $plugins->bootStage( 'late' );
+    } catch( \Throwable $e ) {
+        error_log( basename( __FILE__ ) . ': Unable to complete late plugin boot stage ("' . $e->getMessage() . '")' );
+    }
 }
 
-try {
-    $plugins->bootStage( 'late' );
-} catch( \Throwable $e ) {
-    error_log( basename( __FILE__ ) . ': Unable to complete late plugin boot stage ("' . $e->getMessage() . '")' );
-}
-
-if ( PHP_SAPI !== 'cli' ) {
+if ( PHP_SAPI !== 'cli' && ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
     register_shutdown_function(
         static function() use ( $content_repository, $draft_repository, $media_service, $media_import_bridge, $import_preview_workspace_service, $plugins, $notification_service, $password_reset_service, $theme ) : void {
             try {

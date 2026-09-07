@@ -1,4 +1,4 @@
-# Tinymash Identity Assets
+# tinymash Identity Assets
 
 This directory holds the default images that ship with tinymash itself.
 

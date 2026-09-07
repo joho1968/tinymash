@@ -76,6 +76,96 @@ trait AdminSystemConcern {
         $this->renderAdmin( 'system', $this->buildSystemViewData( [ 'system_section' => $this->normalizeSystemSection( $section ) ] ) );
     }
 
+    public function stageSystemUpdate() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->app->redirect( $this->config->configGetLoginURL() );
+            return;
+        }
+        if ( ! $this->security->isSuperAdmin() ) {
+            $this->app->response()->status( 403 );
+            return;
+        }
+
+        $data = $this->app->request()->data->getData();
+        if ( ! is_array( $data ) ) {
+            $data = [];
+        }
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->setSystemNoticeFlash( 'danger', 'Your session token is invalid. Please reload the page and try again.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'updates' ) );
+            return;
+        }
+
+        $availability = $this->getSystemUpdateAvailability();
+        $service = $this->app->has( 'update.stage_service' ) ? $this->app->get( 'update.stage_service' ) : null;
+        if ( ! $service instanceof \app\classes\TinyMashUpdateStageService ) {
+            $this->setSystemNoticeFlash( 'danger', 'Update package checks are unavailable.' );
+            $this->app->redirect( $this->getSystemSectionUrl( 'updates' ) );
+            return;
+        }
+
+        try {
+            $status = $service->stage( $availability );
+            $message = ! empty( $status['preflight_ok'] )
+                ? 'The release package passed all checks.'
+                : 'The release package is valid, but the installation preflight failed.';
+            $this->setSystemNoticeFlash( ! empty( $status['preflight_ok'] ) ? 'success' : 'warning', $message );
+        } catch ( \Throwable $exception ) {
+            \app\classes\TinyMashUpdateErrorPolicy::logFailure( 'package', $exception );
+            $this->setSystemNoticeFlash( 'danger', 'The release package could not be checked.' );
+        }
+        $this->app->redirect( $this->getSystemSectionUrl( 'updates' ) );
+    }
+
+    public function createSystemUpdateHandoff() : void {
+        if ( ! $this->isValidAdminFragmentRequest() ) {
+            $this->emitAdminFragmentJson( [ 'error' => 'Request not accepted.' ], 403 );
+            return;
+        }
+        if ( ! $this->security->isLoggedIn() || ! $this->security->isSuperAdmin() ) {
+            $this->emitAdminFragmentJson( [ 'error' => 'Authentication required.' ], 403 );
+            return;
+        }
+        if ( ! $this->isValidAdminFragmentCsrf() ) {
+            $this->emitAdminFragmentJson( [ 'error' => 'Your session token is invalid. Please reload the page and try again.' ], 403 );
+            return;
+        }
+
+        $data = $this->getRequestDataArray();
+        $username = (string) ( $this->security->getCurrentUsername() ?? '' );
+        $password = (string) ( $data['current_password'] ?? '' );
+        if ( $password === '' || ! $this->security->verifyCredentials( $username, $password ) ) {
+            $this->emitAdminFragmentJson( [ 'error' => 'The current password is not correct.' ], 403 );
+            return;
+        }
+
+        $preparation = $this->app->has( 'update.preparation_service' ) ? $this->app->get( 'update.preparation_service' ) : null;
+        $access = $this->app->has( 'update.recovery_access_service' ) ? $this->app->get( 'update.recovery_access_service' ) : null;
+        if ( ! $preparation instanceof \app\classes\TinyMashUpdatePreparationService
+            || ! $access instanceof \app\classes\TinyMashUpdateRecoveryAccessService ) {
+            $this->emitAdminFragmentJson( [ 'error' => 'Update preparation is unavailable.' ], 503 );
+            return;
+        }
+
+        try {
+            $journal = $preparation->prepare( $this->getSystemUpdateAvailability() );
+            $credential = $access->issue( 3600 );
+            $this->emitAdminFragmentJson( [
+                'endpoint' => rtrim( (string) $this->app->get( 'app.url' ), '/' ) . '/_tinymash/update',
+                'token' => (string) $credential['token'],
+                'expires_at_utc' => (string) $credential['expires_at_utc'],
+                'status' => [
+                    'installed_version' => (string) ( $journal['installed_version'] ?? '' ),
+                    'target_version' => (string) ( $journal['target_version'] ?? '' ),
+                    'phase' => (string) ( $journal['phase'] ?? '' ),
+                ],
+            ] );
+        } catch ( \Throwable $exception ) {
+            \app\classes\TinyMashUpdateErrorPolicy::logFailure( 'handoff', $exception );
+            $this->emitAdminFragmentJson( [ 'error' => 'The update could not be prepared.' ], 409 );
+        }
+    }
+
     public function dismissSystemNotification() : void {
         if ( ! $this->security->isLoggedIn() ) {
             $this->app->redirect( $this->config->configGetLoginURL() );
@@ -1016,6 +1106,8 @@ trait AdminSystemConcern {
         $system_notifications_view = $this->getSystemNotificationsViewData( $system_section === 'notifications' );
         $system_notifications_unread_count = (int) ( $system_notifications_view['summary']['unread'] ?? 0 );
         $system_users = $this->getSystemUsers();
+        $system_update_availability = $system_section === 'updates' ? $this->getSystemUpdateAvailability() : [];
+        $system_update_stage = $system_section === 'updates' ? $this->getSystemUpdateStageStatus( $system_update_availability ) : [];
         $system_head_tag_rows = [ 'meta' => [], 'link' => [] ];
         foreach ( $this->config->getPublicHeadTags() as $head_tag ) {
             $type = (string) ( $head_tag['type'] ?? '' );
@@ -1112,6 +1204,12 @@ trait AdminSystemConcern {
             'system_moderation_reject_url' => $this->app->get( 'admin.url' ) . '/system/moderation/reject',
             'system_reassign_users' => $this->getSystemReassignUsers( $system_users ),
             'system_components_report' => $this->getSystemComponentsReport(),
+            'system_update_availability' => $system_update_availability,
+            'system_update_stage' => $system_update_stage,
+            'system_update_stage_url' => $this->app->get( 'admin.url' ) . '/system/updates/stage',
+            'system_update_handoff_url' => $this->app->get( 'admin.url' ) . '/system/updates/handoff',
+            'system_update_health_url' => rtrim( (string) $this->app->get( 'app.url' ), '/' ) . '/_tinymash/health',
+            'system_update_return_url' => $this->getSystemSectionUrl( 'updates' ),
             'system_static_export' => $this->getSystemStaticExportViewData(),
             'system_link_integrity' => $system_section === 'link-integrity' ? $this->getSystemLinkIntegrityReport() : [],
             'system_notifications_view' => $system_notifications_view,
@@ -1195,7 +1293,7 @@ trait AdminSystemConcern {
 
     protected function normalizeSystemSection( string $section ) : string {
         $section = strtolower( trim( $section ) );
-        return( in_array( $section, [ 'site', 'security', 'content-media', 'link-integrity', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'static-export' ], true ) ? $section : 'site' );
+        return( in_array( $section, [ 'site', 'security', 'content-media', 'link-integrity', 'head-tags', 'media', 'media-library', 'locale', 'menus', 'notifications', 'updates', 'components', 'information', 'themes', 'themes-settings', 'plugins', 'moderation', 'users', 'users-edit', 'smtp', 'orphans', 'static-export' ], true ) ? $section : 'site' );
     }
 
     protected function getSystemSectionUrls() : array {
@@ -1211,6 +1309,7 @@ trait AdminSystemConcern {
                 'locale' => $this->getSystemSectionUrl( 'locale' ),
                 'menus' => $this->getSystemSectionUrl( 'menus' ),
                 'notifications' => $this->getSystemSectionUrl( 'notifications' ),
+                'updates' => $this->getSystemSectionUrl( 'updates' ),
                 'components' => $this->getSystemSectionUrl( 'components' ),
                 'information' => $this->getSystemSectionUrl( 'information' ),
                 'themes' => $this->getSystemSectionUrl( 'themes' ),
@@ -1856,6 +1955,41 @@ trait AdminSystemConcern {
             $report['advisory_data']['checked_at_display'] = $this->formatUtcDateTime( (string) ( $report['advisory_data']['checked_at_utc'] ?? '' ) );
         }
         return( $report );
+    }
+
+    protected function getSystemUpdateAvailability() : array {
+        if ( ! $this->app->has( 'update.check_service' ) ) {
+            return( [ 'status' => 'unavailable', 'installed_version' => defined( 'APP_VERSION' ) ? APP_VERSION : '' ] );
+        }
+
+        $service = $this->app->get( 'update.check_service' );
+        if ( ! $service instanceof \app\classes\TinyMashUpdateCheckService ) {
+            return( [ 'status' => 'unavailable', 'installed_version' => defined( 'APP_VERSION' ) ? APP_VERSION : '' ] );
+        }
+
+        $availability = $service->getAvailability(
+            defined( 'APP_VERSION' ) ? APP_VERSION : '',
+            PHP_VERSION,
+            get_loaded_extensions()
+        );
+        $availability['verified_at_display'] = $this->formatUtcDateTime( (string) ( $availability['verified_at_utc'] ?? '' ) );
+        $availability['released_at_display'] = $this->formatUtcDateTime( (string) ( $availability['release']['released_at_utc'] ?? '' ) );
+        return( $availability );
+    }
+
+    protected function getSystemUpdateStageStatus( array $availability ) : array {
+        if ( ! $this->app->has( 'update.stage_service' ) ) {
+            return( [] );
+        }
+        $service = $this->app->get( 'update.stage_service' );
+        if ( ! $service instanceof \app\classes\TinyMashUpdateStageService ) {
+            return( [] );
+        }
+        $status = $service->getStatus( $availability );
+        if ( $status !== [] ) {
+            $status['checked_at_display'] = $this->formatUtcDateTime( (string) ( $status['checked_at_utc'] ?? '' ) );
+        }
+        return( $status );
     }
 
     protected function getSystemNotificationsViewData( bool $mark_active_read = false ) : array {

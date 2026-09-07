@@ -1,7 +1,7 @@
 {
     "key": "syntax-highlighting",
     "name": "Syntax highlighting",
-    "version": "0.98.2",
+    "version": "0.99.2",
     "description": "Highlights fenced code in supported themes with local highlight.js assets.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

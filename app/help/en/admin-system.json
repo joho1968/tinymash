@@ -21,7 +21,7 @@
     },
     {
       "title": "Operations",
-      "markdown": "- **Notifications** keeps in-app operational notices and dismissible events.\n- **SMTP** stores outbound mail settings, including test send.\n- **Components** shows dependency update and audit status.\n- **Information** is the runtime/reference page."
+      "markdown": "- **Notifications** keeps in-app operational notices and dismissible events.\n- **SMTP** stores outbound mail settings, including test send.\n- **Updates** checks for signed tinymash releases.\n- **Components** shows dependency update and audit status.\n- **Information** is the runtime/reference page."
     },
     {
       "title": "Static export",

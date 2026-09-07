@@ -1,8 +1,10 @@
 <?php
 
 use app\classes\TinyMashFilesystem;
+use app\classes\TinyMashSafeZipExtractor;
 
 require_once dirname( __DIR__, 2 ) . '/classes/TinyMashFilesystem.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashSafeZipExtractor.php';
 
 class TinyMashBackupArchiveService {
 
@@ -283,74 +285,8 @@ class TinyMashBackupArchiveService {
     }
 
     protected function extractRestoreArchive( string $archive_path, string $target_directory ) : string {
-        $zip = new ZipArchive();
-        if ( $zip->open( $archive_path, ZipArchive::RDONLY ) !== true ) {
-            throw new \RuntimeException( 'The uploaded ZIP archive could not be opened.' );
-        }
-
-        $seen_paths = [];
-        $expanded_size = 0;
-        try {
-            if ( $zip->numFiles < 1 || $zip->numFiles > self::RESTORE_MAX_ENTRIES ) {
-                throw new \RuntimeException( 'The backup archive contains an unsupported number of entries.' );
-            }
-
-            for ( $index = 0; $index < $zip->numFiles; $index++ ) {
-                $stat = $zip->statIndex( $index, ZipArchive::FL_UNCHANGED );
-                $entry_name = is_array( $stat ) ? (string) ( $stat['name'] ?? '' ) : '';
-                $normalized_path = $this->normalizeZipEntryPath( $entry_name );
-                if ( $normalized_path === '' || isset( $seen_paths[$normalized_path] ) ) {
-                    throw new \RuntimeException( 'The backup archive contains an invalid or duplicate path.' );
-                }
-                $seen_paths[$normalized_path] = true;
-
-                $is_directory = str_ends_with( $entry_name, '/' );
-                if ( $this->zipEntryIsUnsafeType( $zip, $index, $is_directory ) ) {
-                    throw new \RuntimeException( 'The backup archive contains a symbolic link or unsupported entry type.' );
-                }
-
-                $entry_size = max( 0, (int) ( $stat['size'] ?? 0 ) );
-                if ( $entry_size > self::RESTORE_MAX_EXPANDED_BYTES - $expanded_size ) {
-                    throw new \RuntimeException( 'The expanded backup archive is too large to inspect safely.' );
-                }
-
-                $target_path = $target_directory . DIRECTORY_SEPARATOR . str_replace( '/', DIRECTORY_SEPARATOR, $normalized_path );
-                if ( $is_directory ) {
-                    $this->ensurePrivateDirectory( $target_path );
-                    continue;
-                }
-
-                $this->ensurePrivateDirectory( dirname( $target_path ) );
-                $source_handle = $zip->getStream( $entry_name );
-                $target_handle = @ fopen( $target_path, 'xb' );
-                if ( ! is_resource( $source_handle ) || ! is_resource( $target_handle ) ) {
-                    if ( is_resource( $source_handle ) ) {
-                        fclose( $source_handle );
-                    }
-                    if ( is_resource( $target_handle ) ) {
-                        fclose( $target_handle );
-                    }
-                    throw new \RuntimeException( 'The backup archive could not be extracted safely.' );
-                }
-
-                $copied = 0;
-                $flushed = false;
-                try {
-                    $copied = $this->copyRestoreEntry( $source_handle, $target_handle, self::RESTORE_MAX_EXPANDED_BYTES - $expanded_size );
-                    $flushed = fflush( $target_handle );
-                } finally {
-                    fclose( $source_handle );
-                    fclose( $target_handle );
-                }
-                @ chmod( $target_path, 0600 );
-                if ( $copied !== $entry_size || ! $flushed ) {
-                    throw new \RuntimeException( 'The backup archive entry could not be extracted completely.' );
-                }
-                $expanded_size += $copied;
-            }
-        } finally {
-            $zip->close();
-        }
+        ( new TinyMashSafeZipExtractor( self::RESTORE_MAX_ENTRIES, self::RESTORE_MAX_EXPANDED_BYTES ) )
+            ->extract( $archive_path, $target_directory );
 
         if ( is_file( $target_directory . DIRECTORY_SEPARATOR . 'manifest.json' ) ) {
             return( $target_directory );
@@ -369,77 +305,6 @@ class TinyMashBackupArchiveService {
         }
 
         return( $top_level_directories[0] );
-    }
-
-    protected function copyRestoreEntry( mixed $source_handle, mixed $target_handle, int $remaining_bytes ) : int {
-        $copied = 0;
-        while ( ! feof( $source_handle ) ) {
-            $chunk = fread( $source_handle, 1048576 );
-            if ( ! is_string( $chunk ) || ( $chunk === '' && ! feof( $source_handle ) ) ) {
-                throw new \RuntimeException( 'The backup archive entry could not be read completely.' );
-            }
-            if ( $chunk === '' ) {
-                break;
-            }
-
-            $chunk_length = strlen( $chunk );
-            if ( $chunk_length > $remaining_bytes - $copied ) {
-                throw new \RuntimeException( 'The expanded backup archive is too large to inspect safely.' );
-            }
-
-            $written = 0;
-            while ( $written < $chunk_length ) {
-                $result = fwrite( $target_handle, substr( $chunk, $written ) );
-                if ( ! is_int( $result ) || $result < 1 ) {
-                    throw new \RuntimeException( 'The backup archive entry could not be written completely.' );
-                }
-                $written += $result;
-            }
-            $copied += $chunk_length;
-        }
-
-        return( $copied );
-    }
-
-    protected function normalizeZipEntryPath( string $entry_name ) : string {
-        if (
-            $entry_name === ''
-            || str_contains( $entry_name, "\0" )
-            || str_contains( $entry_name, '\\' )
-            || str_starts_with( $entry_name, '/' )
-            || preg_match( '/^[A-Za-z]:/', $entry_name ) === 1
-        ) {
-            return( '' );
-        }
-
-        $parts = [];
-        foreach ( explode( '/', trim( $entry_name, '/' ) ) as $part ) {
-            if ( $part === '' || $part === '.' || $part === '..' ) {
-                return( '' );
-            }
-            $parts[] = $part;
-        }
-
-        return( implode( '/', $parts ) );
-    }
-
-    protected function zipEntryIsUnsafeType( ZipArchive $zip, int $index, bool $is_directory ) : bool {
-        $operating_system = 0;
-        $attributes = 0;
-        if ( ! $zip->getExternalAttributesIndex( $index, $operating_system, $attributes, ZipArchive::FL_UNCHANGED ) ) {
-            return( false );
-        }
-
-        if ( defined( 'ZipArchive::OPSYS_UNIX' ) && $operating_system !== ZipArchive::OPSYS_UNIX ) {
-            return( false );
-        }
-
-        $mode = ( $attributes >> 16 ) & 0170000;
-        if ( $mode === 0 ) {
-            return( false );
-        }
-
-        return( $is_directory ? $mode !== 0040000 : $mode !== 0100000 );
     }
 
     protected function getUploadErrorMessage( int $upload_error ) : string {

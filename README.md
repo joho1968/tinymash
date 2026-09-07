@@ -70,7 +70,7 @@ For ordinary public and admin use, tinymash can run with a small PHP memory limi
 
 ## Compatibility
 
-- Tinymash 1.x requires PHP `8.4+`. PHP `8.5` is tested.
+- tinymash 1.x requires PHP `8.4+`. PHP `8.5` is tested.
 - Patch and minor releases should preserve configuration, users, content, drafts, media, and plugin data.
 - Upgrades use `upgrade:prepare` to create a clean sibling installation. Do not overwrite an existing installation.
 - Required data migrations will be documented with the release.

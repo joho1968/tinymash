@@ -3,41 +3,48 @@ namespace app\classes;
 
 require_once __DIR__ . '/TinyMashDeployAuditService.php';
 require_once __DIR__ . '/TinyMashDeployPolicy.php';
+require_once __DIR__ . '/TinyMashAuthoritativeStateInventory.php';
 
 final class TinyMashUpgradePrepareService {
-
-    protected const JSON_VALIDATION_LIMIT = 64 * 1024 * 1024;
-    protected const FILE_COUNT_LIMIT = 500000;
 
     protected string $target_root;
     protected string $source_root;
     protected bool $allow_missing_extensions;
+    protected bool $nested_inspection_only;
 
-    public function __construct( string $target_root, string $source_root, bool $allow_missing_extensions = false ) {
+    public function __construct( string $target_root, string $source_root, bool $allow_missing_extensions = false, bool $nested_inspection_only = false ) {
         $this->target_root = $this->resolveRoot( $target_root, 'New release' );
         $this->source_root = $this->resolveRoot( $source_root, 'Old installation' );
         $this->allow_missing_extensions = $allow_missing_extensions;
+        $this->nested_inspection_only = $nested_inspection_only;
 
-        if ( $this->target_root === $this->source_root
+        $roots_are_nested = $this->target_root === $this->source_root
             || str_starts_with( $this->target_root . DIRECTORY_SEPARATOR, $this->source_root . DIRECTORY_SEPARATOR )
-            || str_starts_with( $this->source_root . DIRECTORY_SEPARATOR, $this->target_root . DIRECTORY_SEPARATOR ) ) {
+            || str_starts_with( $this->source_root . DIRECTORY_SEPARATOR, $this->target_root . DIRECTORY_SEPARATOR );
+        if ( $roots_are_nested && ! $this->nested_inspection_only ) {
             throw new \RuntimeException( 'Old and new installations must be separate non-nested directories.' );
         }
     }
 
-    public function inspect() : array {
+    public function inspect( bool $require_target_working_directory = true ) : array {
+        if ( $require_target_working_directory && $this->nested_inspection_only ) {
+            throw new \RuntimeException( 'Nested release directories are allowed only for read-only inspection.' );
+        }
+
         $errors = [];
         $warnings = [];
         $checks = [];
 
-        $working_directory = realpath( (string) getcwd() );
-        $this->addCheck(
-            $checks,
-            $errors,
-            'New release directory',
-            is_string( $working_directory ) && $working_directory === $this->target_root,
-            'Run the command from the new release root.'
-        );
+        if ( $require_target_working_directory ) {
+            $working_directory = realpath( (string) getcwd() );
+            $this->addCheck(
+                $checks,
+                $errors,
+                'New release directory',
+                is_string( $working_directory ) && $working_directory === $this->target_root,
+                'Run the command from the new release root.'
+            );
+        }
 
         $target_manifest = $this->loadDeployManifest( $this->target_root, true, $warnings );
         $this->addCheck(
@@ -342,84 +349,7 @@ final class TinyMashUpgradePrepareService {
     }
 
     protected function buildPreserveInventory() : array {
-        $file_inventory = [];
-        $directories = [];
-        $bytes = 0;
-
-        $config_relative_path = TinyMashDeployPolicy::UPGRADE_PRESERVE_PATHS[0];
-        $this->addInventoryFile( $config_relative_path, $file_inventory, $bytes );
-
-        foreach ( array_slice( TinyMashDeployPolicy::UPGRADE_PRESERVE_PATHS, 1 ) as $relative_root ) {
-            $root_path = $this->sourcePath( $relative_root );
-            if ( is_link( $root_path ) || ! is_dir( $root_path ) || ! is_readable( $root_path ) ) {
-                throw new \RuntimeException( 'Old installation state path is unavailable: ' . $relative_root );
-            }
-            $root_mode = @ fileperms( $root_path );
-            $directories[$relative_root] = is_int( $root_mode ) ? $root_mode & 0777 : 0750;
-
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator( $root_path, \FilesystemIterator::SKIP_DOTS ),
-                \RecursiveIteratorIterator::SELF_FIRST
-            );
-            foreach ( $iterator as $item ) {
-                $relative_path = $this->relativePath( $this->source_root, $item->getPathname() );
-                if ( $item->isLink() ) {
-                    throw new \RuntimeException( 'Symbolic links are not allowed in authoritative state: ' . $relative_path );
-                }
-                if ( $item->isDir() ) {
-                    $mode = $item->getPerms();
-                    $directories[$relative_path] = $mode & 0777;
-                    continue;
-                }
-                if ( ! $item->isFile() || ! $item->isReadable() ) {
-                    throw new \RuntimeException( 'Authoritative state contains an unreadable or special file: ' . $relative_path );
-                }
-                $this->addInventoryFile( $relative_path, $file_inventory, $bytes );
-                if ( count( $file_inventory ) > self::FILE_COUNT_LIMIT ) {
-                    throw new \RuntimeException( 'Authoritative state contains too many files for one upgrade operation.' );
-                }
-            }
-        }
-
-        ksort( $file_inventory, SORT_STRING );
-        ksort( $directories, SORT_STRING );
-        return(
-            [
-                'files' => count( $file_inventory ),
-                'directories_count' => count( $directories ),
-                'bytes' => $bytes,
-                'file_inventory' => $file_inventory,
-                'directories' => $directories,
-            ]
-        );
-    }
-
-    protected function addInventoryFile( string $relative_path, array &$inventory, int &$bytes ) : void {
-        $filename = $this->sourcePath( $relative_path );
-        if ( is_link( $filename ) || ! is_file( $filename ) || ! is_readable( $filename ) ) {
-            throw new \RuntimeException( 'Authoritative state file is unavailable: ' . $relative_path );
-        }
-        $size = @ filesize( $filename );
-        $hash = @ hash_file( 'sha256', $filename );
-        $mode = @ fileperms( $filename );
-        if ( ! is_int( $size ) || ! is_string( $hash ) || preg_match( '/^[a-f0-9]{64}$/', $hash ) !== 1 ) {
-            throw new \RuntimeException( 'Unable to inventory authoritative state file: ' . $relative_path );
-        }
-        if ( str_ends_with( strtolower( $relative_path ), '.json' ) ) {
-            if ( $size > self::JSON_VALIDATION_LIMIT ) {
-                throw new \RuntimeException( 'Authoritative JSON is too large to validate safely: ' . $relative_path );
-            }
-            $json = file_get_contents( $filename );
-            if ( ! is_string( $json ) || ! json_validate( $json, 128 ) ) {
-                throw new \RuntimeException( 'Authoritative state contains invalid JSON: ' . $relative_path );
-            }
-        }
-        $inventory[$relative_path] = [
-            'bytes' => $size,
-            'sha256' => $hash,
-            'mode' => is_int( $mode ) ? $mode & 0777 : 0640,
-        ];
-        $bytes += $size;
+        return( ( new TinyMashAuthoritativeStateInventory( $this->source_root ) )->inspect() );
     }
 
     protected function buildReviewReport( array $old_manifest, array &$warnings ) : array {

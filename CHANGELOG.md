@@ -2,6 +2,23 @@
 
 Notable changes in tinymash
 
+## 0.99.2 - 2026-09-07
+
+- Included the updater-capable build that was absent from the immutable `0.99.0` release archive
+- Added guarded browser installation
+- Further hardening of updater recovery
+- Blocked automatic updates with operator-installed extensions
+- Clarified PHP-FPM examples for separate site-definition, tinymash installation, public document-root, temporary, log, and Nginx-only paths
+
+## 0.99.0 - 2026-08-30
+
+- Kept Content filters until Reset is used
+- Included every fitting tag in Fediverse posts
+- Removed expected missing-config warnings from first-time setup
+- Gave detailed import guides distinct titles in Search
+- Added signed update checks and private package preflight in System
+- Hardened updater recovery
+
 ## 0.98.2 - 2026-08-28
 
 - Fixed publish dates reverting on duplicated posts in some browsers
