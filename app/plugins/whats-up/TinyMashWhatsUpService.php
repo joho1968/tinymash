@@ -468,7 +468,7 @@ class TinyMashWhatsUpService {
             ];
         }
 
-        $html = '<div class="tm-whats-up tm-whats-up-calendar-view ' . $this->displayColorClass( $settings ) . '" id="' . $calendar_id . '" data-tm-whats-up-calendar data-current-panel="' . $past_months . '">';
+        $html = '<div class="tm-whats-up tm-whats-up-calendar-view ' . $this->displayColorClass( $settings ) . '" id="' . $calendar_id . '" role="group" aria-label="Event calendar" tabindex="0" data-tm-whats-up-calendar data-current-panel="' . $past_months . '">';
         if ( count( $months ) > 1 ) {
             $previous_is_disabled = $past_months === 0;
             $next_is_disabled = $past_months === count( $months ) - 1;

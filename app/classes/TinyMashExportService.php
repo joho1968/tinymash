@@ -76,6 +76,7 @@ class TinyMashExportService {
                         'author_username' => '',
                     ]
                 );
+                $this->assertExportContributorsSucceeded( $plugin_results );
             } elseif ( $include_plugins ) {
                 $warnings[] = 'Plugin export was requested, but the plugin runtime was not available.';
             } else {
@@ -169,6 +170,7 @@ class TinyMashExportService {
                         'author_username' => $username,
                     ]
                 );
+                $this->assertExportContributorsSucceeded( $plugin_results );
             } elseif ( $include_plugins ) {
                 $warnings[] = 'Plugin export was requested, but the plugin runtime was not available.';
             } else {
@@ -908,6 +910,14 @@ class TinyMashExportService {
             str_starts_with( $left . DIRECTORY_SEPARATOR, $right . DIRECTORY_SEPARATOR ) ||
             str_starts_with( $right . DIRECTORY_SEPARATOR, $left . DIRECTORY_SEPARATOR )
         );
+    }
+
+    protected function assertExportContributorsSucceeded( array $results ) : void {
+        foreach ( $results as $result ) {
+            if ( is_array( $result ) && (string) ( $result['status'] ?? '' ) === 'error' ) {
+                throw new \RuntimeException( 'Plugin export failed for ' . (string) ( $result['plugin_key'] ?? 'a plugin' ) . '.' );
+            }
+        }
     }
 
     protected function withImportLock( callable $callback ) : mixed {

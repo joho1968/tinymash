@@ -30,7 +30,7 @@
 
             const editorRoot = document.getElementById('tm-editor-root');
             const editorModeUrl = editorRoot ? (editorRoot.dataset.editorModeUrl || '') : '';
-            const emojiDataUrl = editorRoot ? (editorRoot.dataset.emojiDataUrl || '/ext/emoji-picker-data/en/github/data') : '/ext/emoji-picker-data/en/github/data';
+            const emojiDataUrl = editorRoot ? (editorRoot.dataset.emojiDataUrl || window.tinymashBrowserPath('/ext/emoji-picker-data/en/github/data')) : window.tinymashBrowserPath('/ext/emoji-picker-data/en/github/data');
             const editorModeButtons = Array.from(document.querySelectorAll('[data-editor-presentation-mode]'));
             const markdownField = document.getElementById('tm-editor-markdown');
             const markdownLabel = document.querySelector('label[for="tm-editor-markdown"]');
@@ -189,6 +189,9 @@
             const featuredImageRemoveButton = document.getElementById('tm-editor-featured-image-remove');
             const imagePickerUploadButton = document.getElementById('tm-editor-image-picker-upload');
             const imagePickerInsertSelectedButton = document.getElementById('tm-editor-image-picker-insert-selected');
+            const imagePickerScopeWrap = document.getElementById('tm-editor-image-picker-scope-wrap');
+            const imagePickerScopeField = document.getElementById('tm-editor-image-picker-scope');
+            const imagePickerScopeHelp = document.getElementById('tm-editor-image-picker-scope-help');
             const featuredImageSourceButtons = document.querySelectorAll('#tm-editor-featured-image-modal [data-source]');
             const tagsAutocomplete = document.getElementById('tm-editor-tags-autocomplete');
             const emojiPickerModalElement = document.getElementById('tm-editor-emoji-modal');
@@ -213,6 +216,13 @@
             let hasUnsavedChanges = false;
             let draftSaveInFlight = false;
             let saveEntryInFlight = false;
+            let imageUploadsInFlight = 0;
+            document.addEventListener('tinymash:editor-image-operation', (event) => {
+                const delta = Number(event && event.detail && event.detail.delta);
+                if (delta === 1 || delta === -1) {
+                    imageUploadsInFlight = Math.max(0, imageUploadsInFlight + delta);
+                }
+            });
             let draftSavePromise = null;
             let draftSaveController = null;
             let draftSaveReason = '';
@@ -226,6 +236,9 @@
             let internalLinkFilterTouched = false;
             let featuredImageSource = 'attached';
             let imagePickerTarget = 'featured';
+            let galleryReplaceMediaId = '';
+            let mediaPickerScope = 'current';
+            let mediaPickerLoadGeneration = 0;
             let lastSuggestedSortOrder = null;
             let sortOrderTouched = Boolean(initialDraftId || initialRevisionId || loadedEntryId);
             let attachedImageRecords = [];
@@ -466,13 +479,14 @@
             }
 
             {{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/editor/media.js.latte')|noescape}}
+            {{=file_get_contents(\APP_VIEWS_PATH . '/admin/baseline/partials/editor/inline-media-review.js.latte')|noescape}}
 
             function getEditorExitUrl() {
-                return cancelUrl || editorUrl || '/admin';
+                return cancelUrl || editorUrl || window.tinymashBrowserPath('/admin');
             }
 
             function getEditorNewUrl() {
-                return (editorUrl || '/admin/editor') + '?new=1';
+                return (editorUrl || window.tinymashBrowserPath('/admin/editor')) + '?new=1';
             }
 
             function setSaveEntryControlsDisabled(disabled) {
@@ -762,13 +776,16 @@
                 return pluginSettings;
             }
 
-            function hydrateEditorPluginSettings(pluginSettings) {
+            function hydrateEditorPluginSettings(pluginSettings, skipPhotos = false) {
                 const normalizedSettings = pluginSettings && typeof pluginSettings === 'object' ? pluginSettings : {};
                 const pluginFields = document.querySelectorAll('[data-editor-plugin-key][data-editor-plugin-field]');
                 pluginFields.forEach((field) => {
                     const pluginKey = String(field.getAttribute('data-editor-plugin-key') || '').trim();
                     const settingKey = String(field.getAttribute('data-editor-plugin-field') || '').trim();
                     if (!pluginKey || !settingKey) {
+                        return;
+                    }
+                    if (skipPhotos && pluginKey === 'photos') {
                         return;
                     }
 
@@ -784,6 +801,33 @@
                         field.value = String(fieldValue || '');
                     }
                 });
+            }
+
+            function galleryMediaIds(value) {
+                return (Array.isArray(value) ? value : String(value || '').split(/[\s,]+/))
+                    .map((id) => String(id || '').trim())
+                    .filter(Boolean);
+            }
+
+            function gallerySaveState(requestSettings, savedSettings) {
+                if (!document.getElementById('tm-editor-photos-gallery-media-ids')) {
+                    return null;
+                }
+                const selected = galleryMediaIds(requestSettings && requestSettings.photos ? requestSettings.photos.gallery_media_ids : '');
+                const saved = galleryMediaIds(savedSettings && savedSettings.photos ? savedSettings.photos.gallery_media_ids : '');
+                return { selected, saved, matches: JSON.stringify(selected) === JSON.stringify(saved) };
+            }
+
+            function reportGallerySaved(state) {
+                if (state) {
+                    document.dispatchEvent(new CustomEvent('tinymash:editor-gallery-saved', {
+                        detail: { mediaIds: state.saved }
+                    }));
+                }
+            }
+
+            function galleryMismatchMessage(state, savedContent) {
+                return savedContent + ' saved; gallery has ' + state.saved.length + ' of ' + state.selected.length + ' selected images. Check the selection and save again.';
             }
 
             function insertText(text) {
@@ -812,6 +856,7 @@
             let imageUploadProgressModalMessage = null;
             let imageUploadProgressModalBar = null;
             let imageUploadProgressModalCount = null;
+            const imageUploadBatchLimit = 20;
 
             function getImageUploadProgressModal() {
                 if (!imageUploadProgressModalElement) {
@@ -949,28 +994,104 @@
                 return payload;
             }
 
-            async function uploadImageFiles(fileList) {
-                if (!fileList || fileList.length === 0) {
+            function getImageFiles(fileList) {
+                return Array.from(fileList || []).filter((file) => (
+                    file && String(file.type || '').startsWith('image/')
+                ));
+            }
+
+            function imageFileKey(file) {
+                return [file.name || '', file.type || '', file.size || 0, file.lastModified || 0].join('\u0000');
+            }
+
+            function clipboardImageFiles(clipboardData) {
+                if (!clipboardData) {
                     return [];
                 }
 
-                const imageFiles = Array.from(fileList).filter((file) => file && String(file.type || '').startsWith('image/'));
+                const files = getImageFiles(clipboardData.files);
+                const seen = new Set(files.map((file) => imageFileKey(file)));
+                Array.from(clipboardData.items || []).forEach((item) => {
+                    if (!item || item.kind !== 'file' || !String(item.type || '').startsWith('image/')) {
+                        return;
+                    }
+                    const file = item.getAsFile();
+                    if (!file) {
+                        return;
+                    }
+                    const key = imageFileKey(file);
+                    if (seen.has(key)) {
+                        return;
+                    }
+                    seen.add(key);
+                    files.push(file);
+                });
+                return files;
+            }
+
+            async function uploadImageFiles(fileList, onUploaded = null) {
+                if (!fileList || fileList.length === 0) {
+                    return { uploaded: [], failures: [] };
+                }
+
+                const imageFiles = getImageFiles(fileList);
+                if (imageFiles.length > imageUploadBatchLimit) {
+                    throw new Error('Choose up to ' + imageUploadBatchLimit + ' images at a time.');
+                }
                 const progressModal = showImageUploadProgressModal(imageFiles.length);
                 const uploadedPayloads = [];
+                const failures = [];
+                let processed = 0;
+                imageUploadsInFlight += 1;
                 try {
                     for (const file of imageFiles) {
-                        updateImageUploadProgressModal(uploadedPayloads.length, imageFiles.length, 'Uploading and processing ' + (uploadedPayloads.length + 1) + ' of ' + imageFiles.length + '...');
-                        const payload = await uploadImageFile(file);
-                        if (payload) {
-                            uploadedPayloads.push(payload);
+                        updateImageUploadProgressModal(processed, imageFiles.length, 'Uploading and processing ' + (processed + 1) + ' of ' + imageFiles.length + '...');
+                        try {
+                            const payload = await uploadImageFile(file);
+                            if (payload) {
+                                uploadedPayloads.push(payload);
+                                if (typeof onUploaded === 'function') {
+                                    onUploaded(payload);
+                                }
+                            }
+                        } catch (error) {
+                            failures.push({ file: file, error: error });
                         }
-                        updateImageUploadProgressModal(uploadedPayloads.length, imageFiles.length, 'Uploading and processing images...');
+                        processed += 1;
+                        updateImageUploadProgressModal(processed, imageFiles.length, 'Uploading and processing images...');
                     }
                 } finally {
                     hideImageUploadProgressModal(progressModal);
+                    imageUploadsInFlight -= 1;
+                    if (hasUnsavedChanges) {
+                        scheduleAutosave();
+                    }
                 }
 
-                return uploadedPayloads;
+                if (failures.length > 0 && uploadedPayloads.length === 0) {
+                    throw failures[0].error;
+                }
+
+                return { uploaded: uploadedPayloads, failures: failures };
+            }
+
+            function showImageUploadResult(result) {
+                const uploadedCount = result && Array.isArray(result.uploaded) ? result.uploaded.length : 0;
+                const failures = result && Array.isArray(result.failures) ? result.failures : [];
+                if (failures.length > 0) {
+                    const firstFailure = failures[0];
+                    const filename = firstFailure.file && firstFailure.file.name ? firstFailure.file.name : 'Image';
+                    const reason = firstFailure.error && firstFailure.error.message ? firstFailure.error.message : 'Upload failed.';
+                    const remaining = failures.length > 1 ? ' ' + (failures.length - 1) + ' more failed.' : '';
+                    const uploadedLabel = uploadedCount === 1 ? '1 image' : uploadedCount + ' images';
+                    setTransientStatus(uploadedLabel + ' uploaded; ' + filename + ' failed: ' + reason + remaining, 'text-warning');
+                    return;
+                }
+                if (uploadedCount === 1) {
+                    setTransientStatus('Image uploaded', 'text-success');
+                } else if (uploadedCount > 1) {
+                    setTransientStatus(uploadedCount + ' images uploaded', 'text-success');
+                }
             }
 
             function syncEmojiPickerTheme() {
@@ -1230,6 +1351,15 @@
                 return String(value || '')
                     .toLowerCase()
                     .trim()
+                    .normalize('NFKD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/æ/g, 'ae')
+                    .replace(/ø/g, 'o')
+                    .replace(/ß/g, 'ss')
+                    .replace(/œ/g, 'oe')
+                    .replace(/ð/g, 'd')
+                    .replace(/þ/g, 'th')
+                    .replace(/ł/g, 'l')
                     .replace(/\s+/g, '-')
                     .replace(/[^a-z0-9_-]+/g, '')
                     .replace(/-+/g, '-')
@@ -1311,6 +1441,14 @@
                 if (!draftUrl) {
                     return null;
                 }
+                if (imageUploadsInFlight > 0) {
+                    if (isAutosave) {
+                        scheduleAutosave();
+                    } else {
+                        setTransientStatus('Wait for image uploads to finish before saving.', 'text-warning');
+                    }
+                    return null;
+                }
                 if (isAutosave && !hasUnsavedChanges) {
                     return null;
                 }
@@ -1363,6 +1501,7 @@
                     const publishDateChanged = !!publishedAtLocalField
                         && publishedAtLocalField.value !== requestPayload.published_at_local;
                     const hasNewerChanges = requestChangeVersion !== editorChangeVersion || publishDateChanged;
+                    const galleryState = gallerySaveState(requestPayload.plugin_settings, payload.draft && payload.draft.plugin_settings);
                     loadedDraftId = payload.draft_id || (payload.draft && payload.draft.draft_id) || loadedDraftId;
                     if (editorRoot) {
                         editorRoot.dataset.loadedDraftId = loadedDraftId;
@@ -1384,12 +1523,16 @@
                         if (payload.draft && typeof payload.draft.fallback_cover_color === 'string') {
                             applyFallbackCoverColorValue(payload.draft.fallback_cover_color);
                         }
-                        hydrateEditorPluginSettings(payload.draft && payload.draft.plugin_settings ? payload.draft.plugin_settings : {});
+                        hydrateEditorPluginSettings(payload.draft && payload.draft.plugin_settings ? payload.draft.plugin_settings : {}, !!galleryState && !galleryState.matches);
                     }
+                    reportGallerySaved(galleryState);
                     updateDeleteDraftVisibility();
                     refreshCollections(payload.collections || null);
                     updateParentPageOptions();
-                    if (hasNewerChanges) {
+                    if (galleryState && !galleryState.matches) {
+                        hasUnsavedChanges = true;
+                        setTransientStatus(galleryMismatchMessage(galleryState, 'Draft'), 'text-danger');
+                    } else if (hasNewerChanges) {
                         setTransientStatus('Unsaved changes');
                     } else {
                         hasUnsavedChanges = false;
@@ -1497,6 +1640,10 @@
                 if (saveEntryInFlight) {
                     return false;
                 }
+                if (imageUploadsInFlight > 0) {
+                    setTransientStatus('Wait for image uploads to finish before saving.', 'text-warning');
+                    return false;
+                }
 
                 if (draftSaveInFlight) {
                     if (draftSaveReason === 'autosave' && draftSaveController) {
@@ -1514,6 +1661,11 @@
                     }
                 }
 
+                if (imageUploadsInFlight > 0) {
+                    setTransientStatus('Wait for image uploads to finish before saving.', 'text-warning');
+                    return false;
+                }
+
                 saveEntryInFlight = true;
                 clearAutosaveTimer();
                 setTransientStatus('Saving content...');
@@ -1521,6 +1673,7 @@
                 setSaveEntryControlsDisabled(true);
 
                 try {
+                    const requestPayload = buildDraftPayload();
                     const response = await fetch(saveEntryUrl, {
                         method: 'POST',
                         headers: {
@@ -1528,13 +1681,17 @@
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest'
                         },
-                        body: JSON.stringify(buildDraftPayload())
+                        body: JSON.stringify(requestPayload)
                     });
 
                     const payload = await response.json();
                     if (!response.ok) {
                         throw new Error(payload.error || ('Publish failed with status ' + response.status));
                     }
+                    const galleryState = gallerySaveState(requestPayload.plugin_settings, payload.entry && payload.entry.plugin_settings);
+                    const galleryField = document.getElementById('tm-editor-photos-gallery-media-ids');
+                    const galleryChangedWhileSaving = !!galleryState && !!galleryField
+                        && JSON.stringify(galleryMediaIds(galleryField.value)) !== JSON.stringify(galleryState.selected);
 
                     if (payload.entry) {
                         titleField.value = payload.entry.title || titleField.value;
@@ -1550,7 +1707,7 @@
                         if (typeof payload.entry.fallback_cover_color === 'string') {
                             applyFallbackCoverColorValue(payload.entry.fallback_cover_color);
                         }
-                        hydrateEditorPluginSettings(payload.entry.plugin_settings || {});
+                        hydrateEditorPluginSettings(payload.entry.plugin_settings || {}, !!galleryState && (!galleryState.matches || galleryChangedWhileSaving));
                         if (seoTitleField) {
                             seoTitleField.value = payload.entry.seo_title || '';
                         }
@@ -1601,6 +1758,18 @@
                     updateDeleteDraftVisibility();
                     refreshCollections(payload.collections || null);
                     updateParentPageOptions();
+                    reportGallerySaved(galleryState);
+                    if (galleryState && (!galleryState.matches || galleryChangedWhileSaving)) {
+                        hasUnsavedChanges = true;
+                        if (payload.updated_at_display) {
+                            updateEditingIdentity('Editing "' + getEditorTitleLabel('Untitled content') + '"');
+                            updateStateSummary('Last updated ' + payload.updated_at_display);
+                        }
+                        setTransientStatus(galleryState.matches
+                            ? 'Content saved; newer gallery changes need another save.'
+                            : galleryMismatchMessage(galleryState, 'Content'), 'text-danger');
+                        return false;
+                    }
                     setTransientStatus(payload.updated_at_display ? ((payload.message || 'Saved') + ' ' + payload.updated_at_display) : (payload.message || 'Saved'), 'text-success');
                     if (payload.updated_at_display) {
                         updateEditingIdentity('Editing "' + getEditorTitleLabel('Untitled content') + '"');
@@ -1681,10 +1850,10 @@
                         : 'Choose whether to save a draft before leaving, leave without saving, or stay in the editor.';
                 }
                 if (cancelKeepButton) {
-                    cancelKeepButton.textContent = hasDraft ? 'Keep draft and leave' : 'Save draft and leave';
+                    cancelKeepButton.textContent = hasDraft ? 'Keep draft' : 'Save draft';
                 }
                 if (cancelDiscardButton) {
-                    cancelDiscardButton.textContent = hasDraft ? 'Discard draft and leave' : 'Leave without saving';
+                    cancelDiscardButton.textContent = hasDraft ? 'Discard draft' : 'Discard changes';
                 }
 
                 const cancelModal = getBootstrapModal(cancelModalElement);
@@ -2011,9 +2180,50 @@
             if (featuredImageFilterField) {
                 featuredImageFilterField.addEventListener('input', renderFeaturedImagePickerGrid);
             }
+            if (imagePickerScopeField) {
+                imagePickerScopeField.addEventListener('change', async () => {
+                    mediaPickerScope = [ 'inline', 'gallery' ].includes(imagePickerTarget) && getFeaturedImageOwner() !== 'root' && imagePickerScopeField.value === 'root_media'
+                        ? 'root_media'
+                        : 'current';
+                    mediaPickerLoadGeneration += 1;
+                    const selectionGeneration = mediaPickerLoadGeneration;
+                    imagePickerScopeField.value = mediaPickerScope;
+                    mediaPickerSourceLoaded.attached = false;
+                    mediaPickerSourceLoaded.recent = false;
+                    mediaPickerSourceLoaded.library = false;
+                    mediaPickerSourceLoading.attached = false;
+                    mediaPickerSourceLoading.recent = false;
+                    mediaPickerSourceLoading.library = false;
+                    featuredImageSource = mediaPickerScope === 'root_media' ? 'recent' : 'attached';
+                    updateImagePickerModalUi();
+                    renderFeaturedImagePickerGrid();
+                    try {
+                        if (mediaPickerScope === 'current') {
+                            await loadMediaPickerSource('attached', { force: true });
+                            if (selectionGeneration !== mediaPickerLoadGeneration) return;
+                            featuredImageSource = getDefaultImagePickerSource();
+                        }
+                        if (featuredImageSource === 'recent' || featuredImageSource === 'library') {
+                            await loadMediaPickerSource(featuredImageSource, { force: true });
+                            if (selectionGeneration !== mediaPickerLoadGeneration) return;
+                            if (featuredImageSource === 'recent' && getVisibleFeaturedImageRecords().length === 0) {
+                                featuredImageSource = 'library';
+                                await loadMediaPickerSource('library', { force: true });
+                                if (selectionGeneration !== mediaPickerLoadGeneration) return;
+                            }
+                        }
+                    } catch (error) {
+                        setTransientStatus(error && error.message ? error.message : 'Media library could not be loaded.', 'text-danger');
+                    }
+                    renderFeaturedImagePickerGrid();
+                });
+            }
             featuredImageSourceButtons.forEach((button) => {
                 button.addEventListener('click', async () => {
                     const nextSource = String(button.dataset.source || 'attached');
+                    if (mediaPickerScope === 'root_media' && nextSource === 'attached') {
+                        return;
+                    }
                     featuredImageSource = [ 'attached', 'recent', 'library' ].includes(nextSource) ? nextSource : 'attached';
                     try {
                         await loadMediaPickerSource(featuredImageSource, { force: true });
@@ -2197,25 +2407,24 @@
                     if (!imageInput.files || imageInput.files.length === 0) {
                         return;
                     }
+                    const uploadTarget = imagePickerTarget;
                     try {
-                        const uploadedPayloads = await uploadImageFiles(imageInput.files);
+                        const result = await uploadImageFiles(imageInput.files, uploadTarget === 'gallery' ? (payload) => {
+                            document.dispatchEvent(new CustomEvent('tinymash:editor-images-uploaded', {
+                                detail: { target: 'gallery', records: [payload] }
+                            }));
+                        } : null);
+                        const uploadedPayloads = result.uploaded;
                         const lastUploaded = uploadedPayloads.length > 0 ? uploadedPayloads[uploadedPayloads.length - 1] : null;
-                        if (imagePickerTarget === 'social') {
+                        if (uploadTarget === 'social') {
                             if (lastUploaded && lastUploaded.media_id) {
                                 setSeoSocialImage(lastUploaded.media_id);
                             }
-                        } else if (imagePickerTarget === 'featured') {
+                        } else if (uploadTarget === 'featured') {
                             if (lastUploaded && lastUploaded.media_id) {
                                 setFeaturedImage(lastUploaded.media_id);
                             }
-                        } else if (imagePickerTarget === 'gallery') {
-                            document.dispatchEvent(new CustomEvent('tinymash:editor-images-uploaded', {
-                                detail: {
-                                    target: 'gallery',
-                                    records: uploadedPayloads
-                                }
-                            }));
-                        } else {
+                        } else if (uploadTarget !== 'gallery') {
                             uploadedPayloads.forEach((payload) => {
                                 if (payload && payload.media_id) {
                                     insertInlineImage(payload.media_id);
@@ -2227,6 +2436,7 @@
                         if (featuredImageModal && uploadedPayloads.length > 0) {
                             featuredImageModal.hide();
                         }
+                        showImageUploadResult(result);
                     } catch (error) {
                         setTransientStatus(error.message || 'Image upload failed', 'text-danger');
                         console.error('[tinymash] image upload error', error);
@@ -2245,7 +2455,7 @@
                 document.addEventListener('tinymash:editor-request-image-picker', async (event) => {
                     const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
                     const target = String(detail.target || 'inline').trim() || 'inline';
-                    await openImagePickerModal(target);
+                    await openImagePickerModal(target, String(detail.replaceMediaId || '').trim());
                 });
                 document.addEventListener('tinymash:editor-request-image-upload', (event) => {
                     const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
@@ -2294,22 +2504,19 @@
             }
             if (markdownField && imagesEnabled) {
                 markdownField.addEventListener('paste', async (event) => {
-                    const clipboardItems = event.clipboardData ? Array.from(event.clipboardData.items || []) : [];
-                    const imageFiles = clipboardItems
-                        .filter((item) => item && item.kind === 'file' && String(item.type || '').startsWith('image/'))
-                        .map((item) => item.getAsFile())
-                        .filter((file) => file);
+                    const imageFiles = clipboardImageFiles(event.clipboardData);
                     if (imageFiles.length === 0) {
                         return;
                     }
+                    const insertionRange = {
+                        start: markdownField.selectionStart,
+                        end: markdownField.selectionEnd
+                    };
                     event.preventDefault();
                     try {
-                        const uploadedPayloads = await uploadImageFiles(imageFiles);
-                        uploadedPayloads.forEach((payload) => {
-                            if (payload && payload.media_id) {
-                                insertInlineImage(payload.media_id);
-                            }
-                        });
+                        const result = await uploadImageFiles(imageFiles);
+                        insertInlineImages(result.uploaded.map((payload) => payload.media_id), insertionRange);
+                        showImageUploadResult(result);
                     } catch (error) {
                         setTransientStatus(error.message || 'Image upload failed', 'text-danger');
                         console.error('[tinymash] pasted image upload error', error);
@@ -2335,14 +2542,15 @@
                     if (imageFiles.length === 0) {
                         return;
                     }
+                    const insertionRange = {
+                        start: markdownField.selectionStart,
+                        end: markdownField.selectionEnd
+                    };
                     event.preventDefault();
                     try {
-                        const uploadedPayloads = await uploadImageFiles(imageFiles);
-                        uploadedPayloads.forEach((payload) => {
-                            if (payload && payload.media_id) {
-                                insertInlineImage(payload.media_id);
-                            }
-                        });
+                        const result = await uploadImageFiles(imageFiles);
+                        insertInlineImages(result.uploaded.map((payload) => payload.media_id), insertionRange);
+                        showImageUploadResult(result);
                     } catch (error) {
                         setTransientStatus(error.message || 'Image upload failed', 'text-danger');
                         console.error('[tinymash] dropped image upload error', error);

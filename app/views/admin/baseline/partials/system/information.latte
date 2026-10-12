@@ -84,11 +84,13 @@
                                     {$runtime_extension['name']}
                                     {if ! empty($runtime_extension['required'])}
                                         <span class="text-body-secondary">required</span>
+                                    {elseif ! empty($runtime_extension['required_for'])}
+                                        <span class="text-body-secondary">required for {$runtime_extension['required_for']}</span>
                                     {else}
                                         <span class="text-body-secondary">recommended</span>
                                     {/if}
                                 </span>
-                                <span class="badge {if ! empty($runtime_extension['loaded'])}text-bg-success{else}text-bg-warning{/if}">
+                                <span class="badge {if ! empty($runtime_extension['loaded'])}text-bg-success{elseif ! empty($runtime_extension['required']) || ! empty($runtime_extension['required_for'])}text-bg-danger{else}text-bg-warning{/if}">
                                     {if ! empty($runtime_extension['loaded'])}Loaded{else}Missing{/if}
                                 </span>
                             </div>

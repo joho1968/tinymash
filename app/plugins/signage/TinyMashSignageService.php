@@ -6,6 +6,7 @@ use app\classes\TinyMashContentTargetPickerService;
 use app\classes\TinyMashLockedJsonFile;
 use app\classes\TinyMashMediaService;
 use app\classes\TinyMashUserRepository;
+use app\classes\TinyMashUrlResolver;
 
 class TinyMashSignageService {
 
@@ -30,7 +31,8 @@ class TinyMashSignageService {
         protected TinyMashContentRepository $content_repository,
         protected TinyMashMediaService $media_service,
         protected TinyMashConfig $config,
-        protected TinyMashUserRepository $user_repository
+        protected TinyMashUserRepository $user_repository,
+        protected ?TinyMashUrlResolver $url_resolver = null
     ) {}
 
     public function getSettings() : array {
@@ -914,7 +916,7 @@ class TinyMashSignageService {
                 'url' => $url,
                 'display_url' => trim( (string) ( $display['url'] ?? '' ) ),
                 'thumbnail_url' => trim( (string) ( $metadata['thumbnail']['url'] ?? '' ) ),
-                'alt_text' => trim( (string) ( $metadata['alt_text'] ?? '' ) ),
+                'alt_text' => mb_trim( (string) ( $metadata['alt_text'] ?? '' ) ),
                 'filename' => basename( (string) ( $metadata['filename'] ?? $metadata['original_filename'] ?? '' ) ),
                 'mime' => $mime,
                 'width' => max( 0, (int) ( $metadata['width'] ?? 0 ) ),
@@ -939,12 +941,13 @@ class TinyMashSignageService {
     protected function persistAccessCookie( array $loop, string $key ) : void {
         $cookie_name = $this->buildCookieName( (string) $loop['id'] );
         $secure_cookie = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on';
+        $base_path = $this->url_resolver instanceof TinyMashUrlResolver ? $this->url_resolver->getBasePath() : '';
         setcookie(
             $cookie_name,
             $key,
             [
                 'expires' => time() + ( 10 * 365 * 86400 ),
-                'path' => '/signage',
+                'path' => $base_path . '/signage',
                 'secure' => $secure_cookie,
                 'httponly' => true,
                 'samesite' => 'Lax',

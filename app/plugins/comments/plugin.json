@@ -1,0 +1,28 @@
+{
+    "key": "comments",
+    "name": "Comments",
+    "version": "0.99.4",
+    "description": "Adds moderated comments to posts and pages.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.public",
+        "routes.admin",
+        "admin.navigation",
+        "settings.system",
+        "content.workflow",
+        "assets.public",
+        "storage.private",
+        "housekeeping",
+        "cli"
+    ],
+    "static_export": {
+        "mode": "snapshot",
+        "summary": "Includes approved comments as a read-only snapshot."
+    },
+    "default_active": false,
+    "stage": "early"
+}

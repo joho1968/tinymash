@@ -5,6 +5,7 @@ require_once __DIR__ . '/TinyMashBloggerImportService.php';
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashDateFormatter;
+use app\classes\TinyMashEmbedService;
 use app\classes\TinyMashImportLockService;
 use app\classes\TinyMashImportPreviewWorkspaceService;
 use app\classes\TinyMashMediaImportBridge;
@@ -21,6 +22,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $date_formatter = $plugins->getService( 'date.formatter' );
     $user_repository = $plugins->getService( 'user.repository' );
     $media_import_bridge = $plugins->getService( 'media.import_bridge' );
+    $embed_service = $plugins->getService( 'embed.service' );
     $import_lock_service = $plugins->getService( 'import.lock_service' );
     $import_preview_workspace_service = $plugins->getService( 'import.preview_workspaces' );
 
@@ -28,12 +30,18 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         throw new \RuntimeException( 'Required services for the Blogger import plugin are not available.' );
     }
 
+    $comments_service = new TinyMashCommentsService(
+        $project_root . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . 'comments'
+    );
+
     $import_service = new TinyMashBloggerImportService(
         $project_root . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'plugin-blogger-import',
         $content_repository,
         $media_import_bridge instanceof TinyMashMediaImportBridge ? $media_import_bridge : null,
         $project_root,
-        $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service : null
+        $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service : null,
+        $embed_service instanceof TinyMashEmbedService ? $embed_service : null,
+        $comments_service
     );
 
     $parse_cli_options = static function( array $arguments ) : array {
@@ -50,6 +58,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'media_dir' => '',
             'force_lock' => false,
             'first_image_as_featured' => false,
+            'import_comments' => false,
+            'preserve_approved_comments' => false,
+            'retain_commenter_emails' => false,
         ];
 
         foreach ( array_slice( $arguments, 2 ) as $argument ) {
@@ -94,6 +105,18 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $options['first_image_as_featured'] = true;
                 continue;
             }
+            if ( $argument === '--import-comments' ) {
+                $options['import_comments'] = true;
+                continue;
+            }
+            if ( $argument === '--preserve-approved-comments' ) {
+                $options['preserve_approved_comments'] = true;
+                continue;
+            }
+            if ( $argument === '--retain-commenter-emails' ) {
+                $options['retain_commenter_emails'] = true;
+                continue;
+            }
 
             throw new \RuntimeException( 'Unknown option "' . $argument . '".' );
         }
@@ -114,6 +137,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         fwrite( STDOUT, 'adjusted_source_duplicates: ' . (int) ( $preview['adjusted_source_duplicates'] ?? 0 ) . PHP_EOL );
         fwrite( STDOUT, 'media_references: ' . (int) ( $media_summary['referenced'] ?? 0 ) . PHP_EOL );
         fwrite( STDOUT, 'media_matches: ' . (int) ( $media_summary['matched'] ?? 0 ) . PHP_EOL );
+        $embeds = is_array( $preview['embeds'] ?? null ) ? $preview['embeds'] : [];
+        fwrite( STDOUT, 'embeds_recognized: ' . (int) ( $embeds['recognized'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'embeds_converted: ' . (int) ( $embeds['converted'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'embeds_unsupported: ' . (int) ( $embeds['unsupported'] ?? 0 ) . PHP_EOL );
+        $comments = is_array( $preview['comments']['counts'] ?? null ) ? $preview['comments']['counts'] : [];
+        fwrite( STDOUT, 'comments_found: ' . (int) ( $comments['total'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'comments_importable: ' . (int) ( $comments['importable'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'comments_orphaned: ' . ( (int) ( $comments['orphaned'] ?? 0 ) + (int) ( $comments['orphaned_entry'] ?? 0 ) ) . PHP_EOL );
+        fwrite( STDOUT, 'comments_unsupported: ' . (int) ( $comments['unsupported'] ?? 0 ) . PHP_EOL );
     };
 
     if ( $plugins->isCliRuntime() ) {
@@ -132,6 +164,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     [ 'name' => 'replace-existing-posts', 'description' => 'Delete the target author\'s posts before import' ],
                     [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
                     [ 'name' => 'first-image-as-featured', 'description' => 'Use the first imported post image as its featured image' ],
+                    [ 'name' => 'import-comments', 'description' => 'Import comments mapped to imported entries' ],
+                    [ 'name' => 'preserve-approved-comments', 'description' => 'Keep approved source comments approved' ],
+                    [ 'name' => 'retain-commenter-emails', 'description' => 'Keep valid source commenter e-mail addresses' ],
                     [ 'name' => 'media-dir', 'value' => true, 'description' => 'Search this directory for local source media' ],
                     [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
                     [ 'name' => 'memory-limit', 'value' => true, 'default' => '512M', 'pattern' => '/^(?:-1|\d+[KMG]?)$/i', 'pattern_message' => 'The --memory-limit option must be -1 or a number with an optional K, M, or G suffix.', 'description' => 'Set the PHP memory limit for the import' ],
@@ -176,7 +211,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                         ! empty( $options['replace_existing_posts'] ),
                         trim( (string) ( $options['media_dir'] ?? '' ) ),
                         ! empty( $options['skip_unpublished'] ),
-                        ! empty( $options['first_image_as_featured'] )
+                        ! empty( $options['first_image_as_featured'] ),
+                        ! empty( $options['import_comments'] ),
+                        ! empty( $options['preserve_approved_comments'] ),
+                        ! empty( $options['retain_commenter_emails'] )
                     );
 
                     $write_preview_summary( $preview );
@@ -213,6 +251,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     fwrite( STDOUT, 'skipped: ' . (int) ( $counts['skipped'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'skipped_duplicate: ' . (int) ( $counts['skipped_duplicate'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'skipped_invalid: ' . (int) ( $counts['skipped_invalid'] ?? 0 ) . PHP_EOL );
+                    fwrite( STDOUT, 'comments_imported: ' . (int) ( $counts['comments_imported'] ?? 0 ) . PHP_EOL );
+                    fwrite( STDOUT, 'comments_pending: ' . (int) ( $counts['comments_pending'] ?? 0 ) . PHP_EOL );
 
                     if ( empty( $options['keep_preview'] ) ) {
                         $import_service->deletePreview( $token );
@@ -257,7 +297,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-blogger-import',
         [
             'title' => 'Blogger import',
-            'summary' => 'Import posts and pages from a Blogger export into an author space.',
+            'summary' => 'Import posts, pages, and selected comments from a Blogger export into an author space.',
             'documentation_url' => 'https://tinymash.joho.se/docs/plugins/blogger-import',
             'documentation_label' => 'Blogger import',
             'group' => 'Plugins',
@@ -266,7 +306,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'sections' => [
                 [
                     'title' => 'Overview',
-                    'markdown' => 'Import posts and pages from a Blogger export XML file into an author space.',
+                    'markdown' => 'Import posts, pages, and selected comments from a Blogger export XML file into an author space.',
                 ],
                 [
                     'title' => 'Media',
@@ -275,6 +315,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 [
                     'title' => 'Duplicates',
                     'markdown' => 'Imports never overwrite existing tinymash entries. If a Blogger item collides with an existing slug and type, it is skipped and reported.',
+                ],
+                [
+                    'title' => 'Comments',
+                    'markdown' => 'Comment import is optional. Approval and private e-mail retention require separate choices; subscriptions are never inferred.',
                 ],
                 [
                     'title' => 'Interrupted imports',
@@ -286,6 +330,75 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
     $escape = static function( string $value ) : string {
         return( htmlspecialchars( $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) );
+    };
+
+    $render_embed_report = static function( array $preview ) use ( $escape ) : string {
+        $embeds = is_array( $preview['embeds'] ?? null ) ? $preview['embeds'] : [];
+        $items = is_array( $embeds['items'] ?? null ) ? $embeds['items'] : [];
+        if ( (int) ( $embeds['recognized'] ?? 0 ) < 1 && (int) ( $embeds['unsupported'] ?? 0 ) < 1 ) {
+            return( '' );
+        }
+
+        $html = '<div class="mt-3 py-3 border-top"><div class="small text-uppercase text-body-secondary mb-2">External embeds</div>';
+        $html .= '<div class="d-flex flex-wrap gap-3 small text-body-secondary">';
+        $html .= '<span>Recognized: <strong class="text-body">' . (int) ( $embeds['recognized'] ?? 0 ) . '</strong></span>';
+        $html .= '<span>Converted: <strong class="text-body">' . (int) ( $embeds['converted'] ?? 0 ) . '</strong></span>';
+        $html .= '<span>Unsupported: <strong class="text-body">' . (int) ( $embeds['unsupported'] ?? 0 ) . '</strong></span>';
+        $html .= '</div>';
+        if ( ! empty( $items ) ) {
+            $html .= '<div class="table-responsive mt-2" tabindex="0" aria-label="External embed results"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Entry</th><th class="fw-normal">Result</th><th class="fw-normal">Source</th></tr></thead><tbody>';
+            foreach ( array_slice( $items, 0, 25 ) as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+                $status = match( (string) ( $item['status'] ?? '' ) ) {
+                    'converted' => 'Converted to [embed]',
+                    'linked' => 'Replaced with link',
+                    default => 'Removed',
+                };
+                $source_url = (string) ( $item['source_url'] ?? '' );
+                $html .= '<tr><td class="align-top"><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? '' ) ) . '</div><code>' . $escape( (string) ( $item['slug'] ?? '' ) ) . '</code></td>';
+                $html .= '<td class="align-top text-body-secondary">' . $escape( $status ) . '</td>';
+                $html .= '<td class="align-top"><code>' . $escape( $source_url !== '' ? $source_url : 'No usable source URL' ) . '</code></td></tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+        if ( ! empty( $embeds['items_truncated'] ) || count( $items ) > 25 ) {
+            $html .= '<div class="small text-body-secondary mt-2">Showing the first 25 external embeds.</div>';
+        }
+        return( $html . '</div>' );
+    };
+
+    $render_comment_report = static function( array $preview, array $import_state = [] ) use ( $escape ) : string {
+        $counts = is_array( $preview['comments']['counts'] ?? null ) ? $preview['comments']['counts'] : [];
+        $issues = is_array( $preview['comments']['issues'] ?? null ) ? $preview['comments']['issues'] : [];
+        $found = (int) ( $counts['total'] ?? 0 );
+        $orphaned = (int) ( $counts['orphaned'] ?? 0 ) + (int) ( $counts['orphaned_entry'] ?? 0 );
+        $html = '<div class="mt-3 py-3 border-top"><div class="small text-uppercase text-body-secondary mb-2">Comments</div>';
+        $html .= '<div class="d-flex flex-wrap gap-3 small text-body-secondary">';
+        $html .= '<span>Found: <strong class="text-body">' . $found . '</strong></span>';
+        $html .= '<span>Importable: <strong class="text-body">' . (int) ( $counts['importable'] ?? 0 ) . '</strong></span>';
+        $html .= '<span>Orphaned: <strong class="text-body">' . $orphaned . '</strong></span>';
+        $html .= '<span>Unsupported: <strong class="text-body">' . ( (int) ( $counts['unsupported'] ?? 0 ) + (int) ( $counts['malformed'] ?? 0 ) ) . '</strong></span>';
+        $html .= '</div>';
+        if ( ! empty( $preview['import_comments'] ) ) {
+            $html .= '<div class="small text-body-secondary mt-2">Comments will import. Approved source comments will ' . ( ! empty( $preview['preserve_approved_comments'] ) ? 'stay approved' : 'enter moderation' ) . '. Commenter e-mail addresses will ' . ( ! empty( $preview['retain_commenter_emails'] ) ? 'be retained' : 'be discarded' ) . '.</div>';
+        } elseif ( $found > 0 ) {
+            $html .= '<div class="small text-body-secondary mt-2">Comments were not selected for import.</div>';
+        }
+        if ( ! empty( $import_state['counts']['comments_imported'] ) ) {
+            $html .= '<div class="small mt-2">Imported: <strong>' . (int) $import_state['counts']['comments_imported'] . '</strong>; pending: <strong>' . (int) ( $import_state['counts']['comments_pending'] ?? 0 ) . '</strong>; approved: <strong>' . (int) ( $import_state['counts']['comments_approved'] ?? 0 ) . '</strong>.</div>';
+        }
+        if ( $issues !== [] ) {
+            $html .= '<div class="table-responsive mt-2"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Source comment</th><th class="fw-normal">Result</th></tr></thead><tbody>';
+            foreach ( array_slice( $issues, 0, 25 ) as $issue ) {
+                if ( is_array( $issue ) ) {
+                    $html .= '<tr><td><code>' . $escape( (string) ( $issue['source_id'] ?? '' ) ) . '</code></td><td class="text-body-secondary">' . $escape( (string) ( $issue['reason'] ?? '' ) ) . '</td></tr>';
+                }
+            }
+            $html .= '</tbody></table></div>';
+        }
+        return( $html . '</div>' );
     };
 
     $build_notice = static function( string $type, string $message ) : array {
@@ -306,7 +419,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( ! headers_sent() ) {
             header( 'Content-Type: application/json; charset=UTF-8' );
         }
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES );
     };
 
     $is_json_request = static function() : bool {
@@ -364,7 +477,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $options );
     };
 
-    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $config, $date_formatter, $import_service, $import_lock_service, $plugin_key, $plugin_url, $preview_url, $report_url, $import_url, $unlock_url, $login_url, $escape, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
+    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $config, $date_formatter, $import_service, $import_lock_service, $plugin_key, $plugin_url, $preview_url, $report_url, $import_url, $unlock_url, $login_url, $escape, $render_embed_report, $render_comment_report, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( $login_url );
             return;
@@ -429,7 +542,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<section class="p-3 bg-body-secondary rounded-3">';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Import source</div>';
             $body_html .= '<h2 class="h5 mb-1">Blogger export feed</h2>';
-            $body_html .= '<p class="text-body-secondary mb-3">Imports Blogger posts and pages into an author space. Existing tinymash entries are never overwritten.</p>';
+            $body_html .= '<p class="text-body-secondary mb-3">Imports Blogger posts, pages, and selected comments into an author space. Existing tinymash entries are never overwritten.</p>';
             $body_html .= '<form method="post" action="' . $escape( $preview_url ) . '" enctype="multipart/form-data" class="row g-3">';
             $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $csrf_token ) . '">';
             if ( $is_superadmin ) {
@@ -486,6 +599,27 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<input class="form-check-input" id="blogger-import-first-featured" name="first_image_as_featured" type="checkbox" value="1">';
             $body_html .= '<label class="form-check-label" for="blogger-import-first-featured">Use each post’s first image as its featured image</label>';
             $body_html .= '<div class="form-text">Featured images can appear in theme listings. The image remains in the post body.</div>';
+            $body_html .= '</div>';
+            $body_html .= '</div>';
+            $body_html .= '<div class="col-12 pt-2 border-top">';
+            $body_html .= '<div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="blogger-import-comments" name="import_comments" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="blogger-import-comments">Import comments mapped to imported entries</label>';
+            $body_html .= '<div class="form-text">Commenter URLs, IP addresses, user-agent data, and reply-notification consent are not imported.</div>';
+            $body_html .= '</div>';
+            $body_html .= '</div>';
+            $body_html .= '<div class="col-12 col-lg-6">';
+            $body_html .= '<div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="blogger-import-comment-approval" name="preserve_approved_comments" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="blogger-import-comment-approval">Keep approved source comments approved</label>';
+            $body_html .= '<div class="form-text">Otherwise approved comments enter moderation.</div>';
+            $body_html .= '</div>';
+            $body_html .= '</div>';
+            $body_html .= '<div class="col-12 col-lg-6">';
+            $body_html .= '<div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="blogger-import-comment-emails" name="retain_commenter_emails" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="blogger-import-comment-emails">Retain valid commenter e-mail addresses</label>';
+            $body_html .= '<div class="form-text">Addresses stay private and never create subscriptions.</div>';
             $body_html .= '</div>';
             $body_html .= '</div>';
             $body_html .= '<div class="col-12">';
@@ -553,7 +687,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Adjusted ' . $adjusted_source_duplicates . ' duplicate slug conflict' . ( $adjusted_source_duplicates === 1 ? '' : 's' ) . ' inside the Blogger source export so the entries can still be imported.</div>';
             }
             if ( $has_conflicting_lock ) {
-                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import holds this author-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
+                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import holds this author-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' Override is available for stale locks.' : '' ) . '</div>';
             }
             $body_html .= '</div>';
             $body_html .= '<div class="d-flex flex-wrap gap-2">';
@@ -590,6 +724,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="small text-body-secondary mt-1">Indexed files: ' . (int) ( $media_summary['indexed_files'] ?? 0 ) . ' | Indexed sidecar URLs: ' . (int) ( $media_summary['indexed_urls'] ?? 0 ) . ' | Referenced images: ' . (int) ( $media_summary['referenced_images'] ?? 0 ) . ' | Matched images: ' . (int) ( $media_summary['matched_images'] ?? 0 ) . '</div>';
                 $body_html .= '</div>';
             }
+            $body_html .= $render_embed_report( $preview );
+            $body_html .= $render_comment_report( $preview, is_array( $import_state ) ? $import_state : [] );
             $progress_processed = is_array( $import_state ) ? (int) ( $import_state['counts']['processed'] ?? 0 ) : 0;
             $progress_imported = is_array( $import_state ) ? (int) ( $import_state['counts']['imported'] ?? 0 ) : 0;
             $progress_skipped = is_array( $import_state ) ? (int) ( $import_state['counts']['skipped'] ?? 0 ) : 0;
@@ -611,7 +747,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '</div>';
             $body_html .= '</section>';
             $body_html .= '<div class="mt-3' . $preview_table_hidden . '" id="blogger-import-preview-table-wrap">';
-            $body_html .= '<div class="table-responsive"><div style="max-height: 32rem; overflow-y: auto;"><table class="table table-sm align-middle mb-0">';
+            $body_html .= '<div class="table-responsive"><div tabindex="0" aria-label="Blogger import entries" style="max-height: 32rem; overflow-y: auto;"><table class="table table-sm align-middle mb-0">';
             $body_html .= '<thead><tr><th class="fw-normal sticky-top bg-body">Title</th><th class="fw-normal sticky-top bg-body">Type</th><th class="fw-normal sticky-top bg-body">Status</th><th class="fw-normal sticky-top bg-body">Slug</th><th class="fw-normal sticky-top bg-body">Published</th><th class="fw-normal sticky-top bg-body">Source</th></tr></thead><tbody>';
             foreach ( array_slice( $entries, 0, 100 ) as $entry ) {
                 if ( ! is_array( $entry ) ) {
@@ -725,6 +861,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="small text-body-secondary mt-1">Indexed files: ' . (int) ( $media_summary['indexed_files'] ?? 0 ) . ' | Indexed sidecar URLs: ' . (int) ( $media_summary['indexed_urls'] ?? 0 ) . ' | Referenced images: ' . (int) ( $media_summary['referenced_images'] ?? 0 ) . ' | Matched images: ' . (int) ( $media_summary['matched_images'] ?? 0 ) . '</div>';
                 $body_html .= '</div>';
             }
+            $body_html .= $render_embed_report( $preview );
+            $body_html .= $render_comment_report( $preview, $import_state );
             $body_html .= '<div class="row g-3 mt-1">';
             $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Removed first</div><div class="fw-semibold">' . (int) ( $counts['deleted_existing_posts'] ?? 0 ) . '</div></div></div>';
             $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Processed</div><div class="fw-semibold">' . (int) ( $counts['processed'] ?? 0 ) . ' / ' . (int) ( $counts['total'] ?? 0 ) . '</div></div></div>';
@@ -918,7 +1056,7 @@ HTML;
                     ? 'Review the result of a completed Blogger import.'
                     : ( $mode === 'preview'
                         ? 'Review the parsed Blogger content before starting the import.'
-                        : 'Bring Blogger posts and pages into your current author space.' ),
+                        : 'Bring Blogger posts, pages, and selected comments into your current author space.' ),
                 'plugin_page_notice' => $notice,
                 'plugin_page_body_html' => $body_html,
             ]
@@ -986,7 +1124,10 @@ HTML;
                     ! empty( $data['replace_existing_posts'] ),
                     (string) ( $data['blogger_media_directory'] ?? '' ),
                     ! empty( $data['skip_unpublished'] ),
-                    ! empty( $data['first_image_as_featured'] )
+                    ! empty( $data['first_image_as_featured'] ),
+                    ! empty( $data['import_comments'] ),
+                    ! empty( $data['preserve_approved_comments'] ),
+                    ! empty( $data['retain_commenter_emails'] )
                 );
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'preview failed', $e );
@@ -1139,7 +1280,7 @@ HTML;
                 }
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'import failed', $e );
-                $message = trim( $e->getMessage() ) !== '' ? trim( $e->getMessage() ) : 'The Blogger import failed.';
+                $message = mb_trim( $e->getMessage() ) !== '' ? mb_trim( $e->getMessage() ) : 'The Blogger import failed.';
                 if ( str_contains( strtolower( $e->getMessage() ), 'media directory' ) ) {
                     $message = 'The Blogger import failed. Check that the optional local media directory still exists and is readable.';
                 }

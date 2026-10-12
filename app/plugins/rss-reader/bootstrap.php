@@ -138,7 +138,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Shortcode',
-                    'markdown' => 'Use `[rss source="source-key" limit="5"]` to display one approved source. Useful attributes are `source`, `limit`, `layout="compact|list|headlines"`, `excerpt="true|false"`, `date="true|false"`, and `title="Custom title"`.',
+                    'markdown' => '`[rss source="source-key" limit="5"]` shows one approved source. Options control layout, excerpt, date, and title.',
                 ],
                 [
                     'title' => 'Author embeds',

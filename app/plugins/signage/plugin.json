@@ -1,7 +1,7 @@
 {
     "key": "signage",
     "name": "Signage",
-    "version": "0.99.2",
+  "version": "0.99.4",
     "description": "Runs access-controlled presentation loops on display screens.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

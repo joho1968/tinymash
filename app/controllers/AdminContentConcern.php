@@ -2,7 +2,7 @@
 namespace app\controllers;
 
 if ( empty( TINYMASH_RUNNING ) ) {
-    die( 'We do not seem to have all the bits configured' );
+    die( 'Configuration is incomplete.' );
 }
 
 trait AdminContentConcern {
@@ -547,7 +547,7 @@ trait AdminContentConcern {
     }
 
     protected function normalizeContentTitleFilter( string $title ) : string {
-        $title = function_exists( 'mb_trim' ) ? mb_trim( $title ) : trim( $title );
+        $title = mb_trim( $title );
         if ( $title === '' ) {
             return( '' );
         }
@@ -580,8 +580,8 @@ trait AdminContentConcern {
             return( false );
         }
 
-        $normalized_candidate = function_exists( 'mb_strtolower' ) ? mb_strtolower( $candidate, 'UTF-8' ) : strtolower( $candidate );
-        $normalized_filter = function_exists( 'mb_strtolower' ) ? mb_strtolower( $title_filter, 'UTF-8' ) : strtolower( $title_filter );
+        $normalized_candidate = mb_strtolower( $candidate, 'UTF-8' );
+        $normalized_filter = mb_strtolower( $title_filter, 'UTF-8' );
         return( str_contains( $normalized_candidate, $normalized_filter ) );
     }
 

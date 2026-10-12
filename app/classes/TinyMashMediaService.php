@@ -24,6 +24,21 @@ class TinyMashMediaService {
         return( $this->media_root );
     }
 
+    public static function retainedCaptureDate( array $metadata ) : string {
+        foreach ( is_array( $metadata['metadata_rows'] ?? null ) ? $metadata['metadata_rows'] : [] as $row ) {
+            if ( ! is_array( $row ) || (string) ( $row['group_key'] ?? '' ) !== 'date_time_info' || (string) ( $row['label'] ?? '' ) !== 'Date taken' ) {
+                continue;
+            }
+            $value = (string) ( $row['value'] ?? '' );
+            if ( preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value ) !== 1 ) {
+                return( '' );
+            }
+            $date = \DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s', $value, new \DateTimeZone( 'UTC' ) );
+            return( $date instanceof \DateTimeImmutable && $date->format( 'Y-m-d H:i:s' ) === $value ? $value : '' );
+        }
+        return( '' );
+    }
+
     public function getRuntimeInfo() : array {
         $drivers = $this->getAvailableDrivers();
         $selected_driver = $this->resolveDriver();
@@ -69,7 +84,7 @@ class TinyMashMediaService {
             'storage.canonical_file' => true,
             'delivery.media_route' => true,
             'transform.resize_to_limits' => $selected_driver !== 'none',
-            'transform.auto_orient' => $selected_driver === 'imagick',
+            'transform.auto_orient' => $selected_driver !== 'none',
         ];
 
         if ( $this->capability_registry instanceof TinyMashMediaCapabilityRegistry ) {
@@ -186,13 +201,13 @@ class TinyMashMediaService {
                 'label' => 'WebP',
                 'mime' => 'image/webp',
                 'extension' => 'webp',
-                'notes' => 'Modern web format with driver-dependent resize support.',
+                'notes' => 'Web image format with driver-dependent resize support.',
             ],
             [
                 'label' => 'AVIF',
                 'mime' => 'image/avif',
                 'extension' => 'avif',
-                'notes' => 'Modern high-efficiency format with driver-dependent resize support.',
+                'notes' => 'High-efficiency image format with driver-dependent resize support.',
             ],
         ];
         $format_details = [];
@@ -269,6 +284,7 @@ class TinyMashMediaService {
         $mime = (string) ( $detected_info['mime'] ?? '' );
         $width = (int) ( $detected_info['width'] ?? 0 );
         $height = (int) ( $detected_info['height'] ?? 0 );
+        $source_orientation = $this->readJpegOrientation( $file['tmp_name'], $mime );
         $extension = $this->getExtensionForMime( $mime );
         $allowed_mimes = $this->normalizeAllowedUploadMimes( $options['allowed_mimes'] ?? null );
         if ( $extension === '' || ! $this->isAllowedUploadMime( $mime, $allowed_mimes ) ) {
@@ -311,6 +327,10 @@ class TinyMashMediaService {
             }
         }
 
+        $orientation_normalized = $source_orientation > 1
+            ? ( $resized || $this->normalizeStoredJpegOrientation( $target_path, $driver, $source_orientation ) )
+            : false;
+
         $stored_info = $this->detectLocalImageInfo( $target_path, $target_filename );
         $stored_mime = trim( (string) ( $stored_info['mime'] ?? $mime ) );
         try {
@@ -323,6 +343,9 @@ class TinyMashMediaService {
         }
         $embedded_metadata_strip_result = $this->stripEmbeddedImageMetadataIfNeeded( $target_path, $stored_mime, $driver, ! empty( $image_metadata_payload['strip_embedded_metadata'] ) );
         if ( ! empty( $embedded_metadata_strip_result['stripped'] ) ) {
+            if ( $source_orientation > 1 ) {
+                $orientation_normalized = true;
+            }
             $stored_info = $this->detectLocalImageInfo( $target_path, $target_filename );
             $stored_mime = trim( (string) ( $stored_info['mime'] ?? $stored_mime ) );
             $this->assertStoredImageMatchesPolicy( $target_path, $stored_mime, $allowed_mimes, $extension );
@@ -374,6 +397,8 @@ class TinyMashMediaService {
                 'driver' => $driver,
                 'derivative_key' => 'stored_primary',
                 'resized_on_ingest' => $resized,
+                'source_exif_orientation' => $source_orientation,
+                'orientation_normalized' => $orientation_normalized,
                 'thumbnail' => $thumbnail,
                 'display' => $display,
                 'source' => 'upload',
@@ -410,6 +435,7 @@ class TinyMashMediaService {
         $mime = (string) ( $detected_info['mime'] ?? '' );
         $width = (int) ( $detected_info['width'] ?? 0 );
         $height = (int) ( $detected_info['height'] ?? 0 );
+        $source_orientation = $this->readJpegOrientation( $source_path, $mime );
         $extension = $this->getExtensionForMime( $mime );
         $allowed_mimes = $this->normalizeAllowedUploadMimes( $options['allowed_mimes'] ?? null );
         if ( $extension === '' || ! $this->isAllowedUploadMime( $mime, $allowed_mimes ) ) {
@@ -449,6 +475,10 @@ class TinyMashMediaService {
             }
         }
 
+        $orientation_normalized = $source_orientation > 1
+            ? ( $resized || $this->normalizeStoredJpegOrientation( $target_path, $driver, $source_orientation ) )
+            : false;
+
         $stored_info = $this->detectLocalImageInfo( $target_path, $target_filename );
         $stored_mime = trim( (string) ( $stored_info['mime'] ?? $mime ) );
         try {
@@ -461,13 +491,14 @@ class TinyMashMediaService {
         }
         $embedded_metadata_strip_result = $this->stripEmbeddedImageMetadataIfNeeded( $target_path, $stored_mime, $driver, ! empty( $image_metadata_payload['strip_embedded_metadata'] ) );
         if ( ! empty( $embedded_metadata_strip_result['stripped'] ) ) {
+            if ( $source_orientation > 1 ) {
+                $orientation_normalized = true;
+            }
             $stored_info = $this->detectLocalImageInfo( $target_path, $target_filename );
             $stored_mime = trim( (string) ( $stored_info['mime'] ?? $stored_mime ) );
             $this->assertStoredImageMatchesPolicy( $target_path, $stored_mime, $allowed_mimes, $extension );
         }
-        $alt_text = function_exists( 'mb_trim' )
-            ? mb_trim( (string) ( $options['alt_text'] ?? '' ) )
-            : trim( (string) ( $options['alt_text'] ?? '' ) );
+        $alt_text = mb_trim( (string) ( $options['alt_text'] ?? '' ) );
         if ( $alt_text === '' ) {
             $alt_text = $this->buildAltText( $original_filename, $filename_base );
         }
@@ -518,6 +549,8 @@ class TinyMashMediaService {
                 'driver' => $driver,
                 'derivative_key' => 'stored_primary',
                 'resized_on_ingest' => $resized,
+                'source_exif_orientation' => $source_orientation,
+                'orientation_normalized' => $orientation_normalized,
                 'thumbnail' => $thumbnail,
                 'display' => $display,
                 'source' => 'import',
@@ -536,6 +569,47 @@ class TinyMashMediaService {
         );
 
         return( $this->buildStoredMediaResult( $metadata, $original_filename, $markdown ) );
+    }
+
+    public function copyImageToOwner( string $media_id, string $source_owner_username, string $target_owner_username ) : array {
+        $source_owner_username = strtolower( trim( $source_owner_username ) );
+        $target_owner_username = strtolower( trim( $target_owner_username ) );
+        if (
+            preg_match( '/^[a-z0-9_]+$/', $source_owner_username ) !== 1
+            || preg_match( '/^[a-z0-9_]+$/', $target_owner_username ) !== 1
+            || $source_owner_username === $target_owner_username
+        ) {
+            throw new \InvalidArgumentException( 'content_image_owner' );
+        }
+
+        $metadata = $this->getAttachmentMetadataByMediaId( $media_id, [ $source_owner_username ] );
+        if ( ! is_array( $metadata ) || (string) ( $metadata['owner_username'] ?? '' ) !== $source_owner_username ) {
+            throw new \InvalidArgumentException( 'content_image_file' );
+        }
+
+        $resolved = $this->resolveMediaPath(
+            $source_owner_username,
+            (string) ( $metadata['year'] ?? '' ),
+            (string) ( $metadata['month'] ?? '' ),
+            (string) ( $metadata['filename'] ?? '' )
+        );
+        $raster_mimes = array_values( array_intersect(
+            [ 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif' ],
+            $this->config->getAllowedContentImageMimes()
+        ) );
+        if ( ! is_array( $resolved ) || ! in_array( (string) ( $metadata['mime'] ?? '' ), $raster_mimes, true ) ) {
+            throw new \InvalidArgumentException( 'content_image_file' );
+        }
+
+        return( $this->storeImportedFile(
+            (string) $resolved['path'],
+            $target_owner_username,
+            [
+                'original_filename' => (string) ( $metadata['original_filename'] ?? $metadata['filename'] ?? '' ),
+                'alt_text' => (string) ( $metadata['alt_text'] ?? '' ),
+                'allowed_mimes' => $raster_mimes,
+            ]
+        ) );
     }
 
     public function resolveMediaPath( string $owner_username, string $year, string $month, string $filename ) : ?array {
@@ -790,6 +864,205 @@ class TinyMashMediaService {
                 'dry_run' => $dry_run,
             ]
         );
+    }
+
+    public function normalizeExistingJpegOrientations( int $limit = PHP_INT_MAX, array $owner_usernames = [], bool $dry_run = true ) : array {
+        $result = [ 'checked' => 0, 'candidates' => 0, 'normalized' => 0, 'failed' => 0, 'items' => [] ];
+        if ( ! $this->metadata_store instanceof TinyMashMediaAttachmentMetadataStore ) {
+            return( $result );
+        }
+        if ( ! function_exists( 'exif_read_data' ) ) {
+            throw new \RuntimeException( 'The EXIF extension is required for JPEG orientation maintenance.' );
+        }
+
+        $lock = null;
+        if ( ! $dry_run ) {
+            $lock_path = $this->media_root . DIRECTORY_SEPARATOR . '.orientation-maintenance.lock';
+            if ( is_link( $lock_path ) || ! is_dir( $this->media_root ) ) {
+                throw new \RuntimeException( 'Media orientation lock is unavailable.' );
+            }
+            $lock = @ fopen( $lock_path, 'c' );
+            if ( $lock === false ) {
+                throw new \RuntimeException( 'Media orientation lock is unavailable.' );
+            }
+            if ( ! flock( $lock, LOCK_EX ) ) {
+                fclose( $lock );
+                throw new \RuntimeException( 'Media orientation lock is unavailable.' );
+            }
+        }
+
+        try {
+            foreach ( $this->metadata_store->listMetadata( $owner_usernames, PHP_INT_MAX ) as $metadata ) {
+                if ( ! is_array( $metadata ) || (string) ( $metadata['derivative_key'] ?? 'stored_primary' ) !== 'stored_primary' ) {
+                    continue;
+                }
+                $result['checked']++;
+                if ( ! empty( $metadata['orientation_normalized'] ) ) {
+                    continue;
+                }
+                $path = $this->safeStoredJpegPath( $metadata );
+                if ( $path === '' ) {
+                    continue;
+                }
+                $orientation = $this->readJpegOrientation( $path, 'image/jpeg' );
+                if ( $orientation <= 1 ) {
+                    continue;
+                }
+
+                $result['candidates']++;
+                $item = [
+                    'media_id' => (string) ( $metadata['media_id'] ?? '' ),
+                    'owner' => (string) ( $metadata['owner_username'] ?? '' ),
+                    'filename' => (string) ( ( $metadata['original_filename'] ?? '' ) ?: ( $metadata['filename'] ?? '' ) ),
+                    'orientation' => $orientation,
+                    'status' => $dry_run ? 'would normalize' : 'failed',
+                ];
+                if ( ! $dry_run ) {
+                    if ( $this->repairExistingJpegOrientation( $metadata, $path, $orientation ) ) {
+                        $result['normalized']++;
+                        $item['status'] = 'normalized';
+                    } else {
+                        $result['failed']++;
+                    }
+                }
+                $result['items'][] = $item;
+                if ( $result['candidates'] >= max( 1, $limit ) ) {
+                    break;
+                }
+            }
+        } finally {
+            if ( is_resource( $lock ) ) {
+                flock( $lock, LOCK_UN );
+                fclose( $lock );
+            }
+        }
+
+        return( $result );
+    }
+
+    protected function safeStoredJpegPath( array $metadata ) : string {
+        if ( strtolower( (string) ( $metadata['mime'] ?? '' ) ) !== 'image/jpeg' ) {
+            return( '' );
+        }
+        $path = $this->buildStoredAssetPathFromMetadata( $metadata, (string) ( $metadata['filename'] ?? '' ) );
+        if ( $path === '' || $path !== (string) ( $metadata['path'] ?? '' ) || ! is_file( $path ) || is_link( $path ) ) {
+            return( '' );
+        }
+        $root = realpath( $this->media_root );
+        $directory = realpath( dirname( $path ) );
+        if ( $root === false || $directory === false || ! str_starts_with( $directory, $root . DIRECTORY_SEPARATOR ) ) {
+            return( '' );
+        }
+        $relative_directory = substr( dirname( $path ), strlen( $this->media_root ) + 1 );
+        $candidate = $this->media_root;
+        foreach ( explode( DIRECTORY_SEPARATOR, $relative_directory ) as $part ) {
+            $candidate .= DIRECTORY_SEPARATOR . $part;
+            if ( is_link( $candidate ) ) {
+                return( '' );
+            }
+        }
+        if ( is_link( $path . '.meta.json' ) ) {
+            return( '' );
+        }
+        $info = $this->detectLocalImageInfo( $path, (string) ( $metadata['filename'] ?? '' ) );
+        return( (string) ( $info['mime'] ?? '' ) === 'image/jpeg' ? $path : '' );
+    }
+
+    protected function repairExistingJpegOrientation( array $metadata, string $path, int $orientation ) : bool {
+        $driver = $this->resolveDriver();
+        if ( $driver === 'none' ) {
+            return( false );
+        }
+        $filename = (string) $metadata['filename'];
+        $base = pathinfo( $filename, PATHINFO_FILENAME );
+        $extension = pathinfo( $filename, PATHINFO_EXTENSION );
+        $assets = [
+            $path,
+            dirname( $path ) . DIRECTORY_SEPARATOR . $base . '__thumb.' . $extension,
+            dirname( $path ) . DIRECTORY_SEPARATOR . $base . '__display.' . $extension,
+        ];
+        $backups = [];
+        $existing_assets = [];
+        $mutation_started = false;
+        $suffix = '.orientation-backup-' . bin2hex( random_bytes( 8 ) );
+        try {
+            foreach ( $assets as $asset ) {
+                if ( is_link( $asset ) || ( is_file( $asset ) && (int) ( @ stat( $asset )['nlink'] ?? 1 ) > 1 ) ) {
+                    throw new \RuntimeException( 'Unsafe media derivative.' );
+                }
+                $existing_assets[$asset] = is_file( $asset );
+                if ( ! $existing_assets[$asset] ) {
+                    continue;
+                }
+                $backup = $asset . $suffix;
+                if ( ! @ copy( $asset, $backup ) ) {
+                    throw new \RuntimeException( 'Unable to back up media asset.' );
+                }
+                @ chmod( $backup, fileperms( $asset ) & 0777 );
+                $backups[$asset] = $backup;
+            }
+
+            $mutation_started = true;
+            if ( ! $this->normalizeStoredJpegOrientation( $path, $driver, $orientation ) ) {
+                throw new \RuntimeException( 'Unable to normalize JPEG orientation.' );
+            }
+            $info = $this->detectLocalImageInfo( $path, $filename );
+            $width = (int) ( $info['width'] ?? 0 );
+            $height = (int) ( $info['height'] ?? 0 );
+            if ( (string) ( $info['mime'] ?? '' ) !== 'image/jpeg' || $width < 1 || $height < 1 || $this->readJpegOrientation( $path, 'image/jpeg' ) !== 1 ) {
+                throw new \RuntimeException( 'Normalized JPEG failed validation.' );
+            }
+            $owner = (string) $metadata['owner_username'];
+            $year = (string) $metadata['year'];
+            $month = (string) $metadata['month'];
+            $thumbnail = $this->buildThumbnailDerivative( $path, $owner, $year, $month, $filename, 'image/jpeg', $width, $height, $driver );
+            $display = $this->buildDisplayDerivative( $path, $owner, $year, $month, $filename, 'image/jpeg', $width, $height, $driver );
+            if ( ( $this->config->generatesThumbnails() && ( $width > $this->config->getThumbnailMaxWidth() || $height > $this->config->getThumbnailMaxHeight() ) && empty( $thumbnail['url'] ) )
+                || ( ( $width > self::DISPLAY_DERIVATIVE_MAX_WIDTH || $height > self::DISPLAY_DERIVATIVE_MAX_HEIGHT ) && empty( $display['url'] ) ) ) {
+                throw new \RuntimeException( 'Unable to regenerate JPEG derivatives.' );
+            }
+
+            $metadata['width'] = $width;
+            $metadata['height'] = $height;
+            $metadata['bytes'] = (int) filesize( $path );
+            $metadata['source_exif_orientation'] = $orientation;
+            $metadata['orientation_normalized'] = true;
+            $metadata['thumbnail'] = $thumbnail;
+            $metadata['display'] = $display;
+            $this->storeAttachmentMetadata( $metadata );
+            foreach ( [ 1 => $thumbnail, 2 => $display ] as $index => $derivative ) {
+                if ( empty( $derivative ) && is_file( $assets[$index] ) ) {
+                    @ unlink( $assets[$index] );
+                }
+            }
+            foreach ( $backups as $backup ) {
+                @ unlink( $backup );
+            }
+            return( true );
+        } catch ( \Throwable $e ) {
+            $restore_failed = false;
+            if ( $mutation_started ) {
+                foreach ( $assets as $asset ) {
+                    if ( isset( $backups[$asset] ) ) {
+                        if ( ! @ rename( $backups[$asset], $asset ) ) {
+                            $restore_failed = true;
+                        }
+                    } elseif ( empty( $existing_assets[$asset] ) && is_file( $asset ) ) {
+                        if ( ! @ unlink( $asset ) ) {
+                            $restore_failed = true;
+                        }
+                    }
+                }
+            }
+            if ( ! $restore_failed ) {
+                foreach ( $backups as $backup ) {
+                    if ( is_file( $backup ) ) {
+                        @ unlink( $backup );
+                    }
+                }
+            }
+            return( false );
+        }
     }
 
     public function assignAttachmentToContent( string $media_id, array $owner_usernames = [], string $entry_id = '', string $draft_id = '', string $attachment_session_id = '' ) : ?array {
@@ -1276,7 +1549,7 @@ class TinyMashMediaService {
         $seen = [];
         $deduped_rows = [];
         foreach ( $rows as $row ) {
-            $key = strtolower( (string) ( $row['group_key'] ?? '' ) . '|' . (string) ( $row['label'] ?? '' ) . '|' . (string) ( $row['value'] ?? '' ) );
+            $key = mb_strtolower( (string) ( $row['group_key'] ?? '' ) . '|' . (string) ( $row['label'] ?? '' ) . '|' . (string) ( $row['value'] ?? '' ), 'UTF-8' );
             if ( $key === '||' || isset( $seen[$key] ) ) {
                 continue;
             }
@@ -1334,7 +1607,7 @@ class TinyMashMediaService {
                 $parts = [];
                 foreach ( $value as $part ) {
                     if ( is_scalar( $part ) ) {
-                        $part_text = trim( (string) $part );
+                        $part_text = mb_trim( (string) $part );
                         if ( $part_text !== '' ) {
                             $parts[] = $part_text;
                         }
@@ -1348,7 +1621,7 @@ class TinyMashMediaService {
         }
 
         $text = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/u', ' ', (string) $value ) ?? '';
-        $text = trim( preg_replace( '/\s+/u', ' ', $text ) ?? '' );
+        $text = mb_trim( preg_replace( '/\s+/u', ' ', $text ) ?? '' );
         if ( $text === '' ) {
             return( '' );
         }
@@ -1558,6 +1831,133 @@ class TinyMashMediaService {
         return( $width > $max_width || $height > $max_height );
     }
 
+    protected function readJpegOrientation( string $source_path, string $mime ) : int {
+        if ( strtolower( trim( $mime ) ) !== 'image/jpeg' || ! function_exists( 'exif_read_data' ) || ! is_file( $source_path ) || ! is_readable( $source_path ) ) {
+            return( 1 );
+        }
+
+        $exif = @ exif_read_data( $source_path, 'IFD0', true, false );
+        if ( ! is_array( $exif ) ) {
+            return( 1 );
+        }
+
+        $orientation = (int) ( $this->findExifValue( $exif, [ 'Orientation' ] ) ?? 1 );
+        return( $orientation >= 1 && $orientation <= 8 ? $orientation : 1 );
+    }
+
+    protected function normalizeStoredJpegOrientation( string $target_path, string $driver, int $orientation ) : bool {
+        if ( $orientation <= 1 || $orientation > 8 || ! is_file( $target_path ) ) {
+            return( false );
+        }
+
+        $temporary_path = $target_path . '.orient-' . bin2hex( random_bytes( 4 ) );
+        $normalized = false;
+        try {
+            if ( $driver === 'imagick' && class_exists( '\\Imagick' ) ) {
+                $image = new \Imagick( $target_path );
+                $this->orientImagickImage( $image, $orientation );
+                $this->applyImagickOutputPolicy( $image, 'image/jpeg' );
+                $normalized = $image->writeImage( $temporary_path );
+                $image->clear();
+                $image->destroy();
+            } elseif ( $driver === 'gd' && function_exists( 'imagecreatefromjpeg' ) ) {
+                $image = @ imagecreatefromjpeg( $target_path );
+                if ( is_object( $image ) || is_resource( $image ) ) {
+                    $oriented_image = $this->orientGdImage( $image, $orientation );
+                    if ( $oriented_image !== false ) {
+                        imageinterlace( $oriented_image, true );
+                        $normalized = imagejpeg( $oriented_image, $temporary_path, 88 );
+                        imagedestroy( $oriented_image );
+                    }
+                }
+            }
+
+            if ( ! $normalized || ! is_file( $temporary_path ) || ! @ rename( $temporary_path, $target_path ) ) {
+                if ( is_file( $temporary_path ) ) {
+                    @ unlink( $temporary_path );
+                }
+                return( false );
+            }
+
+            return( true );
+        } catch ( \Throwable $e ) {
+            if ( is_file( $temporary_path ) ) {
+                @ unlink( $temporary_path );
+            }
+            return( false );
+        }
+    }
+
+    protected function orientGdImage( mixed $image, int $orientation ) : mixed {
+        if ( ! is_object( $image ) && ! is_resource( $image ) ) {
+            return( false );
+        }
+
+        $flip = static function( mixed $candidate, int $mode ) : bool {
+            return( function_exists( 'imageflip' ) && imageflip( $candidate, $mode ) );
+        };
+        $rotate = static function( mixed $candidate, float $angle ) : mixed {
+            $rotated = imagerotate( $candidate, $angle, 0 );
+            if ( $rotated === false ) {
+                imagedestroy( $candidate );
+                return( false );
+            }
+            imagedestroy( $candidate );
+            return( $rotated );
+        };
+
+        if ( $orientation === 2 && ! $flip( $image, IMG_FLIP_HORIZONTAL ) ) {
+            imagedestroy( $image );
+            return( false );
+        }
+        if ( $orientation === 3 ) {
+            $image = $rotate( $image, 180 );
+        } elseif ( $orientation === 4 && ! $flip( $image, IMG_FLIP_VERTICAL ) ) {
+            imagedestroy( $image );
+            return( false );
+        } elseif ( $orientation === 5 ) {
+            $image = $rotate( $image, -90 );
+            if ( $image !== false && ! $flip( $image, IMG_FLIP_HORIZONTAL ) ) {
+                imagedestroy( $image );
+                return( false );
+            }
+        } elseif ( $orientation === 6 ) {
+            $image = $rotate( $image, -90 );
+        } elseif ( $orientation === 7 ) {
+            $image = $rotate( $image, 90 );
+            if ( $image !== false && ! $flip( $image, IMG_FLIP_HORIZONTAL ) ) {
+                imagedestroy( $image );
+                return( false );
+            }
+        } elseif ( $orientation === 8 ) {
+            $image = $rotate( $image, 90 );
+        }
+
+        return( $image );
+    }
+
+    protected function orientImagickImage( \Imagick $image, int $orientation ) : void {
+        if ( $orientation === 2 ) {
+            $image->flopImage();
+        } elseif ( $orientation === 3 ) {
+            $image->rotateImage( 'none', 180 );
+        } elseif ( $orientation === 4 ) {
+            $image->flipImage();
+        } elseif ( $orientation === 5 && method_exists( $image, 'transposeImage' ) ) {
+            $image->transposeImage();
+        } elseif ( $orientation === 6 ) {
+            $image->rotateImage( 'none', 90 );
+        } elseif ( $orientation === 7 && method_exists( $image, 'transverseImage' ) ) {
+            $image->transverseImage();
+        } elseif ( $orientation === 8 ) {
+            $image->rotateImage( 'none', -90 );
+        }
+
+        if ( defined( '\\Imagick::ORIENTATION_TOPLEFT' ) ) {
+            $image->setImageOrientation( \Imagick::ORIENTATION_TOPLEFT );
+        }
+    }
+
     protected function resizeUploadedImage( string $source_path, string $target_path, string $mime, int $width, int $height, int $max_width, int $max_height, string $driver ) : bool {
         if ( $driver === 'imagick' ) {
             return( $this->resizeWithImagick( $source_path, $target_path, $mime, $max_width, $max_height ) );
@@ -1576,8 +1976,8 @@ class TinyMashMediaService {
 
         try {
             $image = new \Imagick( $source_path );
-            if ( method_exists( $image, 'autoOrientImage' ) ) {
-                $image->autoOrientImage();
+            if ( $mime === 'image/jpeg' ) {
+                $this->orientImagickImage( $image, $this->readJpegOrientation( $source_path, $mime ) );
             }
             $image->thumbnailImage( $max_width, $max_height, true, false );
             $this->applyImagickOutputPolicy( $image, $mime );
@@ -1601,6 +2001,18 @@ class TinyMashMediaService {
 
         if ( ! is_object( $source_image ) && ! is_resource( $source_image ) ) {
             return( false );
+        }
+
+        if ( $mime === 'image/jpeg' ) {
+            $orientation = $this->readJpegOrientation( $source_path, $mime );
+            if ( $orientation > 1 ) {
+                $source_image = $this->orientGdImage( $source_image, $orientation );
+                if ( $source_image === false ) {
+                    return( false );
+                }
+                $width = imagesx( $source_image );
+                $height = imagesy( $source_image );
+            }
         }
 
         $ratio = min( $max_width / max( 1, $width ), $max_height / max( 1, $height ) );

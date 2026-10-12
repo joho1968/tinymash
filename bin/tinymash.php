@@ -228,14 +228,7 @@ if ($early_cli_command === 'update:recover') {
 
 require_once __DIR__ . '/../app/classes/TinyMashWriterGate.php';
 
-$cli_setup_request = false;
-foreach (array_slice($argv ?? [], 1) as $argument) {
-    if (!is_string($argument) || $argument === '' || str_starts_with($argument, '-')) {
-        continue;
-    }
-    $cli_setup_request = $argument === 'setup';
-    break;
-}
+$cli_setup_request = $early_cli_command === 'setup';
 $cli_writer_lease = null;
 if (!$cli_setup_request) {
     try {
@@ -244,6 +237,24 @@ if (!$cli_setup_request) {
         fwrite(STDERR, "tinymash: a site update is in progress\n");
         exit(1);
     }
+}
+
+$cli_config_filename = __DIR__ . '/../app/config/tinymash.json';
+$cli_has_config = file_exists($cli_config_filename) || is_link($cli_config_filename);
+$cli_help_request = false;
+foreach (array_slice($argv ?? [], 1) as $argument) {
+    if ($argument === '--') {
+        break;
+    }
+    if (in_array($argument, ['--help', '-h', '--version', '-V'], true)) {
+        $cli_help_request = true;
+        break;
+    }
+}
+if (!$cli_has_config && !$cli_help_request
+    && !in_array($early_cli_command, ['', 'help', 'list', 'completion', 'setup', 'deploy:audit', 'upgrade:prepare'], true)) {
+    fwrite(STDERR, "tinymash: configuration is missing; run setup or inspect the unfinished installation first\n");
+    exit(1);
 }
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -260,6 +271,7 @@ require_once __DIR__ . '/../app/classes/TinyMashMarkdownRenderer.php';
 require_once __DIR__ . '/../app/classes/TinyMashDateFormatter.php';
 require_once __DIR__ . '/../app/classes/TinyMashContentRenderer.php';
 require_once __DIR__ . '/../app/classes/TinyMashShortcodeRegistry.php';
+require_once __DIR__ . '/../app/classes/TinyMashEmbedService.php';
 require_once __DIR__ . '/../app/classes/TinyMashMenuService.php';
 require_once __DIR__ . '/../app/classes/TinyMashFilesystem.php';
 require_once __DIR__ . '/../app/classes/TinyMashMediaAttachmentMetadataStore.php';
@@ -279,6 +291,7 @@ require_once __DIR__ . '/../app/classes/TinyMashThemeSupportRegistry.php';
 require_once __DIR__ . '/../app/classes/TinyMashTheme.php';
 require_once __DIR__ . '/../app/classes/TinyMashHelpCatalog.php';
 require_once __DIR__ . '/../app/classes/TinyMashUserRepository.php';
+require_once __DIR__ . '/../app/classes/TinyMashSetupService.php';
 require_once __DIR__ . '/../app/classes/TinyMashExportService.php';
 require_once __DIR__ . '/../app/classes/TinyMashStaticExportArtifactService.php';
 require_once __DIR__ . '/../app/classes/TinyMashStaticExportService.php';
@@ -289,6 +302,8 @@ require_once __DIR__ . '/../app/classes/TinyMashMailer.php';
 require_once __DIR__ . '/../app/classes/TinyMashNotificationService.php';
 require_once __DIR__ . '/../app/classes/TinyMashPasswordResetService.php';
 require_once __DIR__ . '/../app/classes/TinyMashComponentsReportService.php';
+require_once __DIR__ . '/../app/classes/TinyMashUpdateStageService.php';
+require_once __DIR__ . '/../app/classes/TinyMashUpdateJournal.php';
 
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashConfigIO;
@@ -302,6 +317,7 @@ use app\classes\TinyMashMarkdownRenderer;
 use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashContentRenderer;
 use app\classes\TinyMashShortcodeRegistry;
+use app\classes\TinyMashEmbedService;
 use app\classes\TinyMashMenuService;
 use app\classes\TinyMashMediaAttachmentMetadataStore;
 use app\classes\TinyMashMediaImportMapStore;
@@ -329,8 +345,9 @@ use app\classes\TinyMashMailer;
 use app\classes\TinyMashNotificationService;
 use app\classes\TinyMashPasswordResetService;
 use app\classes\TinyMashComponentsReportService;
-use app\classes\TinyMashWriterGate;
-use app\classes\TinyMashWriterLease;
+use app\classes\TinyMashSetupService;
+use app\classes\TinyMashUpdateJournal;
+use app\classes\TinyMashUpdateStageService;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\InvalidArgumentException as ConsoleInvalidArgumentException;
@@ -466,10 +483,6 @@ function guardRootUserForCliCommand(bool $read_only, bool $allow_root): void {
     if (!is_string($answer) || !in_array(strtolower(trim($answer)), ['y', 'yes'], true)) {
         fail('aborted', 2);
     }
-}
-
-function acquireCliWriterLease(): TinyMashWriterLease {
-    return (new TinyMashWriterGate(TINYMASH_RUNTIME_DIR))->acquireShared();
 }
 
 function readUsers(): array {
@@ -877,6 +890,7 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $draft_repository = new TinyMashDraftRepository(TINYMASH_DRAFTS_DIR);
     $user_repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, $config->getEditorDefaultMode());
     $markdown_renderer = new TinyMashMarkdownRenderer();
+    $mailer = new TinyMashMailer($markdown_renderer);
     $date_formatter = new TinyMashDateFormatter(
         $config->getLocaleDateFormat(),
         $config->getLocaleTimeFormat(),
@@ -917,6 +931,8 @@ function buildCliRuntime(bool $with_plugins = false): array {
         TINYMASH_RUNTIME_DIR . '/rendered-content'
     );
     $shortcode_registry = new TinyMashShortcodeRegistry($config->getUnknownShortcodeMode());
+    $embed_service = new TinyMashEmbedService();
+    $embed_service->registerCoreShortcode($shortcode_registry);
     $help_catalog = new TinyMashHelpCatalog(
         dirname(__DIR__) . '/app/help',
         'en'
@@ -974,9 +990,11 @@ function buildCliRuntime(bool $with_plugins = false): array {
     $app->set('draft.repository', $draft_repository);
     $app->set('user.repository', $user_repository);
     $app->set('markdown.renderer', $markdown_renderer);
+    $app->set('mailer', $mailer);
     $app->set('date.formatter', $date_formatter);
     $app->set('content.renderer', $content_renderer);
     $app->set('shortcode.registry', $shortcode_registry);
+    $app->set('embed.service', $embed_service);
     $app->set('menu.service', $menu_service);
     $app->set('theme.support_registry', $theme_support_registry);
     $app->set('theme.registry', $theme_registry);
@@ -1062,6 +1080,11 @@ function runHousekeeping(bool $run_plugins = true): void {
     }
 
     $runtime = buildCliRuntime($run_plugins);
+    $updateStage = new TinyMashUpdateStageService(
+        tinymash_get_runtime_temp_subdirectory_path('tinymash-updates'),
+        dirname(__DIR__)
+    );
+    $updateJournal = new TinyMashUpdateJournal(TINYMASH_RUNTIME_DIR . '/update-transaction.json');
     $service = new TinyMashHousekeepingService(
         $config_io,
         $runtime['draft_repository'],
@@ -1073,7 +1096,9 @@ function runHousekeeping(bool $run_plugins = true): void {
         TINYMASH_RUNTIME_DIR . '/housekeeping-web.lock',
         $runtime['media_import_bridge'] ?? null,
         $runtime['content_repository'] ?? null,
-        $runtime['import_preview_workspace_service'] ?? null
+        $runtime['import_preview_workspace_service'] ?? null,
+        $updateStage,
+        $updateJournal
     );
     $result = $service->run(
         $run_plugins,
@@ -1247,6 +1272,49 @@ function runMediaCleanup(array $arguments): void {
         $cleanup_rows['Generated'] = (int) ($result['generated'] ?? 0);
     }
     printCliRows($cleanup_rows);
+}
+
+function runMediaOrientation(array $arguments): void {
+    $apply = in_array('--apply', $arguments, true);
+    $owner = '';
+    $limit = PHP_INT_MAX;
+    foreach ($arguments as $argument) {
+        if (str_starts_with($argument, '--owner=')) {
+            $owner = strtolower(trim(substr($argument, 8)));
+        } elseif (str_starts_with($argument, '--limit=')) {
+            $limit = max(1, (int) trim(substr($argument, 8)));
+        }
+    }
+    if ($owner === 'all') {
+        $owner = '';
+    }
+    if ($owner !== '' && preg_match('/^[a-z0-9_]+$/', $owner) !== 1) {
+        fail('invalid owner; use root or an author username');
+    }
+
+    $runtime = buildCliRuntime(false);
+    $media_service = $runtime['media_service'] ?? null;
+    if (!$media_service instanceof TinyMashMediaService) {
+        fail('media service unavailable');
+    }
+    $result = $media_service->normalizeExistingJpegOrientations($limit, $owner !== '' ? [$owner] : [], !$apply);
+    printCliTitle('tinymash media orientation');
+    printCliRows([
+        'Mode' => $apply ? 'apply' : 'preview',
+        'Owner' => $owner !== '' ? $owner : 'all',
+        'Checked' => (int) $result['checked'],
+        'Candidates' => (int) $result['candidates'],
+        'Normalized' => (int) $result['normalized'],
+        'Failed' => (int) $result['failed'],
+    ]);
+    foreach ($result['items'] as $item) {
+        $filename = preg_replace('/[\x00-\x1f\x7f]/', ' ', (string) $item['filename']) ?? '';
+        echo (string) $item['status'] . ': ' . (string) $item['owner'] . '/' . (string) $item['media_id']
+            . ' (' . $filename . ', EXIF ' . (int) $item['orientation'] . ')' . PHP_EOL;
+    }
+    if ((int) $result['failed'] > 0) {
+        fail('some JPEGs could not be normalized; inspect the originals and retry');
+    }
 }
 
 function runMediaUsage(array $arguments, bool $unused_only = false, string $mode = 'usage'): void {
@@ -1703,9 +1771,13 @@ function runPublicBenchmark(array $arguments): void {
 }
 
 function runRemoteMediaAudit(array $arguments): void {
-    $options = parseRemoteMediaAuditOptions($arguments);
+    $options = parseContentAuditOptions($arguments);
     $content_repository = new TinyMashContentRepository(TINYMASH_CONTENT_DIR);
-    $entries = $content_repository->getEntriesForAudit(null, $options['author'] !== '' ? $options['author'] : null, true, !$options['include_unpublished']);
+    $author = $options['author'];
+    if ($author !== '' && $content_repository->normalizeAuthorSlug($author) !== strtolower($author)) {
+        fail('invalid author username');
+    }
+    $entries = $content_repository->getEntriesForAudit(null, $author !== '' ? $author : null, $author === '', !$options['include_unpublished']);
 
     $findings = [];
     foreach ($entries as $entry) {
@@ -1721,7 +1793,7 @@ function runRemoteMediaAudit(array $arguments): void {
 
     printCliTitle('tinymash audit remote-media');
     printCliRows([
-        'Scope' => $options['author'] !== '' ? 'author=' . $options['author'] : 'all',
+        'Scope' => $author !== '' ? 'author=' . $author : 'all',
         'Published only' => $options['include_unpublished'] ? 'no' : 'yes',
         'Entries scanned' => count($entries),
         'Remote image findings' => count($findings),
@@ -1751,6 +1823,112 @@ function runRemoteMediaAudit(array $arguments): void {
             'Title' => (string) $finding['title'],
             'URL' => (string) $finding['url'],
         ]);
+    }
+}
+
+function runShortcodeAudit(array $arguments): void {
+    $options = parseContentAuditOptions($arguments);
+    $runtime = buildCliRuntime(true);
+    $repository = $runtime['content_repository'];
+    $registry = $runtime['app']->get('shortcode.registry');
+    if (!$repository instanceof TinyMashContentRepository || !$registry instanceof TinyMashShortcodeRegistry) {
+        fail('shortcode audit is unavailable');
+    }
+
+    $author = $options['author'];
+    if ($author !== '' && $repository->normalizeAuthorSlug($author) !== strtolower($author)) {
+        fail('invalid author username');
+    }
+
+    $entries = $repository->getEntriesForAudit(null, $author !== '' ? $author : null, $author === '', !$options['include_unpublished']);
+    $counts = [];
+    $paths = [];
+    $by_entry = [];
+    $affected_entries = [];
+    $supported = 0;
+    $unsupported = 0;
+    foreach ($entries as $entry) {
+        if (!is_array($entry) || !in_array((string) ($entry['type'] ?? ''), ['post', 'page'], true)) {
+            continue;
+        }
+        $translations = is_array($entry['translations'] ?? null) ? $entry['translations'] : [];
+        if ($translations === []) {
+            $translations = [(string) ($entry['language'] ?? 'default') => $entry];
+        }
+        foreach ($translations as $language => $translation) {
+            if (!is_array($translation)) {
+                continue;
+            }
+            foreach ($registry->scanShortcodeCandidates((string) ($translation['content'] ?? '')) as $candidate) {
+                if (!empty($candidate['supported'])) {
+                    $supported++;
+                    continue;
+                }
+                $unsupported++;
+                $name = (string) $candidate['name'];
+                $counts[$name] = ($counts[$name] ?? 0) + 1;
+                $path = '/' . (($entry['scope'] ?? 'root') === 'author' ? (string) ($entry['author_slug'] ?? '') . '/' : '') . ltrim((string) ($entry['path'] ?? ''), '/');
+                if (count($translations) > 1) {
+                    $path .= ' (' . (string) $language . ')';
+                }
+                $paths[$name][$path] = true;
+                $by_entry[$path][$name] = ($by_entry[$path][$name] ?? 0) + 1;
+                $affected_entries[(string) ($entry['id'] ?? $path)] = true;
+            }
+        }
+    }
+
+    printCliTitle('tinymash audit shortcodes');
+    printCliRows([
+        'Scope' => $author !== '' ? 'author=' . $author : 'all',
+        'Published only' => $options['include_unpublished'] ? 'no' : 'yes',
+        'Entries scanned' => count($entries),
+        'Supported uses' => $supported,
+        'Unsupported candidates' => $unsupported,
+        'Unsupported names' => count($counts),
+        'Affected entries' => count($affected_entries),
+    ]);
+
+    if ($counts === []) {
+        fwrite(STDOUT, PHP_EOL . "No unsupported shortcode candidates found." . PHP_EOL);
+        return;
+    }
+
+    ksort($counts, SORT_STRING);
+    $shown = 0;
+    foreach ($counts as $name => $count) {
+        if ($shown++ >= 50) {
+            break;
+        }
+        $entry_paths = array_keys($paths[$name] ?? []);
+        sort($entry_paths, SORT_STRING);
+        printCliSection($name);
+        printCliRows([
+            'Occurrences' => $count,
+            'Entries' => count($entry_paths),
+            'Paths' => implode(', ', array_slice($entry_paths, 0, 10)) . (count($entry_paths) > 10 ? ', ...' : ''),
+        ]);
+    }
+    if (count($counts) > 50) {
+        fwrite(STDOUT, PHP_EOL . 'Showing 50 of ' . count($counts) . " unsupported names.\n");
+    }
+
+    ksort($by_entry, SORT_STRING);
+    printCliSection('Review by entry');
+    $shown = 0;
+    foreach ($by_entry as $path => $findings) {
+        if ($shown++ >= 50) {
+            break;
+        }
+        ksort($findings, SORT_STRING);
+        $parts = [];
+        foreach ($findings as $name => $count) {
+            $parts[] = $name . ($count > 1 ? ' (' . $count . ')' : '');
+        }
+        printCliRows([$path => implode(', ', $parts)]);
+    }
+    if (count($by_entry) > 50) {
+        fwrite(STDOUT, PHP_EOL . 'Showing 50 of ' . count($by_entry) . " affected entries.\n");
     }
 }
 
@@ -1802,7 +1980,7 @@ function parseBenchmarkOptions(array $arguments): array {
     return $options;
 }
 
-function parseRemoteMediaAuditOptions(array $arguments): array {
+function parseContentAuditOptions(array $arguments): array {
     $options = [
         'author' => '',
         'include_unpublished' => false,
@@ -2367,6 +2545,7 @@ function runDeployAudit(array $arguments): void {
         'Changed files' => count((array) ($report['changed_files'] ?? [])),
         'Unknown files' => count((array) ($report['unknown_files'] ?? [])),
         'Unsafe paths' => count((array) ($report['unsafe_paths'] ?? [])),
+        'Unmanaged paths' => count((array) ($report['unmanaged_paths'] ?? [])),
     ]);
 
     $sections = [
@@ -2375,6 +2554,7 @@ function runDeployAudit(array $arguments): void {
         'Changed files' => (array) ($report['changed_files'] ?? []),
         'Unknown files' => (array) ($report['unknown_files'] ?? []),
         'Unsafe paths' => (array) ($report['unsafe_paths'] ?? []),
+        'Unmanaged paths (not checked)' => (array) ($report['unmanaged_paths'] ?? []),
     ];
     foreach ($sections as $title => $paths) {
         if ($paths === []) {
@@ -2689,7 +2869,7 @@ function transformLegacyCliArgv(array $argv): array {
         'content' => [ 'publish-due' => 'content:publish-due' ],
         'media' => [ 'usage' => 'media:usage', 'cleanup' => 'media:cleanup' ],
         'benchmark' => [ 'public' => 'benchmark:public' ],
-        'audit' => [ 'remote-media' => 'audit:remote-media' ],
+        'audit' => [ 'remote-media' => 'audit:remote-media', 'shortcodes' => 'audit:shortcodes' ],
         'export' => [ 'site' => 'export:site', 'author' => 'export:author' ],
         'static-export' => [ 'site' => 'static-export:site', 'author' => 'static-export:author' ],
         'import' => [ 'site' => 'import:site', 'author' => 'import:author' ],
@@ -2718,274 +2898,6 @@ function transformLegacyCliArgv(array $argv): array {
     }
 
     return $argv;
-}
-
-function readSetupJsonFile(string $filename): array {
-    if (!is_file($filename) || !is_readable($filename)) {
-        return [];
-    }
-
-    $json = @file_get_contents($filename);
-    if (!is_string($json) || trim($json) === '') {
-        return [];
-    }
-
-    try {
-        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-    } catch (\JsonException) {
-        return [];
-    }
-
-    return is_array($decoded) ? $decoded : [];
-}
-
-function buildSetupDefaultConfig(): array {
-    return [
-        'site' => [
-            'name' => 'tinymash',
-            'slogan' => '',
-            'contact' => '',
-            'base_url' => '',
-            'login_url' => '/admin/login',
-            'admin_url' => '/admin',
-            'security_min_password' => 8,
-            'default_language' => 'en',
-            'allow_registrations' => false,
-            'is_public' => true,
-            'maintenance' => false,
-            'admin_email' => '',
-            'system_notifications_email' => '',
-            'week_starts_on' => 'monday',
-            'allow_username_change' => false,
-            'allow_email_change' => true,
-            'login_message' => '',
-            'head_tags' => [],
-            'images' => [
-                'banner' => [],
-                'favicon_png' => [],
-                'favicon_ico' => [],
-                'og' => [],
-                'background' => [],
-            ],
-            'background_render_mode' => 'scaled',
-            'allow_secret_links' => true,
-            'secret_link_default_expiry_days' => 60,
-            'filesystem_umask' => '0007',
-            'rendered_content_cache_enabled' => true,
-            'discourage_search_indexing' => false,
-            'allow_admin_password_resets' => false,
-            'allow_author_password_resets' => true,
-            'password_reset_throttle_window_minutes' => 60,
-            'password_reset_max_ip_requests' => 5,
-            'password_reset_max_identifier_requests' => 3,
-        ],
-        'locale' => [
-            'time' => 'H:i (T)',
-            'date' => 'd-M-Y',
-            'timezone' => 'UTC',
-        ],
-        'content' => [
-            'require_moderation' => false,
-            'revision_retention_limit' => 20,
-        ],
-        'editor' => [
-            'autosave_enabled' => true,
-            'autosave_interval_seconds' => 120,
-            'classic_smileys_enabled' => true,
-            'default_mode' => 'simple',
-        ],
-        'media' => [
-            'content_images_mode' => 'authenticated',
-            'image_driver' => 'auto',
-            'image_max_width' => 1920,
-            'image_max_height' => 1920,
-            'generate_thumbnails' => true,
-            'thumbnail_max_width' => 320,
-            'thumbnail_max_height' => 320,
-            'image_max_upload_mb' => 10,
-            'allowed_image_mimes' => [
-                'image/jpeg',
-                'image/png',
-                'image/gif',
-                'image/webp',
-                'image/avif',
-            ],
-        ],
-        'smtp' => [
-            'enabled' => false,
-            'host' => '',
-            'port' => 587,
-            'username' => '',
-            'password' => '',
-            'encryption' => 'tls',
-            'from_email' => '',
-            'from_name' => '',
-            'reply_to_email' => '',
-        ],
-        'themes' => [
-            'public' => [
-                'current' => 'baseline',
-                'settings' => [],
-            ],
-        ],
-        'plugins' => [
-            'states' => [],
-            'settings' => [],
-        ],
-        'housekeeping' => [
-            'stale_draft_retention_days' => 7,
-            'last_run_utc' => '',
-            'last_trigger' => '',
-            'last_mode' => '',
-            'web_fallback_mode' => 'auto',
-        ],
-        'notifications' => [
-            'retention_days' => 30,
-            'email_events' => [
-                'moderation_required' => false,
-                'profile_email_changed' => false,
-                'user_lockout' => true,
-                'component_updates' => true,
-            ],
-        ],
-        'menus' => [
-            'locations' => [
-                'primary' => [],
-                'footer' => [],
-            ],
-        ],
-    ];
-}
-
-function loadSetupConfigArray(string $config_filename): array {
-    $existing = readSetupJsonFile($config_filename);
-    if ($existing !== []) {
-        return $existing;
-    }
-
-    $example = readSetupJsonFile($config_filename . '.example');
-    if ($example !== []) {
-        return $example;
-    }
-
-    return buildSetupDefaultConfig();
-}
-
-function writeSetupConfigArray(string $config_filename, array $config): void {
-    $directory = dirname($config_filename);
-    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
-        throw new \RuntimeException('Unable to create config directory.');
-    }
-
-    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    if (!is_string($json)) {
-        throw new \RuntimeException('Unable to encode config JSON.');
-    }
-
-    $payload = $json . PHP_EOL;
-    $temporary_filename = $config_filename . '.tmp-' . bin2hex(random_bytes(6));
-    $written = file_put_contents($temporary_filename, $payload, LOCK_EX);
-    if ($written !== strlen($payload) || !rename($temporary_filename, $config_filename)) {
-        @unlink($temporary_filename);
-        throw new \RuntimeException('Unable to write config file.');
-    }
-}
-
-function ensureSetupDirectory(string $directory): bool {
-    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
-        return false;
-    }
-
-    return is_writable($directory);
-}
-
-function getSetupExistingSuperadmin(string $username = ''): ?array {
-    if (!is_dir(TINYMASH_USERS_DIR)) {
-        return null;
-    }
-
-    $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
-    if ($username !== '') {
-        return $repository->getUserByUsername($username);
-    }
-
-    foreach ($repository->getAllUsers() as $user) {
-        if (is_array($user) && (string) ($user['role'] ?? '') === 'superadmin') {
-            return $user;
-        }
-    }
-
-    return null;
-}
-
-function normalizeSetupBaseUrl(string $base_url): string {
-    $base_url = rtrim(trim($base_url), '/');
-    if ($base_url === '' || !preg_match('#^https?://#i', $base_url) || filter_var($base_url, FILTER_VALIDATE_URL) === false) {
-        throw new \InvalidArgumentException('Enter a valid HTTP or HTTPS base URL.');
-    }
-    $parts = parse_url($base_url);
-    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-    $host = trim((string) ($parts['host'] ?? ''));
-    if (!in_array($scheme, ['http', 'https'], true) || $host === '' || !isSetupValidUrlHost($host)) {
-        throw new \InvalidArgumentException('Enter a valid HTTP or HTTPS base URL with a valid host name.');
-    }
-
-    return $base_url;
-}
-
-function isSetupValidUrlHost(string $host): bool {
-    $host = trim($host, '[]');
-    if ($host === '' || str_ends_with($host, '.') || str_contains($host, '_')) {
-        return false;
-    }
-
-    if (strtolower($host) === 'localhost' || filter_var($host, FILTER_VALIDATE_IP) !== false) {
-        return true;
-    }
-
-    if (strlen($host) > 253 || !preg_match('/^[a-z0-9.-]+$/i', $host)) {
-        return false;
-    }
-
-    foreach (explode('.', $host) as $label) {
-        if ($label === '' || !preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i', $label)) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-function normalizeSetupLanguage(string $language): string {
-    $language = TinyMashConfig::normalizeHtmlLanguageTag(trim($language));
-    if ($language === '') {
-        return 'en';
-    }
-
-    return $language;
-}
-
-function normalizeSetupTimezone(string $timezone): string {
-    $timezone = trim($timezone);
-    if ($timezone === '') {
-        return 'UTC';
-    }
-    if (!in_array($timezone, timezone_identifiers_list(), true)) {
-        throw new \InvalidArgumentException('Enter a valid PHP timezone such as UTC or Europe/Stockholm.');
-    }
-
-    return $timezone;
-}
-
-function validateSetupPassword(string $password): string {
-    if ($password === '') {
-        throw new \InvalidArgumentException('Superadmin password must not be empty.');
-    }
-    if (mb_strlen($password) < 8) {
-        throw new \InvalidArgumentException('Superadmin password must be at least 8 characters.');
-    }
-
-    return $password;
 }
 
 function normalizeSetupYesNoAnswer(?string $value, bool $default): bool {
@@ -3291,7 +3203,7 @@ class TinymashSetupCommand extends Command {
             ->addOption('password-file', null, InputOption::VALUE_REQUIRED, 'Read the superadmin password from a file')
             ->addOption('public', null, InputOption::VALUE_NONE, 'Mark the site public')
             ->addOption('private', null, InputOption::VALUE_NONE, 'Keep the site private')
-            ->addOption('update', null, InputOption::VALUE_NONE, 'Allow non-interactive updates to an existing config')
+            ->addOption('update', null, InputOption::VALUE_NONE, 'Allow an existing-config update or recovery of an unfinished setup')
             ->setHelp(
                 "Examples:\n"
                 . "  php8.4 bin/tinymash.php setup\n"
@@ -3304,8 +3216,8 @@ class TinymashSetupCommand extends Command {
         $io = new SymfonyStyle($input, $output);
         guardRootUserForCliCommand(false, (bool) $input->getOption('allow-root'));
 
-        $config_filename = dirname(__DIR__) . '/app/config/tinymash.json';
-        $config_exists = is_file($config_filename) && trim((string) @file_get_contents($config_filename)) !== '';
+        $service = new TinyMashSetupService(dirname(__DIR__));
+        $config_exists = $service->hasConfiguration();
         $is_interactive = $input->isInteractive();
 
         $io->title('tinymash setup');
@@ -3321,36 +3233,43 @@ class TinymashSetupCommand extends Command {
             }
         }
 
-        $preflight = $this->runPreflight();
+        $preflight = $service->preflight();
+        $rows = [];
+        foreach ($preflight['checks'] as $label => $passed) {
+            $rows[] = [$label, $passed ? '<info>ok</info>' : '<error>failed</error>'];
+        }
         $io->section('Preflight');
-        $io->table(['Check', 'Status'], $preflight['rows']);
+        $io->table(['Check', 'Status'], $rows);
         if (!$preflight['ok']) {
             $io->error('Fix the failed preflight checks and run setup again.');
             return Command::FAILURE;
         }
-        $writer_lease = acquireCliWriterLease();
-
         try {
-            $config = loadSetupConfigArray($config_filename);
-            if (!isset($config['site']) || !is_array($config['site'])) {
-                $config['site'] = [];
+            $state = $service->inspectState();
+            if ($state['state'] === 'blocked') {
+                throw new \RuntimeException($state['reason']);
             }
-            if (!isset($config['locale']) || !is_array($config['locale'])) {
-                $config['locale'] = [];
+            if ($state['state'] === 'partial') {
+                if (!$input->getOption('update')) {
+                    throw new \RuntimeException('An unfinished setup requires --update and the existing superadmin username.');
+                }
+                $io->warning('An active superadmin exists without configuration. Recovery will keep that account and write the site configuration.');
+                if ($is_interactive) {
+                    if (!$io->confirm('Recover this unfinished setup?', false)) {
+                        return Command::SUCCESS;
+                    }
+                } else {
+                    foreach (['--site-name', '--base-url', '--admin-user'] as $option) {
+                        if (!$input->hasParameterOption($option)) {
+                            throw new \RuntimeException('Unattended recovery requires explicit --site-name, --base-url, and --admin-user values.');
+                        }
+                    }
+                }
             }
-
-            $setup_values = $this->collectSetupValues($input, $io, $config);
-            $password = $this->collectSetupPassword($input, $io, (string) $setup_values['admin_user']);
-
-            $config['site']['name'] = $setup_values['site_name'];
-            $config['site']['base_url'] = $setup_values['base_url'];
-            $config['site']['default_language'] = $setup_values['language'];
-            $config['site']['admin_email'] = $setup_values['admin_email'];
-            $config['site']['is_public'] = $setup_values['is_public'];
-            $config['locale']['timezone'] = $setup_values['timezone'];
-
-            writeSetupConfigArray($config_filename, $config);
-            $this->saveSetupSuperadmin((string) $setup_values['admin_user'], (string) $setup_values['admin_email'], $password);
+            $service->loadConfiguration();
+            $setup_values = $this->collectSetupValues($input, $io, $service);
+            $password = $this->collectSetupPassword($input, $io, $service, (string) $setup_values['admin_user']);
+            $setup_values = $service->save($setup_values, $password, $config_exists || (bool) $input->getOption('update'));
         } catch (\Throwable $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
@@ -3373,70 +3292,15 @@ class TinymashSetupCommand extends Command {
         return Command::SUCCESS;
     }
 
-    protected function runPreflight(): array {
-        $checks = [
-            'PHP 8.4.1+' => PHP_VERSION_ID >= 80401,
-            'Extension mbstring' => extension_loaded('mbstring'),
-            'Extension json' => extension_loaded('json'),
-            'Extension dom' => extension_loaded('dom'),
-            'Extension session' => extension_loaded('session'),
-            'Extension openssl' => extension_loaded('openssl'),
-            'Extension fileinfo' => extension_loaded('fileinfo'),
-            'Directory data/' => ensureSetupDirectory(dirname(__DIR__) . '/data'),
-            'Directory users/' => ensureSetupDirectory(TINYMASH_USERS_DIR),
-            'Directory tmp/' => ensureSetupDirectory(dirname(__DIR__) . '/tmp'),
-            'Directory data/runtime/' => ensureSetupDirectory(TINYMASH_RUNTIME_DIR),
-            'Config directory' => is_writable(dirname(dirname(__DIR__) . '/app/config/tinymash.json')),
-        ];
-
-        $rows = [];
-        $ok = true;
-        foreach ($checks as $label => $passed) {
-            $passed = (bool) $passed;
-            $ok = $ok && $passed;
-            $rows[] = [$label, $passed ? '<info>ok</info>' : '<error>failed</error>'];
-        }
-
-        return ['ok' => $ok, 'rows' => $rows];
-    }
-
-    protected function collectSetupValues(InputInterface $input, SymfonyStyle $io, array $config): array {
-        $site = is_array($config['site'] ?? null) ? $config['site'] : [];
-        $locale = is_array($config['locale'] ?? null) ? $config['locale'] : [];
-        $existing_admin = getSetupExistingSuperadmin();
-
-        $default_site_name = trim((string) ($site['name'] ?? 'tinymash'));
-        $default_base_url = trim((string) ($site['base_url'] ?? ''));
-        $default_language = normalizeSetupLanguage((string) ($site['default_language'] ?? $input->getOption('language') ?? 'en'));
-        $default_timezone = normalizeSetupTimezone((string) ($locale['timezone'] ?? $input->getOption('timezone') ?? 'UTC'));
-        $default_admin_user = trim((string) ($existing_admin['username'] ?? $input->getOption('admin-user') ?? 'admin'));
-        $default_admin_email = trim((string) ($existing_admin['email'] ?? $site['admin_email'] ?? $input->getOption('admin-email') ?? ''));
-        $default_public = array_key_exists('is_public', $site) ? (bool) $site['is_public'] : true;
-
-        $site_name = $this->resolveStringValue($input, $io, 'site-name', 'Site name', $default_site_name, static function (string $value): string {
-            $value = trim($value);
-            if ($value === '') {
-                throw new \InvalidArgumentException('Site name must not be empty.');
-            }
-            return $value;
-        });
-        $base_url = $this->resolveStringValue($input, $io, 'base-url', 'Base URL', $default_base_url, 'normalizeSetupBaseUrl');
-        $language = $this->resolveStringValue($input, $io, 'language', 'Default language', $default_language, 'normalizeSetupLanguage');
-        $timezone = $this->resolveStringValue($input, $io, 'timezone', 'Timezone', $default_timezone, 'normalizeSetupTimezone');
-        $admin_user = $this->resolveStringValue($input, $io, 'admin-user', 'Superadmin username', $default_admin_user, static function (string $value): string {
-            $value = strtolower(trim($value));
-            if (!preg_match('/^[a-z0-9_]{1,64}$/', $value)) {
-                throw new \InvalidArgumentException('Use a lowercase username with letters, numbers, and underscores.');
-            }
-            return $value;
-        });
-        $admin_email = $this->resolveStringValue($input, $io, 'admin-email', 'Admin e-mail (optional)', $default_admin_email, static function (string $value): string {
-            $value = trim($value);
-            if ($value !== '' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
-                throw new \InvalidArgumentException('Enter a valid e-mail address or leave it empty.');
-            }
-            return $value;
-        });
+    protected function collectSetupValues(InputInterface $input, SymfonyStyle $io, TinyMashSetupService $service): array {
+        $defaults = $service->getDefaults();
+        $site_name = $this->resolveStringValue($input, $io, 'site-name', 'Site name', $defaults['site_name'], TinyMashSetupService::normalizeSiteName(...));
+        $base_url = $this->resolveStringValue($input, $io, 'base-url', 'Base URL', $defaults['base_url'], TinyMashSetupService::normalizeBaseUrl(...));
+        $language = $this->resolveStringValue($input, $io, 'language', 'Default language', $defaults['language'], TinyMashSetupService::normalizeLanguage(...));
+        $timezone = $this->resolveStringValue($input, $io, 'timezone', 'Timezone', $defaults['timezone'], TinyMashSetupService::normalizeTimezone(...));
+        $admin_user = $this->resolveStringValue($input, $io, 'admin-user', 'Superadmin username', $defaults['admin_user'], TinyMashSetupService::normalizeUsername(...));
+        $admin_email = $this->resolveStringValue($input, $io, 'admin-email', 'Admin e-mail (optional)', $defaults['admin_email'], TinyMashSetupService::normalizeEmail(...));
+        $default_public = $defaults['is_public'];
 
         if ((bool) $input->getOption('public') && (bool) $input->getOption('private')) {
             throw new \InvalidArgumentException('Use either --public or --private, not both.');
@@ -3470,7 +3334,7 @@ class TinymashSetupCommand extends Command {
 
     protected function resolveStringValue(InputInterface $input, SymfonyStyle $io, string $option_name, string $question, string $default, callable $normalizer): string {
         $option_value = $input->getOption($option_name);
-        if (is_string($option_value) && trim($option_value) !== '') {
+        if (is_string($option_value) && mb_trim($option_value) !== '') {
             return $normalizer($option_value);
         }
 
@@ -3483,11 +3347,11 @@ class TinymashSetupCommand extends Command {
         });
     }
 
-    protected function collectSetupPassword(InputInterface $input, SymfonyStyle $io, string $admin_user): string {
-        $existing_admin = getSetupExistingSuperadmin($admin_user);
+    protected function collectSetupPassword(InputInterface $input, SymfonyStyle $io, TinyMashSetupService $service, string $admin_user): string {
+        $existing_admin = $service->getExistingUser($admin_user);
         $password = readSetupPasswordFromInput($input);
         if ($password !== '') {
-            return validateSetupPassword($password);
+            return TinyMashSetupService::validatePassword($password);
         }
 
         if (!$input->isInteractive()) {
@@ -3504,7 +3368,7 @@ class TinymashSetupCommand extends Command {
         if ($password === '' && is_array($existing_admin)) {
             return '';
         }
-        validateSetupPassword($password);
+        TinyMashSetupService::validatePassword($password);
         $confirmation = (string) $io->askHidden('Confirm superadmin password');
         if ($password !== $confirmation) {
             throw new \InvalidArgumentException('Superadmin passwords did not match.');
@@ -3513,22 +3377,6 @@ class TinymashSetupCommand extends Command {
         return $password;
     }
 
-    protected function saveSetupSuperadmin(string $username, string $email, string $password): void {
-        $repository = new TinyMashUserRepository(TINYMASH_USERS_DIR, getCliEditorDefaultMode());
-        $existing = $repository->getUserByUsername($username);
-        $repository->saveUser(
-            [
-                'original_username' => is_array($existing) ? $username : '',
-                'username' => $username,
-                'email' => $email,
-                'role' => 'superadmin',
-                'password' => $password,
-                'confirm_password' => $password,
-                'active' => true,
-                'content_active' => is_array($existing) ? !empty($existing['content_active']) : true,
-            ]
-        );
-    }
 }
 
 class TinymashUpgradePrepareCommand extends Command {
@@ -3714,7 +3562,7 @@ class TinymashUpgradePrepareCommand extends Command {
     }
 }
 
-function buildTinymashConsoleApplication(): Application {
+function buildTinymashConsoleApplication(bool $include_plugin_commands = true): Application {
     $application = new TinymashConsoleApplication('tinymash', APP_VERSION);
     $application->getDefinition()->addOption(new InputOption('allow-root', null, InputOption::VALUE_NONE, 'Allow mutating commands to run as root without confirmation'));
     $application->get('help')
@@ -3849,6 +3697,17 @@ function buildTinymashConsoleApplication(): Application {
             'notes' => 'Without --generate-missing-derivatives, derivative processing is a dry run.',
         ], static fn(array $arguments) => runMediaCleanup($arguments)),
         new TinymashCallableCommand([
+            'name' => 'media:orientation',
+            'description' => 'Preview or normalize older JPEGs with unhandled EXIF orientation.',
+            'read_only_when' => static fn(InputInterface $input): bool => !(bool) $input->getOption('apply'),
+            'options' => [
+                ['name' => 'apply', 'description' => 'Rewrite eligible stored JPEGs and regenerate derivatives'],
+                ['name' => 'owner', 'value' => true, 'description' => 'Limit results to root or one author username'],
+                ['name' => 'limit', 'value' => true, 'integer' => true, 'min' => 1, 'description' => 'Limit the number of eligible JPEGs'],
+            ],
+            'notes' => 'Preview first. Back up the site before applying changes to stored originals.',
+        ], static fn(array $arguments) => runMediaOrientation($arguments)),
+        new TinymashCallableCommand([
             'name' => 'benchmark:public',
             'description' => 'Measure response times for selected public routes.',
             'read_only' => true,
@@ -3870,9 +3729,19 @@ function buildTinymashConsoleApplication(): Application {
             'read_only' => true,
             'options' => [
                 ['name' => 'author', 'value' => true, 'description' => 'Scan only this author space'],
-                ['name' => 'include-unpublished', 'description' => 'Also scan drafts and unpublished content'],
+                ['name' => 'include-unpublished', 'description' => 'Also scan unpublished entries'],
             ],
         ], static fn(array $arguments) => runRemoteMediaAudit($arguments)),
+        new TinymashCallableCommand([
+            'name' => 'audit:shortcodes',
+            'description' => 'Report unsupported shortcode candidates in stored posts and pages.',
+            'read_only' => true,
+            'options' => [
+                ['name' => 'author', 'value' => true, 'description' => 'Scan only this author space'],
+                ['name' => 'include-unpublished', 'description' => 'Also scan unpublished entries'],
+            ],
+            'notes' => 'Read-only. Code spans, code fences, and Markdown links are ignored. Standalone bracketed text may need review.',
+        ], static fn(array $arguments) => runShortcodeAudit($arguments)),
         new TinymashCallableCommand([
             'name' => 'check-updates',
             'description' => 'Check Composer packages for updates and security advisories.',
@@ -3978,7 +3847,7 @@ function buildTinymashConsoleApplication(): Application {
                 ['name' => 'password', 'required' => true, 'description' => 'New login password'],
                 ['name' => 'role', 'description' => 'Role for a new user; existing users keep their role when omitted', 'choices' => ['superadmin', 'creator']],
             ],
-            'notes' => 'Use superadmin or creator when creating a user. Existing profile fields are preserved, but the account is enabled. The password is visible in the process list and may enter shell history.',
+            'notes' => 'New users require the superadmin or creator role. Existing profiles are preserved and enabled. Passwords may appear in process lists and shell history.',
         ], static fn(array $arguments) => setUserPassword((string) $arguments[0], (string) $arguments[1], (string) ($arguments[2] ?? ''))),
     ];
 
@@ -3986,7 +3855,7 @@ function buildTinymashConsoleApplication(): Application {
         $application->addCommand($command);
     }
 
-    foreach (getPluginCliCommands() as $plugin_command) {
+    foreach ($include_plugin_commands ? getPluginCliCommands() : [] as $plugin_command) {
         if (is_array($plugin_command) && !empty($plugin_command['command'])) {
             $application->addCommand(new TinymashPluginBridgeCommand($plugin_command));
         }
@@ -4000,5 +3869,5 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $_SERVER['argv'] = transformLegacyCliArgv($_SERVER['argv'] ?? []);
-$application = buildTinymashConsoleApplication();
+$application = buildTinymashConsoleApplication(!$cli_setup_request && $cli_has_config);
 $application->run(new ArgvInput($_SERVER['argv']));

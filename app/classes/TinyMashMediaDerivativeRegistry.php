@@ -37,8 +37,8 @@ class TinyMashMediaDerivativeRegistry {
 
         $this->definitions[$derivative_key] = [
             'key' => $derivative_key,
-            'label' => trim( (string) ( $definition['label'] ?? $this->humanizeKey( $derivative_key ) ) ),
-            'description' => trim( (string) ( $definition['description'] ?? '' ) ),
+            'label' => mb_trim( (string) ( $definition['label'] ?? $this->humanizeKey( $derivative_key ) ) ),
+            'description' => mb_trim( (string) ( $definition['description'] ?? '' ) ),
         ];
     }
 

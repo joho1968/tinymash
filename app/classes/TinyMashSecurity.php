@@ -2,6 +2,7 @@
 namespace app\classes;
 
 require_once __DIR__ . '/TinyMashLockedJsonFile.php';
+require_once __DIR__ . '/TinyMashClientIpResolver.php';
 
 use flight\Engine;
 use flight\net\Router;
@@ -26,16 +27,18 @@ class TinyMashSecurity {
     protected Engine $app;
     protected Router $router;
     protected TinyMashConfig $config;
+    protected ?TinyMashUrlResolver $url_resolver;
     protected string $login_attempts_filename;
     protected array $last_login_attempt_state = [];
     protected bool $session_auth_checked = false;
     protected ?array $session_auth_record = null;
 
-    public function __construct( Engine $app, Router $router, TinyMashConfig $config, string $login_attempts_filename = '' ) {
+    public function __construct( Engine $app, Router $router, TinyMashConfig $config, string $login_attempts_filename = '', ?TinyMashUrlResolver $url_resolver = null ) {
         $this->app = $app;
         $this->router = $router;
         $this->config = $config;
         $this->login_attempts_filename = $login_attempts_filename;
+        $this->url_resolver = $url_resolver;
     }
 
     public function startSession() : void {
@@ -53,7 +56,10 @@ class TinyMashSecurity {
         $secure_cookie = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on';
         session_name( $session_name );
         session_cache_limiter( '' );
-        $this->applySessionCookieParams( self::buildSessionCookieParams( $secure_cookie ) );
+        $cookie_path = $this->url_resolver instanceof TinyMashUrlResolver && $this->url_resolver->getBasePath() !== ''
+            ? $this->url_resolver->getBasePath()
+            : '/';
+        $this->applySessionCookieParams( self::buildSessionCookieParams( $secure_cookie, $cookie_path ) );
         session_start();
         $this->rememberVisitorIp();
     }
@@ -113,7 +119,7 @@ class TinyMashSecurity {
     public function login( string $username, string $password ) : bool {
         $this->startSession();
 
-        $login_identifier = function_exists( 'mb_trim' ) ? mb_trim( $username ) : trim( $username );
+        $login_identifier = mb_trim( $username );
         $username = $this->normalizeUsername( $login_identifier );
         $ip_address = $this->getCurrentIpAddress();
         if ( $login_identifier === '' || ! $this->validatePassword( $password ) ) {
@@ -380,11 +386,15 @@ class TinyMashSecurity {
         return( $session_name . ':' );
     }
 
-    public static function buildSessionCookieParams( bool $secure_cookie ) : array {
+    public static function buildSessionCookieParams( bool $secure_cookie, string $cookie_path = '/' ) : array {
+        $cookie_path = '/' . trim( $cookie_path, '/' );
+        if ( $cookie_path === '/' || preg_match( '#^/[A-Za-z0-9._~!$&\'()*+,;=:@%/-]*$#D', $cookie_path ) !== 1 ) {
+            $cookie_path = '/';
+        }
         return(
             [
                 'lifetime' => 0,
-                'path' => '/',
+                'path' => $cookie_path,
                 'secure' => $secure_cookie,
                 'httponly' => true,
                 'samesite' => 'Lax',
@@ -482,27 +492,7 @@ class TinyMashSecurity {
     }
 
     public function getCurrentIpAddress() : string {
-        $forwarded_ip_mode = method_exists( $this->config, 'getForwardedIpMode' )
-            ? $this->config->getForwardedIpMode()
-            : 'off';
-        if ( $forwarded_ip_mode === 'cf-connecting-ip' ) {
-            $cloudflare_ip = isset( $_SERVER['HTTP_CF_CONNECTING_IP'] ) && is_string( $_SERVER['HTTP_CF_CONNECTING_IP'] )
-                ? trim( $_SERVER['HTTP_CF_CONNECTING_IP'] )
-                : '';
-            if ( filter_var( $cloudflare_ip, FILTER_VALIDATE_IP ) !== false ) {
-                return( $cloudflare_ip );
-            }
-        } elseif ( $forwarded_ip_mode === 'x-forwarded-for-first' && ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) && is_string( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-            foreach ( explode( ',', $_SERVER['HTTP_X_FORWARDED_FOR'] ) as $forwarded_candidate ) {
-                $forwarded_candidate = trim( $forwarded_candidate );
-                if ( filter_var( $forwarded_candidate, FILTER_VALIDATE_IP ) !== false ) {
-                    return( $forwarded_candidate );
-                }
-            }
-        }
-
-        $remote_addr = isset( $_SERVER['REMOTE_ADDR'] ) && is_string( $_SERVER['REMOTE_ADDR'] ) ? trim( $_SERVER['REMOTE_ADDR'] ) : '';
-        return( filter_var( $remote_addr, FILTER_VALIDATE_IP ) !== false ? $remote_addr : '' );
+        return( TinyMashClientIpResolver::resolve( $_SERVER, $this->config->getForwardedIpMode(), $this->config->getTrustedProxyCidrs() ) );
     }
 
     public function getLastSeenIpAddress() : string {
@@ -646,11 +636,7 @@ class TinyMashSecurity {
         if ( empty( $password ) ) {
             return( false );
         }
-        if ( function_exists( 'mb_trim' ) ) {
-            $filtered_password = mb_trim( $password );
-        } else {
-            $filtered_password = trim( $password );
-        }
+        $filtered_password = mb_trim( $password );
         if ( $filtered_password != $password ) {
             return( false );
         }
@@ -658,7 +644,7 @@ class TinyMashSecurity {
     }
 
     protected function normalizeUsername( string $username ) : string {
-        $username = strtolower( function_exists( 'mb_trim' ) ? mb_trim( $username ) : trim( $username ) );
+        $username = strtolower( mb_trim( $username ) );
         if ( $username === '' ) {
             return( '' );
         }

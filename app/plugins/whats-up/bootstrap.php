@@ -74,8 +74,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         'get',
         '/plugin-custom-css/whats-up',
-        static function() use ( $service ) : void {
-            $css = $service->getCustomColorStylesheet();
+        static function() use ( $plugins, $service ) : void {
+            $css = $plugins->rewriteOutputCss( $service->getCustomColorStylesheet() );
             if ( $css === '' ) {
                 \Flight::app()->notFound();
                 return;
@@ -170,7 +170,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Shortcodes',
-                    'markdown' => 'Use `[whatsup]` for a compact view, `[agenda]` for a list, `[timeline]` for chronology, and `[calendar]` for a month grid. Source, date range, item limit, and calendar navigation can be changed with shortcode attributes.',
+                    'markdown' => '`[whatsup]` is compact, `[agenda]` is a list, `[timeline]` is chronological, and `[calendar]` is a month grid. Attributes control source, dates, limits, and navigation.',
                 ],
                 [
                     'title' => 'Scope',
@@ -275,7 +275,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $source_id = 'tm-wu-source-' . (int) $index;
             $source_type = (string) ( $source['type'] ?? 'remote' );
             $is_new_source = $index === array_key_last( $sources );
-            $summary_label = trim( (string) ( $source['label'] ?? '' ) );
+            $summary_label = mb_trim( (string) ( $source['label'] ?? '' ) );
             if ( $summary_label === '' ) {
                 $summary_label = $source_key !== '' ? $source_key : 'Add calendar source';
             }

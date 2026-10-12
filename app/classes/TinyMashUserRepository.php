@@ -105,6 +105,16 @@ class TinyMashUserRepository {
     }
 
     public function saveUser( array $input ) : array {
+        return( $this->savePreparedUser( $this->prepareUserSave( $input ) ) );
+    }
+
+    public function getStoreGeneration() : string {
+        $this->readUsersData();
+        return( $this->users_data_generation );
+    }
+
+    /** @return array{username: string, data: array, generation: string} */
+    public function prepareUserSave( array $input ) : array {
         $data = $this->readUsersData();
         $username = $this->normalizeUsername( (string) ( $input['username'] ?? '' ) );
         if ( $username === '' ) {
@@ -256,7 +266,14 @@ class TinyMashUserRepository {
             }
         }
 
-        $this->writeUsersData( $data );
+        return( [ 'username' => $username, 'data' => $data, 'generation' => $this->users_data_generation ] );
+    }
+
+    /** @param array{username: string, data: array, generation: string} $prepared */
+    public function savePreparedUser( array $prepared ) : array {
+        $username = $prepared['username'];
+        $this->users_data_generation = $prepared['generation'];
+        $this->writeUsersData( $prepared['data'] );
         $saved_user = $this->getUserByUsername( $username );
         if ( ! is_array( $saved_user ) ) {
             throw new \RuntimeException( 'Unable to reload saved user.' );
@@ -706,6 +723,37 @@ class TinyMashUserRepository {
         return( is_array( $plugin_settings ) ? $plugin_settings : [] );
     }
 
+    public function updatePluginSettings( string $username, string $plugin_key, array $settings ) : bool {
+        $username = $this->normalizeUsername( $username );
+        $plugin_key = $this->normalizePluginKey( $plugin_key );
+        if ( $username === '' || $plugin_key === '' ) {
+            return( false );
+        }
+
+        $normalized_settings = $this->normalizePluginSettings( [ $plugin_key => $settings ] );
+        if ( ! isset( $normalized_settings[$plugin_key] ) ) {
+            return( false );
+        }
+
+        $data = $this->readUsersData();
+        foreach ( $data['users'] as $index => $user ) {
+            if ( ! is_array( $user ) || $this->normalizeUsername( (string) ( $user['username'] ?? '' ) ) !== $username ) {
+                continue;
+            }
+
+            $current_user = $this->normalizeStoredUser( $user );
+            $current_user['plugin_settings'] = $this->mergePluginSettings(
+                is_array( $current_user['plugin_settings'] ?? null ) ? $current_user['plugin_settings'] : [],
+                $normalized_settings
+            );
+            $data['users'][$index] = $current_user;
+            $this->writeUsersData( $data );
+            return( true );
+        }
+
+        return( false );
+    }
+
     public function getPublicThemeSettings( string $username, string $theme_key ) : array {
         $user = $this->getUserByUsername( $username );
         if ( ! is_array( $user ) ) {
@@ -751,7 +799,7 @@ class TinyMashUserRepository {
             throw new \InvalidArgumentException( 'username_taken' );
         }
 
-        $incoming_email = strtolower( trim( (string) ( $normalized_user['email'] ?? '' ) ) );
+        $incoming_email = $this->normalizeEmail( (string) ( $normalized_user['email'] ?? '' ) );
         if ( $incoming_email !== '' ) {
             foreach ( $this->getAllUsers() as $candidate_user ) {
                 if ( ! is_array( $candidate_user ) ) {
@@ -760,7 +808,7 @@ class TinyMashUserRepository {
                 if ( (string) ( $candidate_user['username'] ?? '' ) === $username ) {
                     continue;
                 }
-                if ( strtolower( trim( (string) ( $candidate_user['email'] ?? '' ) ) ) === $incoming_email ) {
+                if ( $this->normalizeEmail( (string) ( $candidate_user['email'] ?? '' ) ) === $incoming_email ) {
                     throw new \InvalidArgumentException( 'email_taken' );
                 }
             }
@@ -1080,7 +1128,7 @@ class TinyMashUserRepository {
     }
 
     protected function normalizeUsername( string $username ) : string {
-        $username = strtolower( function_exists( 'mb_trim' ) ? mb_trim( $username ) : trim( $username ) );
+        $username = strtolower( mb_trim( $username ) );
         if ( $username === '' ) {
             return( '' );
         }
@@ -1092,7 +1140,7 @@ class TinyMashUserRepository {
     }
 
     protected function normalizeDisplayName( string $display_name ) : string {
-        $display_name = function_exists( 'mb_trim' ) ? mb_trim( $display_name ) : trim( $display_name );
+        $display_name = mb_trim( $display_name );
         if ( $display_name === '' ) {
             return( '' );
         }
@@ -1101,12 +1149,12 @@ class TinyMashUserRepository {
     }
 
     protected function normalizeEmail( string $email ) : string {
-        $email = function_exists( 'mb_trim' ) ? mb_trim( $email ) : trim( $email );
+        $email = mb_trim( $email );
         if ( $email === '' ) {
             return( '' );
         }
 
-        return( function_exists( 'mb_strtolower' ) ? mb_strtolower( $email ) : strtolower( $email ) );
+        return( mb_strtolower( $email, 'UTF-8' ) );
     }
 
     protected function buildDisplayLabel( array $user ) : string {

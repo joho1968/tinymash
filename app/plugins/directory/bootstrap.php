@@ -155,11 +155,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Display',
-                    'markdown' => 'Use `view="list"`, `view="boxes"`, `view="cards"`, or `view="tree"`. Add `expanded="true"` to start tree branches open. Add `wide="true"` or `sidebar="false"` to ask supporting themes for a full-width content area.',
+                    'markdown' => 'Views are `list`, `boxes`, `cards`, and `tree`. `expanded="true"` opens tree branches. `wide="true"` or `sidebar="false"` requests full width from supporting themes.',
                 ],
                 [
                     'title' => 'Categories and images',
-                    'markdown' => 'Links are grouped by Category. Reuse an existing category from the suggestions when you want items to appear together. Description fields support Markdown; link titles are plain text. Icon/image fields use the image picker instead of pasted media IDs.',
+                    'markdown' => 'Categories group links. Descriptions support Markdown; titles use plain text. Icon and image fields use the image picker.',
                 ],
                 [
                     'title' => 'Scopes',
@@ -185,10 +185,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( true );
     };
 
-    $emit_json = static function( array $payload, int $status = 200 ) : void {
+    $emit_json = static function( array $payload, int $status = 200 ) use ( $plugins ) : void {
         http_response_code( $status );
         header( 'Content-Type: application/json; charset=UTF-8' );
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
     };
 
     $render_select = static function( string $name, string $current, array $options, string $id = '' ) use ( $escape ) : string {
@@ -620,7 +620,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'alias' => 'Enter a usable alias.',
             'alias_conflict' => 'Another link collection already uses that alias.',
             'author' => 'Choose a valid author.',
-            'directory' => 'Choose a link collection you can manage.',
+            'directory' => 'Choose an available link collection.',
             'slug' => 'Enter a usable item slug.',
             'slug_conflict' => 'Another item already uses that slug under the same parent.',
             'parent' => 'Choose a valid parent item.',
@@ -662,7 +662,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
             $directory = $directory_service->getDirectoryByIdOrAlias( (string) ( $data['directory_id'] ?? '' ) );
             if ( empty( $directory ) || ! $directory_service->canManageDirectory( $directory, $security->isSuperAdmin(), $current_username() ) ) {
-                $emit_json( [ 'error' => 'Choose a link collection you can manage.' ], 403 );
+                $emit_json( [ 'error' => 'Choose an available link collection.' ], 403 );
                 return;
             }
             $source = strtolower( trim( (string) ( $data['source'] ?? 'recent' ) ) ) === 'library' ? 'library' : 'recent';
@@ -701,7 +701,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
             $directory = $directory_service->getDirectoryByIdOrAlias( (string) ( $data['directory_id'] ?? '' ) );
             if ( empty( $directory ) || ! $directory_service->canManageDirectory( $directory, $security->isSuperAdmin(), $current_username() ) ) {
-                $emit_json( [ 'error' => 'Choose a link collection you can manage.' ], 403 );
+                $emit_json( [ 'error' => 'Choose an available link collection.' ], 403 );
                 return;
             }
 

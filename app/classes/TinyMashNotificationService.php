@@ -62,8 +62,8 @@ class TinyMashNotificationService {
 
     public function createNotification( string $type, string $title, string $message, array $options = [] ) : array {
         $type = $this->normalizeType( $type );
-        $title = trim( $title );
-        $message = trim( $message );
+        $title = mb_trim( $title );
+        $message = mb_trim( $message );
         if ( $type === '' ) {
             throw new \InvalidArgumentException( 'notification_type' );
         }
@@ -323,9 +323,9 @@ class TinyMashNotificationService {
             );
         }
 
-        $recipient_email = trim( (string) ( $system_settings['system_notifications_email'] ?? '' ) );
+        $recipient_email = mb_trim( (string) ( $system_settings['system_notifications_email'] ?? '' ) );
         if ( $recipient_email === '' ) {
-            $recipient_email = trim( (string) ( $system_settings['admin_email'] ?? '' ) );
+            $recipient_email = mb_trim( (string) ( $system_settings['admin_email'] ?? '' ) );
         }
         if ( $recipient_email === '' ) {
             return(
@@ -408,8 +408,8 @@ class TinyMashNotificationService {
                 'id' => trim( (string) ( $notification['id'] ?? '' ) ),
                 'type' => $this->normalizeType( (string) ( $notification['type'] ?? '' ) ),
                 'severity' => $this->normalizeSeverity( (string) ( $notification['severity'] ?? 'info' ) ),
-                'title' => trim( (string) ( $notification['title'] ?? '' ) ),
-                'message' => trim( (string) ( $notification['message'] ?? '' ) ),
+                'title' => mb_trim( (string) ( $notification['title'] ?? '' ) ),
+                'message' => mb_trim( (string) ( $notification['message'] ?? '' ) ),
                 'created_at_utc' => trim( (string) ( $notification['created_at_utc'] ?? '' ) ),
                 'read_at_utc' => trim( (string) ( $notification['read_at_utc'] ?? '' ) ),
                 'read_by_username' => $this->normalizeUsername( (string) ( $notification['read_by_username'] ?? '' ) ),

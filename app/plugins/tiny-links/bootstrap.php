@@ -65,7 +65,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Targets',
-                    'markdown' => 'Targets are internal only. Use `Content` for a published page or post so the tiny link follows that content if its URL changes. Use `Internal path` only when you need to point at another local public path.',
+                    'markdown' => 'Targets are internal only. `Content` follows a published item when its URL changes. `Internal path` points to a fixed local public path.',
                 ],
                 [
                     'title' => 'Usage',
@@ -83,7 +83,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $plugin_key,
         'get',
         '/t/@token',
-        static function( string $token ) use ( $tiny_links_service ) : void {
+        static function( string $token ) use ( $tiny_links_service, $plugins ) : void {
             $record = $tiny_links_service->resolveToken( $token );
             $target_url = (string) ( $record['target_url'] ?? '' );
             if ( $target_url === '' || ! str_starts_with( $target_url, '/' ) ) {
@@ -92,7 +92,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
 
             \Flight::response()->status( 302 );
-            header( 'Location: ' . $target_url, true, 302 );
+            header( 'Location: ' . $plugins->resolveBrowserUrl( $target_url ), true, 302 );
         }
     );
 

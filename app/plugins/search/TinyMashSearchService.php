@@ -43,7 +43,7 @@ class TinyMashSearchService {
 
     public function resolveQuery( array $query_data ) : string {
         $query = (string) ( $query_data['q'] ?? '' );
-        return( function_exists( 'mb_trim' ) ? mb_trim( $query ) : trim( $query ) );
+        return( mb_trim( $query ) );
     }
 
     public function resolveAuthorSlug( array $query_data ) : string {
@@ -137,7 +137,7 @@ class TinyMashSearchService {
     }
 
     public function buildListingSummary( array $results ) : string {
-        $query = trim( (string) ( $results['query'] ?? '' ) );
+        $query = mb_trim( (string) ( $results['query'] ?? '' ) );
         $author_slug = strtolower( trim( (string) ( $results['author_slug'] ?? '' ) ) );
         $scope_label = $author_slug !== '' ? ' in ' . $this->theme->getAuthorDisplayLabel( $author_slug ) : '';
 
@@ -167,7 +167,7 @@ class TinyMashSearchService {
             return( 'Enter at least ' . self::MIN_QUERY_LENGTH . ' characters to search.' );
         }
 
-        $query = trim( (string) ( $results['query'] ?? '' ) );
+        $query = mb_trim( (string) ( $results['query'] ?? '' ) );
         return( $query !== '' ? 'No matches for "' . $query . '".' : 'No matches.' );
     }
 
@@ -248,17 +248,13 @@ class TinyMashSearchService {
     }
 
     protected function getQueryLength( string $query ) : int {
-        if ( function_exists( 'mb_strlen' ) ) {
-            return( (int) mb_strlen( $query, 'UTF-8' ) );
-        }
-
-        return( strlen( $query ) );
+        return( mb_strlen( $query, 'UTF-8' ) );
     }
 
     protected function plainText( string $value ) : string {
         $value = html_entity_decode( strip_tags( $value ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
         $value = preg_replace( '/[`*_>#~\[\](){|}]+/u', ' ', $value ) ?? $value;
-        return( trim( preg_replace( '/\s+/u', ' ', $value ) ?? $value ) );
+        return( mb_trim( preg_replace( '/\s+/u', ' ', $value ) ?? $value ) );
     }
 
     protected function truncateText( string $value, int $length ) : string {
@@ -266,15 +262,13 @@ class TinyMashSearchService {
             return( $value );
         }
 
-        $truncated = function_exists( 'mb_substr' )
-            ? mb_substr( $value, 0, max( 1, $length - 1 ), 'UTF-8' )
-            : substr( $value, 0, max( 1, $length - 1 ) );
-        return( rtrim( $truncated ) . '...' );
+        $truncated = mb_substr( $value, 0, max( 1, $length - 1 ), 'UTF-8' );
+        return( mb_rtrim( $truncated ) . '...' );
     }
 
     protected function normalizeStaticSearchText( string $value ) : string {
         $value = $this->plainText( $value );
-        return( function_exists( 'mb_strtolower' ) ? mb_strtolower( $value, 'UTF-8' ) : strtolower( $value ) );
+        return( mb_strtolower( $value, 'UTF-8' ) );
     }
 
     protected function buildStaticResultUrl( string $path, string $author_slug ) : string {
@@ -412,7 +406,7 @@ class TinyMashSearchService {
 
     protected function normalizeHighlightTerms( string $query ) : array {
         $query = $this->resolveQuery( [ 'q' => $query ] );
-        $query = function_exists( 'mb_strtolower' ) ? mb_strtolower( $query, 'UTF-8' ) : strtolower( $query );
+        $query = mb_strtolower( $query, 'UTF-8' );
         $terms = preg_split( '/\s+/u', $query, -1, PREG_SPLIT_NO_EMPTY );
         if ( ! is_array( $terms ) ) {
             return( [] );
@@ -420,7 +414,7 @@ class TinyMashSearchService {
 
         $normalized_terms = [];
         foreach ( $terms as $term ) {
-            $term = function_exists( 'mb_trim' ) ? mb_trim( $term ) : trim( $term );
+            $term = mb_trim( $term );
             $term = preg_replace( '/^[^\p{L}\p{N}#]+|[^\p{L}\p{N}]+$/u', '', $term ) ?? $term;
             if ( $this->getQueryLength( $term ) < self::MIN_QUERY_LENGTH ) {
                 continue;
@@ -433,7 +427,7 @@ class TinyMashSearchService {
                 continue;
             }
 
-            $term = function_exists( 'mb_strtolower' ) ? mb_strtolower( $term, 'UTF-8' ) : strtolower( $term );
+            $term = mb_strtolower( $term, 'UTF-8' );
             $normalized_terms[( ! empty( $hash_prefixed ) ? '#' : '' ) . $term] = [
                 'term' => $term,
                 'hash_prefixed' => $hash_prefixed,
@@ -445,7 +439,7 @@ class TinyMashSearchService {
             static function( array $left, array $right ) : int {
                 $left_term = (string) ( $left['term'] ?? '' );
                 $right_term = (string) ( $right['term'] ?? '' );
-                return( strlen( $right_term ) <=> strlen( $left_term ) );
+                return( mb_strlen( $right_term, 'UTF-8' ) <=> mb_strlen( $left_term, 'UTF-8' ) );
             }
         );
 

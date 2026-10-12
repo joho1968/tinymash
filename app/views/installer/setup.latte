@@ -1,0 +1,95 @@
+{extends 'layout.latte'}
+{block content}
+    {if $message !== ''}
+        <div class="alert alert-warning" role="alert">{$message}</div>
+    {/if}
+    {if $state === 'token'}
+        <p>Enter the setup token prepared on this host.</p>
+        <form method="post" action="{$mount}/install" autocomplete="off">
+            <input type="hidden" name="csrf" value="{$csrf}">
+            <div class="mb-3">
+                <label class="form-label" for="install-token">Setup token</label>
+                <input class="form-control" id="install-token" name="token" type="password" maxlength="128" required autocomplete="off" spellcheck="false" aria-describedby="token-help">
+                <div class="form-text" id="token-help">The token is stored in <code>.tinymash-install-token</code> outside the public directory.</div>
+            </div>
+            <button class="btn btn-primary" type="submit">Continue</button>
+        </form>
+    {elseif $state === 'setup'}
+        <details class="mb-4" n:attr="open => !$preflight_ok">
+            <summary class="fw-semibold mb-2">{if $preflight_ok}Hosting checks passed{else}Hosting checks need attention{/if}</summary>
+            <dl class="row small mb-0">
+                {foreach $checks as $label => $passed}
+                    <dt class="col-9 fw-normal text-break">{$label}</dt>
+                    <dd class="col-3 text-end">{if $passed}Passed{else}<strong>Failed</strong>{/if}</dd>
+                {/foreach}
+            </dl>
+            {if !$preflight_ok}<p class="small mb-0 mt-2">Correct the failed checks on the host, then check again. CLI setup is also available.</p>{/if}
+        </details>
+        {if $errors}
+            <div class="alert alert-danger" role="alert" tabindex="-1" id="validation-errors">
+                <p class="mb-1 fw-semibold">Check the highlighted fields.</p>
+                <ul class="mb-0">{foreach $errors as $field => $error}<li><a href="#install-{$field}" class="alert-link">{$error}</a></li>{/foreach}</ul>
+            </div>
+        {/if}
+        <form method="post" action="{$mount}/install/setup" novalidate>
+            <input type="hidden" name="csrf" value="{$csrf}">
+            <fieldset class="bg-body-secondary rounded-3 p-3 mb-3">
+                <legend class="h5 mb-3">Site</legend>
+                <div class="row g-3">
+                    {foreach $fields as $field => $definition}
+                        {continueIf $definition['group'] !== 'site'}
+                        {include field, field: $field, definition: $definition}
+                    {/foreach}
+                    <div class="col-12 col-sm-6">
+                        <label class="form-label" for="install-is_public">Visibility</label>
+                        <select n:class="form-select, isset($errors['is_public']) ? is-invalid" name="is_public" id="install-is_public" aria-describedby="visibility-help" required>
+                            <option value="1" n:attr="selected => $values['is_public'] === true">Public</option>
+                            <option value="0" n:attr="selected => $values['is_public'] === false">Private</option>
+                        </select>
+                        <div class="form-text" id="visibility-help">A public site is readable without signing in.</div>
+                        <div n:if="isset($errors['is_public'])" class="invalid-feedback text-danger-emphasis">{$errors['is_public']}</div>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset class="bg-body-secondary rounded-3 p-3 mb-3">
+                <legend class="h5 mb-3">Administrator</legend>
+                <p class="small text-body-secondary">This account can manage the whole site.</p>
+                <div class="row g-3">
+                    {foreach $fields as $field => $definition}
+                        {continueIf $definition['group'] !== 'admin'}
+                        {include field, field: $field, definition: $definition}
+                    {/foreach}
+                </div>
+            </fieldset>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-primary" type="submit" name="action" value="create" n:attr="disabled => !$preflight_ok">Create site</button>
+                <button class="btn btn-outline-secondary" type="submit" name="action" value="check">Check hosting again</button>
+            </div>
+        </form>
+    {elseif $state === 'complete'}
+        <p>The site was created. Do not repeat setup.</p>
+        <p>Remove any remaining setup files listed below on the host:</p>
+        <ul>{foreach $cleanup as $path}<li><code>{$path}</code></li>{/foreach}</ul>
+        <a class="btn btn-primary" href="{$mount}/admin/login">Go to sign-in</a>
+    {else}
+        <p>Setup cannot continue. Inspect the installation on the host or use CLI setup.</p>
+        <a n:if="$setup_link" href="{$mount}/install">Open setup</a>
+    {/if}
+{/block}
+
+{define field, string $field, array $definition}
+    <div n:class="$field === 'base_url' || $field === 'site_name' ? col-12 : 'col-12 col-sm-6'">
+        <label class="form-label" for="install-{$field}">{$definition['label']}</label>
+        {if $field === 'timezone'}
+            <select n:class="form-select, isset($errors[$field]) ? is-invalid" id="install-{$field}" name="{$field}" aria-describedby="help-{$field}" n:attr="aria-invalid => isset($errors[$field]) ? 'true' : null">
+                {foreach $timezones as $timezone}<option value="{$timezone}" n:attr="selected => $values[$field] === $timezone">{$timezone}</option>{/foreach}
+            </select>
+        {else}
+            <input n:class="form-control, isset($errors[$field]) ? is-invalid" id="install-{$field}" name="{$field}" type="{$definition['type']}"
+                   value="{$definition['type'] === 'password' ? '' : ($values[$field] ?? '')}" maxlength="{$definition['max']}"
+                   autocomplete="{$definition['autocomplete']}" aria-describedby="help-{$field}"
+                   n:attr="readonly => $field === 'base_url', required => $field !== 'admin_email', aria-invalid => isset($errors[$field]) ? 'true' : null">
+        {/if}
+        <div id="help-{$field}" n:class="isset($errors[$field]) ? 'invalid-feedback text-danger-emphasis' : form-text">{$errors[$field] ?? $definition['help']}</div>
+    </div>
+{/define}

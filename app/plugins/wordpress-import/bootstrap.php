@@ -7,11 +7,13 @@ use app\classes\TinyMashConfig;
 use app\classes\TinyMashConfigIO;
 use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashDateFormatter;
+use app\classes\TinyMashEmbedService;
 use app\classes\TinyMashImportLockService;
 use app\classes\TinyMashImportPreviewWorkspaceService;
 use app\classes\TinyMashMediaImportBridge;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
+use app\classes\TinyMashShortcodeRegistry;
 use app\classes\TinyMashUserRepository;
 
 return static function( TinyMashPlugins $plugins, array $plugin ) : void {
@@ -23,6 +25,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $date_formatter = $plugins->getService( 'date.formatter' );
     $user_repository = $plugins->getService( 'user.repository' );
     $media_import_bridge = $plugins->getService( 'media.import_bridge' );
+    $embed_service = $plugins->getService( 'embed.service' );
+    $shortcode_registry = $plugins->getService( 'shortcode.registry' );
     $import_lock_service = $plugins->getService( 'import.lock_service' );
     $import_preview_workspace_service = $plugins->getService( 'import.preview_workspaces' );
     $config_io = new TinyMashConfigIO();
@@ -31,13 +35,20 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         throw new \RuntimeException( 'Required services for the WordPress import plugin are not available.' );
     }
 
+    $comments_service = new TinyMashCommentsService(
+        $project_root . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . 'comments'
+    );
+
     $import_service = new TinyMashWordPressImportService(
         $project_root . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'plugin-wordpress-import',
         $content_repository,
         $config,
         $config_io,
         $media_import_bridge instanceof TinyMashMediaImportBridge ? $media_import_bridge : null,
-        $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service : null
+        $import_lock_service instanceof TinyMashImportLockService ? $import_lock_service : null,
+        $embed_service instanceof TinyMashEmbedService ? $embed_service : null,
+        $comments_service,
+        $shortcode_registry instanceof TinyMashShortcodeRegistry ? $shortcode_registry : null
     );
 
     $parse_cli_options = static function( array $arguments ) : array {
@@ -45,6 +56,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'action' => strtolower( trim( (string) ( $arguments[0] ?? '' ) ) ),
             'source' => (string) ( $arguments[1] ?? '' ),
             'author' => '',
+            'root' => false,
             'aggregate_to_root' => false,
             'replace_existing_posts' => false,
             'replace_existing_pages' => false,
@@ -54,12 +66,19 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'memory_limit' => '512M',
             'keep_preview' => false,
             'force_lock' => false,
+            'import_comments' => false,
+            'preserve_approved_comments' => false,
+            'retain_commenter_emails' => false,
         ];
 
         foreach ( array_slice( $arguments, 2 ) as $argument ) {
             $argument = (string) $argument;
             if ( str_starts_with( $argument, '--author=' ) ) {
                 $options['author'] = strtolower( trim( substr( $argument, 9 ) ) );
+                continue;
+            }
+            if ( $argument === '--root' ) {
+                $options['root'] = true;
                 continue;
             }
             if ( $argument === '--aggregate-root' ) {
@@ -98,6 +117,18 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $options['force_lock'] = true;
                 continue;
             }
+            if ( $argument === '--import-comments' ) {
+                $options['import_comments'] = true;
+                continue;
+            }
+            if ( $argument === '--preserve-approved-comments' ) {
+                $options['preserve_approved_comments'] = true;
+                continue;
+            }
+            if ( $argument === '--retain-commenter-emails' ) {
+                $options['retain_commenter_emails'] = true;
+                continue;
+            }
 
             throw new \RuntimeException( 'Unknown option "' . $argument . '".' );
         }
@@ -109,6 +140,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $counts = is_array( $preview['counts'] ?? null ) ? $preview['counts'] : [];
         fwrite( STDOUT, 'preview_token: ' . (string) ( $preview['token'] ?? '-' ) . PHP_EOL );
         fwrite( STDOUT, 'author: ' . (string) ( $preview['author_slug'] ?? '-' ) . PHP_EOL );
+        fwrite( STDOUT, 'target_scope: ' . (string) ( $preview['target_scope'] ?? 'author' ) . PHP_EOL );
         fwrite( STDOUT, 'entries: ' . (int) ( $counts['total'] ?? 0 ) . PHP_EOL );
         fwrite( STDOUT, 'posts: ' . (int) ( $counts['posts'] ?? 0 ) . PHP_EOL );
         fwrite( STDOUT, 'pages: ' . (int) ( $counts['pages'] ?? 0 ) . PHP_EOL );
@@ -118,6 +150,36 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         fwrite( STDOUT, 'unpublished: ' . (int) ( $counts['drafts'] ?? 0 ) . PHP_EOL );
         fwrite( STDOUT, 'skipped_unpublished: ' . (int) ( $counts['skipped_unpublished'] ?? 0 ) . PHP_EOL );
         fwrite( STDOUT, 'adjusted_source_duplicates: ' . (int) ( $preview['adjusted_source_duplicates'] ?? 0 ) . PHP_EOL );
+        $embeds = is_array( $preview['embeds'] ?? null ) ? $preview['embeds'] : [];
+        fwrite( STDOUT, 'embeds_recognized: ' . (int) ( $embeds['recognized'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'embeds_converted: ' . (int) ( $embeds['converted'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'embeds_unsupported: ' . (int) ( $embeds['unsupported'] ?? 0 ) . PHP_EOL );
+        $media_shortcodes = is_array( $preview['media_shortcodes'] ?? null ) ? $preview['media_shortcodes'] : [];
+        fwrite( STDOUT, 'galleries_planned: ' . (int) ( $media_shortcodes['galleries_planned'] ?? 0 ) . '/' . (int) ( $media_shortcodes['galleries_found'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'captions_converted: ' . (int) ( $media_shortcodes['captions_converted'] ?? 0 ) . '/' . (int) ( $media_shortcodes['captions_found'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'media_shortcodes_unsupported: ' . (int) ( $media_shortcodes['unsupported'] ?? 0 ) . PHP_EOL );
+        $text_shortcodes = is_array( $preview['text_shortcodes'] ?? null ) ? $preview['text_shortcodes'] : [];
+        fwrite( STDOUT, 'code_examples_converted: ' . (int) ( $text_shortcodes['code_converted'] ?? 0 ) . '/' . (int) ( $text_shortcodes['code_found'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'highlights_converted: ' . (int) ( $text_shortcodes['highlight_converted'] ?? 0 ) . '/' . (int) ( $text_shortcodes['highlight_found'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'wikipedia_words_preserved: ' . (int) ( $text_shortcodes['wikipedia_converted'] ?? 0 ) . '/' . (int) ( $text_shortcodes['wikipedia_found'] ?? 0 ) . PHP_EOL );
+        $unsupported_shortcodes = is_array( $preview['unsupported_shortcodes'] ?? null ) ? $preview['unsupported_shortcodes'] : [];
+        fwrite( STDOUT, 'shortcodes_needing_review: ' . (int) ( $unsupported_shortcodes['occurrences'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'entries_needing_shortcode_review: ' . (int) ( $unsupported_shortcodes['affected_entries'] ?? 0 ) . PHP_EOL );
+        foreach ( (array) ( $unsupported_shortcodes['items'] ?? [] ) as $item ) {
+            if ( ! is_array( $item ) ) {
+                continue;
+            }
+            $names = [];
+            foreach ( (array) ( $item['names'] ?? [] ) as $name => $count ) {
+                $names[] = $name . ' (' . (int) $count . ')';
+            }
+            fwrite( STDOUT, 'shortcode_review: ' . (string) ( $item['entry_type'] ?? '' ) . '/' . (string) ( $item['slug'] ?? '' ) . ' ' . implode( ', ', $names ) . PHP_EOL );
+        }
+        $comments = is_array( $preview['comments']['counts'] ?? null ) ? $preview['comments']['counts'] : [];
+        fwrite( STDOUT, 'comments_found: ' . (int) ( $comments['total'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'comments_importable: ' . (int) ( $comments['importable'] ?? 0 ) . PHP_EOL );
+        fwrite( STDOUT, 'comments_orphaned: ' . ( (int) ( $comments['orphaned'] ?? 0 ) + (int) ( $comments['orphaned_entry'] ?? 0 ) ) . PHP_EOL );
+        fwrite( STDOUT, 'comments_unsupported: ' . (int) ( $comments['unsupported'] ?? 0 ) . PHP_EOL );
         $recognized_locations = is_array( $preview['menus']['recognized_locations'] ?? null ) ? $preview['menus']['recognized_locations'] : [];
         foreach ( $recognized_locations as $location => $menu_slug ) {
             if ( ! is_string( $location ) || ! is_string( $menu_slug ) || $location === '' || $menu_slug === '' ) {
@@ -132,18 +194,22 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $plugin_key,
             [
                 'command' => 'wordpress-import',
-                'summary' => 'Preview or import a WordPress WXR export into an author space.',
+                'summary' => 'Preview or import a WordPress WXR export into root or an author space.',
                 'arguments' => [
                     [ 'name' => 'action', 'required' => true, 'description' => 'Preview the export or import it', 'choices' => [ 'preview', 'import' ] ],
                     [ 'name' => 'wxr-file', 'required' => true, 'description' => 'Readable WordPress WXR export file' ],
                 ],
                 'options' => [
-                    [ 'name' => 'author', 'value' => true, 'required' => true, 'description' => 'Required local author account' ],
+                    [ 'name' => 'author', 'value' => true, 'description' => 'Local author account; choose either this or --root' ],
+                    [ 'name' => 'root', 'description' => 'Import into the root site instead of an author space' ],
                     [ 'name' => 'aggregate-root', 'description' => 'Also include imported posts in the root blogroll' ],
-                    [ 'name' => 'replace-existing-posts', 'description' => 'Delete the target author\'s posts before import' ],
-                    [ 'name' => 'replace-existing-pages', 'description' => 'Delete the target author\'s pages before import' ],
-                    [ 'name' => 'skip-unpublished', 'description' => 'Skip draft and scheduled source entries' ],
+                    [ 'name' => 'replace-existing-posts', 'description' => 'Delete target posts and their comments before import' ],
+                    [ 'name' => 'replace-existing-pages', 'description' => 'Delete target pages and their comments before import' ],
+                    [ 'name' => 'skip-unpublished', 'description' => 'Skip source entries that are not published' ],
                     [ 'name' => 'import-menus', 'description' => 'Import recognized WordPress menus' ],
+                    [ 'name' => 'import-comments', 'description' => 'Import comments mapped to imported entries' ],
+                    [ 'name' => 'preserve-approved-comments', 'description' => 'Keep approved source comments approved' ],
+                    [ 'name' => 'retain-commenter-emails', 'description' => 'Keep valid source commenter e-mail addresses' ],
                     [ 'name' => 'batch-size', 'value' => true, 'integer' => true, 'min' => 1, 'max' => 100, 'default' => 25, 'description' => 'Process this many entries per batch' ],
                     [ 'name' => 'memory-limit', 'value' => true, 'default' => '512M', 'pattern' => '/^(?:-1|\d+[KMG]?)$/i', 'pattern_message' => 'The --memory-limit option must be -1 or a number with an optional K, M, or G suffix.', 'description' => 'Set the PHP memory limit for the import' ],
                     [ 'name' => 'keep-preview', 'description' => 'Keep preview files after a completed import' ],
@@ -152,8 +218,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 'examples' => [
                     'php8.4 bin/tinymash.php wordpress-import preview export.xml --author=cajo',
                     'php8.4 bin/tinymash.php wordpress-import import export.xml --author=cajo --import-menus',
+                    'php8.4 bin/tinymash.php wordpress-import preview export.xml --root',
                 ],
-                'notes' => 'The target account may be inactive, but it must exist. Run preview before import when checking a new source file.',
+                'notes' => 'Choose exactly one target. Author accounts may be inactive, but must exist. Preview a new source file before import.',
                 'order' => 220,
                 'handler' => static function( array $arguments ) use ( $parse_cli_options, $write_preview_summary, $import_service, $import_preview_workspace_service, $plugin_key, $user_repository ) : void {
                     $options = $parse_cli_options( $arguments );
@@ -164,9 +231,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     }
 
                     $author_slug = strtolower( trim( (string) ( $options['author'] ?? '' ) ) );
-                    if ( $author_slug === '' || ! is_array( $user_repository->getUserByUsername( $author_slug ) ) ) {
+                    $target_root = ! empty( $options['root'] );
+                    if ( $target_root === ( $author_slug !== '' ) ) {
+                        throw new \RuntimeException( 'Choose exactly one target: --root or --author=<username>.' );
+                    }
+                    if ( ! $target_root && ! is_array( $user_repository->getUserByUsername( $author_slug ) ) ) {
                         throw new \RuntimeException( 'A valid --author=<username> is required for WordPress import.' );
                     }
+                    $author_slug = $target_root ? 'root' : $author_slug;
 
                     $memory_limit = trim( (string) ( $options['memory_limit'] ?? '512M' ) );
                     if ( $memory_limit !== '' ) {
@@ -187,7 +259,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                         ! empty( $options['replace_existing_posts'] ),
                         ! empty( $options['replace_existing_pages'] ),
                         ! empty( $options['skip_unpublished'] ),
-                        ! empty( $options['import_menus'] )
+                        ! empty( $options['import_menus'] ),
+                        ! empty( $options['import_comments'] ),
+                        ! empty( $options['preserve_approved_comments'] ),
+                        ! empty( $options['retain_commenter_emails'] ),
+                        $target_root ? 'root' : 'author'
                     );
 
                     $write_preview_summary( $preview );
@@ -225,7 +301,12 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     fwrite( STDOUT, 'skipped: ' . (int) ( $counts['skipped'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'skipped_duplicate: ' . (int) ( $counts['skipped_duplicate'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'skipped_invalid: ' . (int) ( $counts['skipped_invalid'] ?? 0 ) . PHP_EOL );
+                    fwrite( STDOUT, 'comments_imported: ' . (int) ( $counts['comments_imported'] ?? 0 ) . PHP_EOL );
+                    fwrite( STDOUT, 'comments_pending: ' . (int) ( $counts['comments_pending'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'unresolved_media: ' . (int) ( $counts['unresolved_media'] ?? 0 ) . PHP_EOL );
+                    if ( (int) ( $preview['unsupported_shortcodes']['occurrences'] ?? 0 ) > 0 ) {
+                        fwrite( STDOUT, 'review WordPress plugin shortcodes listed above in imported entries; skipped entries were not changed' . PHP_EOL );
+                    }
                     $unresolved_media = is_array( $batch_result['unresolved_media'] ?? null ) ? $batch_result['unresolved_media'] : [];
                     if ( ! empty( $unresolved_media ) ) {
                         fwrite( STDOUT, 'unresolved_media_sample:' . PHP_EOL );
@@ -251,6 +332,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $plugin_url = $admin_url . '/wordpress-import';
     $preview_url = $plugin_url . '/preview';
     $report_url = $plugin_url . '/report';
+    $review_download_url = $plugin_url . '/review-download';
     $import_url = $plugin_url . '/run';
     $unlock_url = $plugin_url . '/unlock';
     $max_execution_time = (int) ini_get( 'max_execution_time' );
@@ -280,7 +362,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         'plugin-wordpress-import',
         [
             'title' => 'WordPress import',
-            'summary' => 'Import posts and pages from a WordPress WXR export into an author space.',
+            'summary' => 'Import posts, pages, and selected comments from a WordPress WXR export.',
             'documentation_url' => 'https://tinymash.joho.se/docs/plugins/wordpress-import',
             'documentation_label' => 'WordPress import',
             'group' => 'Plugins',
@@ -289,7 +371,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'sections' => [
                 [
                     'title' => 'Overview',
-                    'markdown' => 'Import posts and pages from a WordPress WXR/XML export into an author space. Timestamps, status, and available page-parent relationships are preserved.',
+                    'markdown' => 'Import posts, pages, and selected comments from a WordPress WXR/XML export. Authors target their own space; superadmins may choose root or an author space. Timestamps, status, and available page-parent relationships are preserved.',
                 ],
                 [
                     'title' => 'Menus',
@@ -298,6 +380,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 [
                     'title' => 'Media',
                     'markdown' => 'Localizes media from exported attachments, common WordPress upload URLs, and reachable source-site files.',
+                ],
+                [
+                    'title' => 'Comments',
+                    'markdown' => 'Comment import is optional. Approval and private e-mail retention require separate choices; subscriptions are never inferred.',
                 ],
                 [
                     'title' => 'Interrupted imports',
@@ -309,6 +395,152 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
     $escape = static function( string $value ) : string {
         return( htmlspecialchars( $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) );
+    };
+
+    $render_embed_report = static function( array $preview ) use ( $escape ) : string {
+        $embeds = is_array( $preview['embeds'] ?? null ) ? $preview['embeds'] : [];
+        $items = is_array( $embeds['items'] ?? null ) ? $embeds['items'] : [];
+        if ( (int) ( $embeds['recognized'] ?? 0 ) < 1 && (int) ( $embeds['unsupported'] ?? 0 ) < 1 ) {
+            return( '' );
+        }
+
+        $html = '<div class="mt-3 py-3 border-top"><div class="small text-uppercase text-body-secondary mb-2">External embeds</div>';
+        $html .= '<div class="d-flex flex-wrap gap-3 small text-body-secondary">';
+        $html .= '<span>Recognized: <strong class="text-body">' . (int) ( $embeds['recognized'] ?? 0 ) . '</strong></span>';
+        $html .= '<span>Converted: <strong class="text-body">' . (int) ( $embeds['converted'] ?? 0 ) . '</strong></span>';
+        $html .= '<span>Unsupported: <strong class="text-body">' . (int) ( $embeds['unsupported'] ?? 0 ) . '</strong></span>';
+        $html .= '</div>';
+        if ( ! empty( $items ) ) {
+            $html .= '<div class="table-responsive mt-2" tabindex="0" aria-label="External embed results"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Entry</th><th class="fw-normal">Result</th><th class="fw-normal">Source</th></tr></thead><tbody>';
+            foreach ( array_slice( $items, 0, 25 ) as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+                $status = match( (string) ( $item['status'] ?? '' ) ) {
+                    'converted' => 'Converted to [embed]',
+                    'linked' => 'Replaced with link',
+                    default => 'Removed',
+                };
+                $source_url = (string) ( $item['source_url'] ?? '' );
+                $html .= '<tr><td class="align-top"><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? '' ) ) . '</div><code>' . $escape( (string) ( $item['slug'] ?? '' ) ) . '</code></td>';
+                $html .= '<td class="align-top text-body-secondary">' . $escape( $status ) . '</td>';
+                $html .= '<td class="align-top"><code>' . $escape( $source_url !== '' ? $source_url : 'No usable source URL' ) . '</code></td></tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+        if ( ! empty( $embeds['items_truncated'] ) || count( $items ) > 25 ) {
+            $html .= '<div class="small text-body-secondary mt-2">Showing the first 25 external embeds.</div>';
+        }
+        return( $html . '</div>' );
+    };
+
+    $render_media_shortcode_report = static function( array $preview ) use ( $escape ) : string {
+        $report = is_array( $preview['media_shortcodes'] ?? null ) ? $preview['media_shortcodes'] : [];
+        $found = (int) ( $report['galleries_found'] ?? 0 ) + (int) ( $report['captions_found'] ?? 0 );
+        if ( $found === 0 ) {
+            return( '' );
+        }
+        $html = '<div class="mt-3 py-3 border-top"><div class="small text-uppercase text-body-secondary mb-2">Media shortcodes</div>';
+        $html .= '<div class="small text-body-secondary">Galleries planned: <strong class="text-body">' . (int) ( $report['galleries_planned'] ?? 0 ) . '/' . (int) ( $report['galleries_found'] ?? 0 ) . '</strong> · Captions converted: <strong class="text-body">' . (int) ( $report['captions_converted'] ?? 0 ) . '/' . (int) ( $report['captions_found'] ?? 0 ) . '</strong> · Needs review: <strong class="text-body">' . (int) ( $report['unsupported'] ?? 0 ) . '</strong></div>';
+        $html .= '<div class="small text-body-secondary mt-1">Gallery conversion needs reachable image files. Missing files remain in the import report.</div>';
+        $items = is_array( $report['items'] ?? null ) ? $report['items'] : [];
+        if ( $items !== [] ) {
+            $html .= '<details class="mt-2"><summary class="small">Review media shortcode details</summary><div class="table-responsive mt-2" tabindex="0" aria-label="Media shortcode results"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Entry</th><th class="fw-normal">Source</th><th class="fw-normal">Result</th></tr></thead><tbody>';
+            foreach ( array_slice( $items, 0, 25 ) as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+                $type = (string) ( $item['type'] ?? '' );
+                $status = (string) ( $item['status'] ?? '' );
+                $result = $status === 'review' ? 'Needs review' : ( $type === 'gallery' ? 'Native gallery planned' : 'Image and caption preserved' );
+                $images = (int) ( $item['images'] ?? 0 );
+                $html .= '<tr><td><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? '' ) ) . '</div><code>' . $escape( (string) ( $item['slug'] ?? '' ) ) . '</code></td><td>' . $escape( $type ) . ' · ' . $images . ( $images === 1 ? ' image' : ' images' ) . '</td><td>' . $escape( $result ) . '</td></tr>';
+            }
+            $html .= '</tbody></table></div></details>';
+        }
+        if ( $found > count( $items ) ) {
+            $html .= '<div class="small text-body-secondary mt-2">Showing the first 25 results.</div>';
+        }
+        return( $html . '</div>' );
+    };
+
+    $render_text_shortcode_report = static function( array $preview ) : string {
+        $report = is_array( $preview['text_shortcodes'] ?? null ) ? $preview['text_shortcodes'] : [];
+        if ( (int) ( $report['code_found'] ?? 0 ) + (int) ( $report['highlight_found'] ?? 0 ) + (int) ( $report['wikipedia_found'] ?? 0 ) === 0 ) {
+            return( '' );
+        }
+        return( '<div class="mt-3 py-3 border-top"><div class="small text-uppercase text-body-secondary mb-2">Text shortcodes</div><div class="small text-body-secondary">Code examples converted: <strong class="text-body">' . (int) ( $report['code_converted'] ?? 0 ) . '/' . (int) ( $report['code_found'] ?? 0 ) . '</strong> · Highlights converted: <strong class="text-body">' . (int) ( $report['highlight_converted'] ?? 0 ) . '/' . (int) ( $report['highlight_found'] ?? 0 ) . '</strong> · Wikipedia words preserved: <strong class="text-body">' . (int) ( $report['wikipedia_converted'] ?? 0 ) . '/' . (int) ( $report['wikipedia_found'] ?? 0 ) . '</strong></div></div>' );
+    };
+
+    $render_unsupported_shortcode_report = static function( array $preview, bool $completed = false ) use ( $escape, $admin_url, $review_download_url ) : string {
+        $report = is_array( $preview['unsupported_shortcodes'] ?? null ) ? $preview['unsupported_shortcodes'] : [];
+        $occurrences = (int) ( $report['occurrences'] ?? 0 );
+        if ( $occurrences === 0 ) {
+            return( '' );
+        }
+        $items = is_array( $report['items'] ?? null ) ? $report['items'] : [];
+        $html = '<section class="mt-3 py-3 border-top" aria-label="WordPress plugin content needing review">';
+        $html .= '<div class="small text-uppercase text-warning-emphasis mb-1">Content needing review</div>';
+        $html .= '<div class="small text-body-secondary"><strong class="text-body">' . $occurrences . '</strong> WordPress plugin tag' . ( $occurrences === 1 ? '' : 's' ) . ' in <strong class="text-body">' . (int) ( $report['affected_entries'] ?? 0 ) . '</strong> entr' . ( (int) ( $report['affected_entries'] ?? 0 ) === 1 ? 'y' : 'ies' ) . '. Their output cannot be recreated from this export. ' . ( $completed ? 'Edit or unpublish affected entries.' : 'Plan to edit or unpublish affected entries after import.' ) . '</div>';
+        if ( $completed ) {
+            $html .= '<div class="small text-body-secondary mt-1">Findings are from the export; skipped entries were not changed.</div>';
+        }
+        $html .= '<div class="mt-2"><a class="small" href="' . $escape( $review_download_url . '?preview=' . rawurlencode( (string) ( $preview['token'] ?? '' ) ) ) . '">Download full review list</a></div>';
+        if ( $items !== [] ) {
+            $html .= '<details class="mt-2"' . ( count( $items ) <= 10 ? ' open' : '' ) . '><summary class="small">Show affected entries</summary><div class="table-responsive mt-2" tabindex="0" aria-label="WordPress plugin tags needing review"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Entry</th><th class="fw-normal">Plugin tags</th></tr></thead><tbody>';
+            foreach ( array_slice( $items, 0, 50 ) as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+                $names = [];
+                foreach ( (array) ( $item['names'] ?? [] ) as $name => $count ) {
+                    $names[] = '<code>' . $escape( (string) $name ) . '</code> (' . (int) $count . ')';
+                }
+                $html .= '<tr><td class="align-top"><div class="fw-semibold">' . $escape( (string) ( $item['title'] ?? '' ) ) . '</div><code>' . $escape( (string) ( $item['slug'] ?? '' ) ) . '</code> <span class="text-body-secondary small">' . $escape( (string) ( $item['entry_type'] ?? '' ) ) . '</span>';
+                if ( $completed ) {
+                    $content_query = http_build_query( [ 'entries_owner' => (string) ( $preview['author_slug'] ?? '' ), 'entries_title' => (string) ( $item['title'] ?? '' ), 'entries_type' => (string) ( $item['entry_type'] ?? '' ), 'entries_tree' => '0' ] );
+                    $html .= '<div><a class="small" href="' . $escape( $admin_url . '/content?' . $content_query ) . '">Find in Content</a></div>';
+                }
+                $html .= '</td><td class="align-top">' . implode( ', ', $names ) . '</td></tr>';
+            }
+            $html .= '</tbody></table></div></details>';
+        }
+        if ( ! empty( $report['items_truncated'] ) ) {
+            $html .= '<div class="small text-body-secondary mt-2">Showing the first 50 affected entries here. The download includes all findings.</div>';
+        }
+        return( $html . '</section>' );
+    };
+
+    $render_comment_report = static function( array $preview, array $import_state = [] ) use ( $escape ) : string {
+        $counts = is_array( $preview['comments']['counts'] ?? null ) ? $preview['comments']['counts'] : [];
+        $issues = is_array( $preview['comments']['issues'] ?? null ) ? $preview['comments']['issues'] : [];
+        $found = (int) ( $counts['total'] ?? 0 );
+        $orphaned = (int) ( $counts['orphaned'] ?? 0 ) + (int) ( $counts['orphaned_entry'] ?? 0 );
+        $html = '<div class="mt-3 py-3 border-top"><div class="small text-uppercase text-body-secondary mb-2">Comments</div>';
+        $html .= '<div class="d-flex flex-wrap gap-3 small text-body-secondary">';
+        $html .= '<span>Found: <strong class="text-body">' . $found . '</strong></span>';
+        $html .= '<span>Importable: <strong class="text-body">' . (int) ( $counts['importable'] ?? 0 ) . '</strong></span>';
+        $html .= '<span>Orphaned: <strong class="text-body">' . $orphaned . '</strong></span>';
+        $html .= '<span>Unsupported: <strong class="text-body">' . ( (int) ( $counts['unsupported'] ?? 0 ) + (int) ( $counts['malformed'] ?? 0 ) ) . '</strong></span>';
+        $html .= '</div>';
+        if ( ! empty( $preview['import_comments'] ) ) {
+            $html .= '<div class="small text-body-secondary mt-2">Comments will import. Approved source comments will ' . ( ! empty( $preview['preserve_approved_comments'] ) ? 'stay approved' : 'enter moderation' ) . '. Commenter e-mail addresses will ' . ( ! empty( $preview['retain_commenter_emails'] ) ? 'be retained' : 'be discarded' ) . '.</div>';
+        } elseif ( $found > 0 ) {
+            $html .= '<div class="small text-body-secondary mt-2">Comments were not selected for import.</div>';
+        }
+        if ( ! empty( $import_state['counts']['comments_imported'] ) ) {
+            $html .= '<div class="small mt-2">Imported: <strong>' . (int) $import_state['counts']['comments_imported'] . '</strong>; pending: <strong>' . (int) ( $import_state['counts']['comments_pending'] ?? 0 ) . '</strong>; approved: <strong>' . (int) ( $import_state['counts']['comments_approved'] ?? 0 ) . '</strong>.</div>';
+        }
+        if ( $issues !== [] ) {
+            $html .= '<div class="table-responsive mt-2"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Source comment</th><th class="fw-normal">Result</th></tr></thead><tbody>';
+            foreach ( array_slice( $issues, 0, 25 ) as $issue ) {
+                if ( is_array( $issue ) ) {
+                    $html .= '<tr><td><code>' . $escape( (string) ( $issue['source_id'] ?? '' ) ) . '</code></td><td class="text-body-secondary">' . $escape( (string) ( $issue['reason'] ?? '' ) ) . '</td></tr>';
+                }
+            }
+            $html .= '</tbody></table></div>';
+        }
+        return( $html . '</div>' );
     };
 
     $build_notice = static function( string $type, string $message ) : array {
@@ -329,7 +561,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( ! headers_sent() ) {
             header( 'Content-Type: application/json; charset=UTF-8' );
         }
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES );
     };
 
     $is_json_request = static function() : bool {
@@ -342,23 +574,26 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( str_contains( $accept, 'application/json' ) );
     };
 
-    $resolve_target_author_slug = static function( array $data = [] ) use ( $security, $user_repository ) : string {
+    $resolve_target = static function( array $data = [] ) use ( $security, $user_repository ) : array {
         $current_username = strtolower( trim( (string) $security->getCurrentUsername() ) );
         if ( $current_username === '' ) {
-            return( '' );
+            return( [ 'scope' => 'author', 'author_slug' => '' ] );
         }
 
         if ( ! $security->isSuperAdmin() ) {
-            return( $current_username );
+            return( [ 'scope' => 'author', 'author_slug' => $current_username ] );
         }
 
         $candidate = strtolower( trim( (string) ( $data['target_author'] ?? '' ) ) );
+        if ( $candidate === '__root__' ) {
+            return( [ 'scope' => 'root', 'author_slug' => 'root' ] );
+        }
         if ( $candidate === '' ) {
-            return( $current_username );
+            return( [ 'scope' => 'author', 'author_slug' => $current_username ] );
         }
 
         $user = $user_repository->getUserByUsername( $candidate );
-        return( is_array( $user ) ? $candidate : $current_username );
+        return( [ 'scope' => 'author', 'author_slug' => is_array( $user ) ? $candidate : $current_username ] );
     };
 
     $build_author_options = static function() use ( $user_repository ) : array {
@@ -387,7 +622,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         return( $options );
     };
 
-    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $date_formatter, $import_service, $import_lock_service, $plugin_key, $plugin_url, $preview_url, $report_url, $import_url, $unlock_url, $login_url, $escape, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
+    $render_page = static function( string $mode = 'setup', array $notice = [] ) use ( $plugins, $security, $date_formatter, $import_service, $import_lock_service, $plugin_key, $plugin_url, $preview_url, $report_url, $import_url, $unlock_url, $login_url, $escape, $render_embed_report, $render_media_shortcode_report, $render_text_shortcode_report, $render_unsupported_shortcode_report, $render_comment_report, $build_notice, $build_author_options, $max_execution_time, $import_batch_size ) : void {
         if ( ! $security->isLoggedIn() ) {
             $plugins->redirect( $login_url );
             return;
@@ -418,8 +653,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $import_state = null;
             $notice = $build_notice( 'danger', 'That WordPress import preview is not available for the current account.' );
         }
+        if ( is_array( $preview ) && (string) ( $preview['target_scope'] ?? 'author' ) === 'root' && ! $is_superadmin ) {
+            $preview = null;
+            $import_state = null;
+            $notice = $build_notice( 'danger', 'Root imports require a superadmin account.' );
+        }
         if ( is_array( $preview ) ) {
-            $selected_target_author = strtolower( trim( (string) ( $preview['author_slug'] ?? $selected_target_author ) ) );
+            $selected_target_author = (string) ( $preview['target_scope'] ?? 'author' ) === 'root'
+                ? '__root__'
+                : strtolower( trim( (string) ( $preview['author_slug'] ?? $selected_target_author ) ) );
             if ( $import_lock_service instanceof TinyMashImportLockService ) {
                 $lock = $import_lock_service->getAuthorLock( (string) ( $preview['author_slug'] ?? '' ) );
                 if ( is_array( $lock ) && (string) ( $lock['token'] ?? '' ) !== (string) ( $preview['token'] ?? '' ) ) {
@@ -451,13 +693,14 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<section class="">';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Import source</div>';
             $body_html .= '<h2 class="h5 mb-1">WordPress WXR export</h2>';
-            $body_html .= '<p class="text-body-secondary mb-3">Imports WordPress posts and pages into an author space. Existing tinymash entries are never overwritten.</p>';
+            $body_html .= '<p class="text-body-secondary mb-3">Import WordPress posts, pages, and selected comments. Existing entries are never overwritten.</p>';
             $body_html .= '<form method="post" action="' . $escape( $preview_url ) . '" enctype="multipart/form-data" class="row g-3">';
             $body_html .= '<input type="hidden" name="tinymash_csrf" value="' . $escape( $csrf_token ) . '">';
             if ( $is_superadmin ) {
                 $body_html .= '<div class="col-12 col-lg-6">';
-                $body_html .= '<label class="form-label" for="wordpress-import-target-author">Target author space</label>';
+                $body_html .= '<label class="form-label" for="wordpress-import-target-author">Import into</label>';
                 $body_html .= '<select class="form-select" id="wordpress-import-target-author" name="target_author">';
+                $body_html .= '<option value="__root__"' . ( $selected_target_author === '__root__' ? ' selected' : '' ) . '>Root site (/<slug>)</option>';
                 foreach ( $author_options as $option ) {
                     if ( ! is_array( $option ) ) {
                         continue;
@@ -476,19 +719,19 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<input class="form-control" id="wordpress-import-file" name="wordpress_export" type="file" accept=".xml,application/xml,text/xml"' . ( $runtime_available ? '' : ' disabled' ) . '>';
             $body_html .= '<div class="form-text">Use a standard WordPress WXR export file.</div>';
             $body_html .= '</div>';
-            $body_html .= '<div class="col-12"><div class="form-check">';
+            $body_html .= '<div class="col-12" id="wordpress-import-aggregate-row"><div class="form-check">';
             $body_html .= '<input class="form-check-input" id="wordpress-import-aggregate" name="aggregate_to_root" type="checkbox" value="1">';
-            $body_html .= '<label class="form-check-label" for="wordpress-import-aggregate">Also show imported posts on the root front page</label>';
+            $body_html .= '<label class="form-check-label" for="wordpress-import-aggregate">Also show author-space posts on the root front page</label>';
             $body_html .= '</div></div>';
             $body_html .= '<div class="col-12"><div class="form-check">';
             $body_html .= '<input class="form-check-input" id="wordpress-import-replace" name="replace_existing_posts" type="checkbox" value="1">';
-            $body_html .= '<label class="form-check-label" for="wordpress-import-replace">Replace current author posts before import</label>';
-            $body_html .= '<div class="form-text">Only posts in the target author space are removed. Pages are left alone.</div>';
+            $body_html .= '<label class="form-check-label" for="wordpress-import-replace">Replace current target posts before import</label>';
+            $body_html .= '<div class="form-text">Removes these posts and their comments. Pages, drafts, and media stay.</div>';
             $body_html .= '</div></div>';
             $body_html .= '<div class="col-12"><div class="form-check">';
             $body_html .= '<input class="form-check-input" id="wordpress-import-replace-pages" name="replace_existing_pages" type="checkbox" value="1">';
-            $body_html .= '<label class="form-check-label" for="wordpress-import-replace-pages">Replace current author pages before import</label>';
-            $body_html .= '<div class="form-text">Only pages in the target author space are removed. Posts are left alone.</div>';
+            $body_html .= '<label class="form-check-label" for="wordpress-import-replace-pages">Replace current target pages before import</label>';
+            $body_html .= '<div class="form-text">Removes these pages and their comments. Posts, drafts, and media stay.</div>';
             $body_html .= '</div></div>';
             $body_html .= '<div class="col-12"><div class="form-check">';
             $body_html .= '<input class="form-check-input" id="wordpress-import-skip-unpublished" name="skip_unpublished" type="checkbox" value="1">';
@@ -500,8 +743,26 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<label class="form-check-label" for="wordpress-import-menus">Import recognized WordPress menus</label>';
             $body_html .= '<div class="form-text">When recognized, WordPress navigation menus can replace the tinymash `primary` and `footer` menu locations. This is site-level config.</div>';
             $body_html .= '</div></div>';
+            $body_html .= '<div class="col-12 pt-2 border-top"><div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="wordpress-import-comments" name="import_comments" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="wordpress-import-comments">Import comments mapped to imported entries</label>';
+            $body_html .= '<div class="form-text">Commenter URLs, IP addresses, user-agent data, and reply-notification consent are not imported.</div>';
+            $body_html .= '</div></div>';
+            $body_html .= '<div class="col-12 col-lg-6"><div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="wordpress-import-comment-approval" name="preserve_approved_comments" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="wordpress-import-comment-approval">Keep approved source comments approved</label>';
+            $body_html .= '<div class="form-text">Otherwise approved comments enter moderation.</div>';
+            $body_html .= '</div></div>';
+            $body_html .= '<div class="col-12 col-lg-6"><div class="form-check">';
+            $body_html .= '<input class="form-check-input" id="wordpress-import-comment-emails" name="retain_commenter_emails" type="checkbox" value="1">';
+            $body_html .= '<label class="form-check-label" for="wordpress-import-comment-emails">Retain valid commenter e-mail addresses</label>';
+            $body_html .= '<div class="form-text">Addresses stay private and never create subscriptions.</div>';
+            $body_html .= '</div></div>';
             $body_html .= '<div class="col-12"><button class="btn btn-primary" type="submit"' . ( $runtime_available ? '' : ' disabled' ) . '>Preview import</button></div>';
             $body_html .= '</form>';
+            if ( $is_superadmin ) {
+                $body_html .= '<script>(() => { const target = document.getElementById("wordpress-import-target-author"); const row = document.getElementById("wordpress-import-aggregate-row"); const checkbox = document.getElementById("wordpress-import-aggregate"); if (!target || !row || !checkbox) return; const sync = () => { const isRoot = target.value === "__root__"; row.hidden = isRoot; checkbox.disabled = isRoot; if (isRoot) checkbox.checked = false; }; target.addEventListener("change", sync); sync(); })();</script>';
+            }
             if ( $timeout_warning ) {
                 $body_html .= '<div class="alert alert-warning mt-3 mb-0" role="alert">This web runtime is limited to ' . $max_execution_time . ' seconds. WordPress import will use ' . $import_batch_size . ' entr' . ( $import_batch_size === 1 ? 'y' : 'ies' ) . ' per request.</div>';
             }
@@ -545,15 +806,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<div class="d-flex flex-wrap align-items-start justify-content-between gap-3"><div>';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Preview</div>';
             $body_html .= '<h2 class="h5 mb-1">Ready to import</h2>';
-            $body_html .= '<div class="text-body-secondary small">This preview targets <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['author_slug'] ?? strtolower( $username ) ) ) . '</span>.</div>';
+            $body_html .= '<div class="text-body-secondary small">This preview targets <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['target_scope'] ?? 'author' ) === 'root' ? 'Root site (/<slug>)' : (string) ( $preview['author_slug'] ?? strtolower( $username ) ) ) . '</span>.</div>';
             if ( $replace_existing_posts ) {
-                $body_html .= '<div class="small text-warning-emphasis mt-1">Current posts in this author space will be deleted before the first import batch. Pages are left alone.</div>';
+                $body_html .= '<div class="small text-warning-emphasis mt-1">Current posts in this target space and their comments will be deleted before import. Pages, drafts, and media stay.</div>';
                 if ( $preview_post_count === 0 && $preview_page_count > 0 ) {
-                    $body_html .= '<div class="small text-warning-emphasis mt-1">This export contains pages but no posts. Replace mode will not remove existing pages, so page duplicates in the target author space will still be skipped.</div>';
+                    $body_html .= '<div class="small text-warning-emphasis mt-1">This export contains pages but no posts. Existing target pages stay; duplicate pages will be skipped.</div>';
                 }
             }
             if ( $replace_existing_pages ) {
-                $body_html .= '<div class="small text-warning-emphasis mt-1">Current pages in this author space will be deleted before the first import batch. Posts are left alone.</div>';
+                $body_html .= '<div class="small text-warning-emphasis mt-1">Current pages in this target space and their comments will be deleted before import. Posts, drafts, and media stay.</div>';
             }
             if ( $skip_unpublished && (int) ( $counts['skipped_unpublished'] ?? 0 ) > 0 ) {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Skipping ' . (int) ( $counts['skipped_unpublished'] ?? 0 ) . ' unpublished source entr' . ( (int) ( $counts['skipped_unpublished'] ?? 0 ) === 1 ? 'y' : 'ies' ) . ' for this import.</div>';
@@ -578,7 +839,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Adjusted ' . $adjusted_source_duplicates . ' duplicate slug conflict' . ( $adjusted_source_duplicates === 1 ? '' : 's' ) . ' inside the WordPress source export so the entries can still be imported.</div>';
             }
             if ( $has_conflicting_lock ) {
-                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import holds this author-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
+                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-1">Another import holds this author-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' Override is available for stale locks.' : '' ) . '</div>';
             }
             $body_html .= '</div><div class="d-flex flex-wrap gap-2">';
             $body_html .= '<button class="btn btn-outline-primary" id="wordpress-import-start" type="button" data-import-url="' . $escape( $import_url ) . '" data-plugin-url="' . $escape( $plugin_url ) . '" data-login-url="' . $escape( $login_url ) . '" data-preview-token="' . $escape( (string) ( $preview['token'] ?? '' ) ) . '" data-csrf-token="' . $escape( $csrf_token ) . '"' . ( $has_conflicting_lock && ! $conflicting_lock_is_stale ? ' disabled' : '' ) . '>' . ( $import_running ? 'Resume import' : 'Import now' ) . '</button>';
@@ -608,6 +869,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Menus</div><div class="fw-semibold">' . (int) ( $counts['menus'] ?? 0 ) . '</div></div></div>';
             $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Menu items</div><div class="fw-semibold">' . (int) ( $counts['menu_items'] ?? 0 ) . '</div></div></div>';
             $body_html .= '</div>';
+            $body_html .= $render_embed_report( $preview );
+            $body_html .= $render_media_shortcode_report( $preview );
+            $body_html .= $render_text_shortcode_report( $preview );
+            $body_html .= $render_unsupported_shortcode_report( $preview );
+            $body_html .= $render_comment_report( $preview, is_array( $import_state ) ? $import_state : [] );
 
             $progress_processed = is_array( $import_state ) ? (int) ( $import_state['counts']['processed'] ?? 0 ) : 0;
             $progress_imported = is_array( $import_state ) ? (int) ( $import_state['counts']['imported'] ?? 0 ) : 0;
@@ -623,7 +889,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<div class="progress mt-3" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' . $progress_percent . '"><div class="progress-bar" id="wordpress-import-progress-bar" style="width: ' . $progress_percent . '%">' . $progress_percent . '%</div></div>';
             $body_html .= '</section>';
 
-            $body_html .= '<div class="mt-3' . $preview_table_hidden . '" id="wordpress-import-preview-table-wrap"><div class="table-responsive"><div style="max-height: 32rem; overflow-y: auto;"><table class="table table-sm align-middle mb-0">';
+            $body_html .= '<div class="mt-3' . $preview_table_hidden . '" id="wordpress-import-preview-table-wrap"><div class="table-responsive"><div tabindex="0" aria-label="WordPress import entries" style="max-height: 32rem; overflow-y: auto;"><table class="table table-sm align-middle mb-0">';
             $body_html .= '<thead><tr><th class="fw-normal sticky-top bg-body">Title</th><th class="fw-normal sticky-top bg-body">Type</th><th class="fw-normal sticky-top bg-body">Status</th><th class="fw-normal sticky-top bg-body">Slug</th><th class="fw-normal sticky-top bg-body">Published</th></tr></thead><tbody>';
             foreach ( array_slice( $entries, 0, 100 ) as $entry ) {
                 if ( ! is_array( $entry ) ) {
@@ -700,14 +966,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<section class="">';
             $body_html .= '<div class="small text-uppercase text-body-secondary mb-2">Import report</div>';
             $body_html .= '<h2 class="h5 mb-1">WordPress import finished</h2>';
-            $body_html .= '<div class="text-body-secondary small">Imported into <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['author_slug'] ?? strtolower( $username ) ) ) . '</span>.</div>';
+            $body_html .= '<div class="text-body-secondary small">Imported into <span class="font-monospace text-body fw-semibold">' . $escape( (string) ( $preview['target_scope'] ?? 'author' ) === 'root' ? 'Root site (/<slug>)' : (string) ( $preview['author_slug'] ?? strtolower( $username ) ) ) . '</span>.</div>';
+            $body_html .= '<div class="text-body-secondary small mt-1">Review this report now. Import workspaces expire after seven days of inactivity.</div>';
             if ( ! empty( $preview['replace_existing_posts'] ) && $preview_post_count === 0 && $preview_page_count > 0 && $report_imported === 0 && $report_skipped > 0 ) {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">This export contained pages but no posts. Replace mode removed existing posts only, so existing pages remained and duplicate page imports were skipped.</div>';
             } elseif ( ! empty( $preview['replace_existing_posts'] ) && $report_deleted > 0 ) {
-                $body_html .= '<div class="small text-body-secondary mt-1">Replace mode removes only posts in the target author space. Existing pages are left alone.</div>';
+                $body_html .= '<div class="small text-body-secondary mt-1">Replace mode removed posts only in the selected target space. Existing pages were left alone.</div>';
             }
             if ( ! empty( $preview['replace_existing_pages'] ) && $report_deleted_pages > 0 ) {
-                $body_html .= '<div class="small text-body-secondary mt-1">Replace-pages mode removes only pages in the target author space. Existing posts are left alone.</div>';
+                $body_html .= '<div class="small text-body-secondary mt-1">Replace-pages mode removed pages only in the selected target space. Existing posts were left alone.</div>';
             }
             if ( ! empty( $preview['skip_unpublished'] ) && $preview_skipped_unpublished > 0 ) {
                 $body_html .= '<div class="small text-body-secondary mt-1">Skipped ' . $preview_skipped_unpublished . ' unpublished source entr' . ( $preview_skipped_unpublished === 1 ? 'y' : 'ies' ) . ' before import.</div>';
@@ -722,6 +989,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             if ( $report_unresolved_media > 0 ) {
                 $body_html .= '<div class="small text-warning-emphasis mt-1">Some WordPress upload URLs could not be localized. This usually means the export had no matching attachment item, or the source file was no longer reachable during import.</div>';
             }
+            $body_html .= $render_embed_report( $preview );
+            $body_html .= $render_media_shortcode_report( $preview );
+            $body_html .= $render_text_shortcode_report( $preview );
+            $body_html .= $render_unsupported_shortcode_report( $preview, true );
+            $body_html .= $render_comment_report( $preview, $import_state );
             $body_html .= '<div class="row g-3 mt-1">';
             $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Imported</div><div class="fw-semibold">' . (int) ( $counts['imported'] ?? 0 ) . '</div></div></div>';
             $body_html .= '<div class="col-6 col-lg-3"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Skipped</div><div class="fw-semibold">' . (int) ( $counts['skipped'] ?? 0 ) . '</div></div></div>';
@@ -731,7 +1003,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $body_html .= '<div class="row g-3 mt-1"><div class="col-12 col-lg-6"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Processed</div><div class="fw-semibold">' . (int) ( $counts['processed'] ?? 0 ) . ' / ' . (int) ( $counts['total'] ?? 0 ) . '</div></div></div>';
             $body_html .= '<div class="col-12 col-lg-6"><div class="py-2 border-top h-100"><div class="small text-uppercase text-body-secondary mb-1">Finished</div><div class="fw-semibold">' . $escape( $date_formatter->formatUtcDateTime( (string) ( $import_state['finished_at_utc'] ?? '' ) ) ) . '</div></div></div></div>';
             if ( ! empty( $unresolved_media ) ) {
-                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">Unresolved media</div><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Slug</th><th class="fw-normal">URL</th></tr></thead><tbody>';
+                $body_html .= '<div class="mt-3"><div class="small text-uppercase text-body-secondary mb-2">Unresolved media</div><div class="table-responsive" tabindex="0" aria-label="Unresolved media URLs"><table class="table table-sm align-middle mb-0"><thead><tr><th class="fw-normal">Title</th><th class="fw-normal">Slug</th><th class="fw-normal">URL</th></tr></thead><tbody>';
                 foreach ( array_slice( $unresolved_media, 0, 25 ) as $item ) {
                     if ( ! is_array( $item ) ) {
                         continue;
@@ -885,7 +1157,7 @@ HTML;
                     ? 'Review the result of a completed WordPress import.'
                     : ( $mode === 'preview'
                         ? 'Review the parsed WordPress content before starting the import.'
-                        : 'Bring WordPress posts and pages into an author space.' ),
+                        : 'Import WordPress posts, pages, and selected comments.' ),
                 'plugin_page_notice' => $notice,
                 'plugin_page_body_html' => $body_html,
             ]
@@ -895,12 +1167,53 @@ HTML;
     $plugins->registerRoute( $plugin_key, 'get', $plugin_url, static function() use ( $render_page ) : void { $render_page( 'setup' ); } );
     $plugins->registerRoute( $plugin_key, 'get', $preview_url, static function() use ( $render_page ) : void { $render_page( 'preview' ); } );
     $plugins->registerRoute( $plugin_key, 'get', $report_url, static function() use ( $render_page ) : void { $render_page( 'report' ); } );
+    $plugins->registerRoute(
+        $plugin_key,
+        'get',
+        $review_download_url,
+        static function() use ( $plugins, $security, $import_service ) : void {
+            if ( ! $security->isLoggedIn() ) {
+                http_response_code( 404 );
+                return;
+            }
+
+            $query = $plugins->getRequestQueryData();
+            $preview = $import_service->getPreview( (string) ( $query['preview'] ?? '' ) );
+            $username = strtolower( mb_trim( (string) $security->getCurrentUsername() ) );
+            if ( ! is_array( $preview ) || (string) ( $preview['created_by_username'] ?? $preview['author_slug'] ?? '' ) !== $username || ( (string) ( $preview['target_scope'] ?? 'author' ) === 'root' && ! $security->isSuperAdmin() ) ) {
+                http_response_code( 404 );
+                return;
+            }
+
+            $report = is_array( $preview['unsupported_shortcodes'] ?? null ) ? $preview['unsupported_shortcodes'] : [];
+            header( 'Content-Type: text/plain; charset=UTF-8' );
+            header( 'Content-Disposition: attachment; filename="wordpress-import-review.txt"' );
+            header( 'Cache-Control: private, no-store' );
+            header( 'X-Content-Type-Options: nosniff' );
+            echo 'WordPress content review' . PHP_EOL;
+            echo 'Target: ' . (string) ( $preview['target_scope'] ?? 'author' ) . ( (string) ( $preview['target_scope'] ?? 'author' ) === 'root' ? '' : ':' . (string) ( $preview['author_slug'] ?? '' ) ) . PHP_EOL;
+            echo 'Plugin tags: ' . (int) ( $report['occurrences'] ?? 0 ) . PHP_EOL;
+            echo 'Affected entries: ' . (int) ( $report['affected_entries'] ?? 0 ) . PHP_EOL;
+            echo 'Edit or unpublish affected entries after import. Skipped entries were not changed.' . PHP_EOL;
+            foreach ( (array) ( $report['items'] ?? [] ) as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+                $title = mb_trim( preg_replace( '/\s+/u', ' ', (string) ( $item['title'] ?? '' ) ) ?? '' );
+                $path = (string) ( $preview['target_scope'] ?? 'author' ) === 'root' ? '' : (string) ( $preview['author_slug'] ?? '' ) . '/';
+                echo PHP_EOL . (string) ( $item['entry_type'] ?? '' ) . ' /' . $path . (string) ( $item['slug'] ?? '' ) . ' — ' . $title . PHP_EOL;
+                foreach ( (array) ( $item['names'] ?? [] ) as $name => $count ) {
+                    echo '  [' . (string) $name . '] × ' . (int) $count . PHP_EOL;
+                }
+            }
+        }
+    );
 
     $plugins->registerRoute(
         $plugin_key,
         'post',
         $preview_url,
-        static function() use ( $plugins, $security, $import_service, $login_url, $plugin_url, $preview_url, $build_notice, $resolve_target_author_slug, $log_plugin_error ) : void {
+        static function() use ( $plugins, $security, $import_service, $login_url, $plugin_url, $preview_url, $build_notice, $resolve_target, $log_plugin_error ) : void {
             if ( ! $security->isLoggedIn() ) {
                 $plugins->redirect( $login_url );
                 return;
@@ -921,16 +1234,20 @@ HTML;
 
             try {
                 $current_username = trim( (string) $security->getCurrentUsername() );
-                $target_author_slug = $resolve_target_author_slug( $data );
+                $target = $resolve_target( $data );
                 $preview = $import_service->createPreviewFromUpload(
                     $_FILES['wordpress_export'] ?? [],
-                    $target_author_slug,
+                    (string) ( $target['author_slug'] ?? '' ),
                     ! empty( $data['aggregate_to_root'] ),
                     $current_username,
                     ! empty( $data['replace_existing_posts'] ),
                     ! empty( $data['replace_existing_pages'] ),
                     ! empty( $data['skip_unpublished'] ),
-                    ! empty( $data['import_menus'] )
+                    ! empty( $data['import_menus'] ),
+                    ! empty( $data['import_comments'] ),
+                    ! empty( $data['preserve_approved_comments'] ),
+                    ! empty( $data['retain_commenter_emails'] ),
+                    (string) ( $target['scope'] ?? 'author' )
                 );
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'preview failed', $e );
@@ -964,7 +1281,7 @@ HTML;
             $lock_token = preg_replace( '/[^a-z0-9_]+/', '', strtolower( trim( (string) ( $data['lock_token'] ?? '' ) ) ) ) ?? '';
             $preview = $preview_token !== '' ? $import_service->getPreview( $preview_token ) : null;
             $current_username = strtolower( trim( (string) $security->getCurrentUsername() ) );
-            if ( ! is_array( $preview ) || (string) ( $preview['created_by_username'] ?? $preview['author_slug'] ?? '' ) !== $current_username ) {
+            if ( ! is_array( $preview ) || (string) ( $preview['created_by_username'] ?? $preview['author_slug'] ?? '' ) !== $current_username || ( (string) ( $preview['target_scope'] ?? 'author' ) === 'root' && ! $security->isSuperAdmin() ) ) {
                 $security->setFlash( 'wordpress-import.notice', $build_notice( 'danger', 'That WordPress import preview is not available for the current account.' ) );
                 $plugins->redirect( $plugin_url );
                 return;
@@ -1035,6 +1352,15 @@ HTML;
                 $plugins->redirect( $plugin_url );
                 return;
             }
+            if ( (string) ( $preview['target_scope'] ?? 'author' ) === 'root' && ! $security->isSuperAdmin() ) {
+                if ( $expects_json ) {
+                    $emit_json( $plugins, [ 'error' => 'Root imports require a superadmin account.' ], 403 );
+                    return;
+                }
+                $security->setFlash( 'wordpress-import.notice', $build_notice( 'danger', 'Root imports require a superadmin account.' ) );
+                $plugins->redirect( $plugin_url );
+                return;
+            }
 
             $security->touchAuthenticatedSession();
             $security->closeSession();
@@ -1073,7 +1399,7 @@ HTML;
                 }
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'import failed', $e );
-                $message = trim( $e->getMessage() ) !== '' ? trim( $e->getMessage() ) : 'The WordPress import failed.';
+                $message = mb_trim( $e->getMessage() ) !== '' ? mb_trim( $e->getMessage() ) : 'The WordPress import failed.';
                 if ( $expects_json ) {
                     $emit_json( $plugins, [ 'error' => $message ], 500 );
                     return;

@@ -604,7 +604,7 @@ class TinyMashSeoService {
                 continue;
             }
 
-            $title = trim( (string) ( $breadcrumb['title'] ?? '' ) );
+            $title = mb_trim( (string) ( $breadcrumb['title'] ?? '' ) );
             if ( $title === '' ) {
                 continue;
             }
@@ -661,7 +661,7 @@ class TinyMashSeoService {
         $value = preg_replace( '/\[[a-z][^\]]*\](?:\[\/[a-z][^\]]*\])?/iu', ' ', $value ) ?? $value;
         $value = strip_tags( $value );
         $value = preg_replace( '/\s+/u', ' ', $value ) ?? $value;
-        return( function_exists( 'mb_trim' ) ? mb_trim( $value ) : trim( $value ) );
+        return( mb_trim( $value ) );
     }
 
     protected function limitText( string $value, int $limit ) : string {
@@ -669,18 +669,10 @@ class TinyMashSeoService {
             return( '' );
         }
 
-        if ( function_exists( 'mb_strlen' ) && function_exists( 'mb_substr' ) ) {
-            if ( mb_strlen( $value, 'UTF-8' ) <= $limit ) {
-                return( $value );
-            }
-            return( rtrim( mb_substr( $value, 0, $limit - 3, 'UTF-8' ) ) . '...' );
-        }
-
-        if ( strlen( $value ) <= $limit ) {
+        if ( mb_strlen( $value, 'UTF-8' ) <= $limit ) {
             return( $value );
         }
-
-        return( rtrim( substr( $value, 0, $limit - 3 ) ) . '...' );
+        return( mb_rtrim( mb_substr( $value, 0, $limit - 3, 'UTF-8' ) ) . '...' );
     }
 
 }

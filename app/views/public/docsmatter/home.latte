@@ -37,7 +37,7 @@
                         </div>
                         <p class="small text-body-secondary mb-3">
                             {if $entry['scope'] === 'author'}
-                                by <a href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
+                                by <a class="text-decoration-underline" href="/{$entry['author_slug']}">{$entry['author_display_name'] ?? $entry['author_slug']}</a>
                                 {if ! empty( $entry['published_at_display'] )}<span class="mx-1">|</span>{/if}
                             {/if}
                             {$entry['published_at_display'] ?? ''}

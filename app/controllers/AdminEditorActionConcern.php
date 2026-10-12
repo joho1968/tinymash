@@ -2,6 +2,8 @@
 namespace app\controllers;
 
 use app\classes\TinyMashEditorMediaPickerService;
+use app\classes\TinyMashEditorInlineMediaReview;
+use app\classes\TinyMashMediaService;
 
 trait AdminEditorActionConcern {
 
@@ -101,6 +103,10 @@ trait AdminEditorActionConcern {
                     'markdown' => $uploaded_image['markdown'],
                     'alt_text' => $uploaded_image['alt_text'] ?? '',
                     'filename' => $uploaded_image['filename'],
+                    'original_filename' => $uploaded_image['original_filename'] ?? '',
+                    'display_filename' => $uploaded_image['original_filename'] ?? $uploaded_image['filename'],
+                    'created_at_utc' => (string) ( $uploaded_image['metadata']['created_at_utc'] ?? '' ),
+                    'capture_date_local' => TinyMashMediaService::retainedCaptureDate( is_array( $uploaded_image['metadata'] ?? null ) ? $uploaded_image['metadata'] : [] ),
                     'width' => $uploaded_image['width'],
                     'height' => $uploaded_image['height'],
                     'bytes' => $uploaded_image['bytes'] ?? 0,
@@ -117,6 +123,86 @@ trait AdminEditorActionConcern {
             error_log( basename( __FILE__ ) . ': Unable to upload editor image (' . $e->getMessage() . ')' );
             $this->json( [ 'error' => 'Image upload could not be completed right now.' ], 500 );
             return;
+        }
+    }
+
+    public function copyEditorGalleryImage() : void {
+        if ( ! $this->security->isLoggedIn() || ! $this->security->isSuperAdmin() ) {
+            $this->json( [ 'error' => 'This action is not available.' ], 403 );
+            return;
+        }
+
+        $data = $this->getRequestDataArray();
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->json( [ 'error' => 'Your session token is invalid. Please reload the page and try again.' ], 403 );
+            return;
+        }
+        if ( empty( $this->getCurrentEditorImageUploadSettings()['enabled'] ) ) {
+            $this->json( [ 'error' => $this->getUserValidationMessage( 'content_images_disabled' ) ], 403 );
+            return;
+        }
+
+        try {
+            $submission = $this->normalizeEditorSubmission( $data, true );
+            if ( $submission['scope'] !== 'author' ) {
+                throw new \InvalidArgumentException( 'editor_author_slug' );
+            }
+            $media_id = trim( (string) ( $data['media_id'] ?? '' ) );
+            if ( $media_id === '' ) {
+                throw new \InvalidArgumentException( 'content_image_file' );
+            }
+            $attachment_context = $this->resolveEditorAttachmentContext(
+                [ 'attachment_session_id' => $data['attachment_session_id'] ?? '' ],
+                (string) $submission['author_slug']
+            );
+            if ( $attachment_context['attachment_session_id'] === '' ) {
+                throw new \InvalidArgumentException( 'content_image_file' );
+            }
+            $media_service = $this->app->has( 'media.service' ) ? $this->app->get( 'media.service' ) : null;
+            if ( ! $media_service instanceof TinyMashMediaService ) {
+                throw new \RuntimeException( 'Media service is not available.' );
+            }
+
+            $owner_username = (string) $submission['author_slug'];
+            $copied = $media_service->copyImageToOwner( $media_id, 'root', $owner_username );
+            $assigned_metadata = $media_service->assignAttachmentToContent(
+                (string) $copied['media_id'],
+                [ $owner_username ],
+                $attachment_context['entry_id'],
+                $attachment_context['draft_id'],
+                $attachment_context['attachment_session_id']
+            );
+            if ( is_array( $assigned_metadata ) ) {
+                $copied['metadata'] = $assigned_metadata;
+            }
+            $this->json(
+                [
+                    'media_id' => $copied['media_id'],
+                    'owner_username' => $owner_username,
+                    'url' => $copied['url'],
+                    'thumbnail_url' => $copied['thumbnail_url'] ?? '',
+                    'display_url' => $copied['display_url'] ?? '',
+                    'filename' => $copied['filename'],
+                    'original_filename' => $copied['original_filename'],
+                    'display_filename' => $copied['original_filename'],
+                    'alt_text' => $copied['alt_text'],
+                    'mime' => $copied['mime'],
+                    'width' => $copied['width'],
+                    'height' => $copied['height'],
+                    'created_at_utc' => (string) ( $copied['metadata']['created_at_utc'] ?? '' ),
+                    'capture_date_local' => TinyMashMediaService::retainedCaptureDate( is_array( $copied['metadata'] ?? null ) ? $copied['metadata'] : [] ),
+                ]
+            );
+        } catch ( \InvalidArgumentException $e ) {
+            $message = match ( $e->getMessage() ) {
+                'content_image_file' => 'This image is no longer available to copy.',
+                'content_image_owner' => 'Choose an author space before copying this image.',
+                default => $this->getUserValidationMessage( $e->getMessage() ),
+            };
+            $this->json( [ 'error' => $message ], 422 );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to copy editor gallery image (' . $e->getMessage() . ')' );
+            $this->json( [ 'error' => 'Image could not be copied right now.' ], 500 );
         }
     }
 
@@ -156,14 +242,82 @@ trait AdminEditorActionConcern {
             'loaded_draft_id' => (string) ( $data['draft_id'] ?? '' ),
             'attachment_session_id' => (string) ( $data['attachment_session_id'] ?? '' ),
             'media_type' => (string) ( $data['media_type'] ?? 'any' ),
+            'picker_scope' => (string) ( $data['picker_scope'] ?? 'current' ),
+            'picker_target' => (string) ( $data['picker_target'] ?? '' ),
         ];
 
-        $this->json(
-            [
-                'source' => $source,
-                'records' => $picker_service->listSourceRecords( $source, $context ),
-            ]
-        );
+        try {
+            $records = $picker_service->listSourceRecords( $source, $context );
+        } catch ( \InvalidArgumentException $e ) {
+            $this->json( [ 'error' => 'Choose a valid media scope.' ], 422 );
+            return;
+        }
+
+        $this->json( [ 'source' => $source, 'records' => $records ] );
+    }
+
+    public function reviewEditorInlineMedia() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->json( [ 'error' => 'Authentication required.' ], 403 );
+            return;
+        }
+        $data = $this->getRequestDataArray();
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->json( [ 'error' => 'Invalid CSRF token.' ], 403 );
+            return;
+        }
+
+        try {
+            $submission = $this->normalizeEditorSubmission( $data, true );
+            $owner_username = $submission['scope'] === 'author' ? (string) $submission['author_slug'] : 'root';
+            $media_service = $this->app->has( 'media.service' ) ? $this->app->get( 'media.service' ) : null;
+            $review = new TinyMashEditorInlineMediaReview( $media_service );
+            $issues = $review->review( (string) ( $data['content'] ?? '' ), $owner_username, $this->security->isSuperAdmin() );
+            $this->json( [ 'issues' => $issues, 'owner_username' => $owner_username ] );
+        } catch ( \InvalidArgumentException $e ) {
+            $message = $e->getMessage() === 'editor_author_slug' ? 'Choose an existing space.' : $e->getMessage();
+            $this->json( [ 'error' => $message ], 422 );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to review inline media (' . $e->getMessage() . ')' );
+            $this->json( [ 'error' => 'Images could not be reviewed right now.' ], 500 );
+        }
+    }
+
+    public function previewInlineImageGallery() : void {
+        if ( ! $this->security->isLoggedIn() ) {
+            $this->json( [ 'error' => 'Authentication required.' ], 403 );
+            return;
+        }
+
+        $data = $this->getRequestDataArray();
+        if ( ! $this->isValidCsrfSubmission( $data ) ) {
+            $this->json( [ 'error' => 'Invalid CSRF token.' ], 403 );
+            return;
+        }
+
+        $conversion = $this->app->has( 'plugin.photos.inline_conversion' ) ? $this->app->get( 'plugin.photos.inline_conversion' ) : null;
+        $picker = $this->getEditorMediaPickerService();
+        if ( ! is_object( $conversion ) || ! method_exists( $conversion, 'preview' ) || ! $picker instanceof TinyMashEditorMediaPickerService ) {
+            $this->json( [ 'error' => 'Photos is unavailable.' ], 404 );
+            return;
+        }
+
+        try {
+            $submission = $this->normalizeEditorSubmission( $data, true );
+            $this->resolveAccessibleLoadedEntryId( (string) ( $data['loaded_entry_id'] ?? '' ) );
+            $owners = $picker->getOwnerUsernamesForEditorScope( $submission['scope'], $submission['author_slug'] );
+            if ( empty( $owners ) ) {
+                $this->json( [ 'error' => 'No media is available in this space.' ], 403 );
+                return;
+            }
+            $this->json( $conversion->preview( (string) ( $data['content'] ?? '' ), $owners ) );
+        } catch ( \InvalidArgumentException $e ) {
+            $message = $e->getMessage();
+            $this->json( [ 'error' => in_array( $message, [ 'Content is too large to scan.', 'Too many images to scan at once.' ], true ) ? $message : $this->getUserValidationMessage( $message ) ], 422 );
+        } catch ( \Throwable $e ) {
+            error_log( basename( __FILE__ ) . ': Unable to preview inline image conversion.' );
+            $this->json( [ 'error' => 'Inline images could not be scanned right now.' ], 500 );
+        }
     }
 
     public function checkEditorSlug() : void {
@@ -237,6 +391,7 @@ trait AdminEditorActionConcern {
         try {
             $timing_started_at = microtime( true );
             $normalized_payload = $this->normalizeEditorSubmission( $data, false );
+            $normalized_payload = $this->applyEditorGalleryLinks( $normalized_payload, $data );
             $timings['normalize'] = ( microtime( true ) - $timing_started_at ) * 1000;
 
             $timing_started_at = microtime( true );
@@ -382,6 +537,7 @@ trait AdminEditorActionConcern {
         try {
             $timing_started_at = microtime( true );
             $normalized_payload = $this->normalizeEditorSubmission( $data, true );
+            $normalized_payload = $this->applyEditorGalleryLinks( $normalized_payload, $data );
             $timings['normalize'] = ( microtime( true ) - $timing_started_at ) * 1000;
 
             $timing_started_at = microtime( true );

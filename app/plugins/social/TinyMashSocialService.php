@@ -1,8 +1,10 @@
 <?php
 
 use app\classes\TinyMashLockedJsonFile;
+use app\classes\TinyMashText;
 
 require_once dirname( __DIR__, 2 ) . '/classes/TinyMashLockedJsonFile.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashText.php';
 
 class TinyMashSocialService {
 
@@ -131,7 +133,7 @@ class TinyMashSocialService {
                 continue;
             }
             $type = (string) ( $link['type'] ?? 'generic' );
-            $label = trim( (string) ( $link['label'] ?? '' ) );
+            $label = mb_trim( (string) ( $link['label'] ?? '' ) );
             if ( $label === '' ) {
                 $label = $this->getTypeLabel( $type );
             }
@@ -210,7 +212,7 @@ class TinyMashSocialService {
         $link_types = $this->getLinkTypes();
         uasort(
             $link_types,
-            static fn( array $left, array $right ) : int => strcasecmp( (string) ( $left['label'] ?? '' ), (string) ( $right['label'] ?? '' ) )
+            static fn( array $left, array $right ) : int => TinyMashText::compareCaseInsensitive( (string) ( $left['label'] ?? '' ), (string) ( $right['label'] ?? '' ) )
         );
         for ( $index = count( $links ); $index < 8; $index++ ) {
             $links[] = [ 'enabled' => false, 'type' => 'generic', 'label' => '', 'address' => '', 'url' => '' ];
@@ -267,12 +269,9 @@ class TinyMashSocialService {
     }
 
     protected function normalizeSectionLabel( string $label ) : string {
-        $label = function_exists( 'mb_trim' ) ? mb_trim( $label ) : trim( $label );
-        $label = preg_replace( '/\s+/', ' ', $label ) ?? '';
-        if ( function_exists( 'mb_substr' ) ) {
-            return( mb_substr( $label, 0, 80 ) );
-        }
-        return( substr( $label, 0, 80 ) );
+        $label = mb_trim( $label );
+        $label = preg_replace( '/\s+/u', ' ', $label ) ?? '';
+        return( mb_substr( $label, 0, 80 ) );
     }
 
     protected function normalizeLayout( string $layout ) : string {
@@ -281,7 +280,7 @@ class TinyMashSocialService {
     }
 
     protected function normalizeAddress( string $type, string $address ) : string {
-        $address = function_exists( 'mb_trim' ) ? mb_trim( $address ) : trim( $address );
+        $address = mb_trim( $address );
         $address = preg_replace( '/\s+/', '', $address ) ?? '';
         if ( $address === '' ) {
             return( '' );

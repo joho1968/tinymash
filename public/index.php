@@ -96,4 +96,40 @@ if ( PHP_SAPI !== 'cli' ) {
     }
 }
 
+$script_name = (string) ( $_SERVER['SCRIPT_NAME'] ?? '' );
+$mount_path = str_ends_with( $script_name, '/index.php' ) ? substr( $script_name, 0, -10 ) : '';
+$request_path = explode( '?', (string) ( $_SERVER['REQUEST_URI'] ?? '/' ), 2 )[0];
+$configuration_filename = dirname( __DIR__ ) . '/app/config/tinymash.json';
+if ( ( $request_path === $mount_path . '/install' || str_starts_with( $request_path, $mount_path . '/install/' ) )
+    && ( file_exists( $configuration_filename ) || is_link( $configuration_filename ) ) ) {
+    http_response_code( 404 );
+    header( 'Content-Type: text/plain; charset=UTF-8' );
+    header( 'Cache-Control: no-store' );
+    header( 'X-Content-Type-Options: nosniff' );
+    header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
+    header( 'Referrer-Policy: no-referrer' );
+    header( 'X-Frame-Options: DENY' );
+    header( "Content-Security-Policy: default-src 'none'; frame-ancestors 'none'" );
+    echo 'Not found.';
+    exit;
+}
+
+if ( ! file_exists( $configuration_filename ) && ! is_link( $configuration_filename ) ) {
+    try {
+        @ require dirname( __DIR__ ) . '/app/classes/TinyMashInstallerEntryPoint.php';
+        \app\classes\TinyMashInstallerEntryPoint::handle( dirname( __DIR__ ) );
+    } catch ( \Throwable ) {
+        http_response_code( 503 );
+        header( 'Content-Type: text/plain; charset=UTF-8' );
+        header( 'Cache-Control: no-store' );
+        header( 'Referrer-Policy: no-referrer' );
+        header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
+        header( 'X-Content-Type-Options: nosniff' );
+        header( 'X-Frame-Options: DENY' );
+        header( "Content-Security-Policy: default-src 'none'; frame-ancestors 'none'" );
+        echo 'Site unavailable.';
+        exit;
+    }
+}
+
 require dirname( __DIR__ ) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'bootstrap.php';

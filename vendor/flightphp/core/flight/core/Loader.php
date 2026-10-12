@@ -4,67 +4,57 @@ declare(strict_types=1);
 
 namespace flight\core;
 
-use Closure;
-use Exception;
+use Throwable;
 
 /**
- * The Loader class is responsible for loading objects. It maintains
- * a list of reusable class instances and can generate a new class
- * instances with custom initialization parameters. It also performs
- * class autoloading.
+ * Responsible for instantiating classes. It maintains a list of reusable
+ * instances and can generate new instances with custom constructor arguments.
+ * It also performs automatic class loading.
  *
- * @license MIT, http://flightphp.com/license
- * @copyright Copyright (c) 2011, Mike Cao <mike@mikecao.com>
+ * @copyright 2011 Mike Cao https://mikecao.com
+ * @license https://docs.flightphp.com/license MIT
  */
 class Loader
 {
     /**
      * Registered classes.
      *
-     * @var array<string, array{class-string|Closure(): object, array<int, mixed>, ?callable}> $classes
+     * @var array<string, array{
+     *   class-string<object>|callable(mixed ...$constructorArguments): object,
+     *   mixed[],
+     *   ?callable(object $instance): void,
+     * }>
      */
     protected array $classes = [];
 
-    /**
-     * If this is disabled, classes can load with underscores
-     */
+    /** If this is disabled, classes can load with underscores */
     protected static bool $v2ClassLoading = true;
 
-    /**
-     * Class instances.
-     *
-     * @var array<string, object>
-     */
+    /** @var array<string, object> Class instances */
     protected array $instances = [];
 
-    /**
-     * Autoload directories.
-     *
-     * @var array<int, string>
-     */
+    /** @var string[] Autoload directories */
     protected static array $dirs = [];
 
     /**
      * Registers a class.
      *
-     * @param string                                         $name     Registry name
-     * @param class-string<T>|(Closure(): T)                 $class    Class name or function to instantiate class
-     * @param array<int, mixed>                              $params   Class initialization parameters
-     * @param null|(Closure(T $instance): void)              $callback Function to call after object instantiation
-     *
      * @template T of object
+     * @param string $name Class alias.
+     * @param class-string<T>|callable(mixed ...$constructorArguments): T $class Class factory.
+     * @param mixed[] $params Class constructor arguments.
+     * @param ?callable(T $instance): void $callback After instantiation callable.
      */
     public function register(string $name, $class, array $params = [], ?callable $callback = null): void
     {
         unset($this->instances[$name]);
-
         $this->classes[$name] = [$class, $params, $callback];
     }
 
     /**
      * Unregisters a class.
      *
-     * @param string $name Registry name
+     * @param string $name Class alias.
      */
     public function unregister(string $name): void
     {
@@ -72,51 +62,46 @@ class Loader
     }
 
     /**
-     * Loads a registered class.
+     * Gets an instance of a registered class.
      *
-     * @param string $name   Method name
-     * @param bool   $shared Shared instance
-     *
-     * @throws Exception
-     *
-     * @return ?object Class instance
+     * @param string $name Class alias.
+     * @param bool $shared Whether to return a shared instance or create a new one.
+     * @return ?object
+     * @throws Throwable
      */
     public function load(string $name, bool $shared = true): ?object
     {
-        $obj = null;
+        $instance = null;
 
-        if (isset($this->classes[$name])) {
-            [0 => $class, 1 => $params, 2 => $callback] = $this->classes[$name];
-
-            $exists = isset($this->instances[$name]);
-
-            if ($shared) {
-                $obj = ($exists) ?
-                    $this->getInstance($name) :
-                    $this->newInstance($class, $params);
-
-                if (!$exists) {
-                    $this->instances[$name] = $obj;
-                }
-            } else {
-                $obj = $this->newInstance($class, $params);
-            }
-
-            if ($callback && (!$shared || !$exists)) {
-                $ref = [&$obj];
-                \call_user_func_array($callback, $ref);
-            }
+        if (!isset($this->classes[$name])) {
+            return null;
         }
 
-        return $obj;
+        [$factory, $constructorArguments, $onAfterInstantiating] = $this->classes[$name];
+        $exists = isset($this->instances[$name]);
+
+        if ($shared) {
+            $instance = $exists
+                ? $this->getInstance($name)
+                : $this->newInstance($factory, $constructorArguments);
+
+            $this->instances[$name] ??= $instance;
+        } else {
+            $instance = $this->newInstance($factory, $constructorArguments);
+        }
+
+        if ($onAfterInstantiating && (!$shared || !$exists)) {
+            $onAfterInstantiating($instance);
+        }
+
+        return $instance;
     }
 
     /**
-     * Gets a single instance of a class.
+     * Gets a single instance.
      *
-     * @param string $name Instance name
-     *
-     * @return ?object Class instance
+     * @param string $name Class alias.
+     * @return ?object
      */
     public function getInstance(string $name): ?object
     {
@@ -126,39 +111,37 @@ class Loader
     /**
      * Gets a new instance of a class.
      *
-     * @param class-string<T>|Closure(): class-string<T> $class  Class name or callback function to instantiate class
-     * @param array<int, string>           $params Class initialization parameters
-     *
-     * @template T of object
-     *
-     * @throws Exception
-     *
-     * @return T Class instance
+     * @template T of object = object
+     * @param class-string<T>|callable(mixed ...$constructorArguments): T $class Class factory.
+     * @param mixed[] $params Class constructor arguments.
+     * @return T
+     * @throws Throwable
      */
-    public function newInstance($class, array $params = [])
+    public function newInstance($class, array $params = []): object
     {
-        if (\is_callable($class)) {
-            return \call_user_func_array($class, $params);
+        if (is_callable($class)) {
+            return $class(...$params);
         }
 
         return new $class(...$params);
     }
 
     /**
-     * Gets a registered callable
+     * Gets a registered class factory, constructor arguments and after instantiation callable.
      *
-     * @param string $name Registry name
-     *
-     * @return mixed Class information or null if not registered
+     * @param string $name Class alias.
+     * @return ?array{
+     *   class-string<object>|callable(mixed ...$constructorArguments): object,
+     *   mixed[],
+     *   ?callable(object $instance): void,
+     * }
      */
     public function get(string $name)
     {
         return $this->classes[$name] ?? null;
     }
 
-    /**
-     * Resets the object to the initial state.
-     */
+    /** Resets the Loader by clearing registered classes and instances */
     public function reset(): void
     {
         $this->classes = [];
@@ -170,8 +153,8 @@ class Loader
     /**
      * Starts/stops autoloader.
      *
-     * @param bool  $enabled Enable/disable autoloading
-     * @param string|iterable<int, string> $dirs    Autoload directories
+     * @param bool $enabled Enable/disable autoloading.
+     * @param string|string[] $dirs Autoload directories.
      */
     public static function autoload(bool $enabled = true, $dirs = []): void
     {
@@ -211,7 +194,7 @@ class Loader
     /**
      * Adds a directory for autoloading classes.
      *
-     * @param string|iterable<int, string> $dir Directory path
+     * @param string|string[] $dir Directory path.
      */
     public static function addDirectory($dir): void
     {
@@ -219,22 +202,32 @@ class Loader
             foreach ($dir as $value) {
                 self::addDirectory($value);
             }
-        } elseif (is_string($dir)) {
-            $dir = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $dir);
 
-            if (!in_array($dir, self::$dirs, true)) {
-                self::$dirs[] = $dir;
-            }
+            return;
         }
+
+        if (!is_string($dir)) {
+            return;
+        }
+
+        $dir = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $dir);
+
+        if (in_array($dir, self::$dirs)) {
+            return;
+        }
+
+        self::$dirs[] = $dir;
     }
 
 
     /**
-     * Sets the value for V2 class loading.
+     * Sets v2 class loading mode.
      *
-     * @param bool $value The value to set for V2 class loading.
+     * When true (default), underscores in class names are converted to directory
+     * separators (e.g. "Foo_Bar" loads "Foo/Bar.php"). Set to false to disable
+     * this conversion and treat underscores as literal characters in the filename.
      *
-     * @return void
+     * @param bool $value True to convert underscores to directory separators (v2 behaviour); false to disable.
      */
     public static function setV2ClassLoading(bool $value): void
     {

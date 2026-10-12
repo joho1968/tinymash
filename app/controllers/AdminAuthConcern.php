@@ -72,9 +72,7 @@ trait AdminAuthConcern {
             $return_url = $this->sanitizeLoginReturnUrl( (string) ( $data['return_url'] ?? $this->getLoginReturnUrlFromRequest() ) );
 
             if ( ! empty( $data['tinymash-admin_username'] ) ) {
-                $admin_username = function_exists( 'mb_trim' )
-                    ? mb_trim( (string) $data['tinymash-admin_username'] )
-                    : trim( (string) $data['tinymash-admin_username'] );
+                $admin_username = mb_trim( (string) $data['tinymash-admin_username'] );
             }
 
             if ( ! empty( $data['email'] ) ) {
@@ -189,13 +187,15 @@ trait AdminAuthConcern {
             return;
         }
 
+        $site_url = rtrim( (string) ( $this->config->configGetBaseURL() ?: $this->app->get( 'app.url' ) ), '/' );
         $result = $service->requestReset(
             $identifier,
             $this->security->getCurrentIpAddress(),
             $system_settings,
             $mailer,
             $this->config->getSiteName(),
-            rtrim( (string) ( $this->config->configGetBaseURL() ?: $this->app->get( 'app.url' ) ), '/' ) . (string) $this->config->configGetAdminURL() . '/password-reset/confirm'
+            $site_url . (string) $this->config->configGetAdminURL() . '/password-reset/confirm',
+            $site_url
         );
 
         $this->security->setFlash(

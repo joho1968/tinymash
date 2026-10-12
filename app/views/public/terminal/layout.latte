@@ -254,7 +254,8 @@
                         }
                     } catch (error) {
                     }
-                    document.cookie = screenModeCookieName + '=' + mode + '; Path=/; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
+                    const cookiePath = {=json_encode(($tinymash_base_path ?? '') !== '' ? (string) $tinymash_base_path : '/')|noescape};
+                    document.cookie = screenModeCookieName + '=' + mode + '; Path=' + cookiePath + '; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
                     applyScreenMode(mode);
                 }
 

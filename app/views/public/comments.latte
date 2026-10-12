@@ -1,0 +1,12 @@
+{extends '../' . ($theme_template_root ?? 'public/baseline') . '/layout.latte'}
+
+{block content}
+    <article class="tm-comments-page">
+        <h1>{$comments_title ?? 'Comments'}</h1>
+        <div n:if="trim((string) ($comments_message ?? '')) !== ''" class="tm-comments-message">
+            <p>{$comments_message}</p>
+        </div>
+        {$comments_form_html ?? ''|noescape}
+        <p><a href="{$comments_return_url ?? '/'}">{$comments_return_label ?? 'Return to the entry'}</a></p>
+    </article>
+{/block}

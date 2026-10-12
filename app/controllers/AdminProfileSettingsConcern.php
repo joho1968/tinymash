@@ -34,8 +34,8 @@ trait AdminProfileSettingsConcern {
         $form_state = $this->mergeProfileSectionFormState( $data, $current_user, $profile_section );
         try {
             $validated_profile = $this->validateProfileSettings( $form_state, $current_user, $profile_section );
-            $requested_email = strtolower( trim( (string) ( $validated_profile['email'] ?? '' ) ) );
-            $current_email = strtolower( trim( (string) ( $current_user['email'] ?? '' ) ) );
+            $requested_email = mb_strtolower( mb_trim( (string) ( $validated_profile['email'] ?? '' ) ), 'UTF-8' );
+            $current_email = mb_strtolower( mb_trim( (string) ( $current_user['email'] ?? '' ) ), 'UTF-8' );
             $email_change_requested = $profile_section === 'account'
                 && ( $this->security->isSuperAdmin() || $this->config->canUsersChangeEmail() )
                 && $requested_email !== ''
@@ -216,7 +216,7 @@ trait AdminProfileSettingsConcern {
 
         $form_state = [
             'username' => trim( (string) ( $data['username'] ?? ( $this->security->getCurrentUsername() ?? '' ) ) ),
-            'display_name' => function_exists( 'mb_trim' ) ? mb_trim( (string) ( $data['display_name'] ?? '' ) ) : trim( (string) ( $data['display_name'] ?? '' ) ),
+            'display_name' => mb_trim( (string) ( $data['display_name'] ?? '' ) ),
             'role' => trim( (string) ( $data['role'] ?? $this->security->getCurrentRole() ) ),
             'email' => trim( (string) ( $data['email'] ?? '' ) ),
             'timezone' => trim( (string) ( $data['timezone'] ?? '' ) ),
@@ -268,8 +268,8 @@ trait AdminProfileSettingsConcern {
 
     protected function validateProfileSettings( array $data, array $current_user, string $profile_section = 'account' ) : array {
         $profile_section = $this->normalizeProfileSection( $profile_section );
-        $email = strtolower( trim( (string) ( $data['email'] ?? '' ) ) );
-        $display_name = function_exists( 'mb_trim' ) ? mb_trim( (string) ( $data['display_name'] ?? '' ) ) : trim( (string) ( $data['display_name'] ?? '' ) );
+        $email = mb_strtolower( mb_trim( (string) ( $data['email'] ?? '' ) ), 'UTF-8' );
+        $display_name = mb_trim( (string) ( $data['display_name'] ?? '' ) );
         if ( ! ( $this->security->isSuperAdmin() || $this->config->canUsersChangeEmail() ) ) {
             $email = (string) ( $current_user['email'] ?? '' );
         }

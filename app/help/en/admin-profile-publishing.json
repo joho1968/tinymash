@@ -29,7 +29,7 @@
     },
     {
       "title": "Secret links",
-      "markdown": "If the site allows secret links, you can generate access for your author space without making the whole site public. Choose an expiry from 1 to 365 days, or use 0 for no expiry."
+      "markdown": "Secret links grant access to an author space without making the whole site public. Choose an expiry from 1 to 365 days, or use 0 for no expiry."
     }
   ]
 }

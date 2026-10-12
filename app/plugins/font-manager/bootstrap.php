@@ -71,11 +71,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Font roles',
-                    'markdown' => '`Publication titles` control the site/author identity title treatment in supported themes. `Headings` control content headings and story/listing headings. Body text, UI/navigation, and monospace/code are separate roles so themes can keep readable fallbacks and their own spacing/scale.',
+                    'markdown' => '`Publication titles` style site and author identity titles. `Headings` style content and listing headings. Body, interface, and monospace text use separate roles.',
                 ],
                 [
                     'title' => 'Display',
-                    'markdown' => 'Display maps to CSS `font-display`. `swap` shows fallback text immediately and replaces it when the font loads. The other values retain their standard browser behavior. This setting is not stored in the font file.',
+                    'markdown' => 'Display maps to CSS `font-display`. `swap` shows fallback text until the font loads. The setting is separate from the font file.',
                 ],
                 [
                     'title' => 'Boundaries',
@@ -290,8 +290,8 @@ HTML;
         $plugin_key,
         'get',
         '/plugin-font-manager/fonts.css',
-        static function() use ( $service ) : void {
-            $css = $service->getGeneratedCss();
+        static function() use ( $plugins, $service ) : void {
+            $css = $plugins->rewriteOutputCss( $service->getGeneratedCss() );
             if ( $css === '' ) {
                 \Flight::app()->notFound();
                 return;

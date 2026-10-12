@@ -9,8 +9,8 @@ namespace flight\template;
  * methods for managing view data and inserts the data into
  * view templates upon rendering.
  *
- * @license MIT, http://flightphp.com/license
- * @copyright Copyright (c) 2011, Mike Cao <mike@mikecao.com>
+ * @copyright 2011 Mike Cao https://mikecao.com
+ * @license https://docs.flightphp.com/license MIT
  */
 class View
 {
@@ -21,6 +21,13 @@ class View
     public string $extension = '.php';
 
     public bool $preserveVars = true;
+
+    /**
+     * When true, render(), fetch() and exists() only accept template files
+     * that resolve inside $path. Off by default so existing behavior holds.
+     * Prefer Flight::set('flight.views.restrict_to_path', true); Engine applies it.
+     */
+    public bool $restrictToPath = false;
 
     /**
      * View variables.
@@ -116,6 +123,10 @@ class View
             throw new \Exception("Template file not found: {$normalized_path}.");
         }
 
+        if (!$this->isInsidePath($this->template)) {
+            throw new \Exception('Template file is outside the views path.');
+        }
+
         \extract($this->vars);
 
         if (\is_array($templateData) === true) {
@@ -155,7 +166,9 @@ class View
      */
     public function exists(string $file): bool
     {
-        return \file_exists($this->getTemplate($file));
+        $template = $this->getTemplate($file);
+
+        return \file_exists($template) && $this->isInsidePath($template);
     }
 
     /**
@@ -191,9 +204,32 @@ class View
      */
     public function e(string $str): string
     {
-        $value = \htmlentities($str);
+        $value = \htmlentities($str, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         echo $value;
         return $value;
+    }
+
+    /**
+     * Checks that an existing template file resolves inside the views path.
+     * Always true while $restrictToPath is off. Fails closed when either
+     * path cannot be resolved.
+     */
+    protected function isInsidePath(string $template): bool
+    {
+        if ($this->restrictToPath === false) {
+            return true;
+        }
+
+        $root = \realpath($this->path);
+        $resolved = \realpath($template);
+
+        if ($root === false || $resolved === false) {
+            return false;
+        }
+
+        $root = \rtrim($root, '\\/') . DIRECTORY_SEPARATOR;
+
+        return \strpos($resolved, $root) === 0;
     }
 
     protected static function normalizePath(string $path, string $separator = DIRECTORY_SEPARATOR): string

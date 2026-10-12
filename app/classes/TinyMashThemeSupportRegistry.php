@@ -79,8 +79,8 @@ class TinyMashThemeSupportRegistry {
 
         $this->definitions[$support_key] = [
             'key' => $support_key,
-            'label' => trim( (string) ( $definition['label'] ?? $this->humanizeKey( $support_key ) ) ),
-            'description' => trim( (string) ( $definition['description'] ?? '' ) ),
+            'label' => mb_trim( (string) ( $definition['label'] ?? $this->humanizeKey( $support_key ) ) ),
+            'description' => mb_trim( (string) ( $definition['description'] ?? '' ) ),
         ];
     }
 

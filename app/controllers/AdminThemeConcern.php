@@ -230,7 +230,7 @@ trait AdminThemeConcern {
                 }
 
                 $path = trim( (string) ( $node['path'] ?? '' ) );
-                $title = trim( (string) ( $node['title'] ?? $path ) );
+                $title = mb_trim( (string) ( $node['title'] ?? $path ) );
                 if ( $path !== '' ) {
                     $options[] = [
                         'value' => $path,

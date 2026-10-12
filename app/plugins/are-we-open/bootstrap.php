@@ -144,7 +144,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Shortcodes',
-                    'markdown' => 'Use `[areweopen]` for a status badge, `[areweopen-hours]` for weekly hours, `[areweopen-open]...[/areweopen-open]` for open-only content, and `[areweopen-closed]...[/areweopen-closed]` for closed-only content.',
+                    'markdown' => '`[areweopen]` shows status. `[areweopen-hours]` shows weekly hours. The paired `[areweopen-open]` and `[areweopen-closed]` tags conditionally show content.',
                 ],
                 [
                     'title' => 'Scope',

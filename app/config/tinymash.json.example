@@ -98,8 +98,10 @@
             "backup": true,
             "blogger-import": true,
             "bludit-import": true,
+            "comments": true,
             "fediverse": true,
             "feeds": true,
+            "font-manager": false,
             "footer": true,
             "markdown-sync": true,
             "notes": true,
@@ -108,6 +110,7 @@
             "search": true,
             "seo": true,
             "statistics": true,
+            "subscriptions": true,
             "syntax-highlighting": true,
             "tiny-links": true,
             "wordpress-import": false

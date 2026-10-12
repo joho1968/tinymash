@@ -9,6 +9,43 @@
         return { start: start, end: end, text: field.value.slice(start, end) };
     }
 
+    function textareaCaretRect(field) {
+        var fieldRect = field.getBoundingClientRect();
+        var style = window.getComputedStyle(field);
+        var mirror = document.createElement("div");
+        [
+            "borderBottomWidth", "borderLeftWidth", "borderRightWidth", "borderTopWidth",
+            "boxSizing", "direction", "fontFamily", "fontSize", "fontStretch", "fontStyle",
+            "fontVariant", "fontWeight", "letterSpacing", "lineHeight", "paddingBottom",
+            "paddingLeft", "paddingRight", "paddingTop", "tabSize", "textAlign", "textIndent",
+            "textTransform", "wordBreak", "wordSpacing"
+        ].forEach(function (property) { mirror.style[property] = style[property]; });
+        mirror.style.position = "fixed";
+        mirror.style.left = fieldRect.left + "px";
+        mirror.style.top = (fieldRect.top - field.scrollTop) + "px";
+        mirror.style.width = field.offsetWidth + "px";
+        mirror.style.height = "auto";
+        mirror.style.visibility = "hidden";
+        mirror.style.pointerEvents = "none";
+        mirror.style.overflow = "visible";
+        mirror.style.whiteSpace = field.wrap === "off" ? "pre" : "pre-wrap";
+        mirror.style.overflowWrap = field.wrap === "off" ? "normal" : "break-word";
+        mirror.textContent = field.value.slice(0, field.selectionStart);
+        var marker = document.createElement("span");
+        marker.textContent = "\u200b";
+        mirror.appendChild(marker);
+        document.body.appendChild(mirror);
+        var markerRect = marker.getBoundingClientRect();
+        mirror.remove();
+        var lineHeight = Number.parseFloat(style.lineHeight);
+        if (!Number.isFinite(lineHeight)) { lineHeight = Number.parseFloat(style.fontSize) * 1.2; }
+        return {
+            left: markerRect.left - field.scrollLeft,
+            top: markerRect.top,
+            bottom: markerRect.top + lineHeight
+        };
+    }
+
     function changed(field, replacement, start, end, mode) {
         field.setRangeText(replacement, start, end, mode || "select");
         field.focus();
@@ -94,10 +131,18 @@
         return node.innerHTML;
     }
 
+    function browserPath(path) {
+        path = String(path || "");
+        var meta = document.querySelector('meta[name="tinymash-base-path"]');
+        var prefix = meta ? String(meta.getAttribute("content") || "").replace(/\/$/, "") : "";
+        if (prefix === "" || path.charAt(0) !== "/" || path.indexOf("//") === 0 || path === prefix || path.indexOf(prefix + "/") === 0) { return path; }
+        return prefix + path;
+    }
+
     function ensureEmojiAutocompleteEntries() {
         if (emojiAutocompleteEntries.length > 0) { return Promise.resolve(emojiAutocompleteEntries); }
         if (emojiAutocompletePromise) { return emojiAutocompletePromise; }
-        emojiAutocompletePromise = fetch("/ext/emoji-picker-data/en/github/data", { credentials: "same-origin" })
+        emojiAutocompletePromise = fetch(browserPath("/ext/emoji-picker-data/en/github/data"), { credentials: "same-origin" })
             .then(function (response) {
                 if (!response.ok) { throw new Error("emoji autocomplete data unavailable"); }
                 return response.json();
@@ -379,7 +424,7 @@
         emojiPickerModalElement.tabIndex = -1;
         emojiPickerModalElement.setAttribute("aria-labelledby", "tm-markdown-emoji-picker-title");
         emojiPickerModalElement.setAttribute("aria-hidden", "true");
-        emojiPickerModalElement.innerHTML = '<div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="tm-markdown-emoji-picker-title">Emoji picker</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><emoji-picker class="tm-editor-emoji-picker w-100" data-source="/ext/emoji-picker-data/en/github/data"></emoji-picker></div></div></div>';
+        emojiPickerModalElement.innerHTML = '<div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5" id="tm-markdown-emoji-picker-title">Emoji picker</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><emoji-picker class="tm-editor-emoji-picker w-100" data-source="' + escapeHtml(browserPath("/ext/emoji-picker-data/en/github/data")) + '"></emoji-picker></div></div></div>';
         document.body.appendChild(emojiPickerModalElement);
         var picker = emojiPickerModalElement.querySelector("emoji-picker");
         if (picker) {
@@ -415,7 +460,7 @@
             picker.classList.toggle("light", theme !== "dark");
         }
         if (!emojiPickerModulePromise) {
-            emojiPickerModulePromise = import("/ext/emoji-picker-element/index.js").catch(function (error) {
+            emojiPickerModulePromise = import(browserPath("/ext/emoji-picker-element/index.js")).catch(function (error) {
                 emojiPickerModulePromise = null;
                 console.error("[tinymash] emoji picker load error", error);
             });
@@ -437,6 +482,8 @@
         root.dataset.tmMarkdownHeadingLevel = level;
         var label = root.querySelector("[data-tm-markdown-heading-label]");
         if (label) { label.textContent = "H" + level; }
+        var applyButton = root.querySelector('[data-tm-markdown-action="heading-apply"]');
+        if (applyButton) { applyButton.setAttribute("aria-label", "Apply heading H" + level); }
         try { window.localStorage.setItem(headingStorageKey, level); } catch (error) { /* Storage is optional. */ }
         return level;
     }
@@ -485,36 +532,51 @@
                         + '<span class="d-flex flex-column align-items-start text-start"><span class="font-monospace">:' + escapeHtml(entry.shortcode) + ':</span>'
                         + '<span class="small opacity-75">' + escapeHtml(entry.annotation) + '</span></span></button>';
                 }).join("");
-                positionEmojiAutocomplete();
+                autocomplete.style.visibility = "hidden";
                 autocomplete.classList.remove("d-none");
+                positionEmojiAutocomplete();
+                var activeOption = autocomplete.querySelector(".tm-editor-emoji-option.active");
+                if (activeOption) {
+                    if (autocompleteIndex === 0) {
+                        autocomplete.scrollTop = 0;
+                    } else {
+                        var revealActiveOption = function () {
+                            if (!activeOption.isConnected || !activeOption.classList.contains("active")) { return; }
+                            var popupRect = autocomplete.getBoundingClientRect();
+                            var activeRect = activeOption.getBoundingClientRect();
+                            if (activeRect.top < popupRect.top) {
+                                autocomplete.scrollTop -= popupRect.top - activeRect.top;
+                            } else if (activeRect.bottom > popupRect.bottom) {
+                                autocomplete.scrollTop += activeRect.bottom - popupRect.bottom;
+                            }
+                        };
+                        revealActiveOption();
+                        window.requestAnimationFrame(revealActiveOption);
+                    }
+                }
+                autocomplete.style.visibility = "";
             }
             function positionEmojiAutocomplete() {
                 if (!autocomplete || autocompleteMatches.length === 0) { return; }
                 var viewportGap = 12;
-                var fieldRect = field.getBoundingClientRect();
-                var anchorElement = autocomplete.offsetParent instanceof HTMLElement ? autocomplete.offsetParent : field.parentElement;
-                var anchorRect = anchorElement instanceof HTMLElement
-                    ? anchorElement.getBoundingClientRect()
-                    : { left: 0, top: 0, width: window.innerWidth };
-                var popupWidth = Math.max(220, Math.min(fieldRect.width - 24, 420, anchorRect.width - (viewportGap * 2), window.innerWidth - (viewportGap * 2)));
                 var maxHeight = Math.max(160, Math.min(288, window.innerHeight - (viewportGap * 2)));
-                var popupHeight = Math.min(autocomplete.scrollHeight || maxHeight, maxHeight);
-                var fieldLeft = field.offsetLeft || Math.max(0, fieldRect.left - anchorRect.left);
-                var fieldTop = field.offsetTop || Math.max(0, fieldRect.top - anchorRect.top);
-                var fieldBottom = fieldTop + (field.offsetHeight || fieldRect.height);
-                var left = Math.max(0, Math.min(fieldLeft + 12, anchorRect.width - popupWidth));
-                var top = fieldBottom + 8;
-                if (fieldRect.bottom + 8 + popupHeight + viewportGap > window.innerHeight) {
-                    if (fieldRect.top - popupHeight - 8 >= viewportGap) {
-                        top = Math.max(0, fieldTop - popupHeight - 8);
+                autocomplete.style.width = "max-content";
+                autocomplete.style.maxHeight = maxHeight + "px";
+                var popupWidth = Math.min(autocomplete.scrollWidth, window.innerWidth - (viewportGap * 2));
+                autocomplete.style.width = popupWidth + "px";
+                var popupHeight = Math.min(autocomplete.scrollHeight, maxHeight);
+                var caretRect = textareaCaretRect(field);
+                var left = Math.max(viewportGap, Math.min(caretRect.left, window.innerWidth - popupWidth - viewportGap));
+                var top = caretRect.bottom + 6;
+                if (caretRect.bottom + 6 + popupHeight + viewportGap > window.innerHeight) {
+                    if (caretRect.top - popupHeight - 6 >= viewportGap) {
+                        top = caretRect.top - popupHeight - 6;
                     } else {
-                        top = Math.max(fieldTop + 8, Math.max(viewportGap, Math.min(fieldRect.top + 8, window.innerHeight - popupHeight - viewportGap)) - anchorRect.top);
+                        top = Math.max(viewportGap, Math.min(caretRect.bottom + 6, window.innerHeight - popupHeight - viewportGap));
                     }
                 }
                 autocomplete.style.left = left + "px";
                 autocomplete.style.top = top + "px";
-                autocomplete.style.width = popupWidth + "px";
-                autocomplete.style.maxHeight = maxHeight + "px";
             }
             function applyEmojiShortcode(entry) {
                 if (!entry || autocompleteTokenStart < 0 || autocompleteTokenEnd < autocompleteTokenStart) { return; }
@@ -536,9 +598,11 @@
                     if (!latest || latest.query !== query.query || latest.start !== query.start || latest.end !== query.end) { return; }
                     autocompleteTokenStart = query.start;
                     autocompleteTokenEnd = query.end;
-                    autocompleteMatches = entries.filter(function (entry) {
-                        return entry.shortcode.startsWith(query.query) || entry.searchText.includes(query.query);
-                    }).slice(0, 8);
+                    var prefixMatches = entries.filter(function (entry) { return entry.shortcode.startsWith(query.query); });
+                    var relatedMatches = entries.filter(function (entry) {
+                        return !entry.shortcode.startsWith(query.query) && entry.searchText.includes(query.query);
+                    });
+                    autocompleteMatches = prefixMatches.concat(relatedMatches).slice(0, 8);
                     autocompleteIndex = autocompleteMatches.length > 0 ? 0 : -1;
                     renderEmojiAutocomplete();
                 }).catch(function (error) {

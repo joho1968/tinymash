@@ -21,7 +21,23 @@ abstract class BaseController {
     }
 
     protected function render( string $view_name, array $data = [] ) : void {
-        $this->app->view()->render( $view_name, $data );
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+
+        if ( ! $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+            $this->app->view()->render( $view_name, $data );
+            return;
+        }
+
+        $data['tinymash_base_path'] = $url_resolver->getBasePath();
+        ob_start();
+        try {
+            $this->app->view()->render( $view_name, $data );
+            $html = (string) ob_get_clean();
+        } catch ( \Throwable $e ) {
+            ob_end_clean();
+            throw $e;
+        }
+        echo $url_resolver->rewriteHtml( $html );
     }
 
     protected function renderAdmin( string $view_name, array $data = [] ) : void {
@@ -196,6 +212,17 @@ abstract class BaseController {
         }
 
         $this->render( $view_name, $data );
+    }
+
+    public function json( mixed $data, int $code = 200, bool $encode = true, ?string $charset = 'utf-8', int $option = 0 ) : void {
+        if ( $encode && is_array( $data ) ) {
+            $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+            if ( $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+                $data = $url_resolver->resolveResponseData( $data );
+            }
+        }
+
+        $this->app->json( $data, $code, $encode, $charset, $option );
     }
 
     /** @return mixed */

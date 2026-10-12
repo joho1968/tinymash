@@ -77,9 +77,15 @@ final class TinyMashUpdatePreparationService {
     }
 
     public function prepare( array $availability ) : array {
-        $context = $this->stage_service->getPreparedContext( $availability );
+        return( $this->stage_service->withPreparedContext(
+            $availability,
+            fn( array $context, callable $verify_stage ) : array => $this->prepareWithContext( $context, $verify_stage )
+        ) );
+    }
+
+    protected function prepareWithContext( array $context, callable $verify_stage ) : array {
         return( $this->journal->mutate(
-            function( array $journal, callable $save ) use ( $availability, $context ) : array {
+            function( array $journal, callable $save ) use ( $context, $verify_stage ) : array {
                 $release = (array) $context['release'];
                 if ( $journal === [] ) {
                     $journal = TinyMashUpdateJournal::create(
@@ -106,7 +112,7 @@ final class TinyMashUpdatePreparationService {
                         $save,
                         $transaction_directory
                     );
-                    $this->stage_service->getPreparedContext( $availability );
+                    $verify_stage();
                     $journal['phase'] = 'prepared';
                     $journal['error'] = '';
                     $journal['updated_at_utc'] = $this->timestamp();

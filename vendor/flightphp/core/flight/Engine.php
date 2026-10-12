@@ -24,8 +24,7 @@ use Psr\Container\ContainerInterface;
  * It is responsible for loading an HTTP request, running the assigned services,
  * and generating an HTTP response.
  *
- * @license MIT, https://docs.flightphp.com/license
- * @copyright Copyright (c) 2011-2025, Mike Cao <mike@mikecao.com>, n0nag0n <n0nag0n@sky-9.com>
+ * @copyright 2011-2026, Mike Cao https://mikecao.com, n0nag0n <n0nag0n@sky-9.com>
  *
  * @method void start()
  * @method void stop()
@@ -57,8 +56,7 @@ use Psr\Container\ContainerInterface;
  * @method void lastModified(int $time)
  * @method void download(string $filePath)
  *
- * @phpstan-template EngineTemplate of object
- * @phpstan-method void registerContainerHandler(ContainerInterface|callable(class-string<EngineTemplate> $id, array<int|string, mixed> $params): ?EngineTemplate $containerHandler)
+ * @phpstan-method void registerContainerHandler(ContainerInterface|callable(class-string<object> $id, array<int|string, mixed> $params): ?object $containerHandler)
  * @phpstan-method Route route(string $pattern, callable|string|array{0: class-string, 1: string} $callback, bool $pass_route = false, string $alias = '')
  * @phpstan-method void group(string $pattern, callable $callback, (class-string|callable|array{0: class-string, 1: string})[] $group_middlewares = [])
  * @phpstan-method Route post(string $pattern, callable|string|array{0: class-string, 1: string} $callback, bool $pass_route = false, string $alias = '')
@@ -75,10 +73,7 @@ use Psr\Container\ContainerInterface;
  * @phpstan-method void json(mixed $data, int $code = 200, bool $encode = true, string $charset = "utf8", int $encodeOption = 0, int $encodeDepth = 512)
  * @phpstan-method void jsonHalt(mixed $data, int $code = 200, bool $encode = true, string $charset = 'utf-8', int $option = 0)
  * @phpstan-method void jsonp(mixed $data, string $param = 'jsonp', int $code = 200, bool $encode = true, string $charset = "utf8", int $encodeOption = 0, int $encodeDepth = 512)
- *
- * Note: IDEs will use standard @method tags for autocompletion, while PHPStan will use @phpstan-* tags for advanced type checking.
- *
- * phpcs:disable PSR2.Methods.MethodDeclaration.Underscore
+ * @license https://docs.flightphp.com/license MIT
  */
 class Engine
 {
@@ -118,7 +113,7 @@ class Engine
     /** Class loader. */
     protected Loader $loader;
 
-    /** @var Dispatcher<EngineTemplate> Method and class dispatcher. */
+    /** Method and class dispatcher. */
     protected Dispatcher $dispatcher;
 
     /** Event dispatcher. */
@@ -193,6 +188,7 @@ class Engine
         $this->loader->register('view', View::class, [], function (View $view) use ($self) {
             $view->path = $self->get('flight.views.path');
             $view->extension = $self->get('flight.views.extension');
+            $view->restrictToPath = (bool) $self->get('flight.views.restrict_to_path');
         });
 
         foreach (self::MAPPABLE_METHODS as $name) {
@@ -207,6 +203,7 @@ class Engine
         $this->set('flight.debug', false);
         $this->set('flight.views.path', './views');
         $this->set('flight.views.extension', '.php');
+        $this->set('flight.views.restrict_to_path', false);
         $this->set('flight.content_length', true);
         $this->set('flight.v2.output_buffering', false);
         $this->set('flight.allow_method_override', true);

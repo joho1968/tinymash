@@ -139,19 +139,19 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'sections' => [
                 [
                     'title' => 'Sources and privacy',
-                    'markdown' => 'Refresh provider data from admin, CLI, or scheduled housekeeping. Public pages use cached data; visitor browsers do not call providers or expose geolocation. Enter coordinates as decimal degrees or degrees/minutes/seconds, such as `60° 08\' 30.52" N`. Use OpenStreetMap or GeoNames to look up coordinates.',
+                    'markdown' => 'Refresh data from admin, CLI, or housekeeping. Public pages use the cache and expose no geolocation. Coordinates accept decimal or degrees/minutes/seconds notation.',
                 ],
                 [
                     'title' => 'Providers',
-                    'markdown' => 'Built-in providers are Open-Meteo, MET Norway / Yr, and the US National Weather Service. MET Norway / Yr requires attribution and an identifying User-Agent. NWS supports locations resolved by `api.weather.gov`.',
+                    'markdown' => 'Providers are Open-Meteo, MET Norway / Yr, and the US National Weather Service. MET requires attribution and an identifying User-Agent.',
                 ],
                 [
                     'title' => 'Shortcode',
-                    'markdown' => 'Use `[weather location="home"]` for compact output. `[weather]` uses the only configured location. Forecast, layout, units, details, and attribution can be changed with shortcode attributes.',
+                    'markdown' => '`[weather location="home"]` shows compact output. Attributes control forecast, layout, units, details, and attribution.',
                 ],
                 [
                     'title' => 'Theme slots',
-                    'markdown' => 'Sidebar and footer options show cached Weather in themes that support those slots. Slot output uses the same cache as `[weather]` and never calls providers during public rendering.',
+                    'markdown' => 'Supported theme slots use the same cached data as `[weather]`. Public rendering never calls providers.',
                 ],
             ],
         ]

@@ -60,12 +60,16 @@ final class TinyMashWriterGate {
             fclose( $handle );
             throw new \RuntimeException( 'A tinymash update is in progress.' );
         }
-        if ( $this->readMaintenanceMarker() !== [] ) {
+        try {
+            if ( $this->readMaintenanceMarker() !== [] ) {
+                throw new \RuntimeException( 'A tinymash update is in progress.' );
+            }
+            return( new TinyMashWriterLease( $handle, false ) );
+        } catch ( \Throwable $exception ) {
             @ flock( $handle, LOCK_UN );
             fclose( $handle );
-            throw new \RuntimeException( 'A tinymash update is in progress.' );
+            throw $exception;
         }
-        return( new TinyMashWriterLease( $handle, false ) );
     }
 
     public function acquireExclusive( string $transaction_id, bool $wait = true, bool $start_maintenance = true ) : TinyMashWriterLease {
@@ -99,6 +103,26 @@ final class TinyMashWriterGate {
         return( new TinyMashWriterLease( $handle, true ) );
     }
 
+    public function acquireSetup() : TinyMashWriterLease {
+        if ( $this->readMaintenanceMarker() !== [] ) {
+            throw new \RuntimeException( 'A tinymash update is in progress.' );
+        }
+        $handle = $this->openLock();
+        try {
+            if ( ! @ flock( $handle, LOCK_EX | LOCK_NB ) ) {
+                throw new \RuntimeException( 'The site is busy. Run setup again in a moment.' );
+            }
+            if ( $this->readMaintenanceMarker() !== [] ) {
+                throw new \RuntimeException( 'A tinymash update is in progress.' );
+            }
+            return( new TinyMashWriterLease( $handle, true ) );
+        } catch ( \Throwable $exception ) {
+            @ flock( $handle, LOCK_UN );
+            fclose( $handle );
+            throw $exception;
+        }
+    }
+
     public function finishMaintenance( TinyMashWriterLease $lease, string $transaction_id ) : void {
         if ( ! $lease->isExclusive() ) {
             throw new \RuntimeException( 'An exclusive writer lease is required.' );
@@ -119,15 +143,26 @@ final class TinyMashWriterGate {
 
     protected function openLock() : mixed {
         $directory = dirname( $this->lock_filename );
-        if ( is_link( $directory ) || ! is_dir( $directory ) || ! is_readable( $directory ) || ! is_writable( $directory ) ) {
+        clearstatcache();
+        if ( is_link( $directory ) || is_link( dirname( $directory ) )
+            || ! is_dir( $directory ) || ! is_readable( $directory ) || ! is_writable( $directory ) ) {
             throw new \RuntimeException( 'The writer gate directory is unavailable.' );
         }
-        if ( is_link( $this->lock_filename ) ) {
+        $stat = @ lstat( $this->lock_filename );
+        if ( is_array( $stat ) && ( ( $stat['mode'] & 0170000 ) !== 0100000 || $stat['nlink'] !== 1 ) ) {
             throw new \RuntimeException( 'The writer gate lock is unsafe.' );
         }
         $handle = @ fopen( $this->lock_filename, 'c+b' );
         if ( $handle === false ) {
             throw new \RuntimeException( 'The writer gate lock is unavailable.' );
+        }
+        clearstatcache();
+        $opened = fstat( $handle );
+        $current = @ lstat( $this->lock_filename );
+        if ( ! is_array( $opened ) || ! is_array( $current ) || ( $current['mode'] & 0170000 ) !== 0100000
+            || $current['nlink'] !== 1 || $opened['dev'] !== $current['dev'] || $opened['ino'] !== $current['ino'] ) {
+            fclose( $handle );
+            throw new \RuntimeException( 'The writer gate lock changed while it was being opened.' );
         }
         @ chmod( $this->lock_filename, 0600 );
         return( $handle );
@@ -172,13 +207,16 @@ final class TinyMashWriterGate {
     }
 
     protected function readMaintenanceMarker() : array {
+        clearstatcache();
         if ( is_link( $this->marker_filename ) ) {
             throw new \RuntimeException( 'Update maintenance state is unsafe.' );
         }
         if ( ! file_exists( $this->marker_filename ) ) {
             return( [] );
         }
-        if ( ! is_file( $this->marker_filename ) || ! is_readable( $this->marker_filename ) ) {
+        $stat = @ lstat( $this->marker_filename );
+        if ( ! is_array( $stat ) || ( $stat['mode'] & 0170000 ) !== 0100000 || $stat['nlink'] !== 1
+            || ! is_readable( $this->marker_filename ) ) {
             throw new \RuntimeException( 'Update maintenance state is unsafe.' );
         }
         $size = @ filesize( $this->marker_filename );

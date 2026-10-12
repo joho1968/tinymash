@@ -1,7 +1,7 @@
 {
     "key": "seo",
     "name": "SEO",
-    "version": "0.99.2",
+  "version": "0.99.4",
     "description": "Adds sitemap.xml, crawler rules, and optional entry metadata.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

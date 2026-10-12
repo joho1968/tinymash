@@ -292,7 +292,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( ! headers_sent() ) {
             header( 'Content-Type: application/json; charset=UTF-8' );
         }
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
     };
 
     $is_json_request = static function() : bool {
@@ -503,7 +503,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
             $body_html .= '</div>';
             if ( $has_conflicting_lock ) {
-                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-2">Another import holds this target-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' You can override the stale lock.' : '' ) . '</div>';
+                $body_html .= '<div class="small ' . ( $conflicting_lock_is_stale ? 'text-warning-emphasis' : 'text-danger' ) . ' mt-2">Another import holds this target-space lock (last active ' . $escape( $conflicting_lock_updated_display !== '' ? $conflicting_lock_updated_display : 'at an unknown time' ) . ').' . ( $conflicting_lock_is_stale ? ' Override is available for stale locks.' : '' ) . '</div>';
             }
             if ( $conflicting_lock_is_stale && $mode === 'preview' ) {
                 $body_html .= '<div class="form-check mt-3"><input class="form-check-input" id="bludit-import-force-lock" type="checkbox" value="1"><label class="form-check-label" for="bludit-import-force-lock">Override stale import lock</label></div>';
@@ -764,7 +764,7 @@ HTML;
                 );
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'preview failed', $e );
-                $message = trim( $e->getMessage() ) !== '' ? trim( $e->getMessage() ) : 'The Bludit site directory could not be previewed.';
+                $message = mb_trim( $e->getMessage() ) !== '' ? mb_trim( $e->getMessage() ) : 'The Bludit site directory could not be previewed.';
                 $security->setFlash( 'bludit-import.notice', $build_notice( 'danger', $message ) );
                 $plugins->redirect( $plugin_url );
                 return;
@@ -898,7 +898,7 @@ HTML;
                 }
             } catch ( \Throwable $e ) {
                 $log_plugin_error( 'import failed', $e );
-                $message = trim( $e->getMessage() ) !== '' ? trim( $e->getMessage() ) : 'The Bludit import failed.';
+                $message = mb_trim( $e->getMessage() ) !== '' ? mb_trim( $e->getMessage() ) : 'The Bludit import failed.';
                 if ( $expects_json ) {
                     $emit_json( $plugins, [ 'error' => $message ], 500 );
                     return;

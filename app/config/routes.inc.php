@@ -1,6 +1,6 @@
 <?php
 if ( empty( TINYMASH_RUNNING ) ) {
-    die( 'We do not seem to have all the bits configured' );
+    die( 'Configuration is incomplete.' );
 }
 
 use app\controllers\AdminController;
@@ -17,7 +17,7 @@ require_once ( dirname( __DIR__ ) . '/controllers/ContentController.php' );
 
 $redirect_to_login = static function() use ( $app, $config ) : void {
     $login_url = (string) $config->configGetLoginURL();
-    $request_uri = (string) ( $_SERVER['REQUEST_URI'] ?? $config->configGetAdminURL() );
+    $request_uri = (string) ( $app->request()->url ?? $config->configGetAdminURL() );
     $return_target = trim( $request_uri );
     if ( $return_target === '' || ! str_starts_with( $return_target, (string) $config->configGetAdminURL() ) ) {
         $return_target = (string) $config->configGetAdminURL();
@@ -28,7 +28,7 @@ $redirect_to_login = static function() use ( $app, $config ) : void {
 };
 
 // Normalize malformed paths before routing.
-$request_uri = (string) ( $_SERVER['REQUEST_URI'] ?? '/' );
+$request_uri = (string) ( $app->request()->url ?? '/' );
 $request_path = (string) ( parse_url( $request_uri, PHP_URL_PATH ) ?? '/' );
 $request_query = (string) ( parse_url( $request_uri, PHP_URL_QUERY ) ?? '' );
 $normalized_request_path = preg_replace( '#/+#', '/', $request_path ) ?? $request_path;
@@ -82,14 +82,33 @@ if ( $normalized_request_path !== $request_path ) {
     exit;
 }
 
-$app->map('error', function ( \Throwable $e ) use ( $router, $app ) {
+$render_with_urls = static function( string $template, array $view_data ) use ( $app ) : void {
+    $url_resolver = $app->has( 'url.resolver' ) ? $app->get( 'url.resolver' ) : null;
+    if ( ! $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+        $app->view()->render( $template, $view_data );
+        return;
+    }
+
+    $view_data['tinymash_base_path'] = $url_resolver->getBasePath();
+    ob_start();
+    try {
+        $app->view()->render( $template, $view_data );
+        $html = (string) ob_get_clean();
+    } catch ( \Throwable $e ) {
+        ob_end_clean();
+        throw $e;
+    }
+    echo $url_resolver->rewriteHtml( $html );
+};
+
+$app->map('error', function ( \Throwable $e ) use ( $router, $app, $render_with_urls ) {
     error_log( '*** EXCEPTION: ' . $e->getMessage() . ' (' . $e->getCode() . ')' );
     error_log( $e->getTraceAsString() );
     $app->response()->status( 500 );
-    $app->view()->render('0error.latte', ['title' => 'Unexpected error']);
+    $render_with_urls( '0error.latte', [ 'title' => 'Unexpected error' ] );
 });
-$app->map('notFound', function () use ( $router, $app ) {
-    $request_uri = (string) ( $_SERVER['REQUEST_URI'] ?? '/' );
+$app->map('notFound', function () use ( $router, $app, $render_with_urls ) {
+    $request_uri = (string) ( $app->request()->url ?? '/' );
     $request_path = (string) ( parse_url( $request_uri, PHP_URL_PATH ) ?? '/' );
     if ( $app->has( 'redirects.service' ) ) {
         $redirects_service = $app->get( 'redirects.service' );
@@ -102,6 +121,10 @@ $app->map('notFound', function () use ( $router, $app ) {
                 }
                 $target_url = (string) $redirect['target_url'];
                 if ( $target_url !== '' && str_starts_with( $target_url, '/' ) ) {
+                    $url_resolver = $app->has( 'url.resolver' ) ? $app->get( 'url.resolver' ) : null;
+                    if ( $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+                        $target_url = $url_resolver->toBrowserUrl( $target_url );
+                    }
                     $app->response()->status( $status_code );
                     header( 'Location: ' . $target_url, true, $status_code );
                     return;
@@ -138,13 +161,13 @@ $app->map('notFound', function () use ( $router, $app ) {
                 ]
             );
         }
-        $app->view()->render(
+        $render_with_urls(
             (string) $theme->getTemplate( '404' ),
             $view_data
         );
         return;
     }
-    $app->view()->render('404.latte', ['title' => 'Page not found']);
+    $render_with_urls( '404.latte', [ 'title' => 'Page not found' ] );
 });
 
 $router->post('/_tinymash/health', function() use ( $app ) {
@@ -215,6 +238,10 @@ $router->get('/favicon.ico', function() use ( $app, $config ) {
     }
     if ( ! str_starts_with( $favicon_url, '/' ) ) {
         $favicon_url = '/assets/tinymash/identity/favicon_ico.ico';
+    }
+    $url_resolver = $app->has( 'url.resolver' ) ? $app->get( 'url.resolver' ) : null;
+    if ( $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+        $favicon_url = $url_resolver->toBrowserUrl( $favicon_url );
     }
 
     $app->response()->status( 302 );
@@ -293,9 +320,21 @@ $router->post( $config->configGetAdminURL() . '/editor/image-upload', function()
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->uploadEditorImage();
 });
+$router->post( $config->configGetAdminURL() . '/editor/gallery-image-copy', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->copyEditorGalleryImage();
+});
 $router->post( $config->configGetAdminURL() . '/editor/media-picker', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
     $admin->loadEditorMediaPicker();
+});
+$router->post( $config->configGetAdminURL() . '/editor/inline-media-review', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->reviewEditorInlineMedia();
+});
+$router->post( $config->configGetAdminURL() . '/editor/photos/inline-preview', function() use ( $app, $router, $security, $config ) {
+    $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );
+    $admin->previewInlineImageGallery();
 });
 $router->post( $config->configGetAdminURL() . '/preview/markdown', function() use ( $app, $router, $security, $config ) {
     $admin = new AdminController( $app, $router, $security, $config, $app->get( 'markdown.renderer' ), $app->get( 'draft.repository' ), $app->get( 'content.repository' ), $app->get( 'theme' ) );

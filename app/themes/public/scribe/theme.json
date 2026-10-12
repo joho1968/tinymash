@@ -37,6 +37,18 @@
     },
     "settings_schema": [
         {
+            "key": "header_position",
+            "label": "Header position",
+            "type": "select",
+            "author_override": true,
+            "default": "sticky",
+            "options": [
+                { "value": "sticky", "label": "Sticky" },
+                { "value": "static", "label": "Scroll with content" }
+            ],
+            "help": "Keep the header visible while scrolling or let it scroll with the page. The banner always scrolls away."
+        },
+        {
             "key": "primary_menu_position",
             "label": "Primary menu position",
             "type": "select",

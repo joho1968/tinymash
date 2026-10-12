@@ -8,11 +8,18 @@
 }
 
 .tm-theme-scribe .tm-baseline-header {
-    position: static !important;
     padding-top: 1.5rem !important;
     padding-bottom: 1.25rem !important;
     border-bottom-color: var(--tm-scribe-rule) !important;
     box-shadow: none !important;
+}
+
+.tm-theme-scribe.tm-scribe-header-static .tm-baseline-header {
+    position: static !important;
+}
+
+.tm-theme-scribe.tm-scribe-header-sticky :target {
+    scroll-margin-top: 11rem;
 }
 
 .tm-theme-scribe .tm-baseline-header .me-auto > a:first-of-type span {
@@ -379,7 +386,7 @@
     margin-inline: auto;
 }
 
-.tm-scribe-prose-images-centered > p > a:only-child {
+.tm-scribe-prose-images-centered > p > a:only-child:has(> img:only-child) {
     display: block;
     width: fit-content;
     max-width: 100%;

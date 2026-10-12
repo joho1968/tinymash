@@ -1,10 +1,11 @@
         <script>
             (() => {
                 'use strict';
-    
+
                 var themeModeButtons = [];
                 const screenModeCookieName = {=json_encode($screen_mode_cookie_name)|noescape};
                 const screenModeStorageKey = screenModeCookieName;
+                const configuredBasePath = {=json_encode((string) ($tinymash_base_path ?? ''))|noescape};
 
                 function updateBootstrapTheme() {
                     if (getThemeMode() === 'auto') {
@@ -63,9 +64,11 @@
                 }
                 function setThemeMode(mode) {
                     const secureSuffix = window.location.protocol === 'https:' ? '; Secure' : '';
-                    const cookieBase = 'Path=/; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
-                    const clearLegacyCookieBase = 'Path={$admin_url|noescape}; SameSite=Strict; Max-Age=0' + secureSuffix + ';';
-                    const clearAdminScopedScreenCookieBase = 'Path={$admin_url|noescape}; SameSite=Strict; Max-Age=0' + secureSuffix + ';';
+                    const cookiePath = configuredBasePath || '/';
+                    const adminCookiePath = window.tinymashBrowserPath({=json_encode((string) $admin_url)|noescape});
+                    const cookieBase = 'Path=' + cookiePath + '; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
+                    const clearLegacyCookieBase = 'Path=' + adminCookiePath + '; SameSite=Strict; Max-Age=0' + secureSuffix + ';';
+                    const clearAdminScopedScreenCookieBase = 'Path=' + adminCookiePath + '; SameSite=Strict; Max-Age=0' + secureSuffix + ';';
                     try {
                         if (window.localStorage) {
                             window.localStorage.setItem(screenModeStorageKey, mode);

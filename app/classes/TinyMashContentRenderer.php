@@ -32,17 +32,17 @@ class TinyMashContentRenderer {
         $this->plugins = $plugins;
     }
 
-    public function renderEntry( array $entry, TinyMashTheme $theme ) : array {
+    public function renderEntry( array $entry, TinyMashTheme $theme, string $surface = 'content' ) : array {
         $rendered_entry = $entry;
         $classic_smileys_enabled = $this->isClassicSmileysEnabledForEntry( $entry );
         $rendered_entry['title_html'] = $this->renderInlineTitleHtml( (string) ( $entry['title'] ?? '' ), $classic_smileys_enabled );
         $this->decorateEntryMetadata( $rendered_entry, $entry, $theme );
-        $content_payload = $this->getRenderedContentPayload( $entry, $classic_smileys_enabled );
+        $content_payload = $this->getRenderedContentPayload( $entry, $classic_smileys_enabled, $surface );
         $summary_markdown = $this->buildSummary( $entry, $theme );
         $content_heading_html = (string) ( $content_payload['content_heading_html'] ?? '' );
         $content_body_html = (string) ( $content_payload['content_body_html'] ?? '' );
         $content_body_html = $this->filterPluginContentHtml( $content_body_html, $rendered_entry, $theme );
-        $plugin_fragments = $this->renderPluginEntryFragments( $rendered_entry, $theme );
+        $plugin_fragments = $this->renderPluginEntryFragments( $rendered_entry, $theme, $surface );
         if ( ! empty( $plugin_fragments['before_content_html'] ) ) {
             $content_body_html = (string) $plugin_fragments['before_content_html'] . $content_body_html;
         }
@@ -117,7 +117,7 @@ class TinyMashContentRenderer {
             if ( ! is_array( $entry ) ) {
                 continue;
             }
-            $rendered_entries[] = $this->renderEntry( $entry, $theme );
+            $rendered_entries[] = $this->renderEntry( $entry, $theme, 'listing' );
         }
 
         return( $rendered_entries );
@@ -185,12 +185,12 @@ class TinyMashContentRenderer {
     }
 
     protected function buildSummary( array $entry, TinyMashTheme $theme ) : string {
-        $stored_summary = trim( (string) ( $entry['summary'] ?? '' ) );
+        $stored_summary = mb_trim( (string) ( $entry['summary'] ?? '' ) );
         if ( $stored_summary !== '' && ! $this->summaryLooksUnsuitableForListing( $stored_summary ) ) {
             return( $stored_summary );
         }
 
-        $content = trim( (string) ( $entry['content'] ?? '' ) );
+        $content = mb_trim( (string) ( $entry['content'] ?? '' ) );
         if ( $content === '' ) {
             return( '' );
         }
@@ -284,12 +284,12 @@ class TinyMashContentRenderer {
         $lines = preg_split( "/\n/", $content ) ?: [];
         $normalized_lines = [];
         foreach ( $lines as $line ) {
-            $normalized_lines[] = trim( preg_replace( '/[^\S\n]+/u', ' ', (string) $line ) ?? (string) $line );
+            $normalized_lines[] = mb_trim( preg_replace( '/[^\S\n]+/u', ' ', (string) $line ) ?? (string) $line );
         }
 
         $content = implode( "\n", $normalized_lines );
         $content = preg_replace( "/\n{3,}/", "\n\n", $content ) ?? $content;
-        $content = trim( $content );
+        $content = mb_trim( $content );
 
         return( $content );
     }
@@ -368,7 +368,7 @@ class TinyMashContentRenderer {
         return( [ $heading_html, $body_html ] );
     }
 
-    protected function renderPluginEntryFragments( array $entry, TinyMashTheme $theme ) : array {
+    protected function renderPluginEntryFragments( array $entry, TinyMashTheme $theme, string $surface ) : array {
         if ( ! $this->plugins instanceof TinyMashPlugins ) {
             return( [] );
         }
@@ -377,6 +377,7 @@ class TinyMashContentRenderer {
             $entry,
             [
                 'theme' => $theme,
+                'surface' => $surface,
             ]
         ) );
     }
@@ -549,6 +550,9 @@ class TinyMashContentRenderer {
             $content_markdown = $this->renderShortcodes( $content_markdown, [ 'entry' => $entry, 'surface' => $surface ] );
         }
         $content_html = $this->markdown_renderer->render( $content_markdown, [ 'classic_smileys_enabled' => $classic_smileys_enabled ] );
+        if ( $content_uses_shortcodes ) {
+            $content_html = $this->restoreTrustedShortcodeHtml( $content_html );
+        }
         [ $content_heading_html, $content_body_html ] = $this->splitLeadingHeading( $content_html );
         $payload = [
             'content_html' => $content_html,
@@ -587,6 +591,9 @@ class TinyMashContentRenderer {
             $summary_html = $this->markdown_renderer->render( $summary_markdown, [ 'classic_smileys_enabled' => $classic_smileys_enabled ] );
             $this->recordProfilingMetric( 'summary_markdown_render', $markdown_render_started_at );
         }
+        if ( $summary_uses_shortcodes ) {
+            $summary_html = $this->restoreTrustedShortcodeHtml( $summary_html );
+        }
         if ( ! $summary_uses_shortcodes ) {
             $cache_write_started_at = microtime( true );
             $this->writeRenderCachePayload( $cache_filename, $cache_key, [ 'summary_html' => $summary_html ] );
@@ -614,7 +621,21 @@ class TinyMashContentRenderer {
             return( $source );
         }
 
+        $context['protect_html'] = true;
         return( $shortcode_registry->renderShortcodes( $source, $context ) );
+    }
+
+    protected function restoreTrustedShortcodeHtml( string $html ) : string {
+        if ( ! $this->plugins instanceof TinyMashPlugins || ! $this->plugins->hasService( 'shortcode.registry' ) ) {
+            return( $html );
+        }
+
+        $shortcode_registry = $this->plugins->getService( 'shortcode.registry' );
+        if ( ! $shortcode_registry instanceof TinyMashShortcodeRegistry ) {
+            return( $html );
+        }
+
+        return( $shortcode_registry->restoreTrustedHtmlFragments( $html ) );
     }
 
     protected function recordProfilingMetric( string $metric_name, float $started_at ) : void {
@@ -631,7 +652,7 @@ class TinyMashContentRenderer {
     }
 
     protected function summaryNeedsMarkdownRender( string $summary_markdown, bool $classic_smileys_enabled ) : bool {
-        $summary_markdown = trim( $summary_markdown );
+        $summary_markdown = mb_trim( $summary_markdown );
         if ( $summary_markdown === '' ) {
             return( false );
         }
@@ -655,7 +676,7 @@ class TinyMashContentRenderer {
     }
 
     protected function renderPlainTextSummary( string $summary_markdown ) : string {
-        $summary_markdown = trim( str_replace( [ "\r\n", "\r" ], "\n", $summary_markdown ) );
+        $summary_markdown = mb_trim( str_replace( [ "\r\n", "\r" ], "\n", $summary_markdown ) );
         if ( $summary_markdown === '' ) {
             return( '' );
         }
@@ -663,7 +684,7 @@ class TinyMashContentRenderer {
         $lines = preg_split( "/\n/", $summary_markdown ) ?: [];
         $normalized_lines = [];
         foreach ( $lines as $line ) {
-            $line = trim( preg_replace( '/[^\S\n]+/u', ' ', (string) $line ) ?? (string) $line );
+            $line = mb_trim( preg_replace( '/[^\S\n]+/u', ' ', (string) $line ) ?? (string) $line );
             if ( $line !== '' ) {
                 $normalized_lines[] = $line;
             }

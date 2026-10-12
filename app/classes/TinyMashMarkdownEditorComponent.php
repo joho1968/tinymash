@@ -7,7 +7,7 @@ class TinyMashMarkdownEditorComponent {
         $escape = static fn( string $value ) : string => htmlspecialchars( $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
         $field_id = self::normalizeDomId( (string) ( $options['field_id'] ?? 'tm-markdown-editor-field' ) );
         $field_name = trim( (string) ( $options['field_name'] ?? '' ) );
-        $label = trim( (string) ( $options['label'] ?? 'Markdown' ) );
+        $label = mb_trim( (string) ( $options['label'] ?? 'Markdown' ) );
         $content = (string) ( $options['content'] ?? '' );
         $rows = min( 40, max( 4, (int) ( $options['rows'] ?? 12 ) ) );
         $shortcodes = is_array( $options['shortcodes'] ?? null ) ? $options['shortcodes'] : [];
@@ -38,7 +38,7 @@ class TinyMashMarkdownEditorComponent {
         $html .= self::toolButton( 'wrap', 'bi-code-slash', 'Inline code', [ 'prefix' => '`', 'suffix' => '`', 'placeholder' => 'code' ], '', 'tm-editor-simple-hidden' );
         $html .= self::toolButton( 'wrap', 'bi-marker-tip', 'Mark / highlight', [ 'prefix' => '==', 'suffix' => '==', 'placeholder' => 'highlighted text' ], '', 'tm-editor-simple-hidden' );
         $html .= '</div><div class="btn-group btn-group-sm" role="group" aria-label="Blocks">';
-        $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Heading levels"><button class="btn btn-outline-secondary" type="button" data-tm-markdown-action="heading-apply" title="Apply heading level" aria-label="Apply heading level"><span class="bi bi-type-h1 me-1" aria-hidden="true"></span><span data-tm-markdown-heading-label>H1</span></button><button class="btn btn-outline-secondary px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Choose heading level" aria-label="Choose heading level"><span class="bi bi-three-dots-vertical" aria-hidden="true"></span></button><ul class="dropdown-menu">';
+        $html .= '<div class="btn-group btn-group-sm" role="group" aria-label="Heading levels"><button class="btn btn-outline-secondary" type="button" data-tm-markdown-action="heading-apply" title="Apply heading level" aria-label="Apply heading H1"><span class="bi bi-type-h1 me-1" aria-hidden="true"></span><span data-tm-markdown-heading-label>H1</span></button><button class="btn btn-outline-secondary px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Choose heading level" aria-label="Choose heading level"><span class="bi bi-three-dots-vertical" aria-hidden="true"></span></button><ul class="dropdown-menu">';
         foreach ( range( 1, 6 ) as $level ) {
             $html .= '<li><button class="dropdown-item font-monospace" type="button" data-tm-markdown-action="heading-level" data-level="' . $level . '" title="Heading ' . $level . '">H' . $level . '</button></li>';
         }
@@ -82,8 +82,8 @@ class TinyMashMarkdownEditorComponent {
                 if ( preg_match( '/^[a-z][a-z0-9_-]*$/', $name ) !== 1 ) {
                     continue;
                 }
-                $label_text = trim( (string) ( $shortcode['label'] ?? '' ) );
-                $example = trim( (string) ( $shortcode['example'] ?? '[' . $name . ']' ) );
+                $label_text = mb_trim( (string) ( $shortcode['label'] ?? '' ) );
+                $example = mb_trim( (string) ( $shortcode['example'] ?? '[' . $name . ']' ) );
                 $html .= '<li><button class="dropdown-item" type="button" data-tm-markdown-action="shortcode" data-shortcode-name="' . $escape( $name ) . '" data-shortcode-example="' . $escape( $example ) . '" data-shortcode-block="' . ( ! empty( $shortcode['block'] ) ? '1' : '0' ) . '"><span class="font-monospace">[' . $escape( $name ) . ']</span>';
                 if ( $label_text !== '' ) {
                     $html .= '<span class="small text-body-secondary ms-2">' . $escape( $label_text ) . '</span>';

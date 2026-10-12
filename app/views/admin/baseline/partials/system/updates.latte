@@ -2,6 +2,7 @@
 {var $update_status = (string) ($updates['status'] ?? 'unavailable')}
 {var $release = is_array($updates['release'] ?? null) ? $updates['release'] : []}
 {var $stage = is_array($system_update_stage ?? null) ? $system_update_stage : []}
+{var $prerequisites = is_array($system_update_prerequisites ?? null) ? $system_update_prerequisites : []}
 
 <section class="p-3 bg-body border rounded-3 shadow-sm">
     <div class="small text-uppercase text-body-secondary mb-2">Updates</div>
@@ -13,6 +14,17 @@
     {/if}
 
     <div class="bg-body-secondary rounded-3 p-3">
+        {if empty($prerequisites['ok']) && ! empty($prerequisites['missing'])}
+            <div class="mb-3" role="alert">
+                <div class="fw-semibold text-danger-emphasis">Live Update is unavailable.</div>
+                <ul class="small text-danger-emphasis mt-1 mb-0">
+                    {foreach $prerequisites['missing'] as $missing_prerequisite}
+                        <li>{$missing_prerequisite['message'] ?? 'A required server feature is unavailable.'}</li>
+                    {/foreach}
+                </ul>
+            </div>
+        {/if}
+
         <dl class="row mb-0">
             <dt class="col-sm-4 fw-normal text-body-secondary">Installed version</dt>
             <dd class="col-sm-8 font-monospace">{$updates['installed_version'] ?? 'Unknown'}</dd>
@@ -32,7 +44,7 @@
             {elseif $update_status === 'ahead'}
                 <dt class="col-sm-4 fw-normal text-body-secondary">Status</dt>
                 <dd class="col-sm-8">This installation is newer than the current stable release.</dd>
-            {else}
+            {elseif ! empty($prerequisites['ok'])}
                 <dt class="col-sm-4 fw-normal text-body-secondary">Status</dt>
                 <dd class="col-sm-8">Release information is unavailable. Try again later.</dd>
             {/if}
@@ -42,7 +54,7 @@
             <p class="mb-0 mt-2"><a class="link-offset-2" href="{$release['release_notes_url']}" target="_blank" rel="noopener noreferrer">Release notes</a></p>
         {/if}
 
-        {if $update_status === 'available' && empty($stage)}
+        {if $update_status === 'available' && empty($stage) && ! empty($prerequisites['ok'])}
             <form method="post" action="{$system_update_stage_url}" class="mt-3">
                 <input type="hidden" name="tinymash_csrf" value="{$csrf_token}">
                 <button type="submit" class="btn btn-primary">Download and check</button>

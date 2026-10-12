@@ -75,7 +75,7 @@ class TinyMashAdminTheme {
     }
 
     public function getThemeDescription() : string {
-        return( trim( (string) ( $this->getThemeDefinition()['description'] ?? '' ) ) );
+        return( mb_trim( (string) ( $this->getThemeDefinition()['description'] ?? '' ) ) );
     }
 
     public function getThemeVersion() : string {

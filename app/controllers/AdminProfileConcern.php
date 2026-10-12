@@ -110,8 +110,10 @@ trait AdminProfileConcern {
             . '&token='
             . rawurlencode( $token );
 
+        $mail_settings = $this->config->getSystemSettings();
+        $mail_settings['public_site_url'] = $base_url;
         $mailer->sendProfileEmailConfirmation(
-            $this->config->getSystemSettings(),
+            $mail_settings,
             $recipient_email,
             $confirm_url,
             $this->config->getSiteName()

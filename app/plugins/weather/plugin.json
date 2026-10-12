@@ -1,7 +1,7 @@
 {
     "key": "weather",
     "name": "Weather",
-    "version": "0.99.2",
+  "version": "0.99.4",
     "description": "Shows cached current weather and forecasts for saved locations.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

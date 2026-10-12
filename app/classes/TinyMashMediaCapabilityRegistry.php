@@ -65,8 +65,8 @@ class TinyMashMediaCapabilityRegistry {
 
         $this->definitions[$capability_key] = [
             'key' => $capability_key,
-            'label' => trim( (string) ( $definition['label'] ?? $this->humanizeKey( $capability_key ) ) ),
-            'description' => trim( (string) ( $definition['description'] ?? '' ) ),
+            'label' => mb_trim( (string) ( $definition['label'] ?? $this->humanizeKey( $capability_key ) ) ),
+            'description' => mb_trim( (string) ( $definition['description'] ?? '' ) ),
         ];
     }
 

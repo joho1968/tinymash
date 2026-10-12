@@ -96,7 +96,6 @@ trait AdminSystemConcern {
             return;
         }
 
-        $availability = $this->getSystemUpdateAvailability();
         $service = $this->app->has( 'update.stage_service' ) ? $this->app->get( 'update.stage_service' ) : null;
         if ( ! $service instanceof \app\classes\TinyMashUpdateStageService ) {
             $this->setSystemNoticeFlash( 'danger', 'Update package checks are unavailable.' );
@@ -105,6 +104,12 @@ trait AdminSystemConcern {
         }
 
         try {
+            $prerequisites = $service->getPrerequisites();
+            $missing_prerequisite = $prerequisites['missing'][0] ?? null;
+            if ( is_array( $missing_prerequisite ) ) {
+                throw new \app\classes\TinyMashUpdateFailure( (string) $missing_prerequisite['failure_code'] );
+            }
+            $availability = $this->getSystemUpdateAvailability();
             $status = $service->stage( $availability );
             $message = ! empty( $status['preflight_ok'] )
                 ? 'The release package passed all checks.'
@@ -112,7 +117,8 @@ trait AdminSystemConcern {
             $this->setSystemNoticeFlash( ! empty( $status['preflight_ok'] ) ? 'success' : 'warning', $message );
         } catch ( \Throwable $exception ) {
             \app\classes\TinyMashUpdateErrorPolicy::logFailure( 'package', $exception );
-            $this->setSystemNoticeFlash( 'danger', 'The release package could not be checked.' );
+            $failure = \app\classes\TinyMashUpdateErrorPolicy::describeFailure( $exception );
+            $this->setSystemNoticeFlash( 'danger', (string) $failure['message'] );
         }
         $this->app->redirect( $this->getSystemSectionUrl( 'updates' ) );
     }
@@ -1106,7 +1112,12 @@ trait AdminSystemConcern {
         $system_notifications_view = $this->getSystemNotificationsViewData( $system_section === 'notifications' );
         $system_notifications_unread_count = (int) ( $system_notifications_view['summary']['unread'] ?? 0 );
         $system_users = $this->getSystemUsers();
-        $system_update_availability = $system_section === 'updates' ? $this->getSystemUpdateAvailability() : [];
+        $system_update_prerequisites = $system_section === 'updates' ? $this->getSystemUpdatePrerequisites() : [];
+        $system_update_availability = $system_section === 'updates' && ! empty( $system_update_prerequisites['ok'] )
+            ? $this->getSystemUpdateAvailability()
+            : ( $system_section === 'updates'
+                ? [ 'status' => 'unavailable', 'installed_version' => defined( 'APP_VERSION' ) ? APP_VERSION : '' ]
+                : [] );
         $system_update_stage = $system_section === 'updates' ? $this->getSystemUpdateStageStatus( $system_update_availability ) : [];
         $system_head_tag_rows = [ 'meta' => [], 'link' => [] ];
         foreach ( $this->config->getPublicHeadTags() as $head_tag ) {
@@ -1145,6 +1156,14 @@ trait AdminSystemConcern {
             'admin_profile_url' => $this->app->get( 'admin.url' ) . '/profile',
             'entries_url' => $this->app->get( 'admin.url' ) . '/content',
             'system_settings' => $this->config->getSystemSettings(),
+            'system_proxy_diagnostic' => [
+                'peer' => is_string( $_SERVER['REMOTE_ADDR'] ?? null ) ? $_SERVER['REMOTE_ADDR'] : '',
+                'client' => $this->security->getCurrentIpAddress(),
+                'trusted' => \app\classes\TinyMashClientIpResolver::isTrusted(
+                    is_string( $_SERVER['REMOTE_ADDR'] ?? null ) ? $_SERVER['REMOTE_ADDR'] : '',
+                    $this->config->getTrustedProxyCidrs()
+                ),
+            ],
             'system_head_tag_rows' => $system_head_tag_rows,
             'system_timezone_options' => timezone_identifiers_list(),
             'system_content_image_mime_options' => $this->getContentImageMimeOptions(),
@@ -1204,6 +1223,7 @@ trait AdminSystemConcern {
             'system_moderation_reject_url' => $this->app->get( 'admin.url' ) . '/system/moderation/reject',
             'system_reassign_users' => $this->getSystemReassignUsers( $system_users ),
             'system_components_report' => $this->getSystemComponentsReport(),
+            'system_update_prerequisites' => $system_update_prerequisites,
             'system_update_availability' => $system_update_availability,
             'system_update_stage' => $system_update_stage,
             'system_update_stage_url' => $this->app->get( 'admin.url' ) . '/system/updates/stage',
@@ -1277,6 +1297,10 @@ trait AdminSystemConcern {
     }
 
     protected function emitAdminFragmentJson( array $payload, int $status_code = 200 ) : void {
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        if ( $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+            $payload = $url_resolver->resolveResponseData( $payload );
+        }
         $this->app->response()->status( $status_code );
         if ( ! headers_sent() ) {
             header( 'Content-Type: application/json; charset=utf-8' );
@@ -1676,7 +1700,7 @@ trait AdminSystemConcern {
         if ( ! in_array( $review_status, [ 'unreviewed', 'keep', 'cleanup_candidate' ], true ) ) {
             $review_status = 'unreviewed';
         }
-        $review_label = trim( (string) ( $review_record['status_label'] ?? '' ) );
+        $review_label = mb_trim( (string) ( $review_record['status_label'] ?? '' ) );
         if ( $review_label === '' ) {
             $review_label = $this->getSystemMediaLibraryReviewStatusLabel( $review_status );
         }
@@ -1688,7 +1712,7 @@ trait AdminSystemConcern {
                 'owner_username' => strtolower( trim( (string) ( $metadata['owner_username'] ?? '' ) ) ),
                 'filename' => $filename,
                 'original_filename' => trim( (string) ( $metadata['original_filename'] ?? '' ) ),
-                'label' => trim( (string) ( $metadata['alt_text'] ?? '' ) ) !== '' ? trim( (string) $metadata['alt_text'] ) : ( $filename !== '' ? $filename : $media_id ),
+                'label' => mb_trim( (string) ( $metadata['alt_text'] ?? '' ) ) !== '' ? mb_trim( (string) $metadata['alt_text'] ) : ( $filename !== '' ? $filename : $media_id ),
                 'url' => trim( (string) ( $metadata['url'] ?? '' ) ),
                 'thumbnail_url' => trim( (string) ( $metadata['thumbnail']['url'] ?? '' ) ),
                 'display_url' => trim( (string) ( $display['url'] ?? '' ) ),
@@ -1779,7 +1803,7 @@ trait AdminSystemConcern {
             }
             $category = trim( (string) ( $reference['category'] ?? '' ) );
             $source = trim( (string) ( $reference['source'] ?? '' ) );
-            $label = trim( (string) ( $reference['label'] ?? '' ) );
+            $label = mb_trim( (string) ( $reference['label'] ?? '' ) );
             if ( $category === '' && $source === '' && $label === '' ) {
                 continue;
             }
@@ -1820,13 +1844,13 @@ trait AdminSystemConcern {
             if ( ! is_array( $row ) ) {
                 continue;
             }
-            $label = trim( (string) ( $row['label'] ?? '' ) );
-            $value = trim( (string) ( $row['value'] ?? '' ) );
+            $label = mb_trim( (string) ( $row['label'] ?? '' ) );
+            $value = mb_trim( (string) ( $row['value'] ?? '' ) );
             if ( $label === '' || $value === '' ) {
                 continue;
             }
             $normalized_rows[] = [
-                'group' => trim( (string) ( $row['group'] ?? '' ) ),
+                'group' => mb_trim( (string) ( $row['group'] ?? '' ) ),
                 'label' => $label,
                 'value' => $value,
             ];
@@ -1836,13 +1860,9 @@ trait AdminSystemConcern {
     }
 
     protected function normalizeSystemMediaLibrarySearchQuery( string $query ) : string {
-        $query = function_exists( 'mb_trim' ) ? mb_trim( $query ) : trim( $query );
+        $query = mb_trim( $query );
         $query = preg_replace( '/\s+/u', ' ', $query ) ?? $query;
-        if ( function_exists( 'mb_strlen' ) && function_exists( 'mb_substr' ) ) {
-            return( mb_strlen( $query ) > 120 ? mb_substr( $query, 0, 120 ) : $query );
-        }
-
-        return( strlen( $query ) > 120 ? substr( $query, 0, 120 ) : $query );
+        return( mb_strlen( $query ) > 120 ? mb_substr( $query, 0, 120 ) : $query );
     }
 
     protected function systemMediaLibraryHasDirectAttachment( array $metadata ) : bool {
@@ -1870,7 +1890,7 @@ trait AdminSystemConcern {
 
     protected function normalizeSystemMediaLibrarySearchNeedle( string $value ) : string {
         $value = $this->normalizeSystemMediaLibrarySearchQuery( $value );
-        return( function_exists( 'mb_strtolower' ) ? mb_strtolower( $value ) : strtolower( $value ) );
+        return( mb_strtolower( $value, 'UTF-8' ) );
     }
 
     protected function buildSystemMediaLibrarySearchFields( array $metadata ) : array {
@@ -1975,6 +1995,35 @@ trait AdminSystemConcern {
         $availability['verified_at_display'] = $this->formatUtcDateTime( (string) ( $availability['verified_at_utc'] ?? '' ) );
         $availability['released_at_display'] = $this->formatUtcDateTime( (string) ( $availability['release']['released_at_utc'] ?? '' ) );
         return( $availability );
+    }
+
+    protected function getSystemUpdatePrerequisites() : array {
+        $service = $this->app->has( 'update.stage_service' ) ? $this->app->get( 'update.stage_service' ) : null;
+        if ( ! $service instanceof \app\classes\TinyMashUpdateStageService ) {
+            $failure = \app\classes\TinyMashUpdateErrorPolicy::describeReason( 'update.package_check_failed' );
+            return( [
+                'ok' => false,
+                'checks' => [],
+                'missing' => [ $failure ],
+            ] );
+        }
+
+        $prerequisites = $service->getPrerequisites();
+        foreach ( $prerequisites['checks'] ?? [] as $index => $check ) {
+            if ( ! is_array( $check ) ) {
+                continue;
+            }
+            $failure = \app\classes\TinyMashUpdateErrorPolicy::describeReason( (string) ( $check['failure_code'] ?? '' ) );
+            $prerequisites['checks'][$index]['message'] = (string) $failure['message'];
+        }
+        foreach ( $prerequisites['missing'] ?? [] as $index => $check ) {
+            if ( ! is_array( $check ) ) {
+                continue;
+            }
+            $failure = \app\classes\TinyMashUpdateErrorPolicy::describeReason( (string) ( $check['failure_code'] ?? '' ) );
+            $prerequisites['missing'][$index]['message'] = (string) $failure['message'];
+        }
+        return( $prerequisites );
     }
 
     protected function getSystemUpdateStageStatus( array $availability ) : array {
@@ -2120,6 +2169,7 @@ trait AdminSystemConcern {
             [ 'name' => 'openssl', 'required' => true, 'loaded' => extension_loaded( 'openssl' ) ],
             [ 'name' => 'fileinfo', 'required' => true, 'loaded' => extension_loaded( 'fileinfo' ) ],
             [ 'name' => 'curl', 'required' => false, 'loaded' => extension_loaded( 'curl' ) ],
+            [ 'name' => 'sodium', 'required' => false, 'loaded' => extension_loaded( 'sodium' ) ],
             [ 'name' => 'imagick', 'required' => false, 'loaded' => extension_loaded( 'imagick' ) ],
             [ 'name' => 'gd', 'required' => false, 'loaded' => extension_loaded( 'gd' ) ],
             [ 'name' => 'simplexml', 'required' => false, 'loaded' => extension_loaded( 'SimpleXML' ) ],
@@ -2127,6 +2177,12 @@ trait AdminSystemConcern {
             [ 'name' => 'intl', 'required' => false, 'loaded' => extension_loaded( 'intl' ) ],
             [ 'name' => 'zip', 'required' => false, 'loaded' => extension_loaded( 'zip' ) ],
         ];
+        $live_update_extensions = array_fill_keys( \app\classes\TinyMashUpdateRequirements::getRequiredExtensions(), true );
+        foreach ( $extensions as $index => $extension ) {
+            if ( isset( $live_update_extensions[(string) $extension['name']] ) ) {
+                $extensions[$index]['required_for'] = 'Live Update';
+            }
+        }
 
         $runtime_paths = [
             [
@@ -2581,8 +2637,8 @@ trait AdminSystemConcern {
                 'original_username' => $original_username,
                 'username' => $username,
                 'author_slug' => $username,
-                'display_name' => function_exists( 'mb_trim' ) ? mb_trim( (string) ( $data['display_name'] ?? '' ) ) : trim( (string) ( $data['display_name'] ?? '' ) ),
-                'email' => trim( (string) ( $data['email'] ?? '' ) ),
+                'display_name' => mb_trim( (string) ( $data['display_name'] ?? '' ) ),
+                'email' => mb_trim( (string) ( $data['email'] ?? '' ) ),
                 'role' => strtolower( trim( (string) ( $data['role'] ?? 'creator' ) ) ) === 'superadmin' ? 'superadmin' : 'creator',
                 'active' => ! empty( $data['active'] ),
                 'content_active' => ! empty( $data['content_active'] ),
@@ -2629,6 +2685,7 @@ trait AdminSystemConcern {
                 'housekeeping_stale_draft_retention_days' => 'The stale draft retention must be between 0 and 365 days.',
                 'housekeeping_web_fallback_mode' => 'The web cron fallback mode is not valid.',
                 'forwarded_ip_mode' => 'The forwarded visitor IP mode is not valid.',
+                'trusted_proxy_cidrs' => 'Enter valid trusted proxy addresses or CIDRs. Forwarded modes require at least one.',
                 'public_cache_warm_basic_auth_username' => 'The public cache-warmer HTTP auth username is not valid.',
                 'editor_autosave_interval_seconds' => 'The editor autosave interval must be between 30 and 180 seconds.',
                 'content_images_mode' => 'The content image upload policy is not valid.',

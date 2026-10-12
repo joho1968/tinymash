@@ -24,7 +24,7 @@ class TinyMashStatisticsRepository {
         $page_kind = $this->normalizePageKind( (string) ( $view['page_kind'] ?? '' ) );
         $author_slug = $this->normalizeAuthorSlug( (string) ( $view['author_slug'] ?? '' ) );
         $entry_type = $this->normalizeEntryType( (string) ( $view['entry_type'] ?? '' ) );
-        $title = trim( (string) ( $view['title'] ?? '' ) );
+        $title = mb_trim( (string) ( $view['title'] ?? '' ) );
         if ( $title === '' ) {
             $title = $path;
         }
@@ -602,7 +602,7 @@ class TinyMashStatisticsRepository {
                 'daily' => [],
             ];
         } else {
-            $pages[$path]['title'] = trim( (string) ( $metadata['title'] ?? $pages[$path]['title'] ?? $path ) );
+            $pages[$path]['title'] = mb_trim( (string) ( $metadata['title'] ?? $pages[$path]['title'] ?? $path ) );
             $pages[$path]['page_kind'] = trim( (string) ( $metadata['page_kind'] ?? $pages[$path]['page_kind'] ?? 'page' ) );
             $pages[$path]['entry_type'] = trim( (string) ( $metadata['entry_type'] ?? $pages[$path]['entry_type'] ?? '' ) );
             $pages[$path]['author_slug'] = trim( (string) ( $metadata['author_slug'] ?? $pages[$path]['author_slug'] ?? '' ) );

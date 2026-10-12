@@ -2,7 +2,7 @@
 namespace app\controllers;
 
 if ( empty( TINYMASH_RUNNING ) ) {
-    die( 'We do not seem to have all the bits configured' );
+    die( 'Configuration is incomplete.' );
 }
 
 use app\classes\TinyMashConfig;
@@ -29,6 +29,7 @@ require_once dirname(__FILE__, 2 ) . '/classes/TinyMashContentRepository.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashDraftRepository.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashDateFormatter.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashEditorMediaPickerService.php';
+require_once dirname(__FILE__, 2 ) . '/classes/TinyMashEditorInlineMediaReview.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashMenuService.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashTheme.php';
 require_once dirname(__FILE__, 2 ) . '/classes/TinyMashConfigIO.php';
@@ -409,7 +410,7 @@ class AdminController extends BaseController {
                 'owner_username' => strtolower( trim( (string) ( $image['owner_username'] ?? '' ) ) ),
                 'filename' => basename( trim( (string) ( $image['filename'] ?? '' ) ) ),
                 'url' => $url,
-                'alt_text' => trim( (string) ( $image['alt_text'] ?? '' ) ),
+                'alt_text' => mb_trim( (string) ( $image['alt_text'] ?? '' ) ),
                 'mime' => trim( (string) ( $image['mime'] ?? '' ) ),
                 'width' => max( 0, (int) ( $image['width'] ?? 0 ) ),
                 'height' => max( 0, (int) ( $image['height'] ?? 0 ) ),
@@ -522,8 +523,8 @@ class AdminController extends BaseController {
                     continue;
                 }
 
-                $section_title = trim( (string) ( $section['title'] ?? '' ) );
-                $section_markdown = trim( (string) ( $section['markdown'] ?? '' ) );
+                $section_title = mb_trim( (string) ( $section['title'] ?? '' ) );
+                $section_markdown = mb_trim( (string) ( $section['markdown'] ?? '' ) );
                 if ( $section_title === '' && $section_markdown === '' ) {
                     continue;
                 }
@@ -830,8 +831,16 @@ class AdminController extends BaseController {
                 throw new \InvalidArgumentException( 'housekeeping_web_fallback_mode' );
             }
             $forwarded_ip_mode = strtolower( trim( (string) ( $data['forwarded_ip_mode'] ?? 'off' ) ) );
-            if ( ! in_array( $forwarded_ip_mode, [ 'off', 'cf-connecting-ip', 'x-forwarded-for-first' ], true ) ) {
+            if ( ! in_array( $forwarded_ip_mode, [ 'off', 'cf-connecting-ip', 'x-forwarded-for' ], true ) ) {
                 throw new \InvalidArgumentException( 'forwarded_ip_mode' );
+            }
+            $trusted_proxy_input = $data['trusted_proxy_cidrs'] ?? '';
+            if ( ! is_string( $trusted_proxy_input ) ) {
+                throw new \InvalidArgumentException( 'trusted_proxy_cidrs' );
+            }
+            $trusted_proxy_cidrs = \app\classes\TinyMashClientIpResolver::parseTrustedRanges( $trusted_proxy_input );
+            if ( $forwarded_ip_mode !== 'off' && $trusted_proxy_cidrs === [] ) {
+                throw new \InvalidArgumentException( 'trusted_proxy_cidrs' );
             }
             $public_cache_warm_basic_auth_username = trim( (string) ( $data['public_cache_warm_basic_auth_username'] ?? '' ) );
             if ( mb_strlen( $public_cache_warm_basic_auth_username ) > 190 || str_contains( $public_cache_warm_basic_auth_username, ':' ) ) {
@@ -856,6 +865,7 @@ class AdminController extends BaseController {
                     'password_reset_max_identifier_requests' => $password_reset_max_identifier_requests,
                     'filesystem_umask' => $filesystem_umask,
                     'forwarded_ip_mode' => $forwarded_ip_mode,
+                    'trusted_proxy_cidrs' => $trusted_proxy_cidrs,
                     'public_cache_warm_basic_auth_username' => $public_cache_warm_basic_auth_username,
                     'public_cache_warm_basic_auth_password' => $public_cache_warm_basic_auth_password,
                     'public_cache_warm_insecure_tls' => ! empty( $data['public_cache_warm_insecure_tls'] ),
@@ -1519,7 +1529,7 @@ class AdminController extends BaseController {
 
                 $path = $this->normalizePublicPagePathInput( (string) ( $row['path'] ?? '' ) );
                 $url = trim( (string) ( $row['url'] ?? '' ) );
-                $label = mb_substr( trim( (string) ( $row['label'] ?? '' ) ), 0, 120 );
+                $label = mb_substr( mb_trim( (string) ( $row['label'] ?? '' ) ), 0, 120 );
                 $new_tab = ! empty( $row['new_tab'] );
                 $validated_item = null;
 

@@ -3,7 +3,10 @@
 use app\classes\TinyMashLockedJsonFile;
 use app\classes\TinyMashMarkdownRenderer;
 use app\classes\TinyMashMediaService;
+use app\classes\TinyMashText;
 use app\classes\TinyMashUserRepository;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashText.php';
 
 class TinyMashDirectoryService {
 
@@ -1112,7 +1115,7 @@ class TinyMashDirectoryService {
                     'url' => $url,
                     'display_url' => trim( (string) ( $display['url'] ?? '' ) ),
                     'thumbnail_url' => trim( (string) ( $metadata['thumbnail']['url'] ?? '' ) ),
-                    'alt_text' => trim( (string) ( $metadata['alt_text'] ?? '' ) ),
+                    'alt_text' => mb_trim( (string) ( $metadata['alt_text'] ?? '' ) ),
                 ]
             );
         }
@@ -1134,7 +1137,7 @@ class TinyMashDirectoryService {
                 'url' => $url,
                 'display_url' => trim( (string) ( $display['url'] ?? '' ) ),
                 'thumbnail_url' => trim( (string) ( $metadata['thumbnail']['url'] ?? '' ) ),
-                'alt_text' => trim( (string) ( $metadata['alt_text'] ?? '' ) ),
+                'alt_text' => mb_trim( (string) ( $metadata['alt_text'] ?? '' ) ),
                 'filename' => basename( (string) ( $metadata['filename'] ?? $metadata['original_filename'] ?? '' ) ),
                 'mime' => $mime,
                 'width' => max( 0, (int) ( $metadata['width'] ?? 0 ) ),
@@ -1343,7 +1346,7 @@ class TinyMashDirectoryService {
         }
         $left_title = (string) ( $left['title'] ?? '' );
         $right_title = (string) ( $right['title'] ?? '' );
-        $title_compare = strnatcasecmp( $left_title, $right_title );
+        $title_compare = TinyMashText::compareCaseInsensitive( $left_title, $right_title, true );
         if ( $title_compare !== 0 ) {
             return( $title_compare );
         }

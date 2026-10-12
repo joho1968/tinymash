@@ -17,7 +17,7 @@ class TinyMashPasswordResetService {
         $this->user_repository = $user_repository;
     }
 
-    public function requestReset( string $identifier, string $ip_address, array $system_settings, TinyMashMailer $mailer, string $site_name, string $reset_base_url ) : array {
+    public function requestReset( string $identifier, string $ip_address, array $system_settings, TinyMashMailer $mailer, string $site_name, string $reset_base_url, string $site_url = '' ) : array {
         $identifier = $this->normalizeIdentifier( $identifier );
         $ip_address = trim( $ip_address );
         $generic_result = [
@@ -90,6 +90,9 @@ class TinyMashPasswordResetService {
 
         $reset_url = rtrim( $reset_base_url, '/' ) . '?username=' . rawurlencode( $username ) . '&token=' . rawurlencode( $token );
         try {
+            if ( mb_trim( $site_url ) !== '' ) {
+                $system_settings['public_site_url'] = $site_url;
+            }
             $mailer->sendPasswordResetEmail( $system_settings, (string) $user['email'], $reset_url, $site_name );
         } catch ( \Throwable $e ) {
             $this->clearActiveRequestForUser( $username );

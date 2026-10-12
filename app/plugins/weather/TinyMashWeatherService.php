@@ -1,6 +1,9 @@
 <?php
 
 use app\classes\TinyMashLockedJsonFile;
+use app\classes\TinyMashText;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashText.php';
 
 class TinyMashWeatherService {
 
@@ -117,7 +120,7 @@ class TinyMashWeatherService {
         }
         uasort(
             $locations,
-            static fn( array $left, array $right ) : int => strcasecmp( (string) $left['label'], (string) $right['label'] )
+            static fn( array $left, array $right ) : int => TinyMashText::compareCaseInsensitive( (string) $left['label'], (string) $right['label'] )
         );
         $settings['locations'] = array_values( $locations );
         return( $settings );
@@ -1562,7 +1565,7 @@ class TinyMashWeatherService {
     }
 
     protected function weatherCodeFromSummary( string $summary ) : int {
-        $summary = strtolower( trim( $summary ) );
+        $summary = mb_strtolower( mb_trim( $summary ), 'UTF-8' );
         return( match ( true ) {
             $summary === '' => 0,
             str_contains( $summary, 'thunder' ) && str_contains( $summary, 'hail' ) => 96,

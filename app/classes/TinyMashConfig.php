@@ -42,7 +42,7 @@ class TinyMashConfig {
 
     public function getConfig() : bool {
         if ( $this->config_read ) {
-            error_log( basename( __FILE__ ) . ': We have already read the configuration file' );
+            error_log( basename( __FILE__ ) . ': Configuration already loaded.' );
             return( true );
         }
 
@@ -92,6 +92,7 @@ class TinyMashConfig {
         tinymash_apply_runtime_umask( $this->config['site']['filesystem_umask'] );
         $this->app->set( 'site.rendered_content_cache_enabled', $this->config['site']['rendered_content_cache_enabled'] );
         $this->app->set( 'site.forwarded_ip_mode', $this->config['site']['forwarded_ip_mode'] );
+        $this->app->set( 'site.trusted_proxy_cidrs', $this->config['site']['trusted_proxy_cidrs'] );
         $this->app->set( 'site.week_starts_on', $this->config['site']['week_starts_on'] );
         $this->app->set( 'site.allow_username_change', $this->config['site']['allow_username_change'] );
         $this->app->set( 'site.allow_email_change', $this->config['site']['allow_email_change'] );
@@ -231,7 +232,7 @@ class TinyMashConfig {
         if ( $type === 'meta' ) {
             $name = strtolower( trim( (string) ( $tag['name'] ?? '' ) ) );
             $property = strtolower( trim( (string) ( $tag['property'] ?? '' ) ) );
-            $content = function_exists( 'mb_trim' ) ? mb_trim( (string) ( $tag['content'] ?? '' ) ) : trim( (string) ( $tag['content'] ?? '' ) );
+            $content = mb_trim( (string) ( $tag['content'] ?? '' ) );
             if (
                 ( $name === '' && $property === '' )
                 || ( $name !== '' && $property !== '' )
@@ -274,7 +275,7 @@ class TinyMashConfig {
             $normalized_link['mime'] = $mime;
         }
 
-        $title = function_exists( 'mb_trim' ) ? mb_trim( (string) ( $tag['title'] ?? '' ) ) : trim( (string) ( $tag['title'] ?? '' ) );
+        $title = mb_trim( (string) ( $tag['title'] ?? '' ) );
         if ( $title !== '' ) {
             if ( mb_strlen( $title ) > 200 ) {
                 return( null );
@@ -548,6 +549,12 @@ class TinyMashConfig {
         }
 
         return( 'off' );
+    }
+
+    public function getTrustedProxyCidrs() : array {
+        return( $this->config_read && is_array( $this->config['site']['trusted_proxy_cidrs'] ?? null )
+            ? $this->config['site']['trusted_proxy_cidrs']
+            : [] );
     }
 
     public function getPublicPageCacheWarmBasicAuthUsername() : string {
@@ -864,6 +871,7 @@ class TinyMashConfig {
                 'filesystem_umask' => $this->getFilesystemUmask(),
                 'rendered_content_cache_enabled' => $this->isRenderedContentCacheEnabled(),
                 'forwarded_ip_mode' => $this->getForwardedIpMode(),
+                'trusted_proxy_cidrs' => implode( ', ', $this->getTrustedProxyCidrs() ),
                 'public_cache_warm_basic_auth_username' => $this->getPublicPageCacheWarmBasicAuthUsername(),
                 'public_cache_warm_basic_auth_password' => $this->getPublicPageCacheWarmBasicAuthPassword(),
                 'public_cache_warm_insecure_tls' => $this->allowsInsecureTlsForPublicPageCacheWarm(),

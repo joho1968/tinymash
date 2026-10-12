@@ -31,7 +31,8 @@
     }
 
     function buildLoginUrl(loginUrl, returnUrl) {
-        const url = new URL(loginUrl || '/login', global.location.origin);
+        const fallback = typeof global.tinymashBrowserPath === 'function' ? global.tinymashBrowserPath('/login') : '/login';
+        const url = new URL(loginUrl || fallback, global.location.origin);
         url.searchParams.set('return', returnUrl || global.location.pathname + global.location.search);
         return url.pathname + url.search;
     }

@@ -1,0 +1,12 @@
+{extends '../' . ($theme_template_root ?? 'public/baseline') . '/layout.latte'}
+
+{block content}
+    <article class="tm-subscriptions-page">
+        <h1>{$subscriptions_title ?? 'Subscriptions'}</h1>
+        <div n:if="trim((string) ($subscriptions_message ?? '')) !== ''" class="tm-subscriptions-message">
+            <p>{$subscriptions_message}</p>
+        </div>
+        {$subscriptions_form_html ?? ''|noescape}
+        <p><a href="{$subscriptions_return_url ?? '/'}">Return to the site</a></p>
+    </article>
+{/block}

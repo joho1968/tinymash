@@ -1,0 +1,30 @@
+{
+    "key": "subscriptions",
+    "name": "Subscriptions",
+    "version": "0.99.4",
+    "description": "Sends new-post e-mail notifications to confirmed subscribers.",
+    "author_name": "joho",
+    "author_email": "joho+tinymash@boojam.se",
+    "website": "https://tinymash.joho.se",
+    "license": "AGPL-3.0-or-later",
+    "bootstrap": "bootstrap.php",
+    "capabilities": [
+        "routes.public",
+        "routes.admin",
+        "admin.navigation",
+        "settings.system",
+        "content.workflow",
+        "content.shortcodes",
+        "theme.slots",
+        "assets.public",
+        "storage.private",
+        "housekeeping",
+        "cli"
+    ],
+    "static_export": {
+        "mode": "omit",
+        "summary": "Excludes interactive subscription forms from static exports."
+    },
+    "default_active": false,
+    "stage": "early"
+}

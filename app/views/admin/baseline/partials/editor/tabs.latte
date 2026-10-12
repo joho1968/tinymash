@@ -43,6 +43,13 @@
             {/if}
         </div>
     </div>
+    <div id="tm-editor-inline-media-review" class="alert alert-warning d-none mb-3" role="status">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span id="tm-editor-inline-media-summary"></span>
+            <button class="btn btn-sm btn-outline-secondary" id="tm-editor-inline-media-toggle" type="button" aria-expanded="false" aria-controls="tm-editor-inline-media-list">Review images</button>
+        </div>
+        <div id="tm-editor-inline-media-list" class="d-none mt-3"></div>
+    </div>
     {$editor_markdown_component_html|noescape}
 </div>
 

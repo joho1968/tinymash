@@ -7,10 +7,12 @@ final class TinyMashDeployAuditService {
 
     protected string $target_directory;
     protected string $manifest_filename;
+    protected bool $reject_unmanaged_paths;
 
-    public function __construct( string $target_directory, string $manifest_filename = '' ) {
+    public function __construct( string $target_directory, string $manifest_filename = '', bool $reject_unmanaged_paths = false ) {
         $this->target_directory = rtrim( trim( $target_directory ), DIRECTORY_SEPARATOR );
         $this->manifest_filename = trim( $manifest_filename );
+        $this->reject_unmanaged_paths = $reject_unmanaged_paths;
     }
 
     public function audit() : array {
@@ -18,12 +20,14 @@ final class TinyMashDeployAuditService {
         $manifest_filename = $this->resolveManifestFilename( $target_directory );
         $manifest = $this->loadManifest( $manifest_filename );
         $inventory = $this->normalizeInventory( $manifest );
+        $managed_roots = $this->buildManagedRoots( $manifest, $inventory );
 
         $missing_files = [];
         $missing_directories = [];
         $changed_files = [];
         $unknown_files = [];
         $unsafe_paths = [];
+        $unmanaged_paths = [];
         $checked_files = 0;
 
         foreach ( $inventory as $relative_path => $expected ) {
@@ -67,14 +71,17 @@ final class TinyMashDeployAuditService {
         $directory_iterator = new \RecursiveDirectoryIterator( $target_directory, \FilesystemIterator::SKIP_DOTS );
         $filter_iterator = new \RecursiveCallbackFilterIterator(
             $directory_iterator,
-            function( \SplFileInfo $item ) use ( $target_directory, &$ignored_paths ) : bool {
+            function( \SplFileInfo $item ) use ( $target_directory, $inventory, $managed_roots, &$ignored_paths, &$unmanaged_paths ) : bool {
+                $relative_path = $this->relativePath( $target_directory, $item->getPathname() );
                 if ( $item->isLink() ) {
                     return( true );
                 }
-
-                $relative_path = $this->relativePath( $target_directory, $item->getPathname() );
                 if ( TinyMashDeployPolicy::isAuditIgnoredPath( $relative_path ) ) {
                     $ignored_paths++;
+                    return( false );
+                }
+                if ( ! $this->isManagedPath( $relative_path, $inventory, $managed_roots ) ) {
+                    $unmanaged_paths[] = $relative_path;
                     return( false );
                 }
 
@@ -88,7 +95,11 @@ final class TinyMashDeployAuditService {
         foreach ( $iterator as $item ) {
             $relative_path = $this->relativePath( $target_directory, $item->getPathname() );
             if ( $item->isLink() ) {
-                $unsafe_paths[] = $relative_path;
+                if ( $this->isManagedPath( $relative_path, $inventory, $managed_roots ) ) {
+                    $unsafe_paths[] = $relative_path;
+                } else {
+                    $unmanaged_paths[] = $relative_path;
+                }
                 continue;
             }
             if ( $item->isDir() ) {
@@ -99,7 +110,7 @@ final class TinyMashDeployAuditService {
             }
         }
 
-        foreach ( [ &$missing_files, &$missing_directories, &$changed_files, &$unknown_files, &$unsafe_paths ] as &$paths ) {
+        foreach ( [ &$missing_files, &$missing_directories, &$changed_files, &$unknown_files, &$unsafe_paths, &$unmanaged_paths ] as &$paths ) {
             $paths = array_values( array_unique( $paths ) );
             sort( $paths, SORT_STRING );
         }
@@ -109,7 +120,8 @@ final class TinyMashDeployAuditService {
             && $missing_directories === []
             && $changed_files === []
             && $unknown_files === []
-            && $unsafe_paths === [];
+            && $unsafe_paths === []
+            && ( ! $this->reject_unmanaged_paths || $unmanaged_paths === [] );
 
         return(
             [
@@ -126,6 +138,7 @@ final class TinyMashDeployAuditService {
                 'changed_files' => $changed_files,
                 'unknown_files' => $unknown_files,
                 'unsafe_paths' => $unsafe_paths,
+                'unmanaged_paths' => $unmanaged_paths,
                 'upgrade' => is_array( $manifest['upgrade'] ?? null ) ? $manifest['upgrade'] : [],
             ]
         );
@@ -221,6 +234,30 @@ final class TinyMashDeployAuditService {
         ksort( $inventory, SORT_STRING );
 
         return( $inventory );
+    }
+
+    protected function buildManagedRoots( array $manifest, array $inventory ) : array {
+        $roots = [];
+        foreach ( array_keys( $inventory ) as $relative_path ) {
+            if ( str_contains( $relative_path, '/' ) ) {
+                $roots[explode( '/', $relative_path, 2 )[0]] = true;
+            }
+        }
+        foreach ( [ 'directories', 'optional_directories', 'empty_directories' ] as $include_key ) {
+            foreach ( (array) ( $manifest['includes'][$include_key] ?? [] ) as $relative_path ) {
+                $relative_path = $this->normalizeSafeRelativePath( (string) $relative_path );
+                $roots[explode( '/', $relative_path, 2 )[0]] = true;
+            }
+        }
+        return( $roots );
+    }
+
+    protected function isManagedPath( string $relative_path, array $inventory, array $managed_roots ) : bool {
+        if ( array_key_exists( $relative_path, $inventory ) || TinyMashDeployPolicy::isAuditManagedPath( $relative_path ) ) {
+            return( true );
+        }
+        $root = explode( '/', $relative_path, 2 )[0];
+        return( isset( $managed_roots[$root] ) );
     }
 
     protected function normalizeSafeRelativePath( string $relative_path ) : string {

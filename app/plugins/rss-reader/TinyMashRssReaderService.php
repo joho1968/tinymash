@@ -1,6 +1,9 @@
 <?php
 
 use app\classes\TinyMashLockedJsonFile;
+use app\classes\TinyMashText;
+
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashText.php';
 
 class TinyMashRssReaderService {
 
@@ -95,7 +98,7 @@ class TinyMashRssReaderService {
         }
         uasort(
             $sources,
-            static fn( array $left, array $right ) : int => strcasecmp( (string) $left['label'], (string) $right['label'] )
+            static fn( array $left, array $right ) : int => TinyMashText::compareCaseInsensitive( (string) $left['label'], (string) $right['label'] )
         );
         $settings['sources'] = array_values( $sources );
         return( $settings );
@@ -550,6 +553,17 @@ class TinyMashRssReaderService {
     }
 
     protected function fetchRemoteFeedResponse( string $url ) : array {
+        $parts = parse_url( $url );
+        if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+            throw new \RuntimeException( 'remote_fetch' );
+        }
+        $host = trim( (string) $parts['host'], '[]' );
+        $port = (int) ( $parts['port'] ?? ( strtolower( (string) ( $parts['scheme'] ?? '' ) ) === 'https' ? 443 : 80 ) );
+        $addresses = $this->resolvePublicHostAddresses( $host );
+        $resolve_addresses = array_map(
+            static fn( string $address ) : string => str_contains( $address, ':' ) ? '[' . $address . ']' : $address,
+            $addresses
+        );
         $body = '';
         $location = '';
         $too_large = false;
@@ -562,6 +576,10 @@ class TinyMashRssReaderService {
             [
                 CURLOPT_RETURNTRANSFER => false,
                 CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_PROXY => '',
+                CURLOPT_RESOLVE => filter_var( $host, FILTER_VALIDATE_IP ) === false
+                    ? [ $host . ':' . $port . ':' . implode( ',', $resolve_addresses ) ]
+                    : [],
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 CURLOPT_CONNECTTIMEOUT => 5,
@@ -874,25 +892,56 @@ class TinyMashRssReaderService {
     }
 
     protected function hostResolvesToPublicAddress( string $host ) : bool {
+        try {
+            $this->resolvePublicHostAddresses( $host );
+            return( true );
+        } catch ( \InvalidArgumentException ) {
+            return( false );
+        }
+    }
+
+    protected function resolvePublicHostAddresses( string $host ) : array {
+        $host = trim( $host, '[]' );
         if ( filter_var( $host, FILTER_VALIDATE_IP ) !== false ) {
-            return( $this->isPublicIpAddress( $host ) );
+            if ( ! $this->isPublicIpAddress( $host ) ) {
+                throw new \InvalidArgumentException( 'private_host' );
+            }
+            return( [ $host ] );
         }
         if ( $host === 'localhost' || str_ends_with( $host, '.local') || str_ends_with( $host, '.localhost' ) ) {
-            return( false );
+            throw new \InvalidArgumentException( 'private_host' );
         }
-        $addresses = gethostbynamel( $host );
-        if ( ! is_array( $addresses ) || empty( $addresses ) ) {
-            return( false );
+        $records = dns_get_record( $host, DNS_A | DNS_AAAA );
+        if ( ! is_array( $records ) ) {
+            throw new \InvalidArgumentException( 'private_host' );
         }
-        foreach ( $addresses as $address ) {
-            if ( ! $this->isPublicIpAddress( (string) $address ) ) {
-                return( false );
+        $addresses = [];
+        foreach ( $records as $record ) {
+            $address = (string) ( $record['ip'] ?? $record['ipv6'] ?? '' );
+            if ( $address === '' || ! $this->isPublicIpAddress( $address ) ) {
+                throw new \InvalidArgumentException( 'private_host' );
             }
+            $addresses[] = $address;
         }
-        return( true );
+        if ( $addresses === [] ) {
+            throw new \InvalidArgumentException( 'private_host' );
+        }
+        return( array_values( array_unique( $addresses ) ) );
     }
 
     protected function isPublicIpAddress( string $address ) : bool {
+        $packed = inet_pton( $address );
+        if ( $packed === false ) {
+            return( false );
+        }
+        if ( strlen( $packed ) === 16 && (
+            substr( $packed, 0, 2 ) === "\x20\x02" ||
+            substr( $packed, 0, 4 ) === "\x20\x01\x00\x00" ||
+            substr( $packed, 0, 12 ) === hex2bin( '0064ff9b0000000000000000' ) ||
+            substr( $packed, 0, 6 ) === hex2bin( '0064ff9b0001' )
+        ) ) {
+            return( false );
+        }
         return(
             filter_var(
                 $address,

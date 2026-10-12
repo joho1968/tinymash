@@ -3,11 +3,16 @@
 use app\classes\TinyMashContentRepository;
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashConfigIO;
+use app\classes\TinyMashEmbedService;
 use app\classes\TinyMashFilesystem;
 use app\classes\TinyMashImportLockService;
 use app\classes\TinyMashMediaImportBridge;
+use app\classes\TinyMashShortcodeRegistry;
 
 require_once dirname( __DIR__, 2 ) . '/classes/TinyMashFilesystem.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashEmbedService.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashShortcodeRegistry.php';
+require_once dirname( __DIR__ ) . '/comments/TinyMashCommentsService.php';
 
 class TinyMashWordPressImportService {
 
@@ -22,14 +27,20 @@ class TinyMashWordPressImportService {
     protected ?TinyMashConfigIO $config_io;
     protected ?TinyMashMediaImportBridge $media_import_bridge;
     protected ?TinyMashImportLockService $import_lock_service;
+    protected TinyMashEmbedService $embed_service;
+    protected ?TinyMashCommentsService $comments_service;
+    protected TinyMashShortcodeRegistry $shortcode_registry;
 
-    public function __construct( string $workspace_directory, TinyMashContentRepository $content_repository, ?TinyMashConfig $config = null, ?TinyMashConfigIO $config_io = null, ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashImportLockService $import_lock_service = null ) {
+    public function __construct( string $workspace_directory, TinyMashContentRepository $content_repository, ?TinyMashConfig $config = null, ?TinyMashConfigIO $config_io = null, ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashImportLockService $import_lock_service = null, ?TinyMashEmbedService $embed_service = null, ?TinyMashCommentsService $comments_service = null, ?TinyMashShortcodeRegistry $shortcode_registry = null ) {
         $this->workspace_directory = rtrim( $workspace_directory, DIRECTORY_SEPARATOR );
         $this->content_repository = $content_repository;
         $this->config = $config;
         $this->config_io = $config_io;
         $this->media_import_bridge = $media_import_bridge;
         $this->import_lock_service = $import_lock_service;
+        $this->embed_service = $embed_service ?? new TinyMashEmbedService();
+        $this->comments_service = $comments_service;
+        $this->shortcode_registry = $shortcode_registry ?? new TinyMashShortcodeRegistry();
     }
 
     public function isAvailable() : bool {
@@ -39,7 +50,7 @@ class TinyMashWordPressImportService {
         );
     }
 
-    public function createPreviewFromUpload( array $file, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, bool $replace_existing_pages = false, bool $skip_unpublished = false, bool $import_menus = false ) : array {
+    public function createPreviewFromUpload( array $file, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, bool $replace_existing_pages = false, bool $skip_unpublished = false, bool $import_menus = false, bool $import_comments = false, bool $preserve_approved_comments = false, bool $retain_commenter_emails = false, string $target_scope = 'author' ) : array {
         if ( empty( $file['tmp_name'] ) || ! is_string( $file['tmp_name'] ) || ! is_file( $file['tmp_name'] ) ) {
             throw new \RuntimeException( 'A WordPress export file is required.' );
         }
@@ -49,11 +60,15 @@ class TinyMashWordPressImportService {
             throw new \RuntimeException( 'The WordPress export file could not be read.' );
         }
 
-        return( $this->createPreviewFromXml( $xml, $author_slug, $aggregate_to_root, $created_by_username, $replace_existing_posts, $replace_existing_pages, $skip_unpublished, $import_menus ) );
+        return( $this->createPreviewFromXml( $xml, $author_slug, $aggregate_to_root, $created_by_username, $replace_existing_posts, $replace_existing_pages, $skip_unpublished, $import_menus, $import_comments, $preserve_approved_comments, $retain_commenter_emails, $target_scope ) );
     }
 
-    public function createPreviewFromXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, bool $replace_existing_pages = false, bool $skip_unpublished = false, bool $import_menus = false ) : array {
-        $preview = $this->parseXml( $xml, $author_slug, $aggregate_to_root, $skip_unpublished, $import_menus );
+    public function createPreviewFromXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, bool $replace_existing_pages = false, bool $skip_unpublished = false, bool $import_menus = false, bool $import_comments = false, bool $preserve_approved_comments = false, bool $retain_commenter_emails = false, string $target_scope = 'author' ) : array {
+        if ( ! in_array( $target_scope, [ 'author', 'root' ], true ) ) {
+            throw new \InvalidArgumentException( 'target_scope' );
+        }
+        $author_slug = $target_scope === 'root' ? 'root' : $author_slug;
+        $preview = $this->parseXml( $xml, $author_slug, $target_scope === 'root' || $aggregate_to_root, $skip_unpublished, $import_menus, $import_comments && $retain_commenter_emails, $target_scope );
         $preview['token'] = $this->generateToken();
         $preview['created_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
         $preview['created_by_username'] = $this->normalizeAuthorSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
@@ -61,6 +76,9 @@ class TinyMashWordPressImportService {
         $preview['replace_existing_pages'] = $replace_existing_pages;
         $preview['skip_unpublished'] = $skip_unpublished;
         $preview['import_menus'] = $import_menus;
+        $preview['import_comments'] = $import_comments;
+        $preview['preserve_approved_comments'] = $import_comments && $preserve_approved_comments;
+        $preview['retain_commenter_emails'] = $import_comments && $retain_commenter_emails;
 
         $workspace_directory = $this->getWorkspaceDirectory( $preview['token'] );
         if ( ! is_dir( $workspace_directory ) && ! @ mkdir( $workspace_directory, 0775, true ) && ! is_dir( $workspace_directory ) ) {
@@ -141,6 +159,11 @@ class TinyMashWordPressImportService {
             throw new \RuntimeException( 'The WordPress import preview token is invalid.' );
         }
 
+        $target_scope = (string) ( $preview['target_scope'] ?? 'author' );
+        if ( ! in_array( $target_scope, [ 'author', 'root' ], true ) || ( $target_scope === 'root' && (string) ( $preview['author_slug'] ?? '' ) !== 'root' ) ) {
+            throw new \RuntimeException( 'The WordPress import target is invalid.' );
+        }
+
         $this->acquireImportLock(
             (string) ( $preview['author_slug'] ?? '' ),
             'wordpress-import',
@@ -153,6 +176,7 @@ class TinyMashWordPressImportService {
         $state = [
             'token' => $token,
             'author_slug' => (string) ( $preview['author_slug'] ?? '' ),
+            'target_scope' => $target_scope,
             'created_by_username' => (string) ( $preview['created_by_username'] ?? '' ),
             'status' => 'running',
             'replace_existing_posts' => ! empty( $preview['replace_existing_posts'] ),
@@ -175,6 +199,14 @@ class TinyMashWordPressImportService {
                 'unresolved_media' => 0,
                 'deleted_existing_posts' => 0,
                 'deleted_existing_pages' => 0,
+                'comments_imported' => 0,
+                'comments_approved' => 0,
+                'comments_pending' => 0,
+                'comments_spam' => 0,
+                'comments_trash' => 0,
+                'comments_skipped_duplicate' => 0,
+                'comments_skipped_limit' => 0,
+                'comments_skipped_relationship' => 0,
             ],
             'unresolved_media' => [],
             'started_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
@@ -224,24 +256,49 @@ class TinyMashWordPressImportService {
             $state['batch_size'] = $limit;
             unset( $state['error_message'] );
             $seen_keys = is_array( $state['seen_keys'] ?? null ) ? $state['seen_keys'] : [];
-            $counts = is_array( $state['counts'] ?? null ) ? $state['counts'] : [ 'processed' => 0, 'imported' => 0, 'skipped' => 0, 'skipped_duplicate' => 0, 'skipped_invalid' => 0, 'unresolved_media' => 0, 'deleted_existing_posts' => 0, 'deleted_existing_pages' => 0 ];
+            $counts = is_array( $state['counts'] ?? null ) ? $state['counts'] : [];
             $next_offset = max( 0, (int) ( $state['next_offset'] ?? 0 ) );
             $batch_counts = [ 'processed' => 0, 'imported' => 0, 'skipped' => 0, 'skipped_duplicate' => 0, 'skipped_invalid' => 0, 'unresolved_media' => 0, 'deleted_existing_posts' => 0, 'deleted_existing_pages' => 0 ];
             $unresolved_media = is_array( $state['unresolved_media'] ?? null ) ? $state['unresolved_media'] : [];
+            $post_comment_entry_ids = [];
+            $page_comment_entry_ids = [];
 
             if ( ! empty( $state['replace_existing_posts'] ) && empty( $state['existing_posts_deleted'] ) ) {
-                $deleted = $this->content_repository->deletePostsByAuthorSlug( (string) ( $state['author_slug'] ?? '' ) );
+                $post_comment_entry_ids = $this->prepareReplacementCommentEntries( $state, 'post' );
+            }
+            if ( ! empty( $state['replace_existing_pages'] ) && empty( $state['existing_pages_deleted'] ) ) {
+                $page_comment_entry_ids = $this->prepareReplacementCommentEntries( $state, 'page' );
+            }
+
+            if ( ! empty( $state['replace_existing_posts'] ) && empty( $state['existing_posts_deleted'] ) ) {
+                $deleted = (string) ( $state['target_scope'] ?? 'author' ) === 'root'
+                    ? $this->content_repository->deleteRootPosts()
+                    : $this->content_repository->deletePostsByAuthorSlug( (string) ( $state['author_slug'] ?? '' ) );
+                foreach ( $post_comment_entry_ids as $entry_id ) {
+                    $this->comments_service?->clearEntryCommentsForReplacement( $entry_id, $this->getCommentScope( $state ) );
+                }
                 $deleted_count = (int) ( $deleted['deleted_posts'] ?? 0 );
                 $counts['deleted_existing_posts'] += $deleted_count;
                 $batch_counts['deleted_existing_posts'] += $deleted_count;
                 $state['existing_posts_deleted'] = true;
+                unset( $state['replacement_post_comment_entry_ids'] );
+                $state['counts'] = $counts;
+                $this->writeJsonFile( $this->getImportStateFilename( $token ), $state );
             }
             if ( ! empty( $state['replace_existing_pages'] ) && empty( $state['existing_pages_deleted'] ) ) {
-                $deleted = $this->content_repository->deletePagesByAuthorSlug( (string) ( $state['author_slug'] ?? '' ) );
+                $deleted = (string) ( $state['target_scope'] ?? 'author' ) === 'root'
+                    ? $this->content_repository->deleteRootPages()
+                    : $this->content_repository->deletePagesByAuthorSlug( (string) ( $state['author_slug'] ?? '' ) );
+                foreach ( $page_comment_entry_ids as $entry_id ) {
+                    $this->comments_service?->clearEntryCommentsForReplacement( $entry_id, $this->getCommentScope( $state ) );
+                }
                 $deleted_count = (int) ( $deleted['deleted_pages'] ?? 0 );
                 $counts['deleted_existing_pages'] += $deleted_count;
                 $batch_counts['deleted_existing_pages'] += $deleted_count;
                 $state['existing_pages_deleted'] = true;
+                unset( $state['replacement_page_comment_entry_ids'] );
+                $state['counts'] = $counts;
+                $this->writeJsonFile( $this->getImportStateFilename( $token ), $state );
             }
 
             for ( $offset = $next_offset; $offset < $total_entries && $batch_counts['processed'] < $limit; $offset++ ) {
@@ -275,6 +332,7 @@ class TinyMashWordPressImportService {
                 $seen_keys[$scope_key] = true;
 
                 try {
+                    $source_id = (string) ( $entry['source_id'] ?? '' );
                     $attached_media_ids = [];
                     $entry_unresolved_media = [];
                     $entry = $this->applyImportedMediaToEntry( $entry, (string) ( $state['author_slug'] ?? '' ), $attachments, $allowed_hosts, $attached_media_ids, $entry_unresolved_media );
@@ -305,6 +363,22 @@ class TinyMashWordPressImportService {
                         ]
                     );
                     $this->attachImportedMediaToSavedEntry( (string) ( $state['author_slug'] ?? '' ), $saved_entry, $attached_media_ids );
+                    if ( ! empty( $preview['import_comments'] ) && $this->comments_service instanceof TinyMashCommentsService ) {
+                        $comment_records = is_array( $preview['comments_by_entry_source_id'][$source_id] ?? null )
+                            ? $preview['comments_by_entry_source_id'][$source_id]
+                            : [];
+                        if ( $comment_records !== [] ) {
+                            $comment_result = $this->comments_service->importComments(
+                                (string) ( $saved_entry['id'] ?? '' ),
+                                $this->getCommentScope( $state ),
+                                'wordpress',
+                                $comment_records,
+                                ! empty( $preview['preserve_approved_comments'] ),
+                                ! empty( $preview['retain_commenter_emails'] )
+                            );
+                            $this->mergeImportedCommentResultCounts( $counts, (array) ( $comment_result['counts'] ?? [] ) );
+                        }
+                    }
                     $counts['imported']++;
                     $batch_counts['imported']++;
                 } catch ( \InvalidArgumentException ) {
@@ -351,7 +425,7 @@ class TinyMashWordPressImportService {
         }
     }
 
-    protected function parseXml( string $xml, string $author_slug, bool $aggregate_to_root = false, bool $skip_unpublished = false, bool $import_menus = false ) : array {
+    protected function parseXml( string $xml, string $author_slug, bool $aggregate_to_root = false, bool $skip_unpublished = false, bool $import_menus = false, bool $retain_commenter_emails = false, string $target_scope = 'author' ) : array {
         if ( ! $this->isAvailable() ) {
             throw new \RuntimeException( 'The WordPress import runtime is not available. SimpleXML is required.' );
         }
@@ -363,13 +437,13 @@ class TinyMashWordPressImportService {
 
         $previous_errors = libxml_use_internal_errors( true );
         libxml_clear_errors();
-        $xml_feed = simplexml_load_string( $xml, \SimpleXMLElement::class, LIBXML_NOCDATA );
+        $xml_feed = simplexml_load_string( $xml, \SimpleXMLElement::class, LIBXML_NOCDATA | LIBXML_NONET );
         $errors = libxml_get_errors();
         libxml_clear_errors();
         libxml_use_internal_errors( $previous_errors );
 
         if ( ! $xml_feed instanceof \SimpleXMLElement ) {
-            $message = ! empty( $errors[0]->message ) ? trim( $errors[0]->message ) : 'The WordPress export XML could not be parsed.';
+            $message = ! empty( $errors[0]->message ) ? mb_trim( $errors[0]->message ) : 'The WordPress export XML could not be parsed.';
             throw new \RuntimeException( $message );
         }
 
@@ -384,6 +458,7 @@ class TinyMashWordPressImportService {
         $excerpt_namespace = (string) ( $namespaces['excerpt'] ?? self::EXCERPT_NAMESPACE );
 
         $attachments = [];
+        $attachments_by_parent = [];
         $allowed_remote_hosts = [];
         $channel_link = trim( (string) $channel->link );
         $channel_host = strtolower( trim( (string) parse_url( $channel_link, PHP_URL_HOST ) ) );
@@ -416,7 +491,14 @@ class TinyMashWordPressImportService {
                 'source_id' => $attachment_id,
                 'original_filename' => basename( (string) parse_url( $attachment_url, PHP_URL_PATH ) ),
                 'variants' => $this->resolveAttachmentVariants( $wp, $attachment_url, $attachment_id, (string) $item->title ),
+                'parent_source_id' => trim( (string) $wp->post_parent ),
+                'menu_order' => (int) $wp->menu_order,
+                'mime' => strtolower( trim( (string) $wp->post_mime_type ) ),
             ];
+            $parent_source_id = $attachments[$attachment_id]['parent_source_id'];
+            if ( $parent_source_id !== '' ) {
+                $attachments_by_parent[$parent_source_id][] = $attachment_id;
+            }
         }
 
         $entries = [];
@@ -425,6 +507,13 @@ class TinyMashWordPressImportService {
         $seen_entry_keys = [];
         $adjusted_source_duplicates = 0;
         $adjusted_source_conflicts = [];
+        $embed_report = $this->embed_service->createImportReport();
+        $media_shortcode_report = [ 'galleries_found' => 0, 'galleries_planned' => 0, 'captions_found' => 0, 'captions_converted' => 0, 'unsupported' => 0, 'items' => [] ];
+        $text_shortcode_report = [ 'code_found' => 0, 'code_converted' => 0, 'highlight_found' => 0, 'highlight_converted' => 0, 'wikipedia_found' => 0, 'wikipedia_converted' => 0, 'items' => [] ];
+        $unsupported_shortcode_report = [ 'occurrences' => 0, 'affected_entries' => 0, 'items' => [], 'items_truncated' => false ];
+        $comments_by_entry_source_id = [];
+        $comment_counts = $this->getDefaultCommentImportCounts();
+        $comment_issues = [];
         $counts = [
             'posts' => 0,
             'pages' => 0,
@@ -435,14 +524,20 @@ class TinyMashWordPressImportService {
         ];
 
         foreach ( $channel->item as $item ) {
-            $parsed_entry = $this->parseWordPressItem( $item, $author_slug, $aggregate_to_root, $wp_namespace, $content_namespace, $excerpt_namespace );
+            $parsed_comments = $this->parseWordPressComments( $item, $wp_namespace );
+            $comment_counts['total'] += (int) ( $parsed_comments['counts']['total'] ?? 0 );
+            $comment_counts['unsupported'] += (int) ( $parsed_comments['counts']['unsupported'] ?? 0 );
+            $parsed_entry = $this->parseWordPressItem( $item, $author_slug, $aggregate_to_root, $wp_namespace, $content_namespace, $excerpt_namespace, $target_scope );
             if ( ! is_array( $parsed_entry ) ) {
+                $comment_counts['orphaned_entry'] += count( (array) ( $parsed_comments['records'] ?? [] ) );
                 continue;
             }
 
             $adjusted = false;
             $adjusted_conflict = [];
             $parsed_entry = $this->ensureUniqueSourceEntrySlug( $parsed_entry, $seen_entry_keys, $adjusted, $adjusted_conflict );
+            $this->prepareWordPressMediaShortcodes( $parsed_entry, $attachments, $attachments_by_parent, $media_shortcode_report );
+            $this->prepareWordPressTextShortcodes( $parsed_entry, $text_shortcode_report );
             if ( $adjusted ) {
                 $adjusted_source_duplicates++;
                 if ( ! empty( $adjusted_conflict ) ) {
@@ -450,20 +545,45 @@ class TinyMashWordPressImportService {
                 }
             }
 
+            $embed_conversion = is_array( $parsed_entry['_embed_conversion'] ?? null ) ? $parsed_entry['_embed_conversion'] : [];
+            unset( $parsed_entry['_embed_conversion'] );
+            $embed_report = $this->embed_service->mergeImportReport( $embed_report, $embed_conversion, $parsed_entry );
+
             if ( $parsed_entry['status'] !== 'published' ) {
                 $counts['drafts']++;
                 $unpublished_entries[] = $parsed_entry;
                 if ( $skip_unpublished ) {
                     $counts['skipped_unpublished']++;
+                    $comment_counts['orphaned_entry'] += count( (array) ( $parsed_comments['records'] ?? [] ) );
                     continue;
                 }
             }
 
-            $entries[] = $parsed_entry;
             $source_id = (string) ( $parsed_entry['source_id'] ?? '' );
+            $raw_comments = is_array( $parsed_comments['records'] ?? null ) ? $parsed_comments['records'] : [];
+            if ( $raw_comments !== [] && $source_id !== '' && $this->comments_service instanceof TinyMashCommentsService ) {
+                $comment_preview = $this->comments_service->previewImportedComments( 'wordpress', $raw_comments, $retain_commenter_emails );
+                $prepared_comments = is_array( $comment_preview['records'] ?? null ) ? $comment_preview['records'] : [];
+                if ( $prepared_comments !== [] ) {
+                    $comments_by_entry_source_id[$source_id] = $prepared_comments;
+                }
+                $this->mergeCommentImportCounts( $comment_counts, (array) ( $comment_preview['counts'] ?? [] ) );
+                foreach ( (array) ( $comment_preview['issues'] ?? [] ) as $issue ) {
+                    if ( is_array( $issue ) && count( $comment_issues ) < 25 ) {
+                        $issue['entry_title'] = (string) ( $parsed_entry['title'] ?? '' );
+                        $comment_issues[] = $issue;
+                    }
+                }
+            } elseif ( $raw_comments !== [] ) {
+                $comment_counts['malformed'] += count( $raw_comments );
+            }
+
+            $this->appendUnsupportedShortcodeReport( $parsed_entry, $unsupported_shortcode_report );
+            $entries[] = $parsed_entry;
             if ( $source_id !== '' ) {
                 $entries_by_source_id[$source_id] = [
                     'entry_type' => (string) ( $parsed_entry['entry_type'] ?? '' ),
+                    'scope' => (string) ( $parsed_entry['scope'] ?? 'author' ),
                     'slug' => (string) ( $parsed_entry['slug'] ?? '' ),
                     'title' => (string) ( $parsed_entry['title'] ?? '' ),
                 ];
@@ -515,6 +635,7 @@ class TinyMashWordPressImportService {
         return(
             [
                 'author_slug' => $author_slug,
+                'target_scope' => $target_scope,
                 'created_by_username' => '',
                 'aggregate_to_root' => $aggregate_to_root,
                 'allowed_remote_hosts' => array_values( array_unique( array_filter( $allowed_remote_hosts, static fn( string $host ) : bool => $host !== '' ) ) ),
@@ -522,6 +643,16 @@ class TinyMashWordPressImportService {
                 'attachment_count' => count( $attachments ),
                 'adjusted_source_duplicates' => $adjusted_source_duplicates,
                 'adjusted_source_conflicts' => $adjusted_source_conflicts,
+                'embeds' => $embed_report,
+                'media_shortcodes' => $media_shortcode_report,
+                'text_shortcodes' => $text_shortcode_report,
+                'unsupported_shortcodes' => $unsupported_shortcode_report,
+                'comments' => [
+                    'counts' => $comment_counts,
+                    'issues' => $comment_issues,
+                    'issues_truncated' => count( $comment_issues ) < $comment_counts['malformed'] + $comment_counts['orphaned'] + $comment_counts['duplicate_source'],
+                ],
+                'comments_by_entry_source_id' => $comments_by_entry_source_id,
                 'entries' => $entries,
                 'unpublished_entries' => $unpublished_entries,
                 'menus' => $menus,
@@ -531,7 +662,7 @@ class TinyMashWordPressImportService {
         );
     }
 
-    protected function parseWordPressItem( \SimpleXMLElement $item, string $author_slug, bool $aggregate_to_root, string $wp_namespace, string $content_namespace, string $excerpt_namespace ) : ?array {
+    protected function parseWordPressItem( \SimpleXMLElement $item, string $author_slug, bool $aggregate_to_root, string $wp_namespace, string $content_namespace, string $excerpt_namespace, string $target_scope = 'author' ) : ?array {
         $wp = $item->children( $wp_namespace );
         $content = $item->children( $content_namespace );
         $excerpt = $item->children( $excerpt_namespace );
@@ -543,8 +674,14 @@ class TinyMashWordPressImportService {
 
         $source_id = trim( (string) $wp->post_id );
         $title = $this->normalizeText( (string) $item->title );
-        $content_html = trim( (string) $content->encoded );
-        $excerpt_html = trim( (string) $excerpt->encoded );
+        $content_embed_conversion = $this->embed_service->convertImportedHtml( mb_trim( (string) $content->encoded ) );
+        $excerpt_embed_conversion = $this->embed_service->convertImportedHtml( mb_trim( (string) $excerpt->encoded ) );
+        $embed_conversion = $this->embed_service->mergeImportReport(
+            $this->embed_service->mergeImportReport( $this->embed_service->createImportReport(), $content_embed_conversion ),
+            $excerpt_embed_conversion
+        );
+        $content_html = (string) ( $content_embed_conversion['content'] ?? '' );
+        $excerpt_html = (string) ( $excerpt_embed_conversion['content'] ?? '' );
         $source_url = trim( (string) $item->link );
         $slug = $this->resolveSlug( (string) $wp->post_name, $title, $post_type, $source_id, $source_url );
         if ( $slug === '' ) {
@@ -562,8 +699,8 @@ class TinyMashWordPressImportService {
         return(
             [
                 'entry_type' => $post_type,
-                'scope' => 'author',
-                'author_slug' => $author_slug,
+                'scope' => $target_scope,
+                'author_slug' => $target_scope === 'root' ? '' : $author_slug,
                 'slug' => $slug,
                 'title' => $title !== '' ? $title : ucfirst( $post_type ) . ' ' . $slug,
                 'summary' => '',
@@ -584,12 +721,329 @@ class TinyMashWordPressImportService {
                 'source_url' => $source_url,
                 'source_id' => $source_id,
                 'thumbnail_attachment_id' => $thumbnail_attachment_id,
+                '_embed_conversion' => $embed_conversion,
             ]
         );
     }
 
+    protected function prepareWordPressMediaShortcodes( array &$entry, array $attachments, array $attachments_by_parent, array &$report ) : void {
+        $html = (string) ( $entry['content_html'] ?? '' );
+        $title = (string) ( $entry['title'] ?? '' );
+        $slug = (string) ( $entry['slug'] ?? '' );
+        $caption_count = preg_match_all( '/\[caption\b[^\]]*\]/i', $html );
+        $report['captions_found'] += $caption_count === false ? 0 : $caption_count;
+        $converted_before = (int) $report['captions_converted'];
+        $html = preg_replace_callback(
+            '/\[caption\b([^\]]*)\](.*?)\[\/caption\]/is',
+            function( array $match ) use ( &$report, $title, $slug ) : string {
+                $inner = (string) $match[2];
+                if ( preg_match_all( '/<img\b/i', $inner ) !== 1 || stripos( $inner, '[caption' ) !== false ) {
+                    return( $match[0] );
+                }
+
+                $attributes = $this->parseWordPressShortcodeAttributes( (string) $match[1] );
+                $visible_text = mb_trim( html_entity_decode( strip_tags( $inner ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+                $caption = $visible_text === '' ? mb_trim( (string) ( $attributes['caption'] ?? '' ) ) : '';
+                $caption_html = $caption !== '' ? '<p>' . htmlspecialchars( $caption, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</p>' : '';
+                $report['captions_converted']++;
+                $this->appendMediaShortcodeReportItem( $report, 'caption', 'convert', $title, $slug, 1 );
+                return( "\n\n" . mb_trim( $inner ) . $caption_html . "\n\n" );
+            },
+            $html
+        ) ?? $html;
+        $report['unsupported'] += max( 0, (int) $caption_count - ( (int) $report['captions_converted'] - $converted_before ) );
+
+        $gallery_count = preg_match_all( '/\[gallery\b([^\]]*)\]/i', $html, $gallery_matches, PREG_OFFSET_CAPTURE );
+        $report['galleries_found'] += $gallery_count === false ? 0 : $gallery_count;
+        if ( $gallery_count === 1 ) {
+            $shortcode = (string) $gallery_matches[0][0][0];
+            $offset = (int) $gallery_matches[0][0][1];
+            $attributes_raw = (string) $gallery_matches[1][0][0];
+            $attributes = $this->parseWordPressShortcodeAttributes( $attributes_raw );
+            $unparsed = preg_replace( "/([a-z_][a-z0-9_-]*)\\s*=\\s*(?:\"[^\"]*\"|'[^']*')/i", '', $attributes_raw ) ?? $attributes_raw;
+            $prefix = mb_trim( substr( $html, 0, $offset ) );
+            $suffix = mb_trim( substr( $html, $offset + strlen( $shortcode ) ) );
+            $position = $prefix === '' ? 'before_content' : ( $suffix === '' ? 'after_content' : '' );
+            $supported_attributes = array_diff( array_keys( $attributes ), [ 'ids', 'columns', 'link' ] ) === [];
+            $supported_link = ! isset( $attributes['link'] ) || in_array( strtolower( $attributes['link'] ), [ 'file', 'post', 'none' ], true );
+            $ids = [];
+            if ( isset( $attributes['ids'] ) ) {
+                $raw_ids = preg_replace( '/\s+/', '', $attributes['ids'] ) ?? '';
+                if ( preg_match( '/^[0-9]+(?:,[0-9]+)*$/', $raw_ids ) === 1 ) {
+                    $ids = explode( ',', $raw_ids );
+                }
+            } else {
+                $ids = $attachments_by_parent[(string) ( $entry['source_id'] ?? '' )] ?? [];
+                usort( $ids, static function( string $left, string $right ) use ( $attachments ) : int {
+                    $order = (int) ( $attachments[$left]['menu_order'] ?? 0 ) <=> (int) ( $attachments[$right]['menu_order'] ?? 0 );
+                    return( $order !== 0 ? $order : (int) $left <=> (int) $right );
+                } );
+            }
+
+            $ids = array_values( array_unique( $ids ) );
+            $valid_images = $ids !== [] && count( $ids ) <= 100;
+            foreach ( $ids as $id ) {
+                $attachment = $attachments[$id] ?? null;
+                $mime = is_array( $attachment ) ? (string) ( $attachment['mime'] ?? '' ) : '';
+                $extension = is_array( $attachment ) ? strtolower( pathinfo( (string) parse_url( (string) ( $attachment['url'] ?? '' ), PHP_URL_PATH ), PATHINFO_EXTENSION ) ) : '';
+                if ( ! is_array( $attachment ) || ( ! str_starts_with( $mime, 'image/' ) && ! in_array( $extension, [ 'jpg', 'jpeg', 'png', 'gif', 'webp', 'avif' ], true ) ) ) {
+                    $valid_images = false;
+                    break;
+                }
+            }
+            if ( $position !== '' && $supported_attributes && $supported_link && mb_trim( $unparsed ) === '' && $valid_images ) {
+                $entry['_gallery_import'] = [ 'shortcode' => $shortcode, 'position' => $position, 'attachment_ids' => $ids ];
+                $report['galleries_planned']++;
+                $this->appendMediaShortcodeReportItem( $report, 'gallery', 'plan', $title, $slug, count( $ids ) );
+            } else {
+                $report['unsupported']++;
+                $this->appendMediaShortcodeReportItem( $report, 'gallery', 'review', $title, $slug, count( $ids ) );
+            }
+        } elseif ( $gallery_count > 1 ) {
+            $report['unsupported'] += $gallery_count;
+            $this->appendMediaShortcodeReportItem( $report, 'gallery', 'review', $title, $slug, 0 );
+        }
+
+        $entry['content_html'] = $html;
+    }
+
+    protected function parseWordPressShortcodeAttributes( string $raw ) : array {
+        $attributes = [];
+        preg_match_all( "/([a-z_][a-z0-9_-]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')/i", $raw, $matches, PREG_SET_ORDER );
+        foreach ( $matches as $match ) {
+            $attributes[strtolower( (string) $match[1] )] = html_entity_decode( (string) ( $match[2] !== '' ? $match[2] : $match[3] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        }
+        return( $attributes );
+    }
+
+    protected function appendMediaShortcodeReportItem( array &$report, string $type, string $status, string $title, string $slug, int $images ) : void {
+        if ( count( $report['items'] ) >= 25 ) {
+            return;
+        }
+        $report['items'][] = [ 'type' => $type, 'status' => $status, 'title' => $title, 'slug' => $slug, 'images' => $images ];
+    }
+
+    protected function prepareWordPressTextShortcodes( array &$entry, array &$report ) : void {
+        $html = (string) ( $entry['content_html'] ?? '' );
+        if ( $html === '' ) {
+            return;
+        }
+
+        preg_match_all( '/\[(code|php|highlight|xs_wikipedia)\b[^\]]*\]/i', $html, $openings, PREG_SET_ORDER );
+        foreach ( $openings as $opening ) {
+            $kind = strtolower( (string) ( $opening[1] ?? '' ) );
+            $key = match ( $kind ) {
+                'highlight' => 'highlight_found',
+                'xs_wikipedia' => 'wikipedia_found',
+                default => 'code_found',
+            };
+            $report[$key]++;
+        }
+
+        $title = (string) ( $entry['title'] ?? '' );
+        $slug = (string) ( $entry['slug'] ?? '' );
+        $entry['content_html'] = preg_replace_callback(
+            '/\[(code|php|highlight|xs_wikipedia)\](.*?)\[\/\1\]|\[xs_wikipedia\s+word\s*=\s*(["\'])(.*?)\3\]/is',
+            function( array $match ) use ( &$report, $title, $slug ) : string {
+                $kind = ! empty( $match[3] ) ? 'xs_wikipedia' : strtolower( (string) $match[1] );
+                $inner = ! empty( $match[3] ) ? (string) $match[4] : (string) $match[2];
+                if ( in_array( $kind, [ 'highlight', 'xs_wikipedia' ], true ) && preg_match( '/<[^>]*>|\[(?:code|php|highlight|xs_wikipedia)\b/i', $inner ) === 1 ) {
+                    return( $match[0] );
+                }
+
+                if ( $kind === 'xs_wikipedia' ) {
+                    $word = mb_trim( html_entity_decode( $inner, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+                    if ( $word === '' ) {
+                        return( $match[0] );
+                    }
+                    $report['wikipedia_converted']++;
+                    $replacement = htmlspecialchars( $word, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+                } elseif ( $kind === 'highlight' ) {
+                    $report['highlight_converted']++;
+                    $replacement = '<strong>' . htmlspecialchars( html_entity_decode( $inner, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</strong>';
+                } else {
+                    $report['code_converted']++;
+                    $language = $kind === 'php' ? ' data-tm-wp-language="php"' : '';
+                    $replacement = "\n\n<pre" . $language . '>' . htmlspecialchars( html_entity_decode( trim( $inner, "\r\n" ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . "</pre>\n\n";
+                }
+                if ( count( $report['items'] ) < 25 ) {
+                    $report['items'][] = [ 'type' => $kind, 'title' => $title, 'slug' => $slug ];
+                }
+                return( $replacement );
+            },
+            $html
+        ) ?? $html;
+    }
+
+    protected function appendUnsupportedShortcodeReport( array $entry, array &$report ) : void {
+        $html = (string) ( $entry['content_html'] ?? '' );
+        if ( ! str_contains( $html, '[' ) ) {
+            return;
+        }
+
+        $gallery = is_array( $entry['_gallery_import'] ?? null ) ? $entry['_gallery_import'] : [];
+        if ( $gallery !== [] ) {
+            $html = str_replace( (string) ( $gallery['shortcode'] ?? '' ), '', $html );
+        }
+        $names = [];
+        foreach ( $this->shortcode_registry->scanShortcodeCandidates( $this->convertHtmlToMarkdown( $html ) ) as $candidate ) {
+            $name = (string) ( $candidate['name'] ?? '' );
+            if ( $name === '' || $name === 'embed' || ! empty( $candidate['supported'] ) ) {
+                continue;
+            }
+            $report['occurrences']++;
+            $names[$name] = (int) ( $names[$name] ?? 0 ) + 1;
+        }
+        if ( $names === [] ) {
+            return;
+        }
+
+        $report['affected_entries']++;
+        if ( count( $report['items'] ) >= 50 ) {
+            $report['items_truncated'] = true;
+        }
+        ksort( $names, SORT_STRING );
+        $report['items'][] = [
+            'title' => (string) ( $entry['title'] ?? '' ),
+            'slug' => (string) ( $entry['slug'] ?? '' ),
+            'entry_type' => (string) ( $entry['entry_type'] ?? '' ),
+            'status' => (string) ( $entry['status'] ?? '' ),
+            'names' => $names,
+        ];
+    }
+
     protected function mapWordPressStatus( string $status ) : string {
         return( strtolower( trim( $status ) ) === 'publish' ? 'published' : 'unpublished' );
+    }
+
+    protected function parseWordPressComments( \SimpleXMLElement $item, string $wp_namespace ) : array {
+        $wp = $item->children( $wp_namespace );
+        $records = [];
+        $counts = [ 'total' => 0, 'unsupported' => 0 ];
+        foreach ( $wp->comment as $comment ) {
+            $counts['total']++;
+            $comment_type = strtolower( trim( (string) $comment->comment_type ) );
+            if ( $comment_type !== '' && $comment_type !== 'comment' ) {
+                $counts['unsupported']++;
+                continue;
+            }
+
+            $status = match( strtolower( trim( (string) $comment->comment_approved ) ) ) {
+                '1', 'approve', 'approved' => 'approved',
+                '0', 'hold', 'pending', 'unapproved' => 'pending',
+                'spam' => 'spam',
+                'trash', 'post-trashed' => 'trash',
+                default => '',
+            };
+            if ( $status === '' ) {
+                $counts['unsupported']++;
+                continue;
+            }
+
+            $parent_source_id = trim( (string) $comment->comment_parent );
+            if ( $parent_source_id === '0' ) {
+                $parent_source_id = '';
+            }
+            $records[] = [
+                'source_id' => trim( (string) $comment->comment_id ),
+                'parent_source_id' => $parent_source_id,
+                'author_name' => (string) $comment->comment_author,
+                'email' => (string) $comment->comment_author_email,
+                'body' => (string) $comment->comment_content,
+                'body_format' => 'html',
+                'status' => $status,
+                'created_at_utc' => $this->normalizeTimestamp( (string) $comment->comment_date_gmt ),
+            ];
+        }
+
+        return( [ 'records' => $records, 'counts' => $counts ] );
+    }
+
+    protected function getDefaultCommentImportCounts() : array {
+        return(
+            [
+                'total' => 0,
+                'importable' => 0,
+                'approved' => 0,
+                'pending' => 0,
+                'spam' => 0,
+                'trash' => 0,
+                'malformed' => 0,
+                'orphaned' => 0,
+                'orphaned_entry' => 0,
+                'duplicate_source' => 0,
+                'unsupported' => 0,
+                'truncated' => 0,
+                'emails_retained' => 0,
+                'emails_discarded' => 0,
+            ]
+        );
+    }
+
+    protected function prepareReplacementCommentEntries( array &$state, string $entry_type ) : array {
+        $state_key = 'replacement_' . $entry_type . '_comment_entry_ids';
+        if ( ! array_key_exists( $state_key, $state ) ) {
+            $entry_ids = [];
+            if ( $this->comments_service instanceof TinyMashCommentsService ) {
+                $author_slug = (string) ( $state['author_slug'] ?? '' );
+                $target_scope = (string) ( $state['target_scope'] ?? 'author' );
+                foreach ( $this->content_repository->getEntriesForAudit( null, $target_scope === 'root' ? null : $author_slug, $target_scope === 'root', false ) as $entry ) {
+                    if (
+                        (string) ( $entry['scope'] ?? '' ) === $target_scope
+                        && ( $target_scope === 'root' || (string) ( $entry['author_slug'] ?? '' ) === $author_slug )
+                        && (string) ( $entry['type'] ?? '' ) === $entry_type
+                    ) {
+                        $entry_ids[] = (string) ( $entry['id'] ?? '' );
+                    }
+                }
+            }
+            $state[$state_key] = $entry_ids;
+            $this->writeJsonFile( $this->getImportStateFilename( (string) $state['token'] ), $state );
+        }
+
+        $entry_ids = $state[$state_key];
+        if ( ! is_array( $entry_ids ) ) {
+            throw new \RuntimeException( 'WordPress replacement comment state is invalid.' );
+        }
+        if ( $this->comments_service instanceof TinyMashCommentsService ) {
+            $scope = $this->getCommentScope( $state );
+            foreach ( $entry_ids as $entry_id ) {
+                if ( ! is_string( $entry_id ) ) {
+                    throw new \RuntimeException( 'WordPress replacement comment state is invalid.' );
+                }
+                $this->comments_service->assertEntryCommentsCanBeReplaced( $entry_id, $scope );
+            }
+        }
+        return( $entry_ids );
+    }
+
+    protected function getCommentScope( array $state ) : string {
+        return( (string) ( $state['target_scope'] ?? 'author' ) === 'root' ? 'root' : 'author:' . (string) ( $state['author_slug'] ?? '' ) );
+    }
+
+    protected function mergeCommentImportCounts( array &$counts, array $addition ) : void {
+        foreach ( array_keys( $this->getDefaultCommentImportCounts() ) as $key ) {
+            if ( $key === 'total' || $key === 'unsupported' || $key === 'orphaned_entry' ) {
+                continue;
+            }
+            $counts[$key] = (int) ( $counts[$key] ?? 0 ) + (int) ( $addition[$key] ?? 0 );
+        }
+    }
+
+    protected function mergeImportedCommentResultCounts( array &$counts, array $addition ) : void {
+        $mapping = [
+            'comments_imported' => 'imported',
+            'comments_approved' => 'imported_approved',
+            'comments_pending' => 'imported_pending',
+            'comments_spam' => 'imported_spam',
+            'comments_trash' => 'imported_trash',
+            'comments_skipped_duplicate' => 'skipped_duplicate',
+            'comments_skipped_limit' => 'skipped_limit',
+            'comments_skipped_relationship' => 'skipped_relationship',
+        ];
+        foreach ( $mapping as $target => $source ) {
+            $counts[$target] = (int) ( $counts[$target] ?? 0 ) + (int) ( $addition[$source] ?? 0 );
+        }
     }
 
     protected function parseWordPressMenus( \SimpleXMLElement $channel, string $wp_namespace, array $entries_by_source_id, string $author_slug ) : array {
@@ -703,7 +1157,7 @@ class TinyMashWordPressImportService {
                 if ( $entry_slug !== '' && in_array( $entry_type, [ 'post', 'page' ], true ) ) {
                     $resolved = [
                         'type' => 'url',
-                        'url' => $this->buildImportedEntryUrl( $author_slug, $entry_slug ),
+                        'url' => $this->buildImportedEntryUrl( (string) ( $linked_entry['scope'] ?? 'author' ), $author_slug, $entry_slug ),
                         'label' => $title !== '' ? $title : (string) ( $linked_entry['title'] ?? $entry_slug ),
                         'new_tab' => strtolower( $target ) === '_blank',
                     ];
@@ -826,10 +1280,11 @@ class TinyMashWordPressImportService {
         return( $meta );
     }
 
-    protected function buildImportedEntryUrl( string $author_slug, string $entry_slug ) : string {
+    protected function buildImportedEntryUrl( string $target_scope, string $author_slug, string $entry_slug ) : string {
         $author_slug = $this->normalizeAuthorSlug( $author_slug );
         $entry_slug = trim( preg_replace( '@/+@', '/', $entry_slug ) ?? '', '/' );
-        return( '/' . rawurlencode( $author_slug ) . '/' . str_replace( '%2F', '/', rawurlencode( $entry_slug ) ) );
+        $path = str_replace( '%2F', '/', rawurlencode( $entry_slug ) );
+        return( $target_scope === 'root' ? '/' . $path : '/' . rawurlencode( $author_slug ) . '/' . $path );
     }
 
     protected function applyImportedMenus( array $preview, string $author_slug ) : void {
@@ -949,6 +1404,47 @@ class TinyMashWordPressImportService {
             $content_html = $this->localizeWordPressHtml( $content_html, $author_slug, $attachments, $allowed_hosts, $attached_media_ids, $first_media, $unresolved_media );
         }
 
+        $gallery_import = is_array( $entry['_gallery_import'] ?? null ) ? $entry['_gallery_import'] : [];
+        if ( $this->media_import_bridge instanceof TinyMashMediaImportBridge && $gallery_import !== [] ) {
+            $gallery_media_ids = [];
+            $gallery_inline_html = [];
+            $gallery_has_missing_media = false;
+            foreach ( (array) ( $gallery_import['attachment_ids'] ?? [] ) as $attachment_id ) {
+                $media = $this->importAttachmentById( (string) $attachment_id, $author_slug, $attachments, $allowed_hosts );
+                $media_id = is_array( $media ) ? trim( (string) ( $media['media_id'] ?? '' ) ) : '';
+                $attachment = is_array( $attachments[(string) $attachment_id] ?? null ) ? $attachments[(string) $attachment_id] : [];
+                $label = mb_trim( (string) ( $attachment['title'] ?? '' ) );
+                if ( $media_id !== '' && ! empty( $media['url'] ) ) {
+                    $gallery_media_ids[$media_id] = $media_id;
+                    $attached_media_ids[$media_id] = $media_id;
+                    $gallery_inline_html[] = '<p><img src="' . htmlspecialchars( (string) ( $media['url'] ?? '' ), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '" alt="' . htmlspecialchars( $label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '"></p>';
+                    continue;
+                }
+                $gallery_has_missing_media = true;
+                $source_url = (string) ( $attachment['url'] ?? '' );
+                if ( $source_url !== '' ) {
+                    $unresolved_media = $this->appendUnresolvedMediaRecord( $unresolved_media, [ 'url' => $source_url ] );
+                }
+                $source_url = $this->resolveWordPressSourceUrl( $source_url, $allowed_hosts );
+                if ( $this->isAllowedDirectWordPressUploadUrl( $source_url, $allowed_hosts ) ) {
+                    $fallback = $this->media_import_bridge->buildMissingImportedMediaFallback( $source_url, $label );
+                    $gallery_inline_html[] = '<p><a href="' . htmlspecialchars( $source_url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '"><img src="' . htmlspecialchars( (string) $fallback['placeholder_url'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '" alt="' . htmlspecialchars( (string) $fallback['alt_text'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '" title="' . htmlspecialchars( (string) $fallback['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '"></a></p>';
+                } else {
+                    $gallery_inline_html[] = '<p>Missing gallery image.</p>';
+                }
+            }
+            if ( $gallery_has_missing_media ) {
+                $content_html = str_replace( (string) ( $gallery_import['shortcode'] ?? '' ), implode( "\n", $gallery_inline_html ), $content_html );
+            } elseif ( $gallery_media_ids !== [] ) {
+                $content_html = str_replace( (string) ( $gallery_import['shortcode'] ?? '' ), '', $content_html );
+                $entry['plugin_settings']['photos'] = [
+                    'gallery_enabled' => '1',
+                    'gallery_media_ids' => implode( "\n", $gallery_media_ids ),
+                    'gallery_position' => (string) ( $gallery_import['position'] ?? 'after_content' ),
+                ];
+            }
+        }
+
         $content_markdown = $this->convertHtmlToMarkdown( $content_html );
         $summary_markdown = $this->convertHtmlToMarkdown( $excerpt_html );
         $entry['content'] = $content_markdown;
@@ -978,7 +1474,7 @@ class TinyMashWordPressImportService {
             }
         }
 
-        unset( $entry['content_html'], $entry['excerpt_html'], $entry['thumbnail_attachment_id'] );
+        unset( $entry['content_html'], $entry['excerpt_html'], $entry['thumbnail_attachment_id'], $entry['_gallery_import'] );
         return( $entry );
     }
 
@@ -1039,7 +1535,7 @@ class TinyMashWordPressImportService {
             }
 
             $image->setAttribute( 'src', (string) ( $resolved_media['url'] ?? $source_url ) );
-            if ( trim( (string) $image->getAttribute( 'alt' ) ) === '' && ! empty( $resolved_media['alt_text'] ) ) {
+            if ( mb_trim( (string) $image->getAttribute( 'alt' ) ) === '' && ! empty( $resolved_media['alt_text'] ) ) {
                 $image->setAttribute( 'alt', (string) $resolved_media['alt_text'] );
             }
 
@@ -1058,7 +1554,7 @@ class TinyMashWordPressImportService {
             $rewritten_html .= $document->saveHTML( $child_node );
         }
 
-        return( trim( $rewritten_html ) );
+        return( mb_trim( $rewritten_html ) );
     }
 
     protected function applyMissingImportedMediaFallback( \DOMDocument $document, \DOMElement $image, string $source_url ) : void {
@@ -1072,8 +1568,8 @@ class TinyMashWordPressImportService {
         );
         $placeholder_url = trim( (string) ( $fallback['placeholder_url'] ?? '' ) );
         $fallback_source_url = trim( (string) ( $fallback['source_url'] ?? $source_url ) );
-        $fallback_alt_text = trim( (string) ( $fallback['alt_text'] ?? '' ) );
-        $fallback_title = trim( (string) ( $fallback['title'] ?? '' ) );
+        $fallback_alt_text = mb_trim( (string) ( $fallback['alt_text'] ?? '' ) );
+        $fallback_title = mb_trim( (string) ( $fallback['title'] ?? '' ) );
         if ( $placeholder_url === '' || $fallback_source_url === '' ) {
             return;
         }
@@ -1342,7 +1838,7 @@ class TinyMashWordPressImportService {
     }
 
     protected function convertHtmlToMarkdown( string $html ) : string {
-        $html = trim( $html );
+        $html = mb_trim( $html );
         if ( $html === '' ) {
             return( '' );
         }
@@ -1368,7 +1864,7 @@ class TinyMashWordPressImportService {
         $markdown = preg_replace( "/^[ \t]*``[ \t]*\n(?=^[ \t]*```[^\n]*$)/m", '', $markdown ) ?? $markdown;
         $markdown = preg_replace( '/^[ \t]+$/m', '', $markdown ) ?? $markdown;
         $markdown = preg_replace( "/\n{3,}/", "\n\n", $markdown ) ?? $markdown;
-        return( function_exists( 'mb_trim' ) ? mb_trim( $markdown ) : trim( $markdown ) );
+        return( mb_trim( $markdown ) );
     }
 
     protected function renderChildNodesToMarkdown( \DOMNode $node, int $list_depth = 0 ) : string {
@@ -1403,7 +1899,7 @@ class TinyMashWordPressImportService {
         for ( $index = $start_index, $max = count( $children ); $index < $max; $index++ ) {
             $child_node = $children[$index];
             if ( $child_node instanceof \DOMText ) {
-                if ( trim( html_entity_decode( $child_node->wholeText, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) === '' ) {
+                if ( mb_trim( html_entity_decode( $child_node->wholeText, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) === '' ) {
                     $last_index = $index;
                     continue;
                 }
@@ -1462,8 +1958,8 @@ class TinyMashWordPressImportService {
             'br' => "\n",
             'strong', 'b' => '**' . $this->trimMarkdownText( $content ) . '**',
             'em', 'i' => '*' . $this->trimMarkdownText( $content ) . '*',
-            'code' => '`' . trim( $node->textContent ) . '`',
-            'pre' => "```\n" . rtrim( $node->textContent ) . "\n```\n\n",
+            'code' => $this->renderCodeToMarkdown( $node ),
+            'pre' => $this->renderPreToMarkdown( $node ),
             'blockquote' => $this->renderBlockquoteToMarkdown( $content ),
             'a' => $this->renderLinkToMarkdown( $node, $content ),
             'img' => $this->renderImageToMarkdown( $node, $this->isStandaloneImageNode( $node ) ),
@@ -1481,10 +1977,70 @@ class TinyMashWordPressImportService {
         };
     }
 
+    protected function renderPreToMarkdown( \DOMElement $node ) : string {
+        $content = rtrim( $node->textContent, "\r\n" );
+        $language = $node->getAttribute( 'data-tm-wp-language' ) === 'php' ? 'php' : '';
+        return( $this->renderFencedCodeToMarkdown( $content, $language ) );
+    }
+
+    protected function renderCodeToMarkdown( \DOMElement $node ) : string {
+        $content = '';
+        $markdown = '';
+        foreach ( $node->childNodes as $child_node ) {
+            if ( $child_node instanceof \DOMElement && strtolower( $child_node->tagName ) === 'img' ) {
+                if ( mb_trim( $content ) !== '' ) {
+                    $markdown .= $this->renderCodeTextToMarkdown( $content ) . "\n\n";
+                    $content = '';
+                }
+                $markdown .= $this->renderImageToMarkdown( $child_node, true );
+                continue;
+            }
+            $content .= $this->extractCodeText( $child_node );
+        }
+
+        return( $markdown . ( mb_trim( $content ) !== '' ? $this->renderCodeTextToMarkdown( $content ) : '' ) );
+    }
+
+    protected function renderCodeTextToMarkdown( string $content ) : string {
+        $content = mb_trim( $content );
+        if ( str_contains( $content, "\n" ) ) {
+            return( "\n\n" . $this->renderFencedCodeToMarkdown( $content ) );
+        }
+
+        return( '`' . $content . '`' );
+    }
+
+    protected function extractCodeText( \DOMNode $node ) : string {
+        if ( $node instanceof \DOMText ) {
+            return( $node->wholeText );
+        }
+        if ( $node instanceof \DOMElement && strtolower( $node->tagName ) === 'br' ) {
+            return( "\n" );
+        }
+
+        $content = '';
+        foreach ( $node->childNodes as $child_node ) {
+            $content .= $this->extractCodeText( $child_node );
+        }
+        return( $content );
+    }
+
+    protected function renderFencedCodeToMarkdown( string $content, string $language = '' ) : string {
+        $content = str_replace( [ "\r\n", "\r" ], "\n", $content );
+        $fence_length = 3;
+        if ( preg_match_all( '/`+/', $content, $runs ) !== false ) {
+            foreach ( $runs[0] as $run ) {
+                $fence_length = max( $fence_length, strlen( $run ) + 1 );
+            }
+        }
+        $fence = str_repeat( '`', $fence_length );
+        return( $fence . $language . "\n" . $content . "\n" . $fence . "\n\n" );
+    }
+
     protected function renderLinkToMarkdown( \DOMElement $node, string $content ) : string {
         $href = trim( (string) $node->getAttribute( 'href' ) );
         $label = $this->trimMarkdownText( $content );
-        $title = trim( html_entity_decode( (string) $node->getAttribute( 'title' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+        $title = mb_trim( html_entity_decode( (string) $node->getAttribute( 'title' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
         if ( $href === '' ) {
             return( $label );
         }
@@ -1498,6 +2054,13 @@ class TinyMashWordPressImportService {
             ) {
                 return( $this->renderImageToMarkdown( $first_child, $this->isStandaloneImageNode( $node ) ) );
             }
+            if (
+                $first_child instanceof \DOMElement
+                && strtolower( $first_child->tagName ) === 'img'
+                && $this->wordPressImageAlignment( $first_child ) !== ''
+            ) {
+                return( $this->renderImageToMarkdown( $first_child, $this->isStandaloneImageNode( $node ), $href ) );
+            }
         }
 
         if ( $label === '' ) {
@@ -1507,20 +2070,50 @@ class TinyMashWordPressImportService {
         return( '[' . $label . '](' . $href . $this->renderMarkdownTitleSuffix( $title ) . ')' );
     }
 
-    protected function renderImageToMarkdown( \DOMElement $node, bool $standalone = false ) : string {
+    protected function renderImageToMarkdown( \DOMElement $node, bool $standalone = false, string $href = '' ) : string {
         $src = trim( (string) $node->getAttribute( 'src' ) );
         if ( $src === '' ) {
             return( '' );
         }
 
         $alt = $this->trimMarkdownText( html_entity_decode( (string) $node->getAttribute( 'alt' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
-        $title = trim( html_entity_decode( (string) $node->getAttribute( 'title' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+        $title = mb_trim( html_entity_decode( (string) $node->getAttribute( 'title' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+        $alignment = $this->wordPressImageAlignment( $node );
+        if ( $alignment !== '' ) {
+            $escape = static fn( string $value ) : string => htmlspecialchars( $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+            $image = '<img src="' . $escape( $src ) . '" alt="' . $escape( $alt ) . '"';
+            if ( $title !== '' ) {
+                $image .= ' title="' . $escape( $title ) . '"';
+            }
+            foreach ( [ 'width', 'height' ] as $dimension ) {
+                $value = (string) $node->getAttribute( $dimension );
+                if ( preg_match( '/^[1-9][0-9]{0,4}$/', $value ) === 1 ) {
+                    $image .= ' ' . $dimension . '="' . $value . '"';
+                }
+            }
+            $image .= '>';
+            if ( $href !== '' ) {
+                $image = '<a href="' . $escape( $href ) . '">' . $image . '</a>';
+            }
+            $modifier = $alignment === 'center' ? 'tm-content-image-block' : 'tm-content-image-flow-' . $alignment;
+            $markup = '<span class="tm-content-image tm-content-image-' . $alignment . ' ' . $modifier . '">' . $image . '</span>';
+            return( $standalone ? ( $markup . "\n\n" ) : $markup );
+        }
+
         $markdown = '![' . str_replace( [ '[', ']' ], [ '\[', '\]' ], $alt ) . '](' . $src . $this->renderMarkdownTitleSuffix( $title ) . ')';
         return( $standalone ? ( $markdown . "\n\n" ) : $markdown );
     }
 
+    protected function wordPressImageAlignment( \DOMElement $node ) : string {
+        $class_names = strtolower( (string) $node->getAttribute( 'class' ) );
+        if ( preg_match( '/(?:^|\s)align(left|right|center)(?:\s|$)/', $class_names, $match ) !== 1 ) {
+            return( '' );
+        }
+        return( (string) $match[1] );
+    }
+
     protected function renderMarkdownTitleSuffix( string $title ) : string {
-        $title = trim( $title );
+        $title = mb_trim( $title );
         if ( $title === '' ) {
             return( '' );
         }
@@ -1593,7 +2186,7 @@ class TinyMashWordPressImportService {
         $value = str_replace( "\u{00A0}", ' ', $value );
         $value = preg_replace( "/[ \t]+\n/u", "\n", $value ) ?? $value;
         $value = preg_replace( "/\n{3,}/", "\n\n", $value ) ?? $value;
-        return( function_exists( 'mb_trim' ) ? mb_trim( $value ) : trim( $value ) );
+        return( mb_trim( $value ) );
     }
 
     protected function isStandaloneImageNode( \DOMNode $node ) : bool {
@@ -1629,16 +2222,18 @@ class TinyMashWordPressImportService {
     protected function stripMarkupForSummary( string $content ) : string {
         $content = html_entity_decode( $content, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
         $content = preg_replace( '/```.*?```/su', ' ', $content ) ?? $content;
-        $content = preg_replace( '/`[^`]*`/u', ' ', $content ) ?? $content;
+        $content = preg_replace( '/`([^`]*)`/u', '$1', $content ) ?? $content;
+        $content = preg_replace( '/\[Open embedded content\]\([^)]+\)/iu', ' ', $content ) ?? $content;
         $content = preg_replace( '/\[\!\[[^\]]*\]\([^)]+\)\]\([^)]+\)/u', ' ', $content ) ?? $content;
         $content = preg_replace( '/!\[[^\]]*\]\([^)]+\)/u', ' ', $content ) ?? $content;
         $content = preg_replace( '/\[[a-z][^\]]*\](?:\[\/[a-z][^\]]*\])?/iu', ' ', $content ) ?? $content;
         $content = preg_replace( '/\[([^\]]+)\]\([^)]+\)/u', '$1', $content ) ?? $content;
         $content = preg_replace( '/\(?https?:\/\/[^\s)]+\)?/iu', ' ', $content ) ?? $content;
         $content = preg_replace( '/^\s{0,3}#{1,6}\s+/mu', '', $content ) ?? $content;
-        $content = preg_replace( '/[*_~#>]+/u', ' ', $content ) ?? $content;
         $content = strip_tags( $content );
-        return( $this->normalizeText( $content ) );
+        $content = preg_replace( '/[*_~#>]+/u', ' ', $content ) ?? $content;
+        $content = $this->normalizeText( $content );
+        return( preg_replace( '/\s+([,;:!?])/u', '$1', $content ) ?? $content );
     }
 
     protected function resolveAttachmentVariants( \SimpleXMLElement $wp, string $attachment_url, string $attachment_id, string $attachment_title = '' ) : array {
@@ -1706,13 +2301,13 @@ class TinyMashWordPressImportService {
     protected function normalizeText( string $text ) : string {
         $text = str_replace( "\xc2\xa0", ' ', $text );
         $text = str_replace( "\u{00A0}", ' ', $text );
-        $text = function_exists( 'mb_trim' ) ? mb_trim( $text ) : trim( $text );
+        $text = mb_trim( $text );
         if ( $text === '' ) {
             return( '' );
         }
 
         $text = preg_replace( '/\s+/u', ' ', $text ) ?? $text;
-        return( function_exists( 'mb_trim' ) ? mb_trim( $text ) : trim( $text ) );
+        return( mb_trim( $text ) );
     }
 
     protected function renderParagraphToMarkdown( string $content ) : string {
@@ -1852,6 +2447,14 @@ class TinyMashWordPressImportService {
                     'unresolved_media' => max( 0, (int) ( $state['counts']['unresolved_media'] ?? 0 ) ),
                     'deleted_existing_posts' => max( 0, (int) ( $state['counts']['deleted_existing_posts'] ?? 0 ) ),
                     'deleted_existing_pages' => max( 0, (int) ( $state['counts']['deleted_existing_pages'] ?? 0 ) ),
+                    'comments_imported' => max( 0, (int) ( $state['counts']['comments_imported'] ?? 0 ) ),
+                    'comments_approved' => max( 0, (int) ( $state['counts']['comments_approved'] ?? 0 ) ),
+                    'comments_pending' => max( 0, (int) ( $state['counts']['comments_pending'] ?? 0 ) ),
+                    'comments_spam' => max( 0, (int) ( $state['counts']['comments_spam'] ?? 0 ) ),
+                    'comments_trash' => max( 0, (int) ( $state['counts']['comments_trash'] ?? 0 ) ),
+                    'comments_skipped_duplicate' => max( 0, (int) ( $state['counts']['comments_skipped_duplicate'] ?? 0 ) ),
+                    'comments_skipped_limit' => max( 0, (int) ( $state['counts']['comments_skipped_limit'] ?? 0 ) ),
+                    'comments_skipped_relationship' => max( 0, (int) ( $state['counts']['comments_skipped_relationship'] ?? 0 ) ),
                     'total' => $total_entries,
                 ],
                 'batch' => [

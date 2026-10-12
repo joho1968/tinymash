@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashMediaService.php';
+
 class TinyMashEditorMediaPickerService {
 
     protected mixed $media_service;
@@ -38,8 +40,10 @@ class TinyMashEditorMediaPickerService {
 
         $owner_username = strtolower( trim( (string) ( $metadata['owner_username'] ?? '' ) ) );
         $filename = basename( trim( (string) ( $metadata['filename'] ?? ( $metadata['original_filename'] ?? '' ) ) ) );
+        $original_filename = basename( trim( (string) ( $metadata['original_filename'] ?? '' ) ) );
+        $display_filename = $original_filename !== '' ? $original_filename : $filename;
         $alt_text = mb_trim( (string) ( $metadata['alt_text'] ?? '' ) );
-        $label = $alt_text !== '' ? $alt_text : ( $filename !== '' ? $filename : $media_id );
+        $label = $alt_text !== '' ? $alt_text : ( $display_filename !== '' ? $display_filename : $media_id );
         $label_details = [];
         if ( $this->is_superadmin && $owner_username !== '' ) {
             $label_details[] = $owner_username;
@@ -58,6 +62,10 @@ class TinyMashEditorMediaPickerService {
                 'media_id' => $media_id,
                 'owner_username' => $owner_username,
                 'filename' => $filename,
+                'original_filename' => $original_filename,
+                'display_filename' => $display_filename,
+                'created_at_utc' => (string) ( $metadata['created_at_utc'] ?? '' ),
+                'capture_date_local' => TinyMashMediaService::retainedCaptureDate( $metadata ),
                 'url' => $url,
                 'thumbnail_url' => trim( (string) ( $metadata['thumbnail']['url'] ?? '' ) ),
                 'alt_text' => $alt_text,
@@ -75,20 +83,31 @@ class TinyMashEditorMediaPickerService {
     public function listSourceRecords( string $source, array $context = [], array $current_records = [] ) : array {
         $source = strtolower( trim( $source ) );
         $context = $this->normalizeContext( $context );
-        $owner_usernames = $this->getOwnerUsernamesForEditorScope(
-            (string) ( $context['scope'] ?? 'root' ),
-            (string) ( $context['author_slug'] ?? '' )
-        );
+        $owner_usernames = $this->getOwnerUsernamesForEditorScope( $context['scope'], $context['author_slug'] );
+        if ( $context['picker_scope'] === 'root_media' ) {
+            if (
+                ! $this->is_superadmin
+                || $context['scope'] !== 'author'
+                || ! in_array( $context['picker_target'], [ 'inline', 'gallery' ], true )
+                || $context['media_type'] !== 'image'
+            ) {
+                throw new \InvalidArgumentException( 'picker_scope' );
+            }
+            $owner_usernames = [ 'root' ];
+        }
         $records = [];
 
         if ( $source === 'attached' ) {
+            if ( $context['picker_scope'] === 'root_media' ) {
+                return( [] );
+            }
             foreach ( $this->listAttachedRecords( $owner_usernames, $context ) as $record ) {
                 if ( $this->recordMatchesContext( $record, $context ) ) {
                     $records = $this->appendRecord( $records, $record );
                 }
             }
         } elseif ( $source === 'recent' ) {
-            foreach ( $this->listRecentRecords( $owner_usernames, 30 ) as $record ) {
+            foreach ( $this->listRecentRecords( $owner_usernames, 100 ) as $record ) {
                 if ( $this->recordMatchesContext( $record, $context ) ) {
                     $records = $this->appendRecord( $records, $record );
                 }
@@ -106,7 +125,10 @@ class TinyMashEditorMediaPickerService {
                 continue;
             }
             $built_record = $this->buildRecord( $record );
-            if ( $this->recordMatchesContext( $built_record, $context ) ) {
+            if (
+                in_array( (string) ( $built_record['owner_username'] ?? '' ), $owner_usernames, true )
+                && $this->recordMatchesContext( $built_record, $context )
+            ) {
                 $records = $this->appendRecord( $records, $built_record );
             }
         }
@@ -130,6 +152,11 @@ class TinyMashEditorMediaPickerService {
     }
 
     protected function normalizeContext( array $context ) : array {
+        $picker_scope = strtolower( trim( (string) ( $context['picker_scope'] ?? 'current' ) ) );
+        if ( ! in_array( $picker_scope, [ 'current', 'root_media' ], true ) ) {
+            throw new \InvalidArgumentException( 'picker_scope' );
+        }
+
         return(
             [
                 'scope' => strtolower( trim( (string) ( $context['scope'] ?? 'root' ) ) ) === 'author' ? 'author' : 'root',
@@ -138,6 +165,8 @@ class TinyMashEditorMediaPickerService {
                 'loaded_draft_id' => trim( (string) ( $context['loaded_draft_id'] ?? '' ) ),
                 'attachment_session_id' => trim( (string) ( $context['attachment_session_id'] ?? '' ) ),
                 'media_type' => strtolower( trim( (string) ( $context['media_type'] ?? 'any' ) ) ) === 'image' ? 'image' : 'any',
+                'picker_scope' => $picker_scope,
+                'picker_target' => strtolower( trim( (string) ( $context['picker_target'] ?? '' ) ) ),
             ]
         );
     }

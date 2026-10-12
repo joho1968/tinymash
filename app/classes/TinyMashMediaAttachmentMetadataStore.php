@@ -515,7 +515,7 @@ class TinyMashMediaAttachmentMetadataStore {
             'path' => trim( (string) ( $metadata['path'] ?? '' ) ),
             'url' => trim( (string) ( $metadata['url'] ?? '' ) ),
             'original_filename' => trim( (string) ( $metadata['original_filename'] ?? '' ) ),
-            'alt_text' => trim( (string) ( $metadata['alt_text'] ?? '' ) ),
+            'alt_text' => mb_trim( (string) ( $metadata['alt_text'] ?? '' ) ),
             'markdown' => trim( (string) ( $metadata['markdown'] ?? '' ) ),
             'mime' => trim( (string) ( $metadata['mime'] ?? '' ) ),
             'width' => max( 0, (int) ( $metadata['width'] ?? 0 ) ),
@@ -525,6 +525,8 @@ class TinyMashMediaAttachmentMetadataStore {
             'driver' => trim( (string) ( $metadata['driver'] ?? '' ) ),
             'derivative_key' => trim( (string) ( $metadata['derivative_key'] ?? 'stored_primary' ) ),
             'resized_on_ingest' => ! empty( $metadata['resized_on_ingest'] ),
+            'source_exif_orientation' => min( 8, max( 1, (int) ( $metadata['source_exif_orientation'] ?? 1 ) ) ),
+            'orientation_normalized' => ! empty( $metadata['orientation_normalized'] ),
             'source' => trim( (string) ( $metadata['source'] ?? 'upload' ) ),
             'importer_key' => trim( (string) ( $metadata['importer_key'] ?? '' ) ),
             'source_key' => trim( (string) ( $metadata['source_key'] ?? '' ) ),
@@ -604,7 +606,7 @@ class TinyMashMediaAttachmentMetadataStore {
 
             $group_key = $this->normalizeMetadataGroupKey( (string) ( $row['group_key'] ?? '' ) );
             $group = trim( (string) ( $row['group'] ?? '' ) );
-            $label = trim( (string) ( $row['label'] ?? '' ) );
+            $label = mb_trim( (string) ( $row['label'] ?? '' ) );
             $value = trim( (string) ( $row['value'] ?? '' ) );
             if ( $label === '' || $value === '' ) {
                 continue;

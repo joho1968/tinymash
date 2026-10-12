@@ -715,7 +715,8 @@ a.nav-link:hover {
 }
 
 .tm-docsmatter-panel h2 > a,
-.tm-docsmatter-panel h3 > a {
+.tm-docsmatter-panel h3 > a,
+.tm-docsmatter-section-card h2 > a {
     color: var(--tm-docsmatter-title-link);
 }
 

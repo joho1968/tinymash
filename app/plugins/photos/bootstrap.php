@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/TinyMashPhotosService.php';
+require_once __DIR__ . '/TinyMashPhotosInlineConversion.php';
 
 use app\classes\TinyMashMediaService;
 use app\classes\TinyMashMarkdownRenderer;
@@ -20,6 +21,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $markdown_renderer instanceof TinyMashMarkdownRenderer ? $markdown_renderer : null
     );
     \Flight::app()->set( 'plugin.photos.service', $photos_service );
+    \Flight::app()->set( 'plugin.photos.inline_conversion', new TinyMashPhotosInlineConversion( $media_service ) );
 
     $plugins->registerPublicAsset( $plugin_key, 'css', '/plugins/photos/photos.css' );
     $plugins->registerPublicAsset( $plugin_key, 'js', '/plugins/photos/photos.js' );
@@ -46,7 +48,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Limits',
-                    'markdown' => 'Photos renders a gallery grid and local lightbox from selected tinymash media IDs. Ordinary inline-image lightboxes, virtual galleries, importer integration, and maps are not supported.',
+                    'markdown' => 'Galleries use selected tinymash media IDs with a local lightbox. Inline-image lightboxes, virtual galleries, importer integration, and maps are unsupported.',
                 ],
             ],
         ]

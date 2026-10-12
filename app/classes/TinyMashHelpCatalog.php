@@ -105,7 +105,7 @@ class TinyMashHelpCatalog {
             return( false );
         }
 
-        $title = trim( (string) ( $document['title'] ?? '' ) );
+        $title = mb_trim( (string) ( $document['title'] ?? '' ) );
         if ( $title === '' ) {
             return( false );
         }
@@ -114,7 +114,7 @@ class TinyMashHelpCatalog {
             'context' => $context,
             'locale' => 'runtime',
             'title' => $title,
-            'summary' => trim( (string) ( $document['summary'] ?? '' ) ),
+            'summary' => mb_trim( (string) ( $document['summary'] ?? '' ) ),
             'sections' => $this->normalizeSections( $document['sections'] ?? [] ),
             'documentation_url' => $this->normalizeDocumentationUrl( (string) ( $document['documentation_url'] ?? '' ) ),
             'documentation_label' => $this->normalizeDocumentationLabel( (string) ( $document['documentation_label'] ?? '' ), $title ),

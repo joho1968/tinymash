@@ -2,7 +2,7 @@
 namespace app\classes;
 
 if ( empty( TINYMASH_RUNNING ) ) {
-    die( 'We do not seem to have all the bits configured' );
+    die( 'Configuration is incomplete.' );
 }
 
 use flight\Engine;
@@ -19,6 +19,7 @@ class TinyMashPlugins {
     protected const ADMIN_NAV_AREAS = [ 'author', 'admin', 'account' ];
     protected const EXPOSED_SERVICE_KEYS = [
         'config',
+        'url.resolver',
         'security',
         'database',
         'content.repository',
@@ -26,6 +27,7 @@ class TinyMashPlugins {
         'draft.repository',
         'user.repository',
         'markdown.renderer',
+        'embed.service',
         'date.formatter',
         'content.renderer',
         'shortcode.registry',
@@ -63,6 +65,7 @@ class TinyMashPlugins {
     protected array $public_slot_renderers = [];
     protected bool $has_dynamic_public_slot_renderer = false;
     protected array $public_entry_renderers = [];
+    protected bool $has_dynamic_public_entry_renderer = false;
     protected array $public_content_filters = [];
     protected array $public_assets = [];
     protected array $admin_navigation_items = [];
@@ -112,7 +115,9 @@ class TinyMashPlugins {
         $this->booted_stages = [];
         $this->public_head_tag_renderers = [];
         $this->public_slot_renderers = [];
+        $this->has_dynamic_public_slot_renderer = false;
         $this->public_entry_renderers = [];
+        $this->has_dynamic_public_entry_renderer = false;
         $this->public_content_filters = [];
         $this->public_assets = [];
         $this->admin_navigation_items = [];
@@ -333,7 +338,7 @@ class TinyMashPlugins {
         return( $this->has_dynamic_public_slot_renderer );
     }
 
-    public function registerPublicEntryRenderer( string $plugin_key, callable $renderer ) : bool {
+    public function registerPublicEntryRenderer( string $plugin_key, callable $renderer, bool $dynamic = false ) : bool {
         if ( ! $this->canRegisterForCurrentPlugin( $plugin_key ) ) {
             return( false );
         }
@@ -346,9 +351,17 @@ class TinyMashPlugins {
         $this->public_entry_renderers[] = [
             'plugin_key' => $plugin_key,
             'renderer' => $renderer,
+            'dynamic' => $dynamic,
         ];
+        if ( $dynamic ) {
+            $this->has_dynamic_public_entry_renderer = true;
+        }
 
         return( true );
+    }
+
+    public function hasDynamicPublicEntryRenderer() : bool {
+        return( $this->has_dynamic_public_entry_renderer );
     }
 
     public function registerPublicContentFilter( string $plugin_key, callable $filter ) : bool {
@@ -474,7 +487,7 @@ class TinyMashPlugins {
         }
 
         $section = $this->normalizePluginKey( (string) ( $definition['section'] ?? '' ) );
-        $label = trim( (string) ( $definition['label'] ?? '' ) );
+        $label = mb_trim( (string) ( $definition['label'] ?? '' ) );
         $url = trim( (string) ( $definition['url'] ?? '' ) );
         if ( $section === '' || $label === '' || $url === '' ) {
             return( false );
@@ -603,7 +616,7 @@ class TinyMashPlugins {
         $this->housekeeping_tasks[] = [
             'plugin_key' => $plugin_key,
             'task_key' => $task_key,
-            'label' => trim( $label ) !== '' ? trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
+            'label' => mb_trim( $label ) !== '' ? mb_trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
             'task' => $task,
         ];
 
@@ -676,7 +689,7 @@ class TinyMashPlugins {
         $this->cli_commands[$command] = [
             'plugin_key' => $plugin_key,
             'command' => $command,
-            'summary' => trim( (string) ( $definition['summary'] ?? '' ) ),
+            'summary' => mb_trim( (string) ( $definition['summary'] ?? '' ) ),
             'arguments' => is_array( $definition['arguments'] ?? null ) ? $definition['arguments'] : [],
             'options' => is_array( $definition['options'] ?? null ) ? $definition['options'] : [],
             'exclusive_options' => is_array( $definition['exclusive_options'] ?? null ) ? $definition['exclusive_options'] : [],
@@ -758,7 +771,7 @@ class TinyMashPlugins {
         $this->export_contributors[] = [
             'plugin_key' => $plugin_key,
             'scope' => $scope,
-            'label' => trim( $label ) !== '' ? trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
+            'label' => mb_trim( $label ) !== '' ? mb_trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
             'contributor' => $contributor,
         ];
 
@@ -779,7 +792,7 @@ class TinyMashPlugins {
         $this->static_export_contributors[] = [
             'plugin_key' => $plugin_key,
             'scope' => $scope,
-            'label' => trim( $label ) !== '' ? trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
+            'label' => mb_trim( $label ) !== '' ? mb_trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
             'contributor' => $contributor,
         ];
 
@@ -800,7 +813,7 @@ class TinyMashPlugins {
         $this->import_contributors[] = [
             'plugin_key' => $plugin_key,
             'scope' => $scope,
-            'label' => trim( $label ) !== '' ? trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
+            'label' => mb_trim( $label ) !== '' ? mb_trim( $label ) : ( $this->registered_plugins[$plugin_key]['name'] ?? $plugin_key ),
             'contributor' => $contributor,
         ];
 
@@ -852,7 +865,7 @@ class TinyMashPlugins {
 
         $plugin_key = $this->canonicalizePluginKey( $plugin_key );
         $tab_key = $this->normalizePluginKey( (string) ( $definition['key'] ?? $plugin_key ) );
-        $label = trim( (string) ( $definition['label'] ?? '' ) );
+        $label = mb_trim( (string) ( $definition['label'] ?? '' ) );
         $renderer = $definition['renderer'] ?? null;
         if ( $plugin_key === '' || $tab_key === '' || $label === '' || ! is_callable( $renderer ) ) {
             return( false );
@@ -1280,7 +1293,7 @@ class TinyMashPlugins {
                     'label' => (string) ( $housekeeping_task['label'] ?? $plugin_key ),
                     'status' => 'ran',
                     'result' => $task_result,
-                    'message' => is_string( $task_result ) ? trim( $task_result ) : '',
+                    'message' => is_string( $task_result ) ? mb_trim( $task_result ) : '',
                 ];
             } catch ( \Throwable $e ) {
                 error_log( basename( __FILE__ ) . ': Housekeeping task failed for "' . $plugin_key . '" (' . $e->getMessage() . ')' );
@@ -1290,7 +1303,7 @@ class TinyMashPlugins {
                     'label' => (string) ( $housekeeping_task['label'] ?? $plugin_key ),
                     'status' => 'error',
                     'result' => null,
-                    'message' => trim( $e->getMessage() ),
+                    'message' => mb_trim( $e->getMessage() ),
                 ];
             }
         }
@@ -1327,7 +1340,7 @@ class TinyMashPlugins {
                     'scope' => $contributor_scope,
                     'status' => 'ran',
                     'result' => $result,
-                    'message' => is_string( $result ) ? trim( $result ) : '',
+                    'message' => is_string( $result ) ? mb_trim( $result ) : '',
                 ];
             } catch ( \Throwable $e ) {
                 error_log( basename( __FILE__ ) . ': Export contributor failed for "' . $plugin_key . '" (' . $e->getMessage() . ')' );
@@ -1337,7 +1350,7 @@ class TinyMashPlugins {
                     'scope' => $contributor_scope,
                     'status' => 'error',
                     'result' => null,
-                    'message' => trim( $e->getMessage() ),
+                    'message' => mb_trim( $e->getMessage() ),
                 ];
             }
         }
@@ -1374,7 +1387,7 @@ class TinyMashPlugins {
                     'scope' => $contributor_scope,
                     'status' => 'ran',
                     'result' => $result,
-                    'message' => is_string( $result ) ? trim( $result ) : '',
+                    'message' => is_string( $result ) ? mb_trim( $result ) : '',
                 ];
             } catch ( \Throwable $e ) {
                 error_log( basename( __FILE__ ) . ': Static export contributor failed for "' . $plugin_key . '" (' . $e->getMessage() . ')' );
@@ -1384,7 +1397,7 @@ class TinyMashPlugins {
                     'scope' => $contributor_scope,
                     'status' => 'error',
                     'result' => null,
-                    'message' => trim( $e->getMessage() ),
+                    'message' => mb_trim( $e->getMessage() ),
                 ];
             }
         }
@@ -1421,7 +1434,7 @@ class TinyMashPlugins {
                     'scope' => $contributor_scope,
                     'status' => 'ran',
                     'result' => $result,
-                    'message' => is_string( $result ) ? trim( $result ) : '',
+                    'message' => is_string( $result ) ? mb_trim( $result ) : '',
                 ];
             } catch ( \Throwable $e ) {
                 error_log( basename( __FILE__ ) . ': Import contributor failed for "' . $plugin_key . '" (' . $e->getMessage() . ')' );
@@ -1431,7 +1444,7 @@ class TinyMashPlugins {
                     'scope' => $contributor_scope,
                     'status' => 'error',
                     'result' => null,
-                    'message' => trim( $e->getMessage() ),
+                    'message' => mb_trim( $e->getMessage() ),
                 ];
             }
         }
@@ -1497,11 +1510,11 @@ class TinyMashPlugins {
             if ( is_array( $theme_view_data ) ) {
                 $view_data = array_merge( $theme_view_data, $view_data );
             }
-            $this->app->view()->render( (string) $admin_theme->getTemplate( 'plugin-page' ), $view_data );
+            $this->renderResolvedTemplate( (string) $admin_theme->getTemplate( 'plugin-page' ), $view_data );
             return;
         }
 
-        $this->app->view()->render( 'admin/baseline/plugin-page.latte', $view_data );
+        $this->renderResolvedTemplate( 'admin/baseline/plugin-page.latte', $view_data );
     }
 
     public function hasService( string $service_key ) : bool {
@@ -1514,6 +1527,46 @@ class TinyMashPlugins {
         }
 
         return( $this->app->has( $service_key ) );
+    }
+
+    public function resolveOutputData( array $data ) : array {
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        return( $url_resolver instanceof TinyMashUrlResolver ? $url_resolver->resolveResponseData( $data ) : $data );
+    }
+
+    public function resolveBrowserUrl( string $url ) : string {
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        return( $url_resolver instanceof TinyMashUrlResolver ? $url_resolver->toBrowserUrl( $url ) : $url );
+    }
+
+    public function rewriteOutputHtml( string $html ) : string {
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        return( $url_resolver instanceof TinyMashUrlResolver ? $url_resolver->rewriteHtml( $html ) : $html );
+    }
+
+    public function rewriteOutputCss( string $css ) : string {
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        return( $url_resolver instanceof TinyMashUrlResolver ? $url_resolver->rewriteCssUrls( $css ) : $css );
+    }
+
+    public function renderPublicPage( string $template, array $view_data ) : void {
+        $this->renderResolvedTemplate( $template, $view_data );
+    }
+
+    protected function renderResolvedTemplate( string $template, array $view_data ) : void {
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        if ( $url_resolver instanceof TinyMashUrlResolver ) {
+            $view_data['tinymash_base_path'] = $url_resolver->getBasePath();
+        }
+        ob_start();
+        try {
+            $this->app->view()->render( $template, $view_data );
+            $html = (string) ob_get_clean();
+        } catch ( \Throwable $e ) {
+            ob_end_clean();
+            throw $e;
+        }
+        echo $this->rewriteOutputHtml( $html );
     }
 
     public function getService( string $service_key ) : mixed {
@@ -1611,8 +1664,8 @@ class TinyMashPlugins {
 
         $this->registered_plugins[$plugin_key]['booted'] = false;
         $this->registered_plugins[$plugin_key]['boot_status'] = 'error';
-        $this->registered_plugins[$plugin_key]['boot_error'] = trim( $message );
-        error_log( basename( __FILE__ ) . ': Plugin "' . $plugin_key . '" failed to boot (' . trim( $message ) . ')' );
+        $this->registered_plugins[$plugin_key]['boot_error'] = mb_trim( $message );
+        error_log( basename( __FILE__ ) . ': Plugin "' . $plugin_key . '" failed to boot (' . mb_trim( $message ) . ')' );
     }
 
     protected function decoratePluginDiagnostics( array $plugin ) : array {
@@ -1701,10 +1754,10 @@ class TinyMashPlugins {
         return(
             [
                 'key' => $plugin_key,
-                'name' => trim( (string) ( $manifest['name'] ?? ucwords( str_replace( [ '-', '_' ], ' ', $plugin_key ) ) ) ),
+                'name' => mb_trim( (string) ( $manifest['name'] ?? ucwords( str_replace( [ '-', '_' ], ' ', $plugin_key ) ) ) ),
                 'version' => trim( (string) ( $manifest['version'] ?? '' ) ),
-                'description' => trim( (string) ( $manifest['description'] ?? '' ) ),
-                'author_name' => trim( (string) ( $manifest['author_name'] ?? '' ) ),
+                'description' => mb_trim( (string) ( $manifest['description'] ?? '' ) ),
+                'author_name' => mb_trim( (string) ( $manifest['author_name'] ?? '' ) ),
                 'author_email' => trim( (string) ( $manifest['author_email'] ?? '' ) ),
                 'website' => trim( (string) ( $manifest['website'] ?? '' ) ),
                 'license' => trim( (string) ( $manifest['license'] ?? '' ) ),
@@ -1752,7 +1805,7 @@ class TinyMashPlugins {
                 if ( ! in_array( $mode, self::STATIC_EXPORT_MODES, true ) ) {
                     $warnings[] = 'Static export mode must be one of: ' . implode( ', ', self::STATIC_EXPORT_MODES ) . '.';
                 }
-                if ( trim( (string) ( $static_export['summary'] ?? '' ) ) === '' ) {
+                if ( mb_trim( (string) ( $static_export['summary'] ?? '' ) ) === '' ) {
                     $warnings[] = 'Static export summary should explain the exported behavior.';
                 }
             }
@@ -1802,7 +1855,7 @@ class TinyMashPlugins {
         }
 
         $mode = strtolower( trim( (string) ( $declaration['mode'] ?? '' ) ) );
-        $summary = trim( (string) ( $declaration['summary'] ?? '' ) );
+        $summary = mb_trim( (string) ( $declaration['summary'] ?? '' ) );
         if ( ! in_array( $mode, self::STATIC_EXPORT_MODES, true ) || $summary === '' ) {
             return( null );
         }
@@ -1980,7 +2033,7 @@ class TinyMashPlugins {
     }
 
     protected function normalizeSettingsSectionDefinition( string $plugin_key, array $definition ) : ?array {
-        $title = trim( (string) ( $definition['title'] ?? '' ) );
+        $title = mb_trim( (string) ( $definition['title'] ?? '' ) );
         $fields = is_array( $definition['fields'] ?? null ) ? $definition['fields'] : [];
         if ( $title === '' || empty( $fields ) ) {
             return( null );
@@ -1993,7 +2046,7 @@ class TinyMashPlugins {
             }
             $field_key = $this->normalizePluginKey( (string) ( $field_definition['key'] ?? '' ) );
             $field_type = strtolower( trim( (string) ( $field_definition['type'] ?? 'checkbox' ) ) );
-            $field_label = trim( (string) ( $field_definition['label'] ?? '' ) );
+            $field_label = mb_trim( (string) ( $field_definition['label'] ?? '' ) );
             if ( $field_key === '' || $field_label === '' || ! in_array( $field_type, [ 'checkbox', 'select', 'text', 'password' ], true ) ) {
                 continue;
             }
@@ -2002,8 +2055,8 @@ class TinyMashPlugins {
                 'key' => $field_key,
                 'type' => $field_type,
                 'label' => $field_label,
-                'help' => trim( (string) ( $field_definition['help'] ?? '' ) ),
-                'help_html' => trim( (string) ( $field_definition['help_html'] ?? '' ) ),
+                'help' => mb_trim( (string) ( $field_definition['help'] ?? '' ) ),
+                'help_html' => mb_trim( (string) ( $field_definition['help_html'] ?? '' ) ),
                 'default' => $field_definition['default'] ?? '',
                 'options' => is_array( $field_definition['options'] ?? null ) ? array_values( $field_definition['options'] ) : [],
             ];
@@ -2017,7 +2070,7 @@ class TinyMashPlugins {
             [
                 'plugin_key' => $plugin_key,
                 'title' => $title,
-                'summary' => trim( (string) ( $definition['summary'] ?? '' ) ),
+                'summary' => mb_trim( (string) ( $definition['summary'] ?? '' ) ),
                 'fields' => $normalized_fields,
             ]
         );

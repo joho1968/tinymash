@@ -1,10 +1,12 @@
 <?php
 
 require_once __DIR__ . '/TinyMashBackupArchiveService.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashPluginStateBackup.php';
 
 use app\classes\TinyMashConfig;
 use app\classes\TinyMashDateFormatter;
 use app\classes\TinyMashExportService;
+use app\classes\TinyMashPluginStateBackup;
 use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
 
@@ -21,6 +23,48 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
     if ( ! $config instanceof TinyMashConfig || ! $date_formatter instanceof TinyMashDateFormatter || ! $security instanceof TinyMashSecurity || ! $export_service instanceof TinyMashExportService ) {
         throw new \RuntimeException( 'Required services for the backup plugin are not available.' );
+    }
+
+    $inactive_state = static function( string $key ) use ( $plugins, $project_root ) : ?TinyMashPluginStateBackup {
+        $candidate = $plugins->getPlugin( $key );
+        if ( ! empty( $candidate['active'] ) && ! empty( $candidate['booted'] ) ) {
+            return( null );
+        }
+        return( new TinyMashPluginStateBackup( $key, $project_root . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . $key ) );
+    };
+    foreach ( [ 'comments' => 'both', 'subscriptions' => 'site' ] as $state_key => $state_scope ) {
+        $plugins->registerExportContributor(
+            $plugin_key,
+            static function( array $context ) use ( $inactive_state, $state_key ) : string {
+                $state = $inactive_state( $state_key );
+                if ( ! $state instanceof TinyMashPluginStateBackup ) {
+                    return( $state_key . ' uses its own export contributor.' );
+                }
+                $scope = (string) ( $context['scope'] ?? '' );
+                $author = $scope === 'author' ? (string) ( $context['author_username'] ?? '' ) : '';
+                $directory = (string) ( $context['plugins_directory'] ?? '' ) . DIRECTORY_SEPARATOR . $state_key;
+                $count = $state->export( $scope, $directory, $author );
+                return( 'Exported ' . $count . ' inactive ' . $state_key . ' state file(s).' );
+            },
+            $state_scope,
+            'Inactive ' . $state_key . ' data'
+        );
+        $plugins->registerImportContributor(
+            $plugin_key,
+            static function( array $context ) use ( $inactive_state, $state_key ) : string {
+                $state = $inactive_state( $state_key );
+                if ( ! $state instanceof TinyMashPluginStateBackup ) {
+                    return( $state_key . ' uses its own import contributor.' );
+                }
+                $scope = (string) ( $context['scope'] ?? '' );
+                $author = $scope === 'author' ? (string) ( $context['author_username'] ?? '' ) : '';
+                $directory = (string) ( $context['plugins_directory'] ?? '' ) . DIRECTORY_SEPARATOR . $state_key;
+                $count = $state->import( $scope, $directory, $author, ! empty( $context['replace_existing'] ) );
+                return( 'Imported ' . $count . ' inactive ' . $state_key . ' state file(s).' );
+            },
+            $state_scope,
+            'Inactive ' . $state_key . ' data'
+        );
     }
 
     $plugins->registerSystemSettingsSection(
@@ -95,15 +139,15 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Author downloads',
-                    'markdown' => 'Every logged-in user can download an author bundle containing their profile, content, drafts, media, and data from active plugins that register export contributors.',
+                    'markdown' => 'Author bundles contain the current profile, content, drafts, media, and contributed plugin data.',
                 ],
                 [
                     'title' => 'Site backups',
-                    'markdown' => 'Admins can download a full site bundle containing config, users, content, drafts, media, and data from active plugins that register export contributors.',
+                    'markdown' => 'Site bundles contain config, users, content, drafts, media, and contributed plugin data.',
                 ],
                 [
                     'title' => 'Site restore',
-                    'markdown' => 'Admins can inspect a tinymash site-backup ZIP before replacing the current site data. Restore validates the complete bundle again, uses core rollback on failure, and signs the current admin out when it completes.',
+                    'markdown' => 'Inspect a site-backup ZIP before restore. Restore validates it again, rolls back on failure, and signs out the current admin on success.',
                 ],
             ],
         ]

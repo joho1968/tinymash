@@ -3,9 +3,11 @@ namespace app\classes;
 
 class TinyMashRobotsService {
     protected TinyMashConfig $config;
+    protected ?TinyMashUrlResolver $url_resolver;
 
-    public function __construct( TinyMashConfig $config ) {
+    public function __construct( TinyMashConfig $config, ?TinyMashUrlResolver $url_resolver = null ) {
         $this->config = $config;
+        $this->url_resolver = $url_resolver;
     }
 
     public function buildRobotsTxt( array $additional_disallow_paths = [], string $sitemap_url = '', array $blocked_user_agents = [] ) : string {
@@ -22,6 +24,9 @@ class TinyMashRobotsService {
             $path = $this->normalizeRoutePath( (string) $path );
             if ( $path === '' || isset( $seen_paths[$path] ) ) {
                 continue;
+            }
+            if ( $this->url_resolver instanceof TinyMashUrlResolver ) {
+                $path = $this->url_resolver->toBrowserUrl( $path );
             }
             $seen_paths[$path] = true;
             $lines[] = 'Disallow: ' . $path;

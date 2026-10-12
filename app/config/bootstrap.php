@@ -2,7 +2,7 @@
 error_reporting( E_ALL );
 
 if ( empty( TINYMASH_RUNNING ) ) {
-    die( 'We do not seem to have all the bits configured' );
+    die( 'Configuration is incomplete.' );
 }
 
 $ds = DIRECTORY_SEPARATOR;
@@ -26,16 +26,33 @@ if ( PHP_SAPI !== 'cli' && ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
     }
 }
 
+$configuration_filename = dirname( __FILE__, 3 ) . '/app/config/tinymash.json';
+if ( ! file_exists( $configuration_filename ) && ! is_link( $configuration_filename ) ) {
+    http_response_code( 503 );
+    header( 'Content-Type: text/plain; charset=UTF-8' );
+    header( 'Cache-Control: no-store' );
+    header( 'X-Robots-Tag: noindex, nofollow, noarchive' );
+    header( 'X-Content-Type-Options: nosniff' );
+    header( 'Referrer-Policy: no-referrer' );
+    header( 'X-Frame-Options: DENY' );
+    header( "Content-Security-Policy: default-src 'none'; frame-ancestors 'none'" );
+    echo 'Site unavailable.';
+    exit;
+}
+
 require_once( 'globals.inc.php' );
 require_once dirname(__FILE__, 2 ) . '/include/defines.inc.php';
 require_once( __DIR__ . $ds . '..' . $ds . '..' . $ds . 'vendor' . $ds . 'autoload.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashText.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashConfig.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUrlResolver.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashSecurity.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPlugins.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentRepository.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentTargetPickerService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashDraftRepository.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMarkdownRenderer.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashEmbedService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMarkdownEditorComponent.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashDateFormatter.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashContentRenderer.php' );
@@ -70,6 +87,7 @@ require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashMailer.php
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashNotificationService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashPasswordResetService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashComponentsReportService.php' );
+require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateRequirements.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateCheckService.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateErrorPolicy.php' );
 require_once( __DIR__ . $ds . '..' . $ds . 'classes' . $ds . 'TinyMashUpdateJournal.php' );
@@ -115,13 +133,15 @@ $router = $app->router();
 
 $config = new \app\classes\TinyMashConfig( $app, $router );
 $config->getConfig();
-$robots_service = new app\classes\TinyMashRobotsService( $config );
+$url_resolver = new app\classes\TinyMashUrlResolver( (string) ( $config->configGetBaseURL() ?: '' ) );
+$robots_service = new app\classes\TinyMashRobotsService( $config, $url_resolver );
 
 $security = new app\classes\TinyMashSecurity(
     $app,
     $router,
     $config,
-    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'login-attempts.json'
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'login-attempts.json',
+    $url_resolver
 );
 
 // Extension registries.
@@ -146,6 +166,7 @@ $user_repository = new app\classes\TinyMashUserRepository(
     $config->getEditorDefaultMode()
 );
 $markdown_renderer = new app\classes\TinyMashMarkdownRenderer();
+$embed_service = new app\classes\TinyMashEmbedService();
 $date_formatter = new app\classes\TinyMashDateFormatter(
     $config->getLocaleDateFormat(),
     $config->getLocaleTimeFormat(),
@@ -198,6 +219,7 @@ $content_renderer = new app\classes\TinyMashContentRenderer(
     $plugins
 );
 $shortcode_registry = new app\classes\TinyMashShortcodeRegistry( $config->getUnknownShortcodeMode() );
+$embed_service->registerCoreShortcode( $shortcode_registry );
 $menu_service = new app\classes\TinyMashMenuService( $config, $content_repository );
 $link_integrity_service = new app\classes\TinyMashLinkIntegrityService(
     $content_repository,
@@ -266,7 +288,7 @@ $update_check_service = new app\classes\TinyMashUpdateCheckService(
     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'update-check.json'
 );
 $update_stage_service = new app\classes\TinyMashUpdateStageService(
-    tinymash_get_runtime_temp_subdirectory( 'tinymash-updates' ),
+    tinymash_get_runtime_temp_subdirectory_path( 'tinymash-updates' ),
     dirname( __FILE__, 3 )
 );
 $update_journal = new app\classes\TinyMashUpdateJournal(
@@ -306,14 +328,17 @@ $update_health_service = new app\classes\TinyMashUpdateHealthService(
 );
 $secret_link_service = new app\classes\TinyMashSecretLinkService(
     $config,
-    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'secret-links.json'
+    dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'secret-links.json',
+    $url_resolver
 );
 $app->set( 'config', $config );
+$app->set( 'url.resolver', $url_resolver );
 $app->set( 'content.repository', $content_repository );
 $app->set( 'content.target_picker', $content_target_picker );
 $app->set( 'draft.repository', $draft_repository );
 $app->set( 'user.repository', $user_repository );
 $app->set( 'markdown.renderer', $markdown_renderer );
+$app->set( 'embed.service', $embed_service );
 $app->set( 'date.formatter', $date_formatter );
 $app->set( 'content.renderer', $content_renderer );
 $app->set( 'shortcode.registry', $shortcode_registry );
@@ -364,7 +389,7 @@ if ( ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
         $plugins->discoverDirectories( $plugins_directories );
         $plugins->bootStage( 'before' );
         $plugins->bootStage( 'early' );
-    } catch( \Throwable $e ) {
+    } catch ( \Throwable $e ) {
         error_log( basename( __FILE__ ) . ': Unable to discover plugins ("' . $e->getMessage() . '")' );
     }
 }
@@ -374,20 +399,20 @@ require_once 'routes.inc.php';
 if ( ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
     try {
         $plugins->bootStage( 'after' );
-    } catch( \Throwable $e ) {
+    } catch ( \Throwable $e ) {
         error_log( basename( __FILE__ ) . ': Unable to complete plugin boot stages ("' . $e->getMessage() . '")' );
     }
 
     try {
         $plugins->bootStage( 'late' );
-    } catch( \Throwable $e ) {
+    } catch ( \Throwable $e ) {
         error_log( basename( __FILE__ ) . ': Unable to complete late plugin boot stage ("' . $e->getMessage() . '")' );
     }
 }
 
 if ( PHP_SAPI !== 'cli' && ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
     register_shutdown_function(
-        static function() use ( $content_repository, $draft_repository, $media_service, $media_import_bridge, $import_preview_workspace_service, $plugins, $notification_service, $password_reset_service, $theme ) : void {
+        static function() use ( $content_repository, $draft_repository, $media_service, $media_import_bridge, $import_preview_workspace_service, $plugins, $notification_service, $password_reset_service, $theme, $update_stage_service, $update_journal ) : void {
             try {
                 $config_io = new \app\classes\TinyMashConfigIO();
                 if ( ! $config_io->getConfig() ) {
@@ -405,10 +430,12 @@ if ( PHP_SAPI !== 'cli' && ! defined( 'TINYMASH_UPDATE_HEALTH_PROBE' ) ) {
                     dirname( __FILE__, 3 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'housekeeping-web.lock',
                     $media_import_bridge,
                     $content_repository,
-                    $import_preview_workspace_service
+                    $import_preview_workspace_service,
+                    $update_stage_service,
+                    $update_journal
                 );
                 $housekeeping_service->runWebFallbackIfDue();
-            } catch( \Throwable $e ) {
+            } catch ( \Throwable $e ) {
                 error_log( basename( __FILE__ ) . ': Web housekeeping fallback failed ("' . $e->getMessage() . '")' );
             }
         }

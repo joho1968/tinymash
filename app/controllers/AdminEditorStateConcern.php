@@ -4,6 +4,7 @@ namespace app\controllers;
 use app\classes\TinyMashContentTargetPickerService;
 use app\classes\TinyMashEditorMediaPickerService;
 use app\classes\TinyMashMarkdownEditorComponent;
+use app\classes\TinyMashText;
 
 trait AdminEditorStateConcern {
 
@@ -521,7 +522,7 @@ trait AdminEditorStateConcern {
                         return( $left_sort_order <=> $right_sort_order );
                     }
 
-                    return( strcasecmp( (string) ( $left['title'] ?? '' ), (string) ( $right['title'] ?? '' ) ) );
+                    return( TinyMashText::compareCaseInsensitive( (string) ( $left['title'] ?? '' ), (string) ( $right['title'] ?? '' ) ) );
                 }
             );
             $grouped_options[$group_key] = $options;
@@ -698,7 +699,7 @@ trait AdminEditorStateConcern {
         return(
             [
                 'id' => (string) ( $entry['id'] ?? '' ),
-                'title' => trim( (string) ( $entry['title'] ?? ( $fallback_translation['title'] ?? '' ) ) ),
+                'title' => mb_trim( (string) ( $entry['title'] ?? ( $fallback_translation['title'] ?? '' ) ) ),
                 'slug' => (string) ( $entry['slug'] ?? '' ),
                 'author_slug' => (string) ( $entry['author_slug'] ?? '' ),
                 'parent_slug' => (string) ( $entry['parent_slug'] ?? '' ),
@@ -1149,6 +1150,33 @@ trait AdminEditorStateConcern {
         );
     }
 
+    protected function applyEditorGalleryLinks( array $payload, array $request_data ) : array {
+        if ( ! is_array( $payload['plugin_settings']['photos'] ?? null ) ) {
+            return( $payload );
+        }
+
+        $photos_service = $this->app->get( 'plugin.photos.service' );
+        if ( ! $photos_service instanceof \TinyMashPhotosService ) {
+            require_once dirname( __FILE__, 2 ) . '/plugins/photos/TinyMashPhotosService.php';
+            $photos_service = new \TinyMashPhotosService( $this->app->get( 'media.service' ) );
+        }
+
+        $source = [];
+        $loaded_entry_id = trim( (string) ( $request_data['loaded_entry_id'] ?? '' ) );
+        if ( $loaded_entry_id !== '' ) {
+            $source_entry = $this->resolveAccessibleLoadedEntry( $loaded_entry_id );
+            if (
+                is_array( $source_entry )
+                && (string) ( $source_entry['scope'] ?? 'root' ) === (string) ( $payload['scope'] ?? 'root' )
+                && (string) ( $source_entry['author_slug'] ?? '' ) === (string) ( $payload['author_slug'] ?? '' )
+            ) {
+                $source = $source_entry;
+            }
+        }
+
+        return( $photos_service->validateEditorGalleryLinks( $payload, $source, $this->security->isSuperAdmin() ) );
+    }
+
     protected function getEditorValidationMessage( string $field ) : string {
         return(
             match ( $field ) {
@@ -1166,6 +1194,7 @@ trait AdminEditorStateConcern {
                 'trash_restore_parent_unavailable' => 'That trashed page cannot be restored because its parent page is missing or still in Trash.',
                 'featured_image_media_id' => 'Choose a valid featured image.',
                 'seo_social_image_media_id' => 'Choose a valid social image.',
+                'gallery_linked_media' => 'A linked gallery image is not available or approved for this entry. Remove it or ask an administrator to add it.',
                 'SEO canonical URL must be an absolute http(s) URL.' => 'SEO canonical URL must be an absolute http(s) URL.',
                 default => $field,
             }

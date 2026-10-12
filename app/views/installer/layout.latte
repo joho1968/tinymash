@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="{$screen_mode}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{$title} · tinymash</title>
+    <script nonce="{$nonce}">
+        (() => {
+            let mode = {=json_encode($screen_mode)|noescape};
+            try {
+                const saved = localStorage.getItem('tinymashScreen');
+                if (saved === 'light' || saved === 'dark') mode = saved;
+                else if (saved === 'auto' || {=json_encode($screen_auto)|noescape}) mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            } catch (error) {}
+            document.documentElement.dataset.bsTheme = mode;
+        })();
+    </script>
+    <link href="{$mount}/ext/bs/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{$mount}/css/tinymash.css" rel="stylesheet">
+</head>
+<body class="bg-body-secondary min-vh-100">
+    <a class="tm-skip-link" href="#installer-main">Skip to main content</a>
+    <header class="bg-body">
+        <div class="container py-3"><span class="fw-semibold">tinymash</span><span class="text-body-secondary ms-2">Setup</span></div>
+    </header>
+    <main id="installer-main" class="container py-4" tabindex="-1">
+        <div class="row justify-content-center">
+            <div n:class="$state === 'setup' ? 'col-12 col-lg-9 col-xl-8' : 'col-12 col-md-8 col-lg-6'">
+                <div class="bg-body rounded-3 p-3 p-sm-4">
+                    <h1 class="h3 mb-3">{$title}</h1>
+                    {block content}{/block}
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

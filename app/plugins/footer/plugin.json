@@ -1,7 +1,7 @@
 {
     "key": "footer",
     "name": "Footer",
-    "version": "0.99.2",
+  "version": "0.99.4",
     "description": "Shows configured text in public theme footers.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

@@ -19,6 +19,11 @@
         return title + (record.owner_username ? " (" + record.owner_username + ")" : "");
     };
 
+    var browserPath = function (path) {
+        path = String(path || "");
+        return typeof window.tinymashBrowserPath === "function" ? window.tinymashBrowserPath(path) : path;
+    };
+
     var initPicker = function (modalElement) {
         var grid = modalElement.querySelector("[data-tm-admin-image-grid]");
         var filter = modalElement.querySelector("[data-tm-admin-image-filter]");
@@ -62,7 +67,7 @@
 
             grid.innerHTML = filtered.map(function (record) {
                 var title = record.alt_text || record.filename || record.media_id;
-                var thumbnail = record.thumbnail_url || record.display_url || record.url;
+                var thumbnail = browserPath(record.thumbnail_url || record.display_url || record.url);
                 var dimensions = Number(record.width) > 0 && Number(record.height) > 0 ? String(record.width) + "x" + String(record.height) : "";
                 var detail = [record.owner_username, dimensions].filter(Boolean).join(" | ");
                 return '<div class="col-12 col-md-6 col-xl-4"><button class="btn text-start border rounded-3 bg-body h-100 w-100 p-2 d-flex gap-2 overflow-hidden" type="button" data-tm-admin-image-choice="' + escapeHtml(record.media_id) + '" data-tm-admin-image-label="' + escapeHtml(labelForRecord(record)) + '"><img class="rounded-2 object-fit-cover flex-shrink-0" src="' + escapeHtml(thumbnail) + '" alt="" loading="lazy" decoding="async" style="width:4.5rem;height:4.5rem;min-width:4.5rem;"><span class="d-flex flex-column gap-1 flex-grow-1 overflow-hidden" style="min-width:0;"><span class="fw-semibold text-truncate" title="' + escapeHtml(title) + '">' + escapeHtml(title) + '</span><span class="small text-body-secondary text-truncate" title="' + escapeHtml(record.filename || record.media_id) + '">' + escapeHtml(record.filename || record.media_id) + '</span><span class="small text-body-secondary">' + escapeHtml(detail) + '</span></span></button></div>';
@@ -243,7 +248,7 @@
                         throw new Error("Image upload did not return a usable media record.");
                     }
                     rememberRecord(record);
-                    setActiveField(record.media_id, labelForRecord(record), record.thumbnail_url || record.display_url || record.url);
+                    setActiveField(record.media_id, labelForRecord(record), browserPath(record.thumbnail_url || record.display_url || record.url));
                     uploadInput.value = "";
                     if (uploadStatus) {
                         uploadStatus.textContent = "Image uploaded and selected.";
@@ -282,7 +287,7 @@
                 if (record.media_id) {
                     rememberRecord(record, ["recent"]);
                 }
-                setActiveField(mediaId, label, record.thumbnail_url || record.display_url || record.url || "");
+                setActiveField(mediaId, label, browserPath(record.thumbnail_url || record.display_url || record.url || ""));
                 var modal = getModal(modalElement);
                 if (modal) {
                     modal.hide();

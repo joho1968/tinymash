@@ -2,7 +2,7 @@
 namespace app\controllers;
 
 if ( empty( TINYMASH_RUNNING ) ) {
-    die( 'We do not seem to have all the bits configured' );
+    die( 'Configuration is incomplete.' );
 }
 
 use app\classes\TinyMashConfig;
@@ -835,6 +835,11 @@ class ContentController extends BaseController {
             return;
         }
 
+        $url_resolver = $this->app->has( 'url.resolver' ) ? $this->app->get( 'url.resolver' ) : null;
+        if ( $url_resolver instanceof \app\classes\TinyMashUrlResolver ) {
+            $css = $url_resolver->rewriteCssUrls( $css );
+        }
+
         $etag = '"' . sha1( $theme_key . "\n" . $css ) . '"';
         if ( trim( (string) ( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) ) === $etag ) {
             $this->app->response()->status( 304 );
@@ -1028,6 +1033,9 @@ class ContentController extends BaseController {
         if ( $this->app->has( 'plugins' ) ) {
             $plugins = $this->app->get( 'plugins' );
             if ( is_object( $plugins ) && method_exists( $plugins, 'hasDynamicPublicSlotRenderer' ) && $plugins->hasDynamicPublicSlotRenderer() ) {
+                return( false );
+            }
+            if ( is_object( $plugins ) && method_exists( $plugins, 'hasDynamicPublicEntryRenderer' ) && $plugins->hasDynamicPublicEntryRenderer() ) {
                 return( false );
             }
         }

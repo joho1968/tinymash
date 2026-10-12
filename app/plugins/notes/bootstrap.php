@@ -190,7 +190,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         if ( ! headers_sent() ) {
             header( 'Content-Type: application/json; charset=UTF-8' );
         }
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES );
     };
 
     $emit_server_timing = static function( array $timings ) : void {
@@ -438,7 +438,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                         </div>
                         <div class="btn-group btn-group-sm" role="group" aria-label="Blocks">
                             <div class="btn-group btn-group-sm" role="group" aria-label="Heading levels">
-                                <button class="btn btn-outline-secondary" id="tm-notes-heading-apply" type="button" title="Apply heading level" aria-label="Apply heading level">
+                                <button class="btn btn-outline-secondary" id="tm-notes-heading-apply" type="button" title="Apply heading level" aria-label="Apply heading H1">
                                     <span class="bi bi-type-h1 me-1" aria-hidden="true"></span><span id="tm-notes-heading-label">H1</span>
                                 </button>
                                 <button class="btn btn-outline-secondary px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Choose heading level" aria-label="Choose heading level">
@@ -545,9 +545,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 const saveUrl = root.dataset.saveUrl || '';
                 const draftUrl = root.dataset.draftUrl || '';
                 const draftDeleteUrl = root.dataset.draftDeleteUrl || '';
-                const cancelUrl = root.dataset.cancelUrl || '/admin/author';
+                const cancelUrl = root.dataset.cancelUrl || window.tinymashBrowserPath('/admin/author');
                 const csrfToken = root.dataset.csrfToken || '';
-                const emojiDataUrl = root.dataset.emojiDataUrl || '/ext/emoji-picker-data/en/github/data';
+                const emojiDataUrl = root.dataset.emojiDataUrl || window.tinymashBrowserPath('/ext/emoji-picker-data/en/github/data');
                 const autosaveEnabled = root.dataset.autosaveEnabled === '1';
                 const autosaveIntervalSeconds = Math.min(180, Math.max(30, Number.parseInt(root.dataset.autosaveIntervalSeconds || '120', 10) || 120));
                 const textarea = document.getElementById('tm-notes-content');
@@ -702,6 +702,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     currentHeadingLevel = normalizedLevel;
                     if (headingLabel) {
                         headingLabel.textContent = 'H' + normalizedLevel;
+                    }
+                    if (headingApplyButton) {
+                        headingApplyButton.setAttribute('aria-label', 'Apply heading H' + normalizedLevel);
                     }
                     try {
                         window.localStorage.setItem(headingStorageKey, normalizedLevel);
@@ -1051,7 +1054,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 }
 
                 function getNoteExitUrl() {
-                    return cancelUrl || '/admin/author';
+                    return cancelUrl || window.tinymashBrowserPath('/admin/author');
                 }
 
                 function openCancelModal() {

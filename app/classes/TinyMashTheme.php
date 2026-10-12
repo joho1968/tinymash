@@ -104,7 +104,7 @@ class TinyMashTheme {
                 'theme_page_context' => $page_context,
                 'author_display_name' => $page_context['author_display_name'],
                 'theme_author_inherits_site_theme' => $page_context['scope'] === 'author' && $this->authorInheritsSiteTheme( (string) $page_context['author_slug'] ),
-                'theme_body_classes' => $this->getBodyClasses( $page_context, $context_entry ),
+                'theme_body_classes' => $this->getBodyClasses( $page_context, $context_entry, $theme_settings ),
                 'theme_background' => $resolved_background,
                 'theme_background_inline_style' => $this->buildBackgroundInlineStyle( $resolved_background ),
                 'theme_background_preload_url' => $this->getBackgroundPreloadUrl( $resolved_background ),
@@ -115,9 +115,9 @@ class TinyMashTheme {
                 'theme_child_pages_heading' => $this->getChildPagesSectionHeading(),
                 'theme_screen_cookie_name' => 'tinymashScreen',
                 'theme_screen_mode' => $this->resolveScreenMode( $page_context ),
-                'theme_public_sidebar_fragments' => $this->getPublicSidebarFragments( $context_entry, $context_author_slug ),
-                'theme_public_footer_fragments' => $this->getPublicFooterFragments( $context_entry, $context_author_slug ),
-                'theme_public_author_identity_fragments' => $this->getPublicAuthorIdentityFragments( $context_entry, $context_author_slug ),
+                'theme_public_sidebar_fragments' => $this->getPublicSidebarFragments( $context_entry, $context_author_slug, $render_context ),
+                'theme_public_footer_fragments' => $this->getPublicFooterFragments( $context_entry, $context_author_slug, $render_context ),
+                'theme_public_author_identity_fragments' => $this->getPublicAuthorIdentityFragments( $context_entry, $context_author_slug, $render_context ),
                 'theme_public_head_tags' => $this->getPublicHeadTags( $page_context, $render_context, $site_name ),
                 'theme_search' => $this->getPublicSearchViewData( $page_context['scope'] === 'author' ? (string) ( $page_context['author_slug'] ?? '' ) : '', $theme_settings, $render_context ),
                 'theme_syntax_highlighting' => $syntax_highlighting,
@@ -337,6 +337,7 @@ class TinyMashTheme {
 
     public function getJsUrls() : array {
         $js_urls = (array) ( $this->getThemeDefinition()['js_urls'] ?? [] );
+        $js_urls[] = '/js/tinymash-content.js';
         if ( ! empty( $this->getSyntaxHighlightingViewData()['enabled'] ) ) {
             $js_urls[] = '/ext/highlightjs/highlight.min.js';
             $js_urls[] = '/plugins/syntax-highlighting/syntax-highlighting.js';
@@ -419,7 +420,7 @@ class TinyMashTheme {
     }
 
     public function getThemeDescription() : string {
-        return( trim( (string) ( $this->getThemeDefinition()['description'] ?? '' ) ) );
+        return( mb_trim( (string) ( $this->getThemeDefinition()['description'] ?? '' ) ) );
     }
 
     public function getThemeVersion() : string {
@@ -452,7 +453,7 @@ class TinyMashTheme {
                 [
                     'theme_key' => $theme_key,
                     'status' => 'ran',
-                    'message' => is_string( $result ) ? trim( $result ) : '',
+                    'message' => is_string( $result ) ? mb_trim( $result ) : '',
                     'result' => $result,
                 ]
             );
@@ -462,7 +463,7 @@ class TinyMashTheme {
                 [
                     'theme_key' => $theme_key,
                     'status' => 'error',
-                    'message' => trim( $e->getMessage() ),
+                    'message' => mb_trim( $e->getMessage() ),
                     'result' => null,
                 ]
             );
@@ -700,15 +701,15 @@ class TinyMashTheme {
         return( 'auto' );
     }
 
-    protected function getPublicFooterFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
-        return( $this->getPublicSlotFragments( 'footer', $context_entry, $context_author_slug ) );
+    protected function getPublicFooterFragments( ?array $context_entry = null, ?string $context_author_slug = null, array $render_context = [] ) : array {
+        return( $this->getPublicSlotFragments( 'footer', $context_entry, $context_author_slug, $render_context ) );
     }
 
-    protected function getPublicAuthorIdentityFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
-        return( $this->getPublicSlotFragments( 'author_identity', $context_entry, $context_author_slug ) );
+    protected function getPublicAuthorIdentityFragments( ?array $context_entry = null, ?string $context_author_slug = null, array $render_context = [] ) : array {
+        return( $this->getPublicSlotFragments( 'author_identity', $context_entry, $context_author_slug, $render_context ) );
     }
 
-    protected function getPublicSlotFragments( string $slot, ?array $context_entry = null, ?string $context_author_slug = null ) : array {
+    protected function getPublicSlotFragments( string $slot, ?array $context_entry = null, ?string $context_author_slug = null, array $render_context = [] ) : array {
         if ( ! $this->app->has( 'plugins' ) ) {
             return( [] );
         }
@@ -730,6 +731,7 @@ class TinyMashTheme {
             'site_name' => (string) $this->app->get( 'site.name' ),
             'author_slug' => $resolved_author_slug,
             'entry' => $context_entry,
+            'static_export' => ! empty( $render_context['static_export'] ),
         ];
 
         $fragments = $plugins->renderPublicSlot( $slot, $context );
@@ -759,8 +761,8 @@ class TinyMashTheme {
         return( array_merge( $head_tags, is_array( $plugin_head_tags ) ? $plugin_head_tags : [] ) );
     }
 
-    protected function getPublicSidebarFragments( ?array $context_entry = null, ?string $context_author_slug = null ) : array {
-        return( $this->getPublicSlotFragments( 'sidebar', $context_entry, $context_author_slug ) );
+    protected function getPublicSidebarFragments( ?array $context_entry = null, ?string $context_author_slug = null, array $render_context = [] ) : array {
+        return( $this->getPublicSlotFragments( 'sidebar', $context_entry, $context_author_slug, $render_context ) );
     }
 
     protected function getPublicSearchViewData( string $author_slug = '', array $theme_settings = [], array $render_context = [] ) : array {
@@ -779,9 +781,7 @@ class TinyMashTheme {
 
         $theme_search_setting = strtolower( trim( (string) ( $theme_settings['show_search'] ?? 'enabled' ) ) );
         $theme_search_enabled = ! in_array( $theme_search_setting, [ 'disabled', 'off', 'false', '0', 'no' ], true );
-        $query = function_exists( 'mb_trim' )
-            ? mb_trim( (string) ( $_GET['q'] ?? '' ) )
-            : trim( (string) ( $_GET['q'] ?? '' ) );
+        $query = mb_trim( (string) ( $_GET['q'] ?? '' ) );
 
         $search_url = trim( (string) ( $search_settings['url'] ?? '' ) );
         if ( ! empty( $render_context['static_export'] ) && $search_url === '/search' && $author_slug !== '' ) {
@@ -1107,7 +1107,7 @@ class TinyMashTheme {
         return( $author_slug );
     }
 
-    public function getBodyClasses( array $page_context = [], ?array $context_entry = null ) : string {
+    public function getBodyClasses( array $page_context = [], ?array $context_entry = null, ?array $theme_settings = null ) : string {
         $theme_key = $this->getThemeKey();
         $classes = [
             'tm-public',
@@ -1121,9 +1121,14 @@ class TinyMashTheme {
         }
 
         if ( $theme_key === 'panel-magazine' ) {
-            $theme_settings = $theme_settings ?? $this->getThemeSettings();
-            $classes[] = (string) ( ( $theme_settings['panel_position'] ?? 'left' ) === 'right' ? 'tm-panel-right' : 'tm-panel-left' );
-            $classes[] = (string) ( ( $theme_settings['compact_header'] ?? 'sticky' ) === 'static' ? 'tm-panel-compact-static' : 'tm-panel-compact-sticky' );
+            $panel_settings = $this->getThemeSettings();
+            $classes[] = (string) ( ( $panel_settings['panel_position'] ?? 'left' ) === 'right' ? 'tm-panel-right' : 'tm-panel-left' );
+            $classes[] = (string) ( ( $panel_settings['compact_header'] ?? 'sticky' ) === 'static' ? 'tm-panel-compact-static' : 'tm-panel-compact-sticky' );
+        }
+
+        if ( $theme_key === 'scribe' ) {
+            $scribe_settings = $theme_settings ?? $this->getThemeSettings();
+            $classes[] = ( $scribe_settings['header_position'] ?? 'sticky' ) === 'static' ? 'tm-scribe-header-static' : 'tm-scribe-header-sticky';
         }
 
         if ( ! empty( $page_context['scope'] ) && $page_context['scope'] === 'author' ) {
@@ -1332,7 +1337,7 @@ class TinyMashTheme {
                 'owner_username' => strtolower( trim( (string) ( $metadata['owner_username'] ?? '' ) ) ),
                 'filename' => basename( trim( (string) ( $metadata['filename'] ?? '' ) ) ),
                 'url' => trim( (string) ( $metadata['url'] ?? '' ) ),
-                'alt_text' => trim( (string) ( $metadata['alt_text'] ?? '' ) ),
+                'alt_text' => mb_trim( (string) ( $metadata['alt_text'] ?? '' ) ),
                 'mime' => trim( (string) ( $metadata['mime'] ?? '' ) ),
                 'width' => max( 0, (int) ( $metadata['width'] ?? 0 ) ),
                 'height' => max( 0, (int) ( $metadata['height'] ?? 0 ) ),
@@ -1784,7 +1789,7 @@ class TinyMashTheme {
         }
 
         $author_label = $author_slug !== '' ? $this->normalizeTitlePart( $this->getAuthorDisplayLabel( $author_slug ) ) : '';
-        $normalized_title = function_exists( 'mb_strtolower' ) ? mb_strtolower( $title ) : strtolower( $title );
+        $normalized_title = mb_strtolower( $title, 'UTF-8' );
         if ( $title === '' || $normalized_title === 'home' ) {
             return( $this->joinDocumentTitleParts( $author_label !== '' ? [ $author_label, $site_name ] : [ $site_name ] ) );
         }
@@ -1793,7 +1798,7 @@ class TinyMashTheme {
     }
 
     protected function normalizeTitlePart( string $title_part ) : string {
-        return( function_exists( 'mb_trim' ) ? mb_trim( $title_part ) : trim( $title_part ) );
+        return( mb_trim( $title_part ) );
     }
 
     protected function joinDocumentTitleParts( array $parts ) : string {
@@ -1804,8 +1809,8 @@ class TinyMashTheme {
             if ( $part === '' ) {
                 continue;
             }
-            $previous_key = function_exists( 'mb_strtolower' ) ? mb_strtolower( $previous_part ) : strtolower( $previous_part );
-            $part_key = function_exists( 'mb_strtolower' ) ? mb_strtolower( $part ) : strtolower( $part );
+            $previous_key = mb_strtolower( $previous_part, 'UTF-8' );
+            $part_key = mb_strtolower( $part, 'UTF-8' );
             if ( $previous_part !== '' && $previous_key === $part_key ) {
                 continue;
             }
@@ -1828,7 +1833,7 @@ class TinyMashTheme {
                 return( $site_slogan );
             }
 
-            return( trim( (string) ( $context_entry['title'] ?? '' ) ) );
+            return( mb_trim( (string) ( $context_entry['title'] ?? '' ) ) );
         }
         if ( $context_author_slug !== '' ) {
             $author_label = $this->getAuthorDisplayLabel( $context_author_slug );
@@ -1918,7 +1923,7 @@ class TinyMashTheme {
             'owner_username' => strtolower( trim( (string) ( $site_image['owner_username'] ?? '' ) ) ),
             'filename' => basename( trim( (string) ( $site_image['filename'] ?? '' ) ) ),
             'url' => trim( (string) ( $site_image['url'] ?? '' ) ),
-            'alt_text' => trim( (string) ( $site_image['alt_text'] ?? '' ) ),
+            'alt_text' => mb_trim( (string) ( $site_image['alt_text'] ?? '' ) ),
             'mime' => trim( (string) ( $site_image['mime'] ?? '' ) ),
             'width' => max( 0, (int) ( $site_image['width'] ?? 0 ) ),
             'height' => max( 0, (int) ( $site_image['height'] ?? 0 ) ),

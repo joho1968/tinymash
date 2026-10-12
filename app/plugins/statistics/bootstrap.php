@@ -327,7 +327,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             }
             $x = $index * ( $bar_width + $gap );
             $y = $chart_height - $height;
-            $label = trim( (string) ( $item['label'] ?? '' ) );
+            $label = mb_trim( (string) ( $item['label'] ?? '' ) );
             $title = ( $label !== '' ? $label . ': ' : '' ) . $value . ' page view' . ( $value === 1 ? '' : 's' );
             $escaped_title = htmlspecialchars( $title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
             $svg .= '<g title="' . $escaped_title . '"><title>' . $escaped_title . '</title>';
@@ -370,7 +370,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             if ( ! is_array( $page ) ) {
                 continue;
             }
-            $title = trim( (string) ( $page['title'] ?? '' ) );
+            $title = mb_trim( (string) ( $page['title'] ?? '' ) );
             $path = trim( (string) ( $page['path'] ?? '' ) );
             $label = $title !== '' ? $title : $path;
             $html .= '<tr>';
@@ -631,7 +631,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $author_slug = trim( (string) ( $context['author_slug'] ?? ( $entry['author_slug'] ?? '' ) ) );
             $page_kind = 'home';
             $entry_type = '';
-            $title = trim( (string) ( $entry['title'] ?? '' ) );
+            $title = mb_trim( (string) ( $entry['title'] ?? '' ) );
 
             if ( ! empty( $entry ) ) {
                 $entry_type = strtolower( trim( (string) ( $entry['type'] ?? '' ) ) );
@@ -640,7 +640,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $page_kind = 'author_home';
                 $title = $author_slug;
             } else {
-                $title = trim( (string) ( $context['site_name'] ?? 'Home' ) );
+                $title = mb_trim( (string) ( $context['site_name'] ?? 'Home' ) );
             }
 
             if ( ! $should_record_view( $author_slug ) ) {
@@ -649,7 +649,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
             $visitor_context = $get_request_visitor_context();
             if ( ! $config->isSitePublic() && ! empty( $visitor_context['logged_in'] ) ) {
-                $request_path = trim( (string) parse_url( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ), PHP_URL_PATH ) );
+                $request_path = trim( (string) parse_url( (string) ( \Flight::request()->url ?? '/' ), PHP_URL_PATH ) );
                 $request_path = $request_path !== '' ? $request_path : '/';
 
                 if ( $author_slug === '' || $author_statistics_enabled( $author_slug ) ) {

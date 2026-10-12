@@ -2,6 +2,36 @@
 
 Notable changes in tinymash
 
+## 0.99.4 - 2026-10-12
+
+- Added Comments with moderation, guest verification and privacy links
+- Added Subscriptions with double opt-in signup, site and author scopes
+- Included private Comments and Subscriptions data in site backups even when either plugin is inactive
+- Added ordered multi-image paste, drop, and selection in Composer, with partial-failure recovery.
+- Expanded Photos galleries with image sorting, per-image replacement, compact caption and alt-text editing
+- Made Scribe's header sticky by default, with a setting to let it scroll away.
+- Improved gallery upload recovery, original-filename display, and cross-space media review
+- Corrected EXIF orientation on new JPEG uploads and imports; added `media:orientation` to preview and repair older images.
+- Added a read-only `audit:shortcodes` command and author-scoped remote-media audit
+- Improved WordPress import with root-site targets, native Photos galleries, image captions and alignment
+- Converted supported WordPress code, highlight, and Wikipedia shortcodes into readable native content
+- Converted recognized WordPress and Blogger YouTube embeds to click-to-load shortcodes
+- Improved accented Latin slug creation and Unicode text handling, matching, and ordering.
+- Aligned public subscription, comment, password-reset, and account e-mail layouts
+- Improved updater diagnostics for missing cURL, Sodium, and ZIP requirements
+- Made RSS Reader resolve and pin vetted public addresses for each fetch and redirect
+- Required configured trusted proxy ranges before accepting forwarded visitor IP headers
+- Restored the System sections control and improved the top bar on narrow admin screens
+- Several accessibility fixes in plugins and themes
+- Updated components, including Flight `3.19.4` and Symfony Console `8.1.8`
+
+## 0.99.3 - 2026-09-09
+
+- Web based installer for new sites
+- Better emoji picker alignment during content editing
+- Updated Flight `3.19.3`, CommonMark `2.10.1`, Symfony Console and Mime `8.1.6`, and Symfony Service Contracts `3.7.3`
+- Improved base URL compliance for hosting tinymash on sub-URLs
+
 ## 0.99.2 - 2026-09-07
 
 - Included the updater-capable build that was absent from the immutable `0.99.0` release archive
@@ -112,7 +142,7 @@ After installing, run php8.4 bin/tinymash.php cache:clear
 
 ## 0.92.2 - 2026-06-26
 
-- Improved PHP session handling, and checking for invalid PHP session handling when using redis
+- Improved PHP session handling, and checking for invalid PHP session handling when using Redis
 
 ## 0.92.1 - 2026-06-24
 

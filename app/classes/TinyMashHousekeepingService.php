@@ -13,9 +13,11 @@ class TinyMashHousekeepingService {
     protected ?TinyMashTheme $theme;
     protected ?TinyMashContentRepository $content_repository;
     protected ?TinyMashImportPreviewWorkspaceService $import_preview_workspace_service;
+    protected ?TinyMashUpdateStageService $update_stage_service;
+    protected ?TinyMashUpdateJournal $update_journal;
     protected string $web_fallback_lock_filename;
 
-    public function __construct( TinyMashConfigIO $config_io, TinyMashDraftRepository $draft_repository, ?TinyMashMediaService $media_service = null, ?TinyMashPlugins $plugins = null, ?TinyMashNotificationService $notification_service = null, ?TinyMashPasswordResetService $password_reset_service = null, ?TinyMashTheme $theme = null, string $web_fallback_lock_filename = '', ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashContentRepository $content_repository = null, ?TinyMashImportPreviewWorkspaceService $import_preview_workspace_service = null ) {
+    public function __construct( TinyMashConfigIO $config_io, TinyMashDraftRepository $draft_repository, ?TinyMashMediaService $media_service = null, ?TinyMashPlugins $plugins = null, ?TinyMashNotificationService $notification_service = null, ?TinyMashPasswordResetService $password_reset_service = null, ?TinyMashTheme $theme = null, string $web_fallback_lock_filename = '', ?TinyMashMediaImportBridge $media_import_bridge = null, ?TinyMashContentRepository $content_repository = null, ?TinyMashImportPreviewWorkspaceService $import_preview_workspace_service = null, ?TinyMashUpdateStageService $update_stage_service = null, ?TinyMashUpdateJournal $update_journal = null ) {
         $this->config_io = $config_io;
         $this->draft_repository = $draft_repository;
         $this->media_service = $media_service;
@@ -26,6 +28,8 @@ class TinyMashHousekeepingService {
         $this->theme = $theme;
         $this->content_repository = $content_repository;
         $this->import_preview_workspace_service = $import_preview_workspace_service;
+        $this->update_stage_service = $update_stage_service;
+        $this->update_journal = $update_journal;
         $this->web_fallback_lock_filename = trim( $web_fallback_lock_filename ) !== ''
             ? $web_fallback_lock_filename
             : dirname( $this->config_io->getConfigFilename(), 2 ) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'housekeeping-web.lock';
@@ -77,6 +81,20 @@ class TinyMashHousekeepingService {
                 'skipped_unknown' => 0,
                 'skipped_symlinks' => 0,
                 'errors' => 0,
+            ];
+        $update_stage_cleanup_result = $this->update_stage_service instanceof TinyMashUpdateStageService
+            ? $this->update_stage_service->cleanup(
+                $this->update_journal instanceof TinyMashUpdateJournal ? $this->update_journal->read() : []
+            )
+            : [
+                'directory_exists' => false,
+                'removed_workspaces' => 0,
+                'preserved_workspaces' => 0,
+                'skipped_unknown' => 0,
+                'skipped_symlinks' => 0,
+                'errors' => 0,
+                'removed_directory' => false,
+                'busy' => false,
             ];
         $scheduled_publication_result = $this->runScheduledPublicationTask( $context, $started_at_utc );
 
@@ -222,6 +240,26 @@ class TinyMashHousekeepingService {
                     'skipped_symlinks' => (int) ( $import_preview_cleanup_result['skipped_symlinks'] ?? 0 ),
                     'errors' => (int) ( $import_preview_cleanup_result['errors'] ?? 0 ),
                 ],
+                [
+                    'key' => 'update_stage_cleanup',
+                    'label' => 'Update staging cleanup',
+                    'status' => ! $this->update_stage_service instanceof TinyMashUpdateStageService
+                        ? 'skipped'
+                        : ( ! empty( $update_stage_cleanup_result['busy'] )
+                            ? 'skipped'
+                            : ( (int) ( $update_stage_cleanup_result['errors'] ?? 0 ) > 0 ? 'error' : 'ran' ) ),
+                    'message' => ! $this->update_stage_service instanceof TinyMashUpdateStageService
+                        ? 'Update staging cleanup is unavailable.'
+                        : ( ! empty( $update_stage_cleanup_result['busy'] )
+                            ? 'Update staging is active.'
+                            : 'Removed ' . (int) ( $update_stage_cleanup_result['removed_workspaces'] ?? 0 ) . ' obsolete update workspace(s).' ),
+                    'removed_workspaces' => (int) ( $update_stage_cleanup_result['removed_workspaces'] ?? 0 ),
+                    'preserved_workspaces' => (int) ( $update_stage_cleanup_result['preserved_workspaces'] ?? 0 ),
+                    'skipped_unknown' => (int) ( $update_stage_cleanup_result['skipped_unknown'] ?? 0 ),
+                    'skipped_symlinks' => (int) ( $update_stage_cleanup_result['skipped_symlinks'] ?? 0 ),
+                    'errors' => (int) ( $update_stage_cleanup_result['errors'] ?? 0 ),
+                    'removed_directory' => ! empty( $update_stage_cleanup_result['removed_directory'] ),
+                ],
             ],
                 'plugin_tasks' => $plugin_task_results,
                 'theme_task' => $theme_task_result,
@@ -311,7 +349,7 @@ class TinyMashHousekeepingService {
                 if ( (string) ( $handler_result['status'] ?? '' ) !== 'error' ) {
                     continue;
                 }
-                $handler_errors[] = trim( (string) ( $handler_result['plugin_key'] ?? 'plugin' ) ) . ': ' . trim( (string) ( $handler_result['message'] ?? 'handler failed' ) );
+                $handler_errors[] = trim( (string) ( $handler_result['plugin_key'] ?? 'plugin' ) ) . ': ' . mb_trim( (string) ( $handler_result['message'] ?? 'handler failed' ) );
             }
 
             $error = implode( '; ', $handler_errors );

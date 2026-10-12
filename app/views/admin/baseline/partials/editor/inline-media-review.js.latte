@@ -1,0 +1,167 @@
+            const inlineMediaReview = document.getElementById('tm-editor-inline-media-review');
+            const inlineMediaSummary = document.getElementById('tm-editor-inline-media-summary');
+            const inlineMediaToggle = document.getElementById('tm-editor-inline-media-toggle');
+            const inlineMediaList = document.getElementById('tm-editor-inline-media-list');
+            let inlineMediaTimer = 0;
+            let inlineMediaGeneration = 0;
+            let inlineMediaIssues = [];
+            let inlineMediaSnapshot = null;
+            let inlineMediaSelectedIssue = null;
+
+            function inlineMediaContext() {
+                return {
+                    content: markdownField ? markdownField.value : '',
+                    scope: scopeField ? scopeField.value : 'root',
+                    author: authorSlugField ? authorSlugField.value.trim() : ''
+                };
+            }
+
+            function inlineMediaContextMatches(snapshot) {
+                const current = inlineMediaContext();
+                return snapshot && current.content === snapshot.content && current.scope === snapshot.scope && current.author === snapshot.author;
+            }
+
+            function renderInlineMediaReview() {
+                if (!inlineMediaReview || !inlineMediaList || !inlineMediaSummary) return;
+                inlineMediaReview.classList.toggle('d-none', inlineMediaIssues.length === 0);
+                if (inlineMediaIssues.length === 0) return;
+                inlineMediaToggle.classList.remove('d-none');
+                const count = inlineMediaIssues.length;
+                inlineMediaSummary.textContent = count === 1
+                    ? 'One image belongs to another space. It may stop displaying if its original is removed.'
+                    : count + ' images belong to other spaces. They may stop displaying if their originals are removed.';
+                inlineMediaList.innerHTML = inlineMediaIssues.map((issue, index) => {
+                    const owner = issue.owner === 'root' ? 'Root media' : issue.owner;
+                    return '<div class="border-top py-2 d-flex flex-wrap align-items-center gap-2">'
+                        + '<div class="flex-grow-1"><span class="fw-semibold">' + escapeHtml(issue.label) + '</span>'
+                        + '<span class="small text-body-secondary ms-2">From ' + escapeHtml(owner) + '</span></div>'
+                        + '<button class="btn btn-sm btn-outline-secondary" type="button" data-inline-media-action="find" data-index="' + index + '">Find in text</button>'
+                        + (issue.simple ? '<button class="btn btn-sm btn-outline-secondary" type="button" data-inline-media-action="replace" data-index="' + index + '">Use another image</button>' : '')
+                        + (issue.media_id && imagesEnabled ? '<button class="btn btn-sm btn-outline-secondary" type="button" data-inline-media-action="copy" data-index="' + index + '">Make a copy here</button>' : '')
+                        + '</div>';
+                }).join('') + '<div class="small text-body-secondary mt-2">Leave images linked to their original space when intended.</div>';
+            }
+
+            async function scanInlineMedia() {
+                const generation = ++inlineMediaGeneration;
+                const snapshot = inlineMediaContext();
+                if (!markdownField || !/\/media\/[a-z0-9_]+\//.test(snapshot.content)) {
+                    inlineMediaIssues = [];
+                    inlineMediaSnapshot = null;
+                    renderInlineMediaReview();
+                    return;
+                }
+                try {
+                    const response = await fetch(editorUrl + '/inline-media-review', {
+                        method: 'POST', credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                        body: new URLSearchParams({ tinymash_csrf: csrfToken, content: snapshot.content, scope: snapshot.scope, author_slug: snapshot.author })
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (generation !== inlineMediaGeneration || !inlineMediaContextMatches(snapshot)) return;
+                    if (!response.ok) throw new Error(result.error || 'Images could not be reviewed.');
+                    inlineMediaIssues = Array.isArray(result.issues) ? result.issues : [];
+                    inlineMediaSnapshot = snapshot;
+                    renderInlineMediaReview();
+                } catch (error) {
+                    if (generation !== inlineMediaGeneration) return;
+                    inlineMediaIssues = [];
+                    inlineMediaSnapshot = null;
+                    inlineMediaReview.classList.remove('d-none');
+                    inlineMediaSummary.textContent = error instanceof Error ? error.message : 'Images could not be reviewed.';
+                    inlineMediaList.replaceChildren();
+                    inlineMediaList.classList.add('d-none');
+                    inlineMediaToggle.setAttribute('aria-expanded', 'false');
+                    inlineMediaToggle.textContent = 'Review images';
+                    inlineMediaToggle.classList.add('d-none');
+                }
+            }
+
+            function queueInlineMediaReview() {
+                window.clearTimeout(inlineMediaTimer);
+                inlineMediaGeneration += 1;
+                inlineMediaTimer = window.setTimeout(scanInlineMedia, 450);
+            }
+
+            function replaceInlineMediaUrl(issue, replacementUrl, snapshot) {
+                if (!issue || !issue.simple || !inlineMediaContextMatches(snapshot)) {
+                    setTransientStatus('The entry changed. Review the image again.', 'text-danger');
+                    queueInlineMediaReview();
+                    return;
+                }
+                const originalUrl = String(issue.url || '');
+                const current = markdownField.value;
+                if (!replacementUrl || current.split(originalUrl).length !== 2 || !current.includes('](' + originalUrl + ')')) {
+                    setTransientStatus('The image reference changed. Review it again.', 'text-danger');
+                    queueInlineMediaReview();
+                    return;
+                }
+                markdownField.value = current.replace(originalUrl, replacementUrl);
+                markdownField.dispatchEvent(new Event('input', { bubbles: true }));
+                setTransientStatus('Image updated. Save the entry to keep this change.', 'text-success');
+                queueInlineMediaReview();
+            }
+
+            if (inlineMediaToggle) {
+                inlineMediaToggle.addEventListener('click', () => {
+                    const expanded = inlineMediaToggle.getAttribute('aria-expanded') === 'true';
+                    inlineMediaToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                    inlineMediaToggle.textContent = expanded ? 'Review images' : 'Hide details';
+                    inlineMediaList.classList.toggle('d-none', expanded);
+                });
+            }
+            if (inlineMediaList) {
+                inlineMediaList.addEventListener('click', async (event) => {
+                    const button = event.target.closest('[data-inline-media-action]');
+                    if (!button || !inlineMediaContextMatches(inlineMediaSnapshot)) {
+                        queueInlineMediaReview();
+                        return;
+                    }
+                    const issue = inlineMediaIssues[Number(button.dataset.index)];
+                    if (!issue) return;
+                    if (button.dataset.inlineMediaAction === 'find') {
+                        const offset = markdownField.value.indexOf(issue.url);
+                        if (offset >= 0) {
+                            markdownField.focus();
+                            markdownField.setSelectionRange(offset, offset + issue.url.length);
+                        }
+                    } else if (button.dataset.inlineMediaAction === 'replace' && issue.simple) {
+                        inlineMediaSelectedIssue = { issue, snapshot: inlineMediaSnapshot };
+                        await openImagePickerModal('inline-replace');
+                    } else if (button.dataset.inlineMediaAction === 'copy' && issue.media_id && issue.simple) {
+                        const snapshot = inlineMediaSnapshot;
+                        button.disabled = true;
+                        document.dispatchEvent(new CustomEvent('tinymash:editor-image-operation', { detail: { delta: 1 } }));
+                        try {
+                            const response = await fetch(editorUrl + '/gallery-image-copy', {
+                                method: 'POST', credentials: 'same-origin',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                                body: new URLSearchParams({ tinymash_csrf: csrfToken, media_id: issue.media_id, scope: snapshot.scope, author_slug: snapshot.author, attachment_session_id: attachmentSessionId })
+                            });
+                            const result = await response.json().catch(() => ({}));
+                            if (!response.ok) throw new Error(result.error || 'Image could not be copied.');
+                            if (!inlineMediaContextMatches(snapshot)) {
+                                setTransientStatus('The entry changed while copying. Find the copy in Recent in the previous space.', 'text-danger');
+                                return;
+                            }
+                            replaceInlineMediaUrl(issue, String(result.url || ''), snapshot);
+                            invalidateMediaPickerCollections();
+                        } catch (error) {
+                            setTransientStatus(error instanceof Error ? error.message : 'Image could not be copied.', 'text-danger');
+                        } finally {
+                            button.disabled = false;
+                            document.dispatchEvent(new CustomEvent('tinymash:editor-image-operation', { detail: { delta: -1 } }));
+                        }
+                    }
+                });
+            }
+            document.addEventListener('tinymash:editor-inline-image-selected', (event) => {
+                const selected = inlineMediaSelectedIssue;
+                inlineMediaSelectedIssue = null;
+                const url = event.detail && event.detail.record ? String(event.detail.record.url || '') : '';
+                if (selected) replaceInlineMediaUrl(selected.issue, url, selected.snapshot);
+            });
+            if (markdownField) markdownField.addEventListener('input', queueInlineMediaReview);
+            if (scopeField) scopeField.addEventListener('change', queueInlineMediaReview);
+            if (authorSlugField) authorSlugField.addEventListener('input', queueInlineMediaReview);
+            queueInlineMediaReview();

@@ -21,19 +21,17 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title fs-5" id="tm-editor-cancel-modal-label">Leave editor?</h2>
+                <h2 class="modal-title fs-5" id="tm-editor-cancel-modal-label">Discard changes</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-2" id="tm-editor-cancel-modal-summary">You have work in progress in the composer.</p>
                 <p class="mb-0 text-body-secondary" id="tm-editor-cancel-modal-detail">Choose whether to keep a draft, discard it, or stay in the editor.</p>
             </div>
-            <div class="modal-footer d-flex flex-wrap justify-content-between gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Stay in editor</button>
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-outline-danger" id="tm-editor-cancel-discard">Discard draft and leave</button>
-                    <button type="button" class="btn btn-primary" id="tm-editor-cancel-keep">Keep draft and leave</button>
-                </div>
+            <div class="modal-footer d-flex flex-nowrap justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Stay</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="tm-editor-cancel-discard">Discard</button>
+                <button type="button" class="btn btn-sm btn-primary" id="tm-editor-cancel-keep">Keep draft</button>
             </div>
         </div>
     </div>
@@ -132,15 +130,23 @@
             </div>
             <div class="modal-body">
                 <div class="row g-3">
+                    <div n:if="! empty( $is_superadmin )" class="col-12 d-none" id="tm-editor-image-picker-scope-wrap">
+                        <label class="form-label small mb-1" for="tm-editor-image-picker-scope">Choose images from</label>
+                        <select class="form-select form-select-sm" id="tm-editor-image-picker-scope">
+                            <option value="current">Current space</option>
+                            <option value="root_media">Root media</option>
+                        </select>
+                        <div class="form-text d-none" id="tm-editor-image-picker-scope-help">Root media stays linked to the root space.</div>
+                    </div>
                     <div class="col-12 col-lg-6">
                         <label class="form-label small mb-1" for="tm-editor-featured-image-filter">Filter images</label>
                         <input class="form-control" id="tm-editor-featured-image-filter" type="search" placeholder="Search filename or alt text">
                     </div>
                     <div class="col-12 col-lg-6">
-                        <div class="small text-uppercase text-body-secondary mb-1">Source</div>
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Featured image source">
-                            <button class="btn btn-outline-secondary active" id="tm-editor-featured-image-source-attached" type="button" data-source="attached">Attached</button>
-                            <button class="btn btn-outline-secondary" id="tm-editor-featured-image-source-recent" type="button" data-source="recent">Recent</button>
+                        <div class="small text-uppercase text-body-secondary mb-1">Images</div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Image list">
+                            <button class="btn btn-outline-secondary active" id="tm-editor-featured-image-source-attached" type="button" data-source="attached">This entry</button>
+                            <button class="btn btn-outline-secondary" id="tm-editor-featured-image-source-recent" type="button" data-source="recent">Recent uploads</button>
                             <button class="btn btn-outline-secondary" id="tm-editor-featured-image-source-library" type="button" data-source="library">Library</button>
                         </div>
                     </div>

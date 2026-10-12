@@ -1,7 +1,7 @@
 {
     "key": "social",
     "name": "Social",
-    "version": "0.99.2",
+  "version": "0.99.4",
     "description": "Manages site and profile links with local accessible icons.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

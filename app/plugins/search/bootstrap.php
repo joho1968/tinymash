@@ -146,9 +146,9 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         ]
     );
 
-    $render_not_found = static function( string $message = 'Page not found', string $author_slug = '' ) use ( $theme ) : void {
+    $render_not_found = static function( string $message = 'Page not found', string $author_slug = '' ) use ( $plugins, $theme ) : void {
         \Flight::response()->status( 404 );
-        \Flight::view()->render(
+        $plugins->renderPublicPage(
             $theme->getTemplate( '404' ),
             array_merge(
                 $theme->getBaseViewData( 'Page not found', null, $author_slug !== '' ? $author_slug : null ),
@@ -297,7 +297,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $emit_server_timing();
 
             if ( $author_slug !== '' ) {
-                \Flight::view()->render(
+                $plugins->renderPublicPage(
                     $theme->getTemplate( 'author-home' ),
                     array_merge(
                         $view_data,
@@ -313,7 +313,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 return;
             }
 
-            \Flight::view()->render(
+            $plugins->renderPublicPage(
                 $theme->getTemplate( 'home' ),
                 array_merge(
                     $view_data,

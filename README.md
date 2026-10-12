@@ -57,14 +57,20 @@ Required PHP extensions:
 - `openssl`
 - `fileinfo`
 
-Recommended PHP extensions for full feature coverage:
+Live Update additionally requires:
 
 - `curl`
+- `sodium`
+- `zip`
+
+tinymash remains usable without those three extensions, but Live Update stays unavailable and reports the missing requirement.
+
+Recommended PHP extensions for full feature coverage:
+
 - `gd` or `imagick`
 - `simplexml`
 - `exif`
 - `intl`
-- `zip`
 
 For ordinary public and admin use, tinymash can run with a small PHP memory limit; `16M` is enough for many small sites. Larger batch jobs such as imports, backups/exports, media cleanup, and big upload/import runs may need more memory. The CLI import commands also accept explicit memory-limit options where that matters.
 

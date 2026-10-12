@@ -89,7 +89,7 @@ Use the included sample configurations as your starting point:
 Give each tinymash installation its own PHP session name. Use a short cookie-safe value that starts with a letter, and keep that value stable across upgrades:
 
 ```ini
-php_admin_value[session.name] = TINYMASHEXAMPLE
+php_value[session.name] = TINYMASHEXAMPLE
 ```
 
 This avoids session-cookie name collisions when installations share a hostname. PHP's `session.gc_maxlifetime` setting controls how long an inactive server-side session remains available; set it globally or for the site's PHP-FPM pool according to your login policy. If several sites share Redis-backed sessions, also give each site an explicit Redis session prefix.
@@ -98,7 +98,9 @@ Give each PHP-FPM pool its own writable temporary root. tinymash prefers `sys_te
 
 For `open_basedir`, allow the complete installation root plus explicit site-level directories PHP actually uses, such as its temporary and PHP log directories. Nginx-only authentication files do not need PHP access.
 
-tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before tinymash can authorize them. If you want an additional HTTP Basic layer, use the included Apache/Nginx examples to limit it to the admin URL for either a top-level or sub-URL installation, then verify that public routes and routed media still reach tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging in the web-server access log.
+tinymash can keep a site non-public while allowing selected guests through secret links. Do not protect the entire virtual host with HTTP Basic authentication if guests must use those links: the web server would reject `/s/<token>` and its destination before tinymash can authorize them.
+
+For an additional HTTP Basic layer, use the included Apache/Nginx examples to limit it to the admin URL. Verify that public routes and routed media still reach tinymash. Secret-link paths contain bearer credentials, so redact them or suppress `/s/` request-path logging.
 
 If you want explicit OPcache settings, use:
 
@@ -120,6 +122,29 @@ The PHP/web-server user must be able to write to:
 If login works but saving drafts, uploads, cache writes, or housekeeping fail, treat it as a filesystem-permissions problem first.
 
 ## 5. Run setup
+
+### Browser setup
+
+For a fresh installation served at the domain root, setup is available at `/install`. PHP needs cURL, HTTPS self-requests must reach this installation, and the server must protect files outside `public/`. HTTPS is required except for explicit loopback development. Whole-host HTTP Basic authentication or an unprovable proxy mapping requires CLI setup. Normal administration below a URL prefix still needs integration work; do not use this browser flow for a subpath installation yet.
+
+Create these two files beside `app/`, `data/`, and `public/`, using the intended origin without a URL path:
+
+```bash
+cd /path/to/tinymash
+umask 077
+php8.4 -r 'echo bin2hex(random_bytes(16)), PHP_EOL;' > .tinymash-install-token
+printf '%s\n' 'https://example.com' > .tinymash-install-origin
+```
+
+PHP must be able to select its installer session name and private file store. If the pool locks `session.name`, `session.save_path`, or a non-file `session.save_handler` with `php_admin_value`, use CLI setup or make those settings overridable with `php_value` during setup.
+
+Uploading equivalent owner-readable files is also supported. The token may contain 1–64 visible characters; use at least 32 random characters. Never put either file below `public/`, include the token in a URL, or reuse an account password as the token.
+
+Open `https://example.com/install` and enter the token from the host file. After the hosting checks pass, enter the site details and first administrator credentials. JavaScript is optional. Setup needs write access to `app/config/`, `users/`, and the runtime directories. It publishes the administrator and then the configuration, removes its two host files, expires its session, and redirects to ordinary sign-in without signing in automatically.
+
+If host-file cleanup fails, the page identifies the remaining files; remove them on the host without repeating setup. Existing configuration closes every installer route with `404`. An interrupted installation containing an account but no configuration requires host inspection and, when eligible, explicit CLI recovery; never delete accounts or staging files merely to reopen the browser form.
+
+### CLI setup
 
 From the tinymash runtime root:
 
@@ -162,7 +187,9 @@ Use it as reference only; do not overwrite an existing `app/config/tinymash.json
 
 Do not copy a new release over the old application tree. Removed PHP, plugin, theme, vendor, or public files can remain executable after an overlay.
 
-Installations on `0.98.2` or earlier need the manual sibling procedure below to reach `0.99.2`; their release artifact does not contain the guarded web updater. The immutable `0.99.0` archive also predates the updater. For `0.99.1`, the manual sibling procedure is recommended: an in-app update started there still uses its original recovery worker, including its interruption-recovery limitations. After a site is running `0.99.2`, later compatible signed releases use the corrected recovery behavior from **System > Updates**.
+Installations on `0.98.2` or earlier need the manual sibling procedure below to reach `0.99.2`; their release artifact does not contain the guarded web updater. The immutable `0.99.0` archive also predates the updater.
+
+The manual sibling procedure is also recommended for `0.99.1`, whose in-app updater retains its original recovery worker. After a site runs `0.99.2`, later compatible signed releases use the corrected recovery behavior from **System > Updates**.
 
 Use a staged sibling directory and run the preparation command from the new release root:
 

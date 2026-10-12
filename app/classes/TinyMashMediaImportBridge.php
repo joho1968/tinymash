@@ -229,7 +229,7 @@ class TinyMashMediaImportBridge {
     public function buildMissingImportedMediaFallback( string $source_url, string $alt_text = '' ) : array {
         $source_url = trim( $source_url );
         $label = $this->buildMissingImportedMediaLabel( $source_url );
-        $alt_text = trim( $alt_text );
+        $alt_text = mb_trim( $alt_text );
         if ( $alt_text === '' ) {
             $alt_text = 'Missing imported image';
         } else {

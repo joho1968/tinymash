@@ -120,8 +120,8 @@ class TinyMashThemeRegistry {
             [
                 'type' => $type,
                 'key' => $key,
-                'name' => trim( (string) ( $manifest['name'] ?? ucwords( str_replace( [ '-', '_' ], ' ', $key ) ) ) ),
-                'description' => trim( (string) ( $manifest['description'] ?? '' ) ),
+                'name' => mb_trim( (string) ( $manifest['name'] ?? ucwords( str_replace( [ '-', '_' ], ' ', $key ) ) ) ),
+                'description' => mb_trim( (string) ( $manifest['description'] ?? '' ) ),
                 'version' => trim( (string) ( $manifest['version'] ?? '' ) ),
                 'template_root' => $template_root,
                 'views' => $this->normalizeViews( (array) ( $manifest['views'] ?? [] ) ),
@@ -320,7 +320,7 @@ class TinyMashThemeRegistry {
             }
             $setting_keys[$setting_key] = true;
 
-            if ( trim( (string) ( $setting_definition['label'] ?? '' ) ) === '' ) {
+            if ( mb_trim( (string) ( $setting_definition['label'] ?? '' ) ) === '' ) {
                 $warnings[] = 'Setting "' . $setting_key . '" is missing a label.';
             }
 
@@ -342,7 +342,7 @@ class TinyMashThemeRegistry {
 
                 $option_values = [];
                 foreach ( $setting_definition['options'] as $option ) {
-                    if ( ! is_array( $option ) || trim( (string) ( $option['value'] ?? '' ) ) === '' || trim( (string) ( $option['label'] ?? '' ) ) === '' ) {
+                    if ( ! is_array( $option ) || trim( (string) ( $option['value'] ?? '' ) ) === '' || mb_trim( (string) ( $option['label'] ?? '' ) ) === '' ) {
                         $warnings[] = 'Select setting "' . $setting_key . '" contains an option without value and label.';
                         continue;
                     }

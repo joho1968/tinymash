@@ -118,9 +118,14 @@
                             <select class="form-select" id="tm-system-forwarded-ip-mode" name="forwarded_ip_mode">
                                 <option value="off" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'off'">OFF</option>
                                 <option value="cf-connecting-ip" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'cf-connecting-ip'">Cloudflare header</option>
-                                <option value="x-forwarded-for-first" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'x-forwarded-for-first'">X-Forwarded-For first IP</option>
+                                <option value="x-forwarded-for" n:attr="selected => ($system_settings['forwarded_ip_mode'] ?? 'off') === 'x-forwarded-for'">X-Forwarded-For trusted chain</option>
                             </select>
-                            <div class="form-text">Advanced setting. <strong>OFF</strong> trusts only <span class="font-monospace">REMOTE_ADDR</span>. Enable a forwarded mode only when your host or proxy setup really uses that header for the client IP.</div>
+                            <div class="form-text">OFF uses <span class="font-monospace">REMOTE_ADDR</span>. Forwarded modes accept headers only from the trusted proxy addresses below.</div>
+                            <label class="form-label small mt-3 mb-1" for="tm-system-trusted-proxies">Trusted proxy addresses or CIDRs</label>
+                            <input class="form-control font-monospace" id="tm-system-trusted-proxies" name="trusted_proxy_cidrs" value="{$system_settings['trusted_proxy_cidrs'] ?? ''}" placeholder="192.0.2.10, 2001:db8::/32" autocomplete="off">
+                            <div class="form-text">Separate addresses or ranges with commas. Leave empty when forwarding is off.</div>
+                            {if ($system_settings['forwarded_ip_mode'] ?? 'off') !== 'off' && empty($system_settings['trusted_proxy_cidrs'])}<div class="text-warning small mt-2">Forwarded headers are ignored until a trusted proxy is configured.</div>{/if}
+                            <div class="small text-body-secondary mt-2">Socket peer: <span class="font-monospace">{$system_proxy_diagnostic['peer'] ?: 'Unknown'}</span>. Client IP: <span class="font-monospace">{$system_proxy_diagnostic['client'] ?: 'Unknown'}</span>. Proxy trusted: {if $system_proxy_diagnostic['trusted']}Yes{else}No{/if}.</div>
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label small mb-1" for="tm-system-housekeeping-web-fallback-mode">Web cron fallback</label>

@@ -79,11 +79,11 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Social image order',
-                    'markdown' => "For Open Graph and Twitter cards, tinymash uses this image order:\n\n1. the entry's **Social image** override\n2. the entry's **Featured image**\n3. the site-wide default OG image\n\nIf no social image is chosen, the normal featured-image/site fallback still applies.",
+                    'markdown' => "Social cards use this image order:\n\n1. entry **Social image**\n2. entry **Featured image**\n3. site default OG image",
                 ],
                 [
                     'title' => 'Entry SEO fields',
-                    'markdown' => 'When the plugin is active, the editor gets a dedicated `SEO` tab for SEO title, SEO description, social title, social description, social image, canonical URL, robots directive, and sitemap exclusion.',
+                    'markdown' => 'The `SEO` editor tab sets search and social metadata, canonical URL, robots directive, and sitemap exclusion.',
                 ],
                 [
                     'title' => 'AI crawler advisory',

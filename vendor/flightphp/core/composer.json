@@ -27,6 +27,9 @@
         "ext-json": "*"
     },
     "autoload": {
+        "files": [
+            "flight/autoload.php"
+        ],
         "classmap": [
             "flight/Flight.php"
         ],

@@ -1,37 +1,45 @@
 <?php
 
 use app\classes\TinyMashContentRepository;
+use app\classes\TinyMashEmbedService;
 use app\classes\TinyMashFilesystem;
 use app\classes\TinyMashImportLockService;
 use app\classes\TinyMashMediaImportBridge;
 
 require_once dirname( __DIR__, 2 ) . '/classes/TinyMashFilesystem.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashEmbedService.php';
+require_once dirname( __DIR__ ) . '/comments/TinyMashCommentsService.php';
 
 class TinyMashBloggerImportService {
 
     protected const ATOM_NAMESPACE = 'http://www.w3.org/2005/Atom';
     protected const BLOGGER_NAMESPACE = 'http://schemas.google.com/blogger/2018';
+    protected const THREAD_NAMESPACE = 'http://purl.org/syndication/thread/1.0';
     protected const MAX_IMPORT_BATCH_SIZE = 100;
 
     protected string $workspace_directory;
     protected TinyMashContentRepository $content_repository;
     protected ?TinyMashMediaImportBridge $media_import_bridge;
     protected ?TinyMashImportLockService $import_lock_service;
+    protected TinyMashEmbedService $embed_service;
+    protected ?TinyMashCommentsService $comments_service;
     protected string $project_root;
 
-    public function __construct( string $workspace_directory, TinyMashContentRepository $content_repository, ?TinyMashMediaImportBridge $media_import_bridge = null, string $project_root = '', ?TinyMashImportLockService $import_lock_service = null ) {
+    public function __construct( string $workspace_directory, TinyMashContentRepository $content_repository, ?TinyMashMediaImportBridge $media_import_bridge = null, string $project_root = '', ?TinyMashImportLockService $import_lock_service = null, ?TinyMashEmbedService $embed_service = null, ?TinyMashCommentsService $comments_service = null ) {
         $this->workspace_directory = rtrim( $workspace_directory, DIRECTORY_SEPARATOR );
         $this->content_repository = $content_repository;
         $this->media_import_bridge = $media_import_bridge;
         $this->project_root = $project_root !== '' ? rtrim( $project_root, DIRECTORY_SEPARATOR ) : dirname( __DIR__, 2 );
         $this->import_lock_service = $import_lock_service;
+        $this->embed_service = $embed_service ?? new TinyMashEmbedService();
+        $this->comments_service = $comments_service;
     }
 
     public function isAvailable() : bool {
         return( class_exists( '\SimpleXMLElement' ) && function_exists( 'simplexml_load_string' ) );
     }
 
-    public function createPreviewFromUpload( array $file, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $first_image_as_featured = false ) : array {
+    public function createPreviewFromUpload( array $file, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $first_image_as_featured = false, bool $import_comments = false, bool $preserve_approved_comments = false, bool $retain_commenter_emails = false ) : array {
         if ( empty( $file['tmp_name'] ) || ! is_string( $file['tmp_name'] ) || ! is_file( $file['tmp_name'] ) ) {
             throw new \RuntimeException( 'A Blogger export file is required.' );
         }
@@ -41,17 +49,20 @@ class TinyMashBloggerImportService {
             throw new \RuntimeException( 'The Blogger export file could not be read.' );
         }
 
-        return( $this->createPreviewFromXml( $xml, $author_slug, $aggregate_to_root, $created_by_username, $replace_existing_posts, $media_source_directory, $skip_unpublished, $first_image_as_featured ) );
+        return( $this->createPreviewFromXml( $xml, $author_slug, $aggregate_to_root, $created_by_username, $replace_existing_posts, $media_source_directory, $skip_unpublished, $first_image_as_featured, $import_comments, $preserve_approved_comments, $retain_commenter_emails ) );
     }
 
-    public function createPreviewFromXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $first_image_as_featured = false ) : array {
-        $preview = $this->parseXml( $xml, $author_slug, $aggregate_to_root, $media_source_directory, $skip_unpublished );
+    public function createPreviewFromXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $created_by_username = '', bool $replace_existing_posts = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $first_image_as_featured = false, bool $import_comments = false, bool $preserve_approved_comments = false, bool $retain_commenter_emails = false ) : array {
+        $preview = $this->parseXml( $xml, $author_slug, $aggregate_to_root, $media_source_directory, $skip_unpublished, $import_comments && $retain_commenter_emails );
         $preview['token'] = $this->generateToken();
         $preview['created_at_utc'] = gmdate( 'Y-m-d\TH:i:s\Z' );
         $preview['created_by_username'] = $this->normalizeAuthorSlug( $created_by_username !== '' ? $created_by_username : $author_slug );
         $preview['replace_existing_posts'] = $replace_existing_posts;
         $preview['skip_unpublished'] = $skip_unpublished;
         $preview['first_image_as_featured'] = $first_image_as_featured;
+        $preview['import_comments'] = $import_comments;
+        $preview['preserve_approved_comments'] = $import_comments && $preserve_approved_comments;
+        $preview['retain_commenter_emails'] = $import_comments && $retain_commenter_emails;
 
         $workspace_directory = $this->getWorkspaceDirectory( $preview['token'] );
         if ( ! is_dir( $workspace_directory ) && ! @ mkdir( $workspace_directory, 0775, true ) && ! is_dir( $workspace_directory ) ) {
@@ -189,6 +200,14 @@ class TinyMashBloggerImportService {
                 'skipped_duplicate' => 0,
                 'skipped_invalid' => 0,
                 'deleted_existing_posts' => 0,
+                'comments_imported' => 0,
+                'comments_approved' => 0,
+                'comments_pending' => 0,
+                'comments_spam' => 0,
+                'comments_trash' => 0,
+                'comments_skipped_duplicate' => 0,
+                'comments_skipped_limit' => 0,
+                'comments_skipped_relationship' => 0,
             ],
             'started_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
             'updated_at_utc' => gmdate( 'Y-m-d\TH:i:s\Z' ),
@@ -279,6 +298,7 @@ class TinyMashBloggerImportService {
                 $seen_keys[$scope_key] = true;
 
                 try {
+                    $source_id = (string) ( $entry['source_id'] ?? '' );
                     $attached_media_ids = [];
                     $entry = $this->applyImportedMediaToEntry( $entry, (string) ( $state['author_slug'] ?? '' ), $media_index, $attached_media_ids, ! empty( $preview['first_image_as_featured'] ) );
                     $saved_entry = $this->content_repository->importEditorEntry(
@@ -291,6 +311,22 @@ class TinyMashBloggerImportService {
                         ]
                     );
                     $this->attachImportedMediaToSavedEntry( (string) ( $state['author_slug'] ?? '' ), $saved_entry, $attached_media_ids );
+                    if ( ! empty( $preview['import_comments'] ) && $this->comments_service instanceof TinyMashCommentsService ) {
+                        $comment_records = is_array( $preview['comments_by_entry_source_id'][$source_id] ?? null )
+                            ? $preview['comments_by_entry_source_id'][$source_id]
+                            : [];
+                        if ( $comment_records !== [] ) {
+                            $comment_result = $this->comments_service->importComments(
+                                (string) ( $saved_entry['id'] ?? '' ),
+                                'author:' . (string) ( $state['author_slug'] ?? '' ),
+                                'blogger',
+                                $comment_records,
+                                ! empty( $preview['preserve_approved_comments'] ),
+                                ! empty( $preview['retain_commenter_emails'] )
+                            );
+                            $this->mergeImportedCommentResultCounts( $counts, (array) ( $comment_result['counts'] ?? [] ) );
+                        }
+                    }
                     $counts['imported']++;
                     $batch_counts['imported']++;
                 } catch ( \InvalidArgumentException ) {
@@ -398,7 +434,7 @@ class TinyMashBloggerImportService {
         );
     }
 
-    protected function parseXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $media_source_directory = '', bool $skip_unpublished = false ) : array {
+    protected function parseXml( string $xml, string $author_slug, bool $aggregate_to_root = false, string $media_source_directory = '', bool $skip_unpublished = false, bool $retain_commenter_emails = false ) : array {
         if ( ! $this->isAvailable() ) {
             throw new \RuntimeException( 'The Blogger import runtime is not available. SimpleXML is required.' );
         }
@@ -410,13 +446,13 @@ class TinyMashBloggerImportService {
 
         $previous_errors = libxml_use_internal_errors( true );
         libxml_clear_errors();
-        $xml_feed = simplexml_load_string( $xml, \SimpleXMLElement::class, LIBXML_NOCDATA );
+        $xml_feed = simplexml_load_string( $xml, \SimpleXMLElement::class, LIBXML_NOCDATA | LIBXML_NONET );
         $errors = libxml_get_errors();
         libxml_clear_errors();
         libxml_use_internal_errors( $previous_errors );
 
         if ( ! $xml_feed instanceof \SimpleXMLElement ) {
-            $message = ! empty( $errors[0]->message ) ? trim( $errors[0]->message ) : 'The Blogger export XML could not be parsed.';
+            $message = ! empty( $errors[0]->message ) ? mb_trim( $errors[0]->message ) : 'The Blogger export XML could not be parsed.';
             throw new \RuntimeException( $message );
         }
 
@@ -425,6 +461,10 @@ class TinyMashBloggerImportService {
         $seen_entry_keys = [];
         $adjusted_source_duplicates = 0;
         $adjusted_source_conflicts = [];
+        $embed_report = $this->embed_service->createImportReport();
+        $comments_by_entry_source_id = [];
+        $comment_counts = $this->getDefaultCommentImportCounts();
+        $comment_issues = [];
         $counts = [
             'posts' => 0,
             'pages' => 0,
@@ -449,6 +489,10 @@ class TinyMashBloggerImportService {
                     $adjusted_source_conflicts[] = $adjusted_conflict;
                 }
             }
+
+            $embed_conversion = is_array( $parsed_entry['_embed_conversion'] ?? null ) ? $parsed_entry['_embed_conversion'] : [];
+            unset( $parsed_entry['_embed_conversion'] );
+            $embed_report = $this->embed_service->mergeImportReport( $embed_report, $embed_conversion, $parsed_entry );
 
             if ( $parsed_entry['status'] !== 'published' ) {
                 $counts['drafts']++;
@@ -480,6 +524,98 @@ class TinyMashBloggerImportService {
             }
         );
 
+        $entry_source_lookup = [];
+        $entry_url_lookup = [];
+        foreach ( $entries as $entry ) {
+            $source_id = (string) ( $entry['source_id'] ?? '' );
+            if ( $source_id !== '' ) {
+                foreach ( $this->getBloggerSourceAliases( $source_id ) as $alias ) {
+                    $entry_source_lookup[$alias] = $source_id;
+                }
+            }
+            $source_url = $this->normalizeBloggerRelationUrl( (string) ( $entry['source_url'] ?? '' ) );
+            if ( $source_url !== '' && $source_id !== '' ) {
+                $entry_url_lookup[$source_url] = $source_id;
+            }
+        }
+
+        $raw_comments = [];
+        foreach ( $atom_children->entry as $feed_entry ) {
+            $parsed_comment = $this->parseBloggerComment( $feed_entry );
+            if ( ! is_array( $parsed_comment ) ) {
+                continue;
+            }
+            $comment_counts['total']++;
+            if ( empty( $parsed_comment['supported'] ) ) {
+                $comment_counts['unsupported']++;
+                continue;
+            }
+            unset( $parsed_comment['supported'] );
+            $source_id = (string) ( $parsed_comment['source_id'] ?? '' );
+            if ( $source_id === '' || isset( $raw_comments[$source_id] ) ) {
+                $comment_counts['malformed']++;
+                continue;
+            }
+            $raw_comments[$source_id] = $parsed_comment;
+        }
+
+        $comment_source_lookup = [];
+        foreach ( array_keys( $raw_comments ) as $comment_source_id ) {
+            foreach ( $this->getBloggerSourceAliases( (string) $comment_source_id ) as $alias ) {
+                if ( isset( $comment_source_lookup[$alias] ) && $comment_source_lookup[$alias] !== $comment_source_id ) {
+                    $comment_source_lookup[$alias] = '';
+                    continue;
+                }
+                $comment_source_lookup[$alias] = (string) $comment_source_id;
+            }
+        }
+
+        $comment_entry_memo = [];
+        foreach ( $raw_comments as $source_id => $comment ) {
+            $visiting = [];
+            $entry_source_id = $this->resolveBloggerCommentEntrySourceId(
+                $source_id,
+                $raw_comments,
+                $comment_source_lookup,
+                $entry_source_lookup,
+                $entry_url_lookup,
+                $comment_entry_memo,
+                $visiting
+            );
+            if ( $entry_source_id === '' ) {
+                $comment_counts['orphaned_entry']++;
+                if ( count( $comment_issues ) < 25 ) {
+                    $comment_issues[] = [ 'source_id' => $source_id, 'reason' => 'Comment does not map to an imported entry.', 'entry_title' => '' ];
+                }
+                continue;
+            }
+
+            $parent_source_id = $this->resolveBloggerSourceAlias(
+                (string) ( $comment['relationship_source_id'] ?? '' ),
+                $comment_source_lookup
+            );
+            unset( $comment['relationship_source_id'], $comment['relationship_url'] );
+            $comment['parent_source_id'] = $parent_source_id;
+            $comments_by_entry_source_id[$entry_source_id][] = $comment;
+        }
+
+        foreach ( $comments_by_entry_source_id as $entry_source_id => $entry_comments ) {
+            if ( ! $this->comments_service instanceof TinyMashCommentsService ) {
+                $comment_counts['malformed'] += count( $entry_comments );
+                $comments_by_entry_source_id[$entry_source_id] = [];
+                continue;
+            }
+            $comment_preview = $this->comments_service->previewImportedComments( 'blogger', $entry_comments, $retain_commenter_emails );
+            $comments_by_entry_source_id[$entry_source_id] = is_array( $comment_preview['records'] ?? null ) ? $comment_preview['records'] : [];
+            $this->mergeCommentImportCounts( $comment_counts, (array) ( $comment_preview['counts'] ?? [] ) );
+            foreach ( (array) ( $comment_preview['issues'] ?? [] ) as $issue ) {
+                if ( is_array( $issue ) && count( $comment_issues ) < 25 ) {
+                    $issue['entry_title'] = '';
+                    $comment_issues[] = $issue;
+                }
+            }
+        }
+
         $media_source_directory = $this->normalizeMediaSourceDirectory( $media_source_directory );
         $media_index = [];
         $media_summary = [
@@ -505,6 +641,13 @@ class TinyMashBloggerImportService {
                 'media_index' => $media_index,
                 'adjusted_source_duplicates' => $adjusted_source_duplicates,
                 'adjusted_source_conflicts' => $adjusted_source_conflicts,
+                'embeds' => $embed_report,
+                'comments' => [
+                    'counts' => $comment_counts,
+                    'issues' => $comment_issues,
+                    'issues_truncated' => count( $comment_issues ) < $comment_counts['malformed'] + $comment_counts['orphaned'] + $comment_counts['duplicate_source'] + $comment_counts['orphaned_entry'],
+                ],
+                'comments_by_entry_source_id' => $comments_by_entry_source_id,
                 'entries' => $entries,
                 'unpublished_entries' => $unpublished_entries,
                 'counts' => $counts,
@@ -522,7 +665,8 @@ class TinyMashBloggerImportService {
         }
 
         $title = $this->normalizeText( (string) $atom->title );
-        $content = $this->normalizeContent( (string) $atom->content );
+        $embed_conversion = $this->embed_service->convertImportedHtml( (string) $atom->content );
+        $content = $this->normalizeContent( (string) ( $embed_conversion['content'] ?? '' ) );
         $summary = $this->normalizeSummary( (string) $atom->summary, $content );
         $alternate_url = $this->resolveAlternateUrl( $feed_entry, $atom, $blogger );
         $slug = $this->resolveSlug( $alternate_url, $title, $kind, (string) $atom->id, trim( (string) $blogger->filename ) );
@@ -557,6 +701,7 @@ class TinyMashBloggerImportService {
                 'updated_at_utc' => $updated_at_utc,
                 'source_url' => $alternate_url,
                 'source_id' => trim( (string) $atom->id ),
+                '_embed_conversion' => $embed_conversion,
             ]
         );
     }
@@ -605,6 +750,203 @@ class TinyMashBloggerImportService {
 
         $control_children = $app_children->control->children( 'http://www.w3.org/2007/app' );
         return( strtolower( trim( (string) ( $control_children->draft ?? '' ) ) ) === 'yes' );
+    }
+
+    protected function parseBloggerComment( \SimpleXMLElement $feed_entry ) : ?array {
+        $atom = $feed_entry->children( self::ATOM_NAMESPACE );
+        $blogger = $feed_entry->children( self::BLOGGER_NAMESPACE );
+        if ( $this->resolveEntryKind( $feed_entry, $atom, $blogger ) !== 'comment' ) {
+            return( null );
+        }
+
+        $status = match( strtoupper( trim( (string) $blogger->status ) ) ) {
+            '', 'LIVE', 'APPROVED' => 'approved',
+            'DRAFT', 'MODERATE', 'PENDING' => 'pending',
+            'SPAM' => 'spam',
+            'TRASH', 'DELETED' => 'trash',
+            default => '',
+        };
+        $parent_source_id = trim( (string) ( $blogger->parentId ?? '' ) );
+        $post_source_id = trim( (string) ( $blogger->postId ?? '' ) );
+        $relationship_source_id = $parent_source_id !== '' ? $parent_source_id : $post_source_id;
+        $relationship_url = '';
+        $thread = $feed_entry->children( self::THREAD_NAMESPACE );
+        foreach ( $thread->{'in-reply-to'} as $reply_target ) {
+            $attributes = $reply_target->attributes();
+            $thread_ref = trim( (string) ( $attributes['ref'] ?? '' ) );
+            $thread_href = trim( (string) ( $attributes['href'] ?? '' ) );
+            if ( $thread_ref !== '' ) {
+                $relationship_source_id = $thread_ref;
+            }
+            if ( $thread_href !== '' ) {
+                $relationship_url = $thread_href;
+            }
+            break;
+        }
+        if ( $relationship_url === '' ) {
+            foreach ( $atom->link as $link ) {
+                $rel = strtolower( trim( (string) ( $link['rel'] ?? '' ) ) );
+                $href = trim( (string) ( $link['href'] ?? '' ) );
+                if ( $href !== '' && ( $rel === 'related' || str_ends_with( $rel, '#post' ) ) ) {
+                    $relationship_url = $href;
+                    break;
+                }
+            }
+        }
+
+        $published_at_utc = $this->normalizeTimestamp( (string) $atom->published );
+        if ( $published_at_utc === '' ) {
+            $published_at_utc = $this->normalizeTimestamp( (string) $blogger->created );
+        }
+        return(
+            [
+                'supported' => $status !== '',
+                'source_id' => trim( (string) $atom->id ),
+                'relationship_source_id' => $relationship_source_id,
+                'relationship_url' => $relationship_url,
+                'author_name' => (string) ( $atom->author->name ?? '' ),
+                'email' => (string) ( $atom->author->email ?? '' ),
+                'body' => (string) $atom->content,
+                'body_format' => 'html',
+                'status' => $status,
+                'created_at_utc' => $published_at_utc,
+            ]
+        );
+    }
+
+    protected function resolveBloggerCommentEntrySourceId(
+        string $source_id,
+        array $comments_by_source_id,
+        array $comment_source_lookup,
+        array $entry_source_lookup,
+        array $entry_url_lookup,
+        array &$memo,
+        array &$visiting
+    ) : string {
+        if ( isset( $memo[$source_id] ) ) {
+            return( (string) $memo[$source_id] );
+        }
+        if ( isset( $visiting[$source_id] ) || ! isset( $comments_by_source_id[$source_id] ) ) {
+            return( '' );
+        }
+
+        $visiting[$source_id] = true;
+        $comment = $comments_by_source_id[$source_id];
+        $relationship_source_id = (string) ( $comment['relationship_source_id'] ?? '' );
+        $entry_source_id = '';
+        $related_comment_source_id = $this->resolveBloggerSourceAlias( $relationship_source_id, $comment_source_lookup );
+        if ( $related_comment_source_id !== '' ) {
+            $entry_source_id = $this->resolveBloggerCommentEntrySourceId(
+                $related_comment_source_id,
+                $comments_by_source_id,
+                $comment_source_lookup,
+                $entry_source_lookup,
+                $entry_url_lookup,
+                $memo,
+                $visiting
+            );
+        } else {
+            foreach ( $this->getBloggerSourceAliases( $relationship_source_id ) as $alias ) {
+                if ( isset( $entry_source_lookup[$alias] ) ) {
+                    $entry_source_id = (string) $entry_source_lookup[$alias];
+                    break;
+                }
+            }
+        }
+        if ( $entry_source_id === '' ) {
+            $relationship_url = $this->normalizeBloggerRelationUrl( (string) ( $comment['relationship_url'] ?? '' ) );
+            if ( $relationship_url !== '' && isset( $entry_url_lookup[$relationship_url] ) ) {
+                $entry_source_id = (string) $entry_url_lookup[$relationship_url];
+            }
+        }
+
+        unset( $visiting[$source_id] );
+        $memo[$source_id] = $entry_source_id;
+        return( $entry_source_id );
+    }
+
+    protected function resolveBloggerSourceAlias( string $source_id, array $source_lookup ) : string {
+        foreach ( $this->getBloggerSourceAliases( $source_id ) as $alias ) {
+            $resolved = (string) ( $source_lookup[$alias] ?? '' );
+            if ( $resolved !== '' ) {
+                return( $resolved );
+            }
+        }
+        return( '' );
+    }
+
+    protected function getBloggerSourceAliases( string $source_id ) : array {
+        $source_id = trim( $source_id );
+        if ( $source_id === '' ) {
+            return( [] );
+        }
+        $aliases = [ $source_id => $source_id ];
+        if ( preg_match_all( '/(?:post|comment)[-:](\d+)/i', $source_id, $matches ) > 0 ) {
+            foreach ( $matches[1] as $numeric_id ) {
+                $aliases[(string) $numeric_id] = (string) $numeric_id;
+            }
+        }
+        return( array_values( $aliases ) );
+    }
+
+    protected function normalizeBloggerRelationUrl( string $url ) : string {
+        $parts = parse_url( trim( $url ) );
+        if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+            return( '' );
+        }
+        $scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+        if ( ! in_array( $scheme, [ 'http', 'https' ], true ) ) {
+            return( '' );
+        }
+        $host = strtolower( (string) $parts['host'] );
+        $path = rtrim( (string) ( $parts['path'] ?? '' ), '/' );
+        return( $scheme . '://' . $host . $path );
+    }
+
+    protected function getDefaultCommentImportCounts() : array {
+        return(
+            [
+                'total' => 0,
+                'importable' => 0,
+                'approved' => 0,
+                'pending' => 0,
+                'spam' => 0,
+                'trash' => 0,
+                'malformed' => 0,
+                'orphaned' => 0,
+                'orphaned_entry' => 0,
+                'duplicate_source' => 0,
+                'unsupported' => 0,
+                'truncated' => 0,
+                'emails_retained' => 0,
+                'emails_discarded' => 0,
+            ]
+        );
+    }
+
+    protected function mergeCommentImportCounts( array &$counts, array $addition ) : void {
+        foreach ( array_keys( $this->getDefaultCommentImportCounts() ) as $key ) {
+            if ( $key === 'total' || $key === 'unsupported' || $key === 'orphaned_entry' ) {
+                continue;
+            }
+            $counts[$key] = (int) ( $counts[$key] ?? 0 ) + (int) ( $addition[$key] ?? 0 );
+        }
+    }
+
+    protected function mergeImportedCommentResultCounts( array &$counts, array $addition ) : void {
+        $mapping = [
+            'comments_imported' => 'imported',
+            'comments_approved' => 'imported_approved',
+            'comments_pending' => 'imported_pending',
+            'comments_spam' => 'imported_spam',
+            'comments_trash' => 'imported_trash',
+            'comments_skipped_duplicate' => 'skipped_duplicate',
+            'comments_skipped_limit' => 'skipped_limit',
+            'comments_skipped_relationship' => 'skipped_relationship',
+        ];
+        foreach ( $mapping as $target => $source ) {
+            $counts[$target] = (int) ( $counts[$target] ?? 0 ) + (int) ( $addition[$source] ?? 0 );
+        }
     }
 
     protected function resolveAlternateUrl( \SimpleXMLElement $feed_entry, \SimpleXMLElement $atom, \SimpleXMLElement $blogger ) : string {
@@ -714,6 +1056,8 @@ class TinyMashBloggerImportService {
 
     protected function stripMarkupForSummary( string $content ) : string {
         $content = html_entity_decode( $content, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        $content = preg_replace( '#<a\b[^>]*>\s*Open embedded content\s*</a>#iu', ' ', $content ) ?? $content;
+        $content = preg_replace( '/\[embed\b[^\]]*\]/iu', ' ', $content ) ?? $content;
         $content = preg_replace( '/!\[([^\]]*)\]\([^)]+\)/u', '$1', $content ) ?? $content;
         $content = preg_replace( '/\[([^\]]+)\]\([^)]+\)/u', '$1', $content ) ?? $content;
         $content = strip_tags( $content );
@@ -722,7 +1066,7 @@ class TinyMashBloggerImportService {
     }
 
     protected function normalizeContent( string $content ) : string {
-        $content = trim( $content );
+        $content = mb_trim( $content );
         if ( $content === '' ) {
             return( '' );
         }
@@ -741,7 +1085,7 @@ class TinyMashBloggerImportService {
         $content = preg_replace( '#</(p|div|section|article|blockquote|li|ul|ol|h[1-6])>#i', "\n\n", $content ) ?? $content;
         $content = preg_replace( '#<(p|div|section|article|blockquote|li|ul|ol|h[1-6])\b[^>]*>#i', '', $content ) ?? $content;
         $content = preg_replace( "/\n{3,}/", "\n\n", $content ) ?? $content;
-        return( trim( $content ) );
+        return( mb_trim( $content ) );
     }
 
     protected function convertBloggerImageHtmlToMarkdown( string $content ) : string {
@@ -924,9 +1268,9 @@ class TinyMashBloggerImportService {
     }
 
     protected function buildMarkdownImage( string $src, string $alt_text = '', string $href = '' ) : string {
-        $src = function_exists( 'mb_trim' ) ? mb_trim( $src ) : trim( $src );
+        $src = mb_trim( $src );
         $alt_text = $this->normalizeText( $alt_text );
-        $href = function_exists( 'mb_trim' ) ? mb_trim( $href ) : trim( $href );
+        $href = mb_trim( $href );
         if ( $src === '' ) {
             return( '' );
         }
@@ -941,13 +1285,13 @@ class TinyMashBloggerImportService {
     }
 
     protected function normalizeText( string $text ) : string {
-        $text = function_exists( 'mb_trim' ) ? mb_trim( $text ) : trim( $text );
+        $text = mb_trim( $text );
         if ( $text === '' ) {
             return( '' );
         }
 
         $text = preg_replace( '/\s+/u', ' ', $text ) ?? $text;
-        return( function_exists( 'mb_trim' ) ? mb_trim( $text ) : trim( $text ) );
+        return( mb_trim( $text ) );
     }
 
     protected function normalizeTimestamp( string $timestamp ) : string {
@@ -978,7 +1322,7 @@ class TinyMashBloggerImportService {
     }
 
     protected function normalizeMediaSourceDirectory( string $directory ) : string {
-        $directory = function_exists( 'mb_trim' ) ? mb_trim( $directory ) : trim( $directory );
+        $directory = mb_trim( $directory );
         if ( $directory === '' ) {
             return( '' );
         }
@@ -1232,7 +1576,7 @@ class TinyMashBloggerImportService {
     }
 
     protected function normalizeMediaSourceUrl( string $source_url ) : string {
-        $source_url = function_exists( 'mb_trim' ) ? mb_trim( html_entity_decode( $source_url, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) : trim( html_entity_decode( $source_url, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+        $source_url = mb_trim( html_entity_decode( $source_url, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
         if ( $source_url === '' || preg_match( '#^https?://#i', $source_url ) !== 1 ) {
             return( '' );
         }
@@ -1293,7 +1637,7 @@ class TinyMashBloggerImportService {
             $content = $this->localizeMarkdownImageContent( $content, $author_slug, $media_index, $attached_media_ids, $imported_media, $first_media );
         }
 
-        $entry['content'] = trim( $content );
+        $entry['content'] = mb_trim( $content );
         if ( $first_image_as_featured && (string) ( $entry['entry_type'] ?? '' ) === 'post' && empty( $entry['featured_image_media_id'] ) && is_array( $first_media ) ) {
             $entry = $this->applyFeaturedImageToEntry( $entry, $first_media, $attached_media_ids );
         }
@@ -1346,7 +1690,7 @@ class TinyMashBloggerImportService {
             }
 
             $image->setAttribute( 'src', (string) ( $resolved_media['url'] ?? $source_url ) );
-            $alt_text = function_exists( 'mb_trim' ) ? mb_trim( (string) $image->getAttribute( 'alt' ) ) : trim( (string) $image->getAttribute( 'alt' ) );
+            $alt_text = mb_trim( (string) $image->getAttribute( 'alt' ) );
             if ( $alt_text === '' && ! empty( $resolved_media['alt_text'] ) ) {
                 $image->setAttribute( 'alt', (string) $resolved_media['alt_text'] );
             }
@@ -1372,7 +1716,7 @@ class TinyMashBloggerImportService {
         foreach ( $root->childNodes as $child_node ) {
             $rewritten_content .= $document->saveHTML( $child_node );
         }
-        return( trim( $rewritten_content ) );
+        return( mb_trim( $rewritten_content ) );
     }
 
     protected function localizeMarkdownImageContent( string $content, string $author_slug, array $media_index, array &$attached_media_ids, array &$imported_media, ?array &$first_media ) : string {
@@ -1593,6 +1937,14 @@ class TinyMashBloggerImportService {
                     'skipped_duplicate' => max( 0, (int) ( $state['counts']['skipped_duplicate'] ?? 0 ) ),
                     'skipped_invalid' => max( 0, (int) ( $state['counts']['skipped_invalid'] ?? 0 ) ),
                     'deleted_existing_posts' => max( 0, (int) ( $state['counts']['deleted_existing_posts'] ?? 0 ) ),
+                    'comments_imported' => max( 0, (int) ( $state['counts']['comments_imported'] ?? 0 ) ),
+                    'comments_approved' => max( 0, (int) ( $state['counts']['comments_approved'] ?? 0 ) ),
+                    'comments_pending' => max( 0, (int) ( $state['counts']['comments_pending'] ?? 0 ) ),
+                    'comments_spam' => max( 0, (int) ( $state['counts']['comments_spam'] ?? 0 ) ),
+                    'comments_trash' => max( 0, (int) ( $state['counts']['comments_trash'] ?? 0 ) ),
+                    'comments_skipped_duplicate' => max( 0, (int) ( $state['counts']['comments_skipped_duplicate'] ?? 0 ) ),
+                    'comments_skipped_limit' => max( 0, (int) ( $state['counts']['comments_skipped_limit'] ?? 0 ) ),
+                    'comments_skipped_relationship' => max( 0, (int) ( $state['counts']['comments_skipped_relationship'] ?? 0 ) ),
                     'total' => $total_entries,
                 ],
                 'batch' => [

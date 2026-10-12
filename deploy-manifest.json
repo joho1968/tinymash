@@ -1,9 +1,9 @@
 {
     "format": "tinymash-deploy",
     "format_version": 2,
-    "built_at_utc": "2026-09-07T09:42:02Z",
+    "built_at_utc": "2026-10-12T13:58:33Z",
     "application": {
-        "version": "0.99.2"
+        "version": "0.99.4"
     },
     "site": {
         "name": "tinymash",
@@ -70,11 +70,11 @@
             "backup",
             "blogger-import",
             "bludit-import",
+            "comments",
             "directory",
             "downloads",
             "fediverse",
             "feeds",
-            "font-manager",
             "footer",
             "markdown-sync",
             "notes",
@@ -86,6 +86,7 @@
             "signage",
             "social",
             "statistics",
+            "subscriptions",
             "syntax-highlighting",
             "tiny-links",
             "weather",
@@ -96,68 +97,72 @@
         "example_config_path": "app/config/tinymash.json.example"
     },
     "counts": {
-        "copied_files": 1875,
+        "copied_files": 1908,
         "copied_directories": 11,
-        "inventoried_files": 1876
+        "inventoried_files": 1909
     },
     "inventory": {
         "algorithm": "sha256",
         "files": {
             "CHANGELOG.md": {
-                "bytes": 7125,
-                "sha256": "20930528a8c407e20aa1fa283ad444a540fbc124627cd1156be5365951434126"
+                "bytes": 9223,
+                "sha256": "e9e78a72fc934dc6c29369cacc614d09edc30ac84cc3437f2e131d726e6de2f4"
             },
             "CLI.md": {
-                "bytes": 12940,
-                "sha256": "914529334d71255577e1ed0d9cd1a8872cd65e12ee95252877bb13581566cac6"
+                "bytes": 14598,
+                "sha256": "15e4210e93c539a4e4a59be484f938668be72616ac0fea1c102327ff331b53c7"
             },
             "INSTALL.md": {
-                "bytes": 10928,
-                "sha256": "019bbb7a6183860e9feb04ef9cf1373ba8b85ff9b58775a960996462547c2891"
+                "bytes": 12962,
+                "sha256": "ee2f29bf33c65f6a68804616e4bff503cabd8a1c021fae0133f9f5a3003b35c6"
             },
             "LICENSE": {
                 "bytes": 34523,
                 "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
             },
             "README.md": {
-                "bytes": 5370,
-                "sha256": "8d581d0c8d851cf15eb8dd70edc5e9dca29c74772f770d459eb68b1370674163"
+                "bytes": 5546,
+                "sha256": "18c8bfd0c5b5fcba19cadba32160c579bf01d7e98c2bb2a6df483780305b6cca"
             },
             "app/classes/TinyMashAdminTheme.php": {
-                "bytes": 5369,
-                "sha256": "5ad35132c06aa1cac5a9949c46dd6ded3e5a67c9eebc017a44243c419e61c301"
+                "bytes": 5372,
+                "sha256": "ab637ebfa7f87b7cdc0eff4e1516df3d28def11ccd5677c29b15f771caadfc94"
             },
             "app/classes/TinyMashAuthoritativeStateInventory.php": {
                 "bytes": 5402,
                 "sha256": "d36f9dfd53bd4b87d9911198c98d01cda14174ac1f75d9542d33e754663cb548"
             },
+            "app/classes/TinyMashClientIpResolver.php": {
+                "bytes": 4070,
+                "sha256": "162054181c361bdc8dd58746945cf52a0ecfb080d756f8cb7b2e4269cf90c22d"
+            },
             "app/classes/TinyMashComponentsReportService.php": {
-                "bytes": 21015,
-                "sha256": "14f20078f8c94eae89f0511bc959de25888052d4f55e48866adbaca0576a7887"
+                "bytes": 21021,
+                "sha256": "2130e4e609edb51b66d44a6b51bf22bb7a1a378f4b5f6b2761a2011c79dcf828"
             },
             "app/classes/TinyMashConfig.php": {
-                "bytes": 41756,
-                "sha256": "234d7b185df3a041ddd43aa7c3f7faedd2b8978524884a8da630c79c64d86152"
+                "bytes": 42024,
+                "sha256": "c01a0b75795f0ff32eb5e7887d2a4c172c2b96aec8c94a0b5a560301fc39a2fe"
             },
             "app/classes/TinyMashConfigFileReader.php": {
                 "bytes": 777,
                 "sha256": "17da44bf7728a0b9aab85badc970e11a64e0e0f781068821ed9a196207c19005"
             },
             "app/classes/TinyMashConfigIO.php": {
-                "bytes": 39052,
-                "sha256": "a68e7cab0cf01bca380e85c1f2913092d3498844833420b0a0acef93e78d0591"
+                "bytes": 39357,
+                "sha256": "46cd277f9c9d94bf10b8923bb2f181b4e2a5e3f991cec272b0d2c9914e645603"
             },
             "app/classes/TinyMashConfigNormalization.php": {
-                "bytes": 27788,
-                "sha256": "0bba33e5b1787e5057cdd3f6baea31ad4c6be5e0c8b22739e0dd0913191f98eb"
+                "bytes": 28236,
+                "sha256": "3151ff70b1c312843e38fc304a1246ee7c5992077ea4e9c9c024aa0fccfae4db"
             },
             "app/classes/TinyMashContentRenderer.php": {
-                "bytes": 36540,
-                "sha256": "4e7f1b57429f67228274f93a9bb79971445f6351accf470058d4932c683cf8c3"
+                "bytes": 37501,
+                "sha256": "eda9dba6a05f7a910c6e0443d9b25ce4764531d13cdb5028f56f55f7fdd0535a"
             },
             "app/classes/TinyMashContentRepository.php": {
-                "bytes": 237410,
-                "sha256": "0ea5c6885b141145b140e1e96bbe987fd323283b3e75d5bc6f28caf6d31899be"
+                "bytes": 237785,
+                "sha256": "4e29eb007738cd6fc184cf4d35a62f605c75b3fe5164b1076aaa31354d4270db"
             },
             "app/classes/TinyMashContentTargetPickerService.php": {
                 "bytes": 5284,
@@ -168,40 +173,48 @@
                 "sha256": "4aea885193a2f52d06a99f18f7d714ea86d9555a345fc36f446c83cd481b4eae"
             },
             "app/classes/TinyMashDeployAuditService.php": {
-                "bytes": 11996,
-                "sha256": "6a33fe9e28c78368756252b4d139d3ab6ede6ef43b29f7de801f825be6110535"
+                "bytes": 13979,
+                "sha256": "3f3c634961b218a2b37a8ea6672cb41c28492e7e8670bb5a45e1ac2269d8097d"
             },
             "app/classes/TinyMashDeployPolicy.php": {
-                "bytes": 1322,
-                "sha256": "fb423ff020630b5edd8d98ae122a5aae15a12ba638c7593e68d381cf37ff4ead"
+                "bytes": 2036,
+                "sha256": "dc64aa200f0fd994afc30f93371d7bab7bc4bb4e7a147c8e612149d23450387a"
             },
             "app/classes/TinyMashDeployService.php": {
                 "bytes": 35132,
                 "sha256": "61fb43e3795a6a15e0b4d55dbefe55bbf40d2d38f152dd4bef0dd700c9cf797a"
             },
             "app/classes/TinyMashDraftRepository.php": {
-                "bytes": 28218,
-                "sha256": "e7a85e0a9d2fc958aa8b0221b2bb15b3271c1736bcdae6a643c817cc91ff7402"
+                "bytes": 28239,
+                "sha256": "91448dc841355a63db1d26d7d4c59d15fe0907348ae6cb812a77aee55c66e16e"
+            },
+            "app/classes/TinyMashEditorInlineMediaReview.php": {
+                "bytes": 5820,
+                "sha256": "5fe44cd8924e1be3cd725ec4d452896bb817edfc91c5227c5aed6852ebd8a201"
             },
             "app/classes/TinyMashEditorMediaPickerService.php": {
-                "bytes": 13943,
-                "sha256": "2815130154911fb16c613014d4cc6a90586a32a7b9d64229d0fda9d335af457d"
+                "bytes": 15535,
+                "sha256": "3a96a497c200bf5f054c31ca9530a13def7040ad0b9eb0b601698fe88b7e0568"
+            },
+            "app/classes/TinyMashEmbedService.php": {
+                "bytes": 9385,
+                "sha256": "b376a649bc509ffae4e4f5b810ec4598b3b9b1c8119a58a5c3244acdf2935f6f"
             },
             "app/classes/TinyMashExportService.php": {
-                "bytes": 50106,
-                "sha256": "7acf21dbfabeb760c3e67442e36bc516616a269d0274c55dbb542c59e8c54710"
+                "bytes": 50643,
+                "sha256": "5d93bf615c49fbed7b2ce72b8a095c14ee47b562f2c0f14c1d3ab8020da454c1"
             },
             "app/classes/TinyMashFilesystem.php": {
                 "bytes": 5551,
                 "sha256": "f5916b54ed23317a2fb267b708a8d818bfaa00f0e2736e14f9d711514d5f0ffc"
             },
             "app/classes/TinyMashHelpCatalog.php": {
-                "bytes": 12710,
-                "sha256": "15283286b82bc487ad6a5c95ffc49a13872d931c0fe9e27d30a892a091efbc15"
+                "bytes": 12716,
+                "sha256": "cdca2c17f926e168bd04fb45dbdc1ee2171718bbb4e9ef43bf2df74d8eedbc34"
             },
             "app/classes/TinyMashHousekeepingService.php": {
-                "bytes": 24000,
-                "sha256": "0beabcb68e4c1e6f29fcf3d27f4e9cb358ad6ea7170bc67373d5667b96aa09e2"
+                "bytes": 26562,
+                "sha256": "1c3179c212aae8af4faf53f470854035f70d4329a1dab02405cdca618aa9678d"
             },
             "app/classes/TinyMashImportLockService.php": {
                 "bytes": 6425,
@@ -210,6 +223,18 @@
             "app/classes/TinyMashImportPreviewWorkspaceService.php": {
                 "bytes": 10605,
                 "sha256": "b581bec7badcc3348deb2d2206873aeb730ee3425bf2ab16eddccd64e410dc3c"
+            },
+            "app/classes/TinyMashInstallerAccessService.php": {
+                "bytes": 21931,
+                "sha256": "8101c001c3d1cc7928372550ff84ee1f657e4c456e366cec755a42f857bbe51f"
+            },
+            "app/classes/TinyMashInstallerEntryPoint.php": {
+                "bytes": 14835,
+                "sha256": "bcd3b85df9a63ded3893c31b761a51e1ed8bc1498a37d502c90092835feb659e"
+            },
+            "app/classes/TinyMashInstallerProbeService.php": {
+                "bytes": 9449,
+                "sha256": "f85137bf80fa55f43570e3129703dea9f9e9ef5a9e3b96b2bbbe3f3f23b0a976"
             },
             "app/classes/TinyMashLinkIntegrityService.php": {
                 "bytes": 18978,
@@ -220,32 +245,32 @@
                 "sha256": "f64e18bf3e3f8553cb8753f4b3ebcefb4996be4f65a490cfe19ddb242fba9caa"
             },
             "app/classes/TinyMashMailer.php": {
-                "bytes": 15476,
-                "sha256": "b8c80d183825726539c8389c902d3f2b90b94e6b11b96355582000cff4fa1780"
+                "bytes": 22390,
+                "sha256": "94b22543e17e657a7bf1b668d157ecff074a1cd9035c425ff584bd611e624bc4"
             },
             "app/classes/TinyMashMarkdownEditorComponent.php": {
-                "bytes": 12104,
-                "sha256": "584cbb4880988c1d93ddbf033de9ffee20ba56b48dec2e3e4ecd9ac06ad30a42"
+                "bytes": 12110,
+                "sha256": "55ce7cc6eeda879c5bbb834ce34344f2b63cff39848939719083ad1426b448a6"
             },
             "app/classes/TinyMashMarkdownRenderer.php": {
-                "bytes": 38114,
-                "sha256": "1ba4b58594f8aa990301efe73a420eecf32a7ca0e1592923d5bde1587bcda780"
+                "bytes": 38180,
+                "sha256": "87cdf358eaa05856c7cb5d578d3d4b3b6c8f1c73ed98f035a804701c56f3a2dd"
             },
             "app/classes/TinyMashMediaAttachmentMetadataStore.php": {
-                "bytes": 30466,
-                "sha256": "1057d4953985645d2137995399a704e2c47e6f492b165230c58063cfa0d7394e"
+                "bytes": 30674,
+                "sha256": "1a809df8123786527186a0be2f998bf76e45da302be2c2a77b523639aa6915a2"
             },
             "app/classes/TinyMashMediaCapabilityRegistry.php": {
-                "bytes": 5396,
-                "sha256": "c942faff2b0ef492e60755b034691ff77634c27456275b601a02851f48df351f"
+                "bytes": 5402,
+                "sha256": "88d88e4ca8753342c4bc6242faa71e48fc1012fbdaf82aa19eb5060b06225578"
             },
             "app/classes/TinyMashMediaDerivativeRegistry.php": {
-                "bytes": 2517,
-                "sha256": "7164e67b9b76be9b84cbb217551ea5802c7e62152b332c8499620da6f9391ae7"
+                "bytes": 2523,
+                "sha256": "348775855ae0ddfbeb46538762990c9776da081ec7bb80f0d74b1e98081e8d6e"
             },
             "app/classes/TinyMashMediaImportBridge.php": {
-                "bytes": 20066,
-                "sha256": "905aed64848ab165a1f98cfbf51dc02ee388eb2f326e2ca59c6c35deeb8db272"
+                "bytes": 20069,
+                "sha256": "c472473c69e23cd0873b8b1b8f0edd17bb9ffd737e9dbbdffa96f1a6e54fe66d"
             },
             "app/classes/TinyMashMediaImportMapStore.php": {
                 "bytes": 4488,
@@ -256,76 +281,88 @@
                 "sha256": "df7d5a4a3e9dbc077bd5114c36ea469cc6e10dbd10a86eb35c30b974f2807052"
             },
             "app/classes/TinyMashMediaService.php": {
-                "bytes": 84123,
-                "sha256": "48c1007dfa9b0e5e3659f5f46c299e89f20e0cd03592db2c1639cbb5ab3f1e07"
+                "bytes": 103054,
+                "sha256": "d1604aed07f37608d73afdf3252620e9a15f5647504db1992be3d987000fe5fd"
             },
             "app/classes/TinyMashMediaUsageReporter.php": {
                 "bytes": 18774,
                 "sha256": "c7e98fbba917e97546b38dca08be0df36b0790cb560f6e835300ae6bd9e612f1"
             },
             "app/classes/TinyMashMenuService.php": {
-                "bytes": 9109,
-                "sha256": "4de9734cbdcf952c4751bc4aec6958543849d6ce156a448fe9eaa8f4c2fdb819"
+                "bytes": 9124,
+                "sha256": "6e677173e4f85436f2a35dc8788dfb430bea3025599f641c12b10e42a61b4763"
             },
             "app/classes/TinyMashNotificationService.php": {
-                "bytes": 18601,
-                "sha256": "c7b6094faad38e3ece0d83b0519b5215f58b470fae65f7a9309f9f634c8a23f6"
+                "bytes": 18619,
+                "sha256": "826a38fc02fa4a9048a5d4975d24c4abf2c4eebda28f7585c24775b14f35ca14"
             },
             "app/classes/TinyMashPasswordResetService.php": {
-                "bytes": 17995,
-                "sha256": "fc52c3e21b4a525acd8f8678e067f20de97b56d83de4e8af7fd026d2ce332f64"
+                "bytes": 18146,
+                "sha256": "6c110b2f9f7d2669bc5e09d2cb63491ea07fe236fbe7a20e90104a599d939aa4"
             },
             "app/classes/TinyMashPluginCapabilityRegistry.php": {
-                "bytes": 6524,
-                "sha256": "f2728df61fac425dedf934a5744e416d40f32d511d20129780605f2563fffad7"
+                "bytes": 6530,
+                "sha256": "86a0c20fc0a970becc5042eaf3c4ed868500b028fdcc42a7b38f75a530b50090"
+            },
+            "app/classes/TinyMashPluginStateBackup.php": {
+                "bytes": 11369,
+                "sha256": "a26ffbd40a45b7844eafc57bd8a187556065fd74210fc17684dd74430435d4db"
             },
             "app/classes/TinyMashPlugins.php": {
-                "bytes": 83090,
-                "sha256": "59f1ecd51ca6577cbd6ffce389de169080f67c667662cff6498eca9befdd6ccc"
+                "bytes": 85614,
+                "sha256": "e832d6000daccc0e5756ce80418e600c5939bb583974e3e70926214c886d0fa6"
             },
             "app/classes/TinyMashPublicPageCache.php": {
                 "bytes": 10165,
                 "sha256": "13b55643b880a2907e6a6a90374f990c4d31ebe061b17cceb6461607d74ad0b3"
             },
             "app/classes/TinyMashRobotsService.php": {
-                "bytes": 3571,
-                "sha256": "c1619bdc8868bd2110fc4606bbc4ef3404eac442976725603454c0357d89476c"
+                "bytes": 3863,
+                "sha256": "c3d2c688f7551e077ff2db850d0ebbdeb6c1c0110ee4e1804a9dc5e24e56a369"
             },
             "app/classes/TinyMashSafeZipExtractor.php": {
                 "bytes": 10218,
                 "sha256": "e4214d9c30ec09cad999dce52f4f77bf119a0f0761627712e5eeb2fe8bf4acad"
             },
             "app/classes/TinyMashSecretLinkService.php": {
-                "bytes": 17413,
-                "sha256": "03d57a02488882e992aaa256769d873bb77d1ca859f27edf46b4aa6cb78f418b"
+                "bytes": 17756,
+                "sha256": "7ff5ce003ba9dee17ca22542d1ba68bbea1f401d53f6ec34f8e89138c36cd488"
             },
             "app/classes/TinyMashSecurity.php": {
-                "bytes": 39044,
-                "sha256": "baaec03f342a5411b2cfa206ab2a78942d7a8e5b22619be5dfa31d46b83858b3"
+                "bytes": 38296,
+                "sha256": "b26a6a33633a4670482c8fab6829c6ad50fa5bf410f57d7c0a929e43102283dc"
+            },
+            "app/classes/TinyMashSetupService.php": {
+                "bytes": 37455,
+                "sha256": "fd7452680f5687e992d297a3487a3b47cdebdc3716a33cae8fbc27311e0b250b"
             },
             "app/classes/TinyMashShortcodeRegistry.php": {
-                "bytes": 11642,
-                "sha256": "ab76cf2660a9575193e3e2c019dab7156aa9def70a387f997e12037017d93659"
+                "bytes": 15564,
+                "sha256": "4a57d86aec0a98d1f2091c4ade9bcda037ebaa449612a211c6bcfc06923f326d"
             },
             "app/classes/TinyMashStaticExportArtifactService.php": {
                 "bytes": 13490,
                 "sha256": "b1224453a5cc9a339fb266abedf10c4f28a88e764375c15375c5cc0ab56332a3"
             },
             "app/classes/TinyMashStaticExportService.php": {
-                "bytes": 63156,
-                "sha256": "46a69080dc121298e09f14e6803aed5f7759561da14c879f29d8c2cbe8e99b6d"
+                "bytes": 63210,
+                "sha256": "3208ef8dfde7bcf00d7ed88ada445b15efd97728c2e12e456164ce0b04d6bb1e"
+            },
+            "app/classes/TinyMashText.php": {
+                "bytes": 707,
+                "sha256": "1ff41c54ca0df26d016d2e0da1557b2469ef85f8b0632c8367273d10bd1a7c22"
             },
             "app/classes/TinyMashTheme.php": {
-                "bytes": 87871,
-                "sha256": "bb7dc88c6009629334714855c0907a141a9c5a64f8ad19b571d77cf376e6782f"
+                "bytes": 88224,
+                "sha256": "1b880cd6c484b59af5970ed4248042b67944ee6954b2e184f0bf3ee9205268a3"
             },
             "app/classes/TinyMashThemeRegistry.php": {
-                "bytes": 23999,
-                "sha256": "8870329a7ecdb005fc3224c9512e985d1b85a776e2997c0a8d10aba2613df47f"
+                "bytes": 24011,
+                "sha256": "bc84c43bec96478e454f367eb3bdaa8d467d5528c1f22910dc2e1751c5f36ffd"
             },
             "app/classes/TinyMashThemeSupportRegistry.php": {
-                "bytes": 5420,
-                "sha256": "7abad8c053db80f72c96fc492558c258fa3ed0d1d10af89bd7a0f9391b654572"
+                "bytes": 5426,
+                "sha256": "b1904960b136d3fcd0da3dde77e0d5e9d3ea8bff6750561d01b81216bdeba595"
             },
             "app/classes/TinyMashUpdateCheckService.php": {
                 "bytes": 15937,
@@ -336,8 +373,12 @@
                 "sha256": "9b1f7f828c54439271bf11b627063daa1a5a52c3cbb9ab37dbd8c0f7a018b58f"
             },
             "app/classes/TinyMashUpdateErrorPolicy.php": {
-                "bytes": 1233,
-                "sha256": "a3a664b1a65a62c6c170c86e9ad74efbf042bdf15c1ee80bd8ad8a3bb8923a89"
+                "bytes": 4838,
+                "sha256": "3bc3914410e36b57f3857623909eec88ed260b0ccfc6a166bfcb2b4386a291a0"
+            },
+            "app/classes/TinyMashUpdateFailure.php": {
+                "bytes": 638,
+                "sha256": "f7ee7ff35d1cda99ad57c65dddedac491b6d48b5cb73c22d457297e05f90327d"
             },
             "app/classes/TinyMashUpdateHealthService.php": {
                 "bytes": 6300,
@@ -356,8 +397,8 @@
                 "sha256": "87f35e0ef51ab4d92e1bac9f578941bace84a066453b6aae27ce73f84db4efca"
             },
             "app/classes/TinyMashUpdatePreparationService.php": {
-                "bytes": 32196,
-                "sha256": "bba4e8261bb55ca7bdd94b2fb34b825062a3d744901c0b2dc416f309aafc3373"
+                "bytes": 32397,
+                "sha256": "3c1ab119b5ec998341f31d4e61ade6ab71235810c64049aaf9b58f96fd798357"
             },
             "app/classes/TinyMashUpdateRecoveryAccessService.php": {
                 "bytes": 6307,
@@ -379,93 +420,101 @@
                 "bytes": 400,
                 "sha256": "b3a00c7dcd3dbaecfc80097ecb87f47acb37484d5854e42e2fdc2c94823b201b"
             },
+            "app/classes/TinyMashUpdateRequirements.php": {
+                "bytes": 2055,
+                "sha256": "17bf27d4e37b5531d2d93a0493ece6a419417e176253abda13c4d31429f9bf58"
+            },
             "app/classes/TinyMashUpdateStageService.php": {
-                "bytes": 30298,
-                "sha256": "b867799d7588a41785f1aa7307962e2101d95e3cb1fbc4b72b7aecab01c48745"
+                "bytes": 43755,
+                "sha256": "3de43231ef094d0b12533556645a66c831fa53ce292469849f61e8bca788045e"
             },
             "app/classes/TinyMashUpgradePrepareService.php": {
                 "bytes": 37832,
                 "sha256": "8ad8985d1da5472bc5f85062f0b3bc7d72dbc54c515ce6537e15e247ad5f3b80"
             },
+            "app/classes/TinyMashUrlResolver.php": {
+                "bytes": 9396,
+                "sha256": "f733460bc0b5cdc53878097095d51a79a93300e0d1160a5204434cc95e28758d"
+            },
             "app/classes/TinyMashUserRepository.php": {
-                "bytes": 56245,
-                "sha256": "dd14282e40eff568e89768a21e6042f3fb151ea8b087c46858a04a7c042e9425"
+                "bytes": 58048,
+                "sha256": "c4a0bf48686b49fc0d1ce6d972d3aecb6c1e230f95aefa1c831045552f972cb1"
             },
             "app/classes/TinyMashWriterGate.php": {
-                "bytes": 8748,
-                "sha256": "4b76945e5834123596c305cfa5a8c289e45e61ce41d191f02cf59872a0838f25"
+                "bytes": 10476,
+                "sha256": "e40ba4750c8973560fa9435b4876d6b9121ee919f38d7bf20b785cd397eb2d23"
             },
             "app/config/bootstrap.php": {
-                "bytes": 22013,
-                "sha256": "1c7113feb86edb9333cfd3251c7e7b27d128941f59ffe9177df35ab27c0705ad"
+                "bytes": 23471,
+                "sha256": "e71d09748b91fdd138c8a964ff032891925dadbaf28c8d7667ca3b6482b19844"
             },
             "app/config/globals.inc.php": {
-                "bytes": 14233,
-                "sha256": "225c8d39553f4e69905d14fce8b99033288077931e79d457ff7f149fb3c76a39"
+                "bytes": 15546,
+                "sha256": "40d1a278beb80f5d9a278beab5bcdc61896e5b3ccb2bf48e11bd06f5d5101731"
             },
             "app/config/index.php": {
                 "bytes": 6,
                 "sha256": "00aba3928cd622ad67c0f81ecd5aa8699e07f8f4908c045fe34f6a2dc0067b37"
             },
             "app/config/routes.inc.php": {
-                "bytes": 35142,
-                "sha256": "f16cbabc4317e3a388b7563413bfaee19de4a0650a4df9ef12b06c429d3c2725"
+                "bytes": 37442,
+                "sha256": "eeac38878cd5533db4871342f82c6a1d13731930782984885645d2479f6b1f3d"
             },
             "app/config/tinymash.json.example": {
-                "bytes": 3823,
-                "sha256": "adbbaca27e9a0a22a90ad0a614c2cd12359e0a6419e1dcbea04d92462c2ea130"
+                "bytes": 3923,
+                "sha256": "d7991a4c55a71528e9528f2ee1654bfa6d7d9e1bf6654ad4867bad9d411218e3"
             },
             "app/controllers/AdminAuthConcern.php": {
-                "bytes": 17018,
-                "sha256": "9354c9720e67a6550e95d20902ed506e88f28d69e63d87b1a03ef6d3a9478778"
+                "bytes": 16949,
+                "sha256": "332a037450a8c5645bf961009dbadc6a7e23f0f4924765e7ed98256d44aaddcd"
             },
             "app/controllers/AdminContentConcern.php": {
-                "bytes": 36523,
-                "sha256": "c574a2dd7904017280c11c309297f08d9f472a98e2cf70f1992a1f4be210398c"
+                "bytes": 36326,
+                "sha256": "953ada0ae7a2599c7f4208e541e9af93a91fdcade08860852c12618fdf11519a"
             },
             "app/controllers/AdminController.php": {
-                "bytes": 78202,
-                "sha256": "0c047b92c642eda48e831d80c37d632f148ea7c2c46d39588ba5091731a114c5"
+                "bytes": 78853,
+                "sha256": "4e35d9802db13107540160b036f05a4218f374d69bb146e1b847a83ca7548325"
             },
             "app/controllers/AdminEditorActionConcern.php": {
-                "bytes": 26105,
-                "sha256": "e8830d481386b078119eb4ac47b5603beb7a47675a35512c1fe9886cb65f7ed0"
+                "bytes": 34779,
+                "sha256": "bac21a78a60c56914f632b0264f7a938c1430c9a5c6cc5f54806aea46e79b117"
             },
             "app/controllers/AdminEditorStateConcern.php": {
-                "bytes": 64596,
-                "sha256": "9b32cadf7c9fa8cbd880538815aa9205926ef0b1426d500e32c62efa232f805a"
+                "bytes": 66095,
+                "sha256": "0779857a0ddd78c95b7f6cb4950f1994e177c53e6614a8816c43d4f694be073a"
             },
             "app/controllers/AdminProfileConcern.php": {
-                "bytes": 10626,
-                "sha256": "d3a81ab003866b58086a50f86e687cd230a509834c30eb50a375f8da5b509868"
+                "bytes": 10722,
+                "sha256": "fb7fda7cc3532cbf504ecb8814c82b165c156e93062a4ab8c7e75804ea0931d7"
             },
             "app/controllers/AdminProfilePublishingConcern.php": {
                 "bytes": 31141,
                 "sha256": "58b8f1613528fe4d7336967839804a675519ab9ea03854c93340bd6d07551d86"
             },
             "app/controllers/AdminProfileSettingsConcern.php": {
-                "bytes": 23042,
-                "sha256": "8771d909e72bfc1d3800982562059a7a4dfa46848bb2ad11349996b9dd336878"
+                "bytes": 22923,
+                "sha256": "10e7918206794a8cf18a1135bf14782a870116f3395acb32d7fef20fb403a646"
             },
             "app/controllers/AdminStaticExportConcern.php": {
                 "bytes": 12319,
                 "sha256": "44c1620afcb8dee40e394f848d00da01b11a8fd72f2b9bf8d24d09ebd044d07a"
             },
             "app/controllers/AdminSystemConcern.php": {
-                "bytes": 140069,
-                "sha256": "bc002948017970fd4c6cc171b9cc37fd0df138976c9f39bedfa2c913e347121f"
+                "bytes": 143267,
+                "sha256": "97a5b435c4753b03efc33ebbca6f8853ed102e39a9711ca0a42cf985faf04b0d"
             },
             "app/controllers/AdminThemeConcern.php": {
-                "bytes": 11956,
-                "sha256": "895babddc3ab2e9875d111515a287a27230af4ed5ce7f22675ca1d870b7499e0"
+                "bytes": 11959,
+                "sha256": "caf5353eced85eb733536d8b6965d2c9a4c2d56f03199fe5e2bb4eb5074e9972"
             },
             "app/controllers/BaseController.php": {
-                "bytes": 9466,
-                "sha256": "35fd744808064c815a43de6a1491211c21d9140ac881440faf5494548517f264"
+                "bytes": 10569,
+                "sha256": "8c89ce6434d61f90d3cc27efcaa184bef43bd66c00af9b61d25e173f87122084"
             },
             "app/controllers/ContentController.php": {
-                "bytes": 52717,
-                "sha256": "06eb4be632e6d967f3655f658dbf29a6be0672e0ad46a9cc03f1301dfb833094"
+                "bytes": 53142,
+                "sha256": "56c2411520021b8f22a8538f05399274fff179743e5fbe2033049ad26aa6ed20"
             },
             "app/help/en/admin-content.json": {
                 "bytes": 905,
@@ -496,8 +545,8 @@
                 "sha256": "3e3e01fdc234e55c1f825be410edb417f309047fc7c761b3d07c179bef17cdb9"
             },
             "app/help/en/admin-profile-publishing.json": {
-                "bytes": 1455,
-                "sha256": "52d8add1f01f2fbd467b956a4079cb801504aaf626d55ed7fa150bfca99e6a42"
+                "bytes": 1421,
+                "sha256": "d18127a7c0e9af15b5bb8613adb815321645e1198c422af9b5b7c899f4f20827"
             },
             "app/help/en/admin-profile-static-export.json": {
                 "bytes": 1421,
@@ -520,116 +569,144 @@
                 "sha256": "8f233b8397a54ac6352f3e15edd396e2f2e0012247b4fb1b179687e11204fc8c"
             },
             "app/plugins/are-we-open/bootstrap.php": {
-                "bytes": 20609,
-                "sha256": "a4b0e0e5e9480e26fdbc937d0fff534fb6f744f3556d5efc299ddf2070439b9c"
+                "bytes": 20555,
+                "sha256": "27b74e46a46afc43527ed95350051fda8ff911b0384ef806bcc71de2422421f5"
             },
             "app/plugins/are-we-open/plugin.json": {
-                "bytes": 685,
-                "sha256": "b7f595276b707a9bfb44c18408ef7b2a4b62c6c99ccfb26dab966c0cb5bc8a96"
+                "bytes": 683,
+                "sha256": "e275711a4a9e648d36a048aba59d7ac8b8f2ff1b2ff63b109dc4bf7f9fedc626"
             },
             "app/plugins/backup/TinyMashBackupArchiveService.php": {
                 "bytes": 18621,
                 "sha256": "5d65132ea4d16f24eb7f0ebec9f6aa370ef1335c3d4697f08b1e124349d59815"
             },
             "app/plugins/backup/bootstrap.php": {
-                "bytes": 34201,
-                "sha256": "0c1b36fa7f83bb119406becccae2de75e70084a9ea4b822c1221722cf6e6f39e"
+                "bytes": 36590,
+                "sha256": "397e1359a06d5128a2cd532a1e86b0bb9872cd7aa7c1b38ae8823b38443567b7"
             },
             "app/plugins/backup/plugin.json": {
-                "bytes": 489,
-                "sha256": "560bdac2185b332c455db856fa5f49479537eb507d13e219c41f7189409663d1"
+                "bytes": 487,
+                "sha256": "74c70d0b82cfbf335f653976076d7fad55524552f019589c67381f9686ae022b"
             },
             "app/plugins/blogger-import/TinyMashBloggerImportService.php": {
-                "bytes": 73009,
-                "sha256": "67317092105563f88fd6c55a6c8c83fdf43966a1fcfe2170114134212b5066f5"
+                "bytes": 90014,
+                "sha256": "dc97bd3e30629dc58f3ff5bea6bb2ce035b1ca96770782d6f872552b311ee595"
             },
             "app/plugins/blogger-import/bootstrap.php": {
-                "bytes": 74927,
-                "sha256": "5bfeb04a92f978542bfea9bbd69ae6c9f3323ba29ad7e7a054861507d099ce2a"
+                "bytes": 85910,
+                "sha256": "a35654f7582ff0238cd4ac67fcc8e3e5766db426971ad8fd606f6a21bb8fd28c"
             },
             "app/plugins/blogger-import/plugin.json": {
-                "bytes": 563,
-                "sha256": "24f362f9f5ac8e79876cda69fe853e0513a92d64c8467c563089bdcec011cd84"
+                "bytes": 581,
+                "sha256": "c24cb96ef9344c8f57c0c3e57ce2df537d697a20c67898d195d26241f81803a6"
             },
             "app/plugins/bludit-import/TinyMashBluditImportService.php": {
-                "bytes": 43886,
-                "sha256": "2880e125b166ef7c239edda0f3fb9a1d02ddf1a59153f4fb2a543179903a4397"
+                "bytes": 43904,
+                "sha256": "c7af1f2932c0419e1e6ebeeacc83ec2c40efc20e7a83ec7472cb32537ef7505c"
             },
             "app/plugins/bludit-import/bootstrap.php": {
-                "bytes": 56871,
-                "sha256": "04ed2b4c29ea9078a758d20b2c4465e5737585a3b2c875daca018e1fa9282c88"
+                "bytes": 56920,
+                "sha256": "20cebf216aa558aa04a0c1d06d38e5dad3411f682e189305d7ba30e87a66b2ea"
             },
             "app/plugins/bludit-import/plugin.json": {
-                "bytes": 577,
-                "sha256": "93b9e6dc47fc2af45fda6f17548470bf832ec837d7350c7bd8be4507ab94b501"
+                "bytes": 575,
+                "sha256": "5cb59d514655557c79fabe0f07da814b8ff1803218128a38e821079899cb649a"
+            },
+            "app/plugins/comments/TinyMashCommentsAdminRenderer.php": {
+                "bytes": 17450,
+                "sha256": "e2b60fe7483cd922b6ca5285c559be746035d089a1e675b8674749bd9e616597"
+            },
+            "app/plugins/comments/TinyMashCommentsPrivacyService.php": {
+                "bytes": 26822,
+                "sha256": "476f42c1ea847d2deb7ed41339cd0ec0662471c06138e534b6b5d25a772704c7"
+            },
+            "app/plugins/comments/TinyMashCommentsPublicRenderer.php": {
+                "bytes": 8980,
+                "sha256": "ea9bb8f9fc922016eb9dfe20b56225235052f6522a36f87b14f39eb486d418a2"
+            },
+            "app/plugins/comments/TinyMashCommentsService.php": {
+                "bytes": 89328,
+                "sha256": "133659261e0e689056a12274988f68e207681baf8770a1e9e7e1a0a66876f4a8"
+            },
+            "app/plugins/comments/TinyMashCommentsSubmissionService.php": {
+                "bytes": 48342,
+                "sha256": "66817574d9385e542a47eca7b2d029bc5332d11b7b7c81d52d6ec8ec70d65d37"
+            },
+            "app/plugins/comments/bootstrap.php": {
+                "bytes": 46684,
+                "sha256": "49f90526001bf7834bb6d5f627c471a585b0467be4d747588679bf12a3cecd2f"
+            },
+            "app/plugins/comments/plugin.json": {
+                "bytes": 761,
+                "sha256": "8fc818375716cd97cb5242b5bfda9f47c84be7b21a207ab9068963fa930a3c06"
             },
             "app/plugins/directory/TinyMashDirectoryService.php": {
-                "bytes": 67693,
-                "sha256": "1caee536565a9d35a468af3211abd0a82b4944591352a353eb18c55a076d9e71"
+                "bytes": 67825,
+                "sha256": "2126da2a7ffc1c4e5282a238bc2a39f38ae63965e5dc1debaf069310dfdc06b2"
             },
             "app/plugins/directory/bootstrap.php": {
-                "bytes": 60272,
-                "sha256": "ae8422e3c10c8d53e8410351b33dfeb98f99e5379a60d63181fc2a1358a66d42"
+                "bytes": 60129,
+                "sha256": "fd724bfd50f6a5b0900622c53477611ccbbb9938721e10c03178ac3f07e0d0f6"
             },
             "app/plugins/directory/plugin.json": {
-                "bytes": 695,
-                "sha256": "c286458e13f23f67ae5dc726c4f52ea51000d37d8760c5b518a357e60f81616b"
+                "bytes": 693,
+                "sha256": "fe002f252023475121fa2c1a0e8291a51334356f430aaab1db9000fd51749615"
             },
             "app/plugins/downloads/TinyMashDownloadsService.php": {
                 "bytes": 49067,
                 "sha256": "7d2560226d9ab064df60fa44514192e8ba3dda68c4ca12f9d7b7f9c590f48b1b"
             },
             "app/plugins/downloads/bootstrap.php": {
-                "bytes": 77580,
-                "sha256": "d7857543d1513dd34104746b9d66a5dc2cb6b4ca8ac8e357a3172359f649eecf"
+                "bytes": 77093,
+                "sha256": "e2e2ec99766fd53ea87ab562de920b4017e0e62e96607c423a4c29a7a9734434"
             },
             "app/plugins/downloads/plugin.json": {
-                "bytes": 706,
-                "sha256": "4d9c10c34504b05a71557826f027096b43d3e92119c073edfaf360ca944b59fb"
+                "bytes": 704,
+                "sha256": "225d40e14d733bd40cbd58cba1f088dd0937269d079a8978cd8dbea6f5545976"
             },
             "app/plugins/fediverse/TinyMashFediverseService.php": {
-                "bytes": 65493,
-                "sha256": "ef86a7d8bfe06d303c29443ed84d98e452cda196ad48d038cde9f3361818651d"
+                "bytes": 65532,
+                "sha256": "3ff225266a687771081d330572b4a9eed4113c2a401a6576e8d602b3906ce403"
             },
             "app/plugins/fediverse/bootstrap.php": {
-                "bytes": 42123,
-                "sha256": "c356e861e93c29f634e44fdd72e64f27842f216a0cdf8c33e9dd3eda5c269045"
+                "bytes": 42186,
+                "sha256": "08c72f5b936c42710d87c31da990a2e57dee2e5e49b90200f9f77254bfee572f"
             },
             "app/plugins/fediverse/plugin.json": {
-                "bytes": 612,
-                "sha256": "c47141a67b6941e68a9064717ce70878606261d0bb1f34cba7fc1c443a3a6e8f"
+                "bytes": 610,
+                "sha256": "1f0ce02d2199b54f0c5ef7c73f7cdd7200d9ddc7ea4911267e2e1e537920e6d5"
             },
             "app/plugins/feeds/TinyMashFeedsService.php": {
-                "bytes": 23600,
-                "sha256": "08726c4b446d3edec2f7bd3d101be7e29e7302789456e6cd33d052557576524e"
+                "bytes": 23608,
+                "sha256": "4c199a041eb4c0f7dcbc368e91c48d42eadf0c204e62f1996b85c7f5f7b31bbf"
             },
             "app/plugins/feeds/bootstrap.php": {
                 "bytes": 7314,
                 "sha256": "31b51928bd1e62d8e5201577ddf643da75fa6e2a6080ca6123d0ca75dcc7a738"
             },
             "app/plugins/feeds/plugin.json": {
-                "bytes": 706,
-                "sha256": "88e8336e49aa39adb690dea0a63251df3ea3b429374ed943eaac24d781131281"
+                "bytes": 704,
+                "sha256": "17d3479920463f33b9bc399d04f5292aa26fa6bea95448f2a23bdf1b9e4cc32c"
             },
             "app/plugins/font-manager/TinyMashFontManagerService.php": {
-                "bytes": 31348,
-                "sha256": "9b22ccebd4dd909ae37d1159e98b3616994385187a124b6da72059ed3812c566"
+                "bytes": 31339,
+                "sha256": "aae73b9ad73ab1cf0ebcf1358ee424368a39ad8ab3c94d7c955678d638db465f"
             },
             "app/plugins/font-manager/bootstrap.php": {
-                "bytes": 29490,
-                "sha256": "943cb05a7c1a59366eb7a0822a0d74102c42f95c707da138284d106167fc8348"
+                "bytes": 29322,
+                "sha256": "2e9415f56d7314bc6f463730bd62b9d8809e793a2b51a1f673038d66cffd4976"
             },
             "app/plugins/font-manager/plugin.json": {
-                "bytes": 709,
-                "sha256": "47f02dde3c097fc12b0928c0871b0afe7142869f86c24d0f177a549575fc7da9"
+                "bytes": 707,
+                "sha256": "74e00e48f977094d0b29bdd0f9df7750f114b113bdff5c29f6425b3f75857bcc"
             },
             "app/plugins/footer/bootstrap.php": {
                 "bytes": 3594,
                 "sha256": "941b01e83117a8cbcf79bd44741aaf54012f927c747d5f8fd83b30e9681e8b16"
             },
             "app/plugins/footer/plugin.json": {
-                "bytes": 559,
-                "sha256": "987112c9b5b05118af02c4e45a178703a310abc8b336f9d1ca300b52f86b50b3"
+                "bytes": 557,
+                "sha256": "e15c809da71be198228f9400fe18f93c8054676790dcac6210b5b08be2e18cee"
             },
             "app/plugins/markdown-sync/TinyMashMarkdownCollectionLinkResolver.php": {
                 "bytes": 9062,
@@ -652,36 +729,40 @@
                 "sha256": "d53359ee712917dc983d15896d1f7609d9d17e079f23f791646c1e9e67cad9e4"
             },
             "app/plugins/markdown-sync/bootstrap.php": {
-                "bytes": 26813,
-                "sha256": "179325b1465973f35a489bc1280342b8a7d190e87ad8d3522305cfb9b329fc90"
+                "bytes": 26844,
+                "sha256": "3715ba57f83c7549709b9350c3d103c98e3e3b379ddb50046e1d0b8ece526ceb"
             },
             "app/plugins/markdown-sync/plugin.json": {
-                "bytes": 619,
-                "sha256": "fe17d3e85d3d31d7711da0d58de1f707216d0ef876944c46fd8c224fb80a2979"
+                "bytes": 617,
+                "sha256": "0cb9e2a16d5c47b05f6d62249ef214644e3a9b75bbe67417588d2ec113b784f4"
             },
             "app/plugins/notes/TinyMashNotesRepository.php": {
                 "bytes": 29619,
                 "sha256": "24088a5a9dacebd962562009d7b6619441fa9aadcadb877ee6dc7551ba67c30e"
             },
             "app/plugins/notes/bootstrap.php": {
-                "bytes": 80475,
-                "sha256": "a4256cbc4fdf97c13d4c7e73bec1ebb7b22857ac30ca19f4a608e7b9e4dba1ea"
+                "bytes": 80763,
+                "sha256": "0e70eef4445699e972ef2fea34610bfb366eee90395db65289404819ca5074ca"
             },
             "app/plugins/notes/plugin.json": {
-                "bytes": 522,
-                "sha256": "c82080cf7d7ac7e162a092df1ba66be7ce902140fb8d0e07b3b2ab4c6078386b"
+                "bytes": 520,
+                "sha256": "b6418505ca559645ebc3640852042ac680b931af1df29be098b18b5701be4ea4"
+            },
+            "app/plugins/photos/TinyMashPhotosInlineConversion.php": {
+                "bytes": 7312,
+                "sha256": "3f45862cfd1acc7e087cee4b34a85bb5955e831317e55d653dfa2c95c1ad36d0"
             },
             "app/plugins/photos/TinyMashPhotosService.php": {
-                "bytes": 53824,
-                "sha256": "6a5affc089cbf6bb8a41ca187d7009ffc51525335cc29185dfd47436346dd9ee"
+                "bytes": 89722,
+                "sha256": "7198079eafec7187c787f908dfc64d27076d500298b1370dc3eeeea6c1f94ae6"
             },
             "app/plugins/photos/bootstrap.php": {
-                "bytes": 2904,
-                "sha256": "21ef0ebc531c80bb1a05d0122885810a46b1d73f69261c7216111f556280df48"
+                "bytes": 3053,
+                "sha256": "d272d4cd13b3fa5ae4b21ef2e52562ebfe03ac03853f45394012bea3a84dba8b"
             },
             "app/plugins/photos/plugin.json": {
-                "bytes": 597,
-                "sha256": "dfb07985f6d26f732952a186f591fddc3818c0f7abf7e33f568f02e3bcbcc841"
+                "bytes": 595,
+                "sha256": "cb136e485e6baa5805b2410d6ccd9a767ff4492b505249590d246e7e820aac23"
             },
             "app/plugins/redirects/TinyMashRedirectsService.php": {
                 "bytes": 13275,
@@ -692,136 +773,148 @@
                 "sha256": "46e4723ae5426765fd545c1c4cfe1c428a99b7e0d8df797c115267374ea1e038"
             },
             "app/plugins/redirects/plugin.json": {
-                "bytes": 687,
-                "sha256": "1ab3192edb0d2aaac2443760f62b495da46a9eab1ed91ca3af97fac8329f29b6"
+                "bytes": 685,
+                "sha256": "e1bbd884f528856e38b58730d8629200405c7646bd89618066b094cfced80f3a"
             },
             "app/plugins/rss-reader/TinyMashRssReaderService.php": {
-                "bytes": 47660,
-                "sha256": "8bed703a4d7d310ada3d34678a1879649fe2c238213f7ddf2c2a89967c22b06f"
+                "bytes": 49922,
+                "sha256": "ec0d869de455b18f3a8fa732b3bc90fdcc2e508f61834790718dba1b95d68f7e"
             },
             "app/plugins/rss-reader/bootstrap.php": {
-                "bytes": 34365,
-                "sha256": "52dbe2a3b6c0123554ef237c78c6f2075915ace2c62ead23a54d205afa2dc9bc"
+                "bytes": 34257,
+                "sha256": "d682d1bc424fa853a8d5745338a06aa2a086d6f6853fec5f616f2d98405e9192"
             },
             "app/plugins/rss-reader/plugin.json": {
-                "bytes": 706,
-                "sha256": "69a8e2ea3049a014e60f798e6a235a0488953e7520e5be2d497c3c6400455441"
+                "bytes": 704,
+                "sha256": "a5ae0780b22ca306ef2a03ee43b59eca93956462ae04b1824834d7dbd24072eb"
             },
             "app/plugins/search/TinyMashSearchService.php": {
-                "bytes": 21678,
-                "sha256": "5e538e989c4e7b81f24690b036b6408c227badf49dd0c86659fff30410bf40f2"
+                "bytes": 21233,
+                "sha256": "2a9255e12a1d437515f33e5951b8e20f5d33bbcdee1950e1eb47f427e362854b"
             },
             "app/plugins/search/bootstrap.php": {
-                "bytes": 15303,
-                "sha256": "42f3ce08e469335cdce3fdb8055478093fdc410f35d4da61747f7d0d89b5f166"
+                "bytes": 15322,
+                "sha256": "269129273e1cdc5f7a299ef469804ad75383a5e079710d8caed3b0b5523de963"
             },
             "app/plugins/search/plugin.json": {
-                "bytes": 653,
-                "sha256": "cc27939713eb905817eb440d2bb5bea3eb7570222b85226e9f96113dd0f50435"
+                "bytes": 651,
+                "sha256": "0d5039834e476708ca9d5c7239cd1332007720384a4750367dfa0aa3d02cb13c"
             },
             "app/plugins/seo/TinyMashSeoService.php": {
-                "bytes": 27078,
-                "sha256": "6bea4f33a70005d4fe7d2d40e3ca5a3bc3ffe3436d108b25e01b30f2fcb8bcc8"
+                "bytes": 26774,
+                "sha256": "8d82c306fb9a089caefb661fce05f0861bc0f628caf8dbc8b9cdca6748fb824f"
             },
             "app/plugins/seo/bootstrap.php": {
-                "bytes": 5392,
-                "sha256": "4b6785b0ccaa4bb39b66bd2c01dd536083fa0039c219f4fe956415e0579dae25"
+                "bytes": 5152,
+                "sha256": "5f2a7a62e37c0a9f7a431738ec6ab86fd3f65b974143946ea641a8f173a6ab9d"
             },
             "app/plugins/seo/plugin.json": {
-                "bytes": 633,
-                "sha256": "12d351fa4269dac971b770bed0a9e913933fd4d58528dcbd097b64fe6ac8038a"
+                "bytes": 631,
+                "sha256": "f807d88dc61266ab6aaf16c43791892fcc035aa3bdcdf8c9ad290c4b8e98bb7e"
             },
             "app/plugins/signage/TinyMashSignageService.php": {
-                "bytes": 47327,
-                "sha256": "38dbfdb13f040e587acadf6f9c131113a5d8ead7ecc0405d2114832e95f06f2a"
+                "bytes": 47556,
+                "sha256": "a2cb170333d2435551858a0d3e5ea4f19eb96e2fbb67e96814c27c0686fe700b"
             },
             "app/plugins/signage/bootstrap.php": {
-                "bytes": 105226,
-                "sha256": "8e036ec511a04da684b0a2fcb873ec567d9383b3d51d4bbf0052d61bfae4a734"
+                "bytes": 105975,
+                "sha256": "0c3f8bc51006e514855696f512e91e7cfa6930c8839f7f0b2fefbff8a7e1849b"
             },
             "app/plugins/signage/plugin.json": {
-                "bytes": 736,
-                "sha256": "4640723a1da32c418714a5eaa14bcb078268ff2633b45f30080e0f9214502c4a"
+                "bytes": 734,
+                "sha256": "fffb88a855923e2f52ea4031d2178e4e4942964fb88ec1c4b8f4b819392f53ce"
             },
             "app/plugins/social/TinyMashSocialService.php": {
-                "bytes": 31018,
-                "sha256": "40d6692c921f60427d406bc0dd8f092add0d8cc828f184d275ef4e5d329f4365"
+                "bytes": 30941,
+                "sha256": "f49112fad4376c7e92c6cf4d29ce2cb4416648f8e6c9c9c5f994a3056ee67668"
             },
             "app/plugins/social/bootstrap.php": {
                 "bytes": 12373,
                 "sha256": "3e725a0448855a136a7eb684a3a5b416582467989a1d629e60d6b834ce7bad37"
             },
             "app/plugins/social/plugin.json": {
-                "bytes": 734,
-                "sha256": "e137f7f04f5d046d578b369a32293505635f8093c5a462e91eb1c30b0db3d402"
+                "bytes": 732,
+                "sha256": "b9cab7483805dde6d254274c5026f1f343159485c5997d828ce175d25d21a193"
             },
             "app/plugins/statistics/TinyMashStatisticsRepository.php": {
-                "bytes": 25796,
-                "sha256": "c6452a5d185e6822e3ce864fbd5cd444820bb6e14e7380d1ea62336103d0860f"
+                "bytes": 25802,
+                "sha256": "a82502da3f092f6038d2a03e07abbeaab033f7c7e4550626063d767e488b2632"
             },
             "app/plugins/statistics/bootstrap.php": {
-                "bytes": 35854,
-                "sha256": "98a79c8381f54e5b95bfe6f608f656abc8e31d48cd5884a59a4e93b813963ef8"
+                "bytes": 35866,
+                "sha256": "bc19a3823739627f9830db67d02150025db363888464bb1f557381bf26a6f494"
             },
             "app/plugins/statistics/plugin.json": {
-                "bytes": 748,
-                "sha256": "daa2dbac90e4391f10e9416ca87760c4802f30e839e7fc75a86aead243f911aa"
+                "bytes": 746,
+                "sha256": "ee203d75d04c0fc5f9f9141dbced599f30f3beca4f30195527e66b96c670b006"
+            },
+            "app/plugins/subscriptions/TinyMashSubscriptionsService.php": {
+                "bytes": 71445,
+                "sha256": "b69d80362fe62074ce8dfbeb33f96641f510b2e27db7ae6c65c11108e3783961"
+            },
+            "app/plugins/subscriptions/bootstrap.php": {
+                "bytes": 32167,
+                "sha256": "f969e28dd30344f8be883d4d6a3791765c01ef53df5fd5cb92d2dd9d2de45cd5"
+            },
+            "app/plugins/subscriptions/plugin.json": {
+                "bytes": 847,
+                "sha256": "11250286a78db77966c73abbcc84a0af3cbad33414f3122481cbdbf8292dd0e9"
             },
             "app/plugins/syntax-highlighting/bootstrap.php": {
                 "bytes": 1563,
                 "sha256": "e678f136bc916c4233da6dca8e03fc31945e13596638cb1116cd02814af42fa7"
             },
             "app/plugins/syntax-highlighting/plugin.json": {
-                "bytes": 657,
-                "sha256": "1460253a0d75aeb36e96afa53c0efcc681ef63fc1697841ebf34594b7ce92833"
+                "bytes": 655,
+                "sha256": "e1203f3dbc75cc627384ba086ef538fdb8964dc93a15ec7bd297a5c371466e72"
             },
             "app/plugins/tiny-links/TinyMashTinyLinksService.php": {
                 "bytes": 17568,
                 "sha256": "918d62b8505cac792b74a050d0c93a2c18879aa286fadd199d02f87a9c763526"
             },
             "app/plugins/tiny-links/bootstrap.php": {
-                "bytes": 18277,
-                "sha256": "447c7f157959f85e4c72563b969e5eef9a74a610a02061a600781edf754c5373"
+                "bytes": 18249,
+                "sha256": "90af8dfd77fd82caa1c1c7415bf027c43833b1867d9974167b72a74b25ffe995"
             },
             "app/plugins/tiny-links/plugin.json": {
-                "bytes": 686,
-                "sha256": "97bbad2541cf1eb22eca3885f9b089550504af2e3ffaa2c21d4ce1b8ce325bf8"
+                "bytes": 684,
+                "sha256": "dbea4debcf4f342eb843ff525e675f1ab1757971ec67499d7a21917bf92775f9"
             },
             "app/plugins/weather/TinyMashWeatherService.php": {
-                "bytes": 84755,
-                "sha256": "b40c92924beca0312e481a836270bad262e7a38296aff866612094de7f43cbb3"
+                "bytes": 84893,
+                "sha256": "6d9c8ea6fc28c5177840fdd33b38af2a48b93e126494dd15023558536c58cac6"
             },
             "app/plugins/weather/bootstrap.php": {
-                "bytes": 34656,
-                "sha256": "011f1d8124b5b159a006d793133756701e0eee1a267ef55d3a38e8aeeb3ff9e5"
+                "bytes": 34290,
+                "sha256": "f0660ee6a7f71ec9aefc2a37b29edfecb2b3ad065ce8e010e596a97412002243"
             },
             "app/plugins/weather/plugin.json": {
-                "bytes": 760,
-                "sha256": "2aded52e287e36c6c0021c8d33e627763137041740235ee646e91949f445e3f5"
+                "bytes": 758,
+                "sha256": "26eee22db8b89264570da43a23c353954f3a4bb794e51f4cf8052533f0c36a90"
             },
             "app/plugins/whats-up/TinyMashWhatsUpService.php": {
-                "bytes": 57446,
-                "sha256": "3e822bd8001b6d6f56de1e7d5681fbb5e8b4fa52ea8d11195bc7a2c057d6cdc2"
+                "bytes": 57500,
+                "sha256": "5c6368927f9e316c48d84e68582638c816777422c8a34c24067314a799b34b19"
             },
             "app/plugins/whats-up/bootstrap.php": {
-                "bytes": 43086,
-                "sha256": "2b8927cc24c9f22bee4574cb67f5d33802ca11d9fe9dd2653faef44e74122bc6"
+                "bytes": 43077,
+                "sha256": "d3fbf0e7cbe95ffbf43c509e607869ca9f4984d0faa99b5fc7dca93eb1007399"
             },
             "app/plugins/whats-up/plugin.json": {
-                "bytes": 770,
-                "sha256": "8d49c196b7db21886d3028d1b4f48f0201f6095e8734a2ac4b55942e32e409e1"
+                "bytes": 768,
+                "sha256": "f670b26fb2d0e60576a00d5bbc792b602d76e1ca2a3c943723a2587b667f1cbc"
             },
             "app/plugins/wordpress-import/TinyMashWordPressImportService.php": {
-                "bytes": 84442,
-                "sha256": "3eafbf0b1f6124d7ca897db2bb86cc7724e3173798e3d522d578d71569ed30f7"
+                "bytes": 119700,
+                "sha256": "63b507b92e0c4acfb1f3bb6d910dae29739fdd6182a104f87679e720d21b5726"
             },
             "app/plugins/wordpress-import/bootstrap.php": {
-                "bytes": 73588,
-                "sha256": "9bd2b3791340742928c3c9518ecf409dc35eda6348224a75be2c9f65c24b20d2"
+                "bytes": 101007,
+                "sha256": "062032bd239a9893f0fa58e99f8dbd8625aed0d43c6477375e41249f1494a6e6"
             },
             "app/plugins/wordpress-import/plugin.json": {
-                "bytes": 573,
-                "sha256": "b305e82e545e75ce1301f1727df59634c43d24ca1d29b8e675de9c5ed0d95591"
+                "bytes": 570,
+                "sha256": "8a42b9370fe68b9ba62959e2fd793e7166c1fb94194c654cf008d08380ed1f23"
             },
             "app/themes/admin/baseline/theme.json": {
                 "bytes": 799,
@@ -844,8 +937,8 @@
                 "sha256": "c81bc41857cf7a00832f44b568ce39283e5afe72a9fe0afe942c8cb092131ab2"
             },
             "app/themes/public/scribe/theme.json": {
-                "bytes": 9028,
-                "sha256": "a018fd332ea9c46a2b9e666f06949796b229f7fc404870aeb7f930b58ca8d909"
+                "bytes": 9521,
+                "sha256": "d266b42f7781d1c3eeb642a2c75ec42aea2ee76ccd56a0beefbb50a064272e54"
             },
             "app/themes/public/terminal/theme.json": {
                 "bytes": 10370,
@@ -860,8 +953,8 @@
                 "sha256": "a2773bc4da50d6899a152ea82886628967fe8e5951b895d044f2c1f8d2452f21"
             },
             "app/views/404.latte": {
-                "bytes": 891,
-                "sha256": "f7ef0c3f68ea4db93a9e559b12e0363a2fa6633d8285abf4bd1ced3616cb67a0"
+                "bytes": 878,
+                "sha256": "3324c113c436c98d40960487588c1c46025bc32d332ec4638cd0bad9db6f49c3"
             },
             "app/views/admin/baseline/about.latte": {
                 "bytes": 5245,
@@ -872,8 +965,8 @@
                 "sha256": "2b3abe940c98b493a90d718ac948aa93aaa3785c00543a8b851da74df39250b9"
             },
             "app/views/admin/baseline/editor.latte": {
-                "bytes": 120971,
-                "sha256": "60ab84824b83668d564feb3521865cb4732fe6bb738de5ae23aee7174f30013a"
+                "bytes": 132797,
+                "sha256": "1a695558d9223c7caad767840c3ed70d26a69932d2bd2dfae0b5d9c03bc16886"
             },
             "app/views/admin/baseline/entries.latte": {
                 "bytes": 84070,
@@ -888,8 +981,8 @@
                 "sha256": "e1c334e73235e842c74f74ad599a88d9bc1167ebc894101f6f5fe2eceb3eb34e"
             },
             "app/views/admin/baseline/layout.latte": {
-                "bytes": 8965,
-                "sha256": "eef6b4244ce8cbae0158d68acd10a54ba5f3b704fbc28a0f7baeff5db0451e59"
+                "bytes": 9615,
+                "sha256": "dc1e67d69bca310889bf3bd138687d005f1f37f41179183c828ff25a689fcea2"
             },
             "app/views/admin/baseline/login.latte": {
                 "bytes": 6267,
@@ -899,25 +992,29 @@
                 "bytes": 888,
                 "sha256": "06c8468166c35d508cce2007c6bdca3566f423095ee788c70b6a8e26698418f3"
             },
+            "app/views/admin/baseline/partials/editor/inline-media-review.js.latte": {
+                "bytes": 11130,
+                "sha256": "1d8ae313caa685bc2abdc6a74a524ba553318d3f4521cc6d6c90a9becad718ad"
+            },
             "app/views/admin/baseline/partials/editor/links.js.latte": {
                 "bytes": 9253,
                 "sha256": "7f239da47e84db8dca65b237a53fa522eac1a2a1b7f07106cc8a96b135f2957f"
             },
             "app/views/admin/baseline/partials/editor/media.js.latte": {
-                "bytes": 38637,
-                "sha256": "9af769bc35d10a0045c3230399eb2efe7445e7f507fb4e2b85c897efdcf3986c"
+                "bytes": 44895,
+                "sha256": "7fdca4d500e815b461a5e858fc8594a8cad9d2c3e3bbf9869346a772175273b4"
             },
             "app/views/admin/baseline/partials/editor/modals.latte": {
-                "bytes": 10227,
-                "sha256": "df8fb38a079320b36f451bd19f98fb531d77ae65872bb681bcbc58ed077ccd93"
+                "bytes": 10825,
+                "sha256": "62d34994ca15f7ecc02708ecf6cbd07c0f86b89b1a886d87839c812fafa1acce"
             },
             "app/views/admin/baseline/partials/editor/shell.latte": {
                 "bytes": 8792,
                 "sha256": "c034ec32056b03077a7cffeff2b6a71cd5ff38cf31d4b3f506ee705ce0c4aa9a"
             },
             "app/views/admin/baseline/partials/editor/tabs.latte": {
-                "bytes": 27491,
-                "sha256": "ab75cb7984ecda40d0aa4fc77e9b302efdfdf3017592d5d78f1d7198654a79da"
+                "bytes": 28038,
+                "sha256": "643611c8c5a3aea7c99ae1fa09e2ee2a94ca330cdc8266bf2ee21cc2807c2225"
             },
             "app/views/admin/baseline/partials/footer.latte": {
                 "bytes": 235,
@@ -928,8 +1025,8 @@
                 "sha256": "621fae3065a4f6ab2e906612b10fd9f9db97e51a455d80f8909bf82c7c909ee8"
             },
             "app/views/admin/baseline/partials/layout-bootstrap.latte": {
-                "bytes": 10689,
-                "sha256": "d6c38c62bec40f725ba15dcea126b34dc83b44b97a786e4098ad972a74278f89"
+                "bytes": 10996,
+                "sha256": "4d9625d6170218cba931aaa35dd89c71a9426969e9c73a696eb70cd5098bddd1"
             },
             "app/views/admin/baseline/partials/layout-bootstrap/admin-fragments.js.latte": {
                 "bytes": 7627,
@@ -976,8 +1073,8 @@
                 "sha256": "ded2355d9d4040564573e6ffda6f1f2865ada2bfa08680758f7b61e2b49fe736"
             },
             "app/views/admin/baseline/partials/system/information.latte": {
-                "bytes": 6767,
-                "sha256": "2e9ab65737e31133f055e5420d6ae42affcdfb2d429c39d4533274c6569bcef6"
+                "bytes": 7096,
+                "sha256": "d47d5f6b88fd253d5217705110308442176d6aac2aaea33998adccffe6986a8f"
             },
             "app/views/admin/baseline/partials/system/link-integrity.latte": {
                 "bytes": 5779,
@@ -1020,8 +1117,8 @@
                 "sha256": "b5a3ed8c81f281b1dbd4f3a879dfe8b2aecc40c2319136f37f7a480bd5706a5b"
             },
             "app/views/admin/baseline/partials/system/security.latte": {
-                "bytes": 21801,
-                "sha256": "199715dcbe990828a5c0402ce868e1da9bd3a6248f2b40f22da9d3f954ff0875"
+                "bytes": 22852,
+                "sha256": "bdd7a6156a1fd678b58bd91426aeadf9b452681cb9ebcfd08f9439089b96b0da"
             },
             "app/views/admin/baseline/partials/system/site.latte": {
                 "bytes": 22278,
@@ -1052,8 +1149,8 @@
                 "sha256": "d611dcf4ef718251ef0d05759f2be8e6c5a3384af6e81f691e8b106e988026fe"
             },
             "app/views/admin/baseline/partials/system/updates.latte": {
-                "bytes": 11667,
-                "sha256": "52c97bfd939478d910ee1e8c734b33c4352f52a578b6457a8274ac03c116eab8"
+                "bytes": 12406,
+                "sha256": "7c209556a8f4e8812bcc306fba2fc0ac5ae8b8cd3dfde044569ea62842a9fa55"
             },
             "app/views/admin/baseline/partials/system/users-edit.latte": {
                 "bytes": 5408,
@@ -1064,8 +1161,8 @@
                 "sha256": "3bad23188571f1fafafd16b11709b37386902d283334f6ac0518ee5a12f1a0c0"
             },
             "app/views/admin/baseline/partials/topbar.latte": {
-                "bytes": 2124,
-                "sha256": "2e3bbb97fccf3d6adb34eb0f32fd431a19805fa07870b8267f4ac0461758a758"
+                "bytes": 2160,
+                "sha256": "98f9523d4bb0ac4841fd59bf4e942f5596ffb848abcc9bbb8d0994212be9ffd2"
             },
             "app/views/admin/baseline/password-reset-confirm.latte": {
                 "bytes": 5158,
@@ -1092,12 +1189,12 @@
                 "sha256": "251eeddbc3e80e7637e0773376495c18cea11e715a4d325c8c5c77adb496e0cc"
             },
             "app/views/admin/baseline/slots/topbar-actions.latte": {
-                "bytes": 1827,
-                "sha256": "d6ae2d139bd01d6ca106d4662fe3c99421bfdc43ff81d01609a6c6f8992d6f05"
+                "bytes": 1882,
+                "sha256": "ca6a9c633c363e229125faa182e1fdeb454d5337e90f7ce915f9ebc00d1f8ad9"
             },
             "app/views/admin/baseline/system.latte": {
-                "bytes": 4467,
-                "sha256": "a053833e0780f5203968924f44cc9a4c75fb35aaa07308e694c9caf1d189de3f"
+                "bytes": 4718,
+                "sha256": "efbf760e3bfc75a8ff914aeed9b6ae8f3295b1a1d4b6ec78ba0a0e989233d215"
             },
             "app/views/email.confirmation.latte": {
                 "bytes": 1097,
@@ -1107,9 +1204,17 @@
                 "bytes": 1367,
                 "sha256": "6cd7f7ca48d7101634b2180c68c8029ef3ee02fba576237bcab057b1c0a1f316"
             },
+            "app/views/installer/layout.latte": {
+                "bytes": 1719,
+                "sha256": "ae7bef488f84704114409c6fedd245f7c397cd86269622dab07e2b453c3c6fa6"
+            },
+            "app/views/installer/setup.latte": {
+                "bytes": 6342,
+                "sha256": "55d0b1bc339bae06738efa7e0a29af234d6a96f3a688c4c575519e1a5cf909c2"
+            },
             "app/views/public/baseline/404.latte": {
-                "bytes": 1064,
-                "sha256": "cee691dfd65c56952358e53ff702ab6975d706f80a960ee416240a72ba87760c"
+                "bytes": 1051,
+                "sha256": "bebe32470499efe92553b71aace0eb549832e4bca3d7b8bf753d4a228c2ce2f8"
             },
             "app/views/public/baseline/author.home.latte": {
                 "bytes": 3976,
@@ -1124,8 +1229,8 @@
                 "sha256": "ad800a16e52a43cf12709a3318612f61c876fd543ba882db62a60c5bf1990bf9"
             },
             "app/views/public/baseline/layout.latte": {
-                "bytes": 37619,
-                "sha256": "f3d429f906ffac055f89930dc3e04bb7672f0cae0623a8d697ec950268b3b0e1"
+                "bytes": 37852,
+                "sha256": "4ab92189a9268a30ca731e3653e30edc8ea1b7c5dda7813b7c6f00d915858a14"
             },
             "app/views/public/baseline/partials/listing-pagination.latte": {
                 "bytes": 1143,
@@ -1148,8 +1253,8 @@
                 "sha256": "8dd003d2cd93e8d5e22d74558d5805b73a68d7ac9f81f1c21e05798c71174033"
             },
             "app/views/public/blocks/404.latte": {
-                "bytes": 977,
-                "sha256": "cb70d20f792ff55d62465a0e9d320d86eb1510259fcf6a10a8a0e38b1f25a4a5"
+                "bytes": 964,
+                "sha256": "3031626afdd803395628f049e7941142dc17facda356dec855a8e720409cdd1d"
             },
             "app/views/public/blocks/author.home.latte": {
                 "bytes": 8601,
@@ -1171,6 +1276,10 @@
                 "bytes": 99,
                 "sha256": "8dd003d2cd93e8d5e22d74558d5805b73a68d7ac9f81f1c21e05798c71174033"
             },
+            "app/views/public/comments.latte": {
+                "bytes": 514,
+                "sha256": "35a1d7f00d253fba5eddcf1b9e06f004ba1166a15df923fd1eb47b5a807c9bcd"
+            },
             "app/views/public/docsmatter/404.latte": {
                 "bytes": 416,
                 "sha256": "d50395d70eef5d77b269612c0245c8f566c07ef3f9f1b3a3b9c16b160814b321"
@@ -1184,12 +1293,12 @@
                 "sha256": "8e98463c4473dd0036cafd227685505e0da079197218c4d95dd72ad59847193b"
             },
             "app/views/public/docsmatter/home.latte": {
-                "bytes": 7266,
-                "sha256": "dadd6b352f46a93ddfa144bcb6e8d60235f40516a1f92e369af345a76b2b8547"
+                "bytes": 7300,
+                "sha256": "5f7c7e69c7f43148f24ccf5cc1c777e5b8dadb64e2309e1d94ecabb05b49247b"
             },
             "app/views/public/docsmatter/layout.latte": {
-                "bytes": 38556,
-                "sha256": "36c31ebbecd7eb8587493a10716ce28a941def935f5bd6f6d474424fde7d3fbc"
+                "bytes": 38710,
+                "sha256": "aeeb8341bab9196aa6875ebb6b1adaabeaf69c8685f65da7d57bb317ecb0bdec"
             },
             "app/views/public/docsmatter/partials/listing-pagination.latte": {
                 "bytes": 1151,
@@ -1236,8 +1345,8 @@
                 "sha256": "eb8a790f1542023e20ed018aaae2dc265d614830ff09d70eb0200cbf7614818c"
             },
             "app/views/public/scribe/404.latte": {
-                "bytes": 649,
-                "sha256": "fdc003c602db084b323badcde310d1950af29d2441f6827e87f5159517587e99"
+                "bytes": 636,
+                "sha256": "6f92bbb4948c3846c399526568eec49e2417fa5e46721eb972b27a44b0fcacf2"
             },
             "app/views/public/scribe/author.home.latte": {
                 "bytes": 3788,
@@ -1263,9 +1372,13 @@
                 "bytes": 664,
                 "sha256": "fa6e023a1685a565397d1eaec7074ab1ba88c5ecdc006b97b60a47a76e15d2e9"
             },
+            "app/views/public/subscriptions.latte": {
+                "bytes": 523,
+                "sha256": "2c8d69b6ff6d31c33c8b59799937439a5a913a8f5001c64689f601ed58e7ad84"
+            },
             "app/views/public/terminal/404.latte": {
-                "bytes": 674,
-                "sha256": "4b1aa73452624b611582c0f4372078e57f511a923c403d5d463ec1907e17e83c"
+                "bytes": 661,
+                "sha256": "042b032c5c4b6225390a63dd74888ea9c173a7b2cf2dbd5e7554af65cb105c21"
             },
             "app/views/public/terminal/author.home.latte": {
                 "bytes": 3904,
@@ -1280,8 +1393,8 @@
                 "sha256": "4dd9b9968fff3ce21863a2cc597a468b115d5aae2ce2266f1db80bc6b2571127"
             },
             "app/views/public/terminal/layout.latte": {
-                "bytes": 35109,
-                "sha256": "46fb3b84722c98bf5da608bdac0a945863837abb3aba82e74bc30ce850501e4a"
+                "bytes": 35263,
+                "sha256": "9f0c48c663db4beeb1ef98f5a49283321ada67c26fde1c8e0a4bbe8a24516539"
             },
             "app/views/public/terminal/partials/listing-pagination.latte": {
                 "bytes": 1269,
@@ -1300,8 +1413,8 @@
                 "sha256": "8dd003d2cd93e8d5e22d74558d5805b73a68d7ac9f81f1c21e05798c71174033"
             },
             "app/views/public/timeline/404.latte": {
-                "bytes": 962,
-                "sha256": "3958e05af5e642c8b762870ab6a24ed5899f60126d2f5765348f0488ce4601a0"
+                "bytes": 949,
+                "sha256": "66a108f2ecc26763f56f3e4c6bcaadcd7970203395e91532c68c3783a3996512"
             },
             "app/views/public/timeline/author.home.latte": {
                 "bytes": 5989,
@@ -1324,16 +1437,16 @@
                 "sha256": "8dd003d2cd93e8d5e22d74558d5805b73a68d7ac9f81f1c21e05798c71174033"
             },
             "bin/tinymash.php": {
-                "bytes": 163786,
-                "sha256": "ceadacd651bd07a9d3e4cc68b0543ac5b1310c0c92c0b89ee33cdeeb07b8e90a"
+                "bytes": 161509,
+                "sha256": "e7abf28e35388eae3298eb94d8cda8603b874df688dd2a91c9100eed48ff3dec"
             },
             "composer.json": {
-                "bytes": 439,
-                "sha256": "cee73ee70ca86bf65e2a5c5bc0f5490f22684cec717c1f684e37ff6035ed33f1"
+                "bytes": 468,
+                "sha256": "25a754c711da32efd68ed4b7f0fac893e5744141864da1d2344d526876c1decf"
             },
             "composer.lock": {
-                "bytes": 93825,
-                "sha256": "8444075e89d85fa8a7b8e5e3d1dfa30aa12b45ce303dc0868986d8d484e121a0"
+                "bytes": 93866,
+                "sha256": "58a135f1e56111a6cb73d9f1e6973503c76abdf34c054e68ba10ab953b85ff66"
             },
             "public/assets/index.php": {
                 "bytes": 6,
@@ -1380,16 +1493,16 @@
                 "sha256": "01575caef24e42d81a07dcf57e6bd39847c78973d22088d162a4ddab000866c9"
             },
             "public/css/tinymash-docsmatter.css": {
-                "bytes": 31988,
-                "sha256": "f8d5651e5cb58242653e5c47b10e853bc1d1f34d744e1be69ac0676694c895f4"
+                "bytes": 32024,
+                "sha256": "93f83bf34c5b693e8daedb88a326f9aa6c776267c86d62b93b339ebb76833d94"
             },
             "public/css/tinymash-panel-magazine.css": {
                 "bytes": 17606,
                 "sha256": "a304488846aa80d906dbc18b3e8f74a5c71bd8e8ea29d043d023a221f23cef82"
             },
             "public/css/tinymash-scribe.css": {
-                "bytes": 11692,
-                "sha256": "0c0a718182fda3481a47413f40fbe3ea76105b5be17a883526491ed48bf7745e"
+                "bytes": 11864,
+                "sha256": "7724f4b14cc717e11125911611c650618c37b0c9e820ce79d46648e148127cc1"
             },
             "public/css/tinymash-terminal.css": {
                 "bytes": 43251,
@@ -1400,8 +1513,8 @@
                 "sha256": "2b1d9f40d8635e482e338307906c4f6938aa289dfb5b3e233f114d918c3d464d"
             },
             "public/css/tinymash.css": {
-                "bytes": 31799,
-                "sha256": "ca9a17cffcf54ad949a841c5398286433970350ee12c1ef5a8df4c3933dc6a37"
+                "bytes": 32701,
+                "sha256": "ba0a6500a1fda1b6ed58cb86a9d5caa0c1443dc603ff09380c5f7f38e72086e6"
             },
             "public/ext/bs/css/bootstrap.min.css": {
                 "bytes": 232111,
@@ -1676,28 +1789,36 @@
                 "sha256": "bf4241bc73fef7f11c59a283a69fe8051cdd31c6d8ff5a2b9ba219e7831fcf76"
             },
             "public/index.php": {
-                "bytes": 6682,
-                "sha256": "a50c1de3de75788a1ed9a6231725decd9e8c518b251cf53c845196da59c61f48"
+                "bytes": 8441,
+                "sha256": "16e36a1efc1a18779fdcc7a04322250ff9be10223abcece1f6566fb51a70b8b0"
             },
             "public/js/index.php": {
                 "bytes": 33,
                 "sha256": "c1c2d0d03d3337a7f1c6a09acff7064662ad85fd62c2c1018bfc3d429a62cf85"
             },
             "public/js/tinymash-admin-image-picker.js": {
-                "bytes": 14363,
-                "sha256": "3fda0cba2ca29ec9a8ea52fb8baddacc513182cd34b362810fe4418dc01d7c3a"
+                "bytes": 14592,
+                "sha256": "c2607425dca5568ab0f5390f7024eabd058367e2e291ff3682dc08da0bd759d2"
             },
             "public/js/tinymash-admin-import.js": {
-                "bytes": 1566,
-                "sha256": "183d6d05995eb20ad3960281094fd9f816e842b423c02b4b67a0534dbcbce358"
+                "bytes": 1691,
+                "sha256": "f4a3e231e046e6139defaaff5b6872fdbdc8b1efe5d6f544ce86d5c8e9bd7f0a"
             },
             "public/js/tinymash-admin-update.js": {
                 "bytes": 15897,
                 "sha256": "011a6aeffdcb5bc1c7656c2d7533ee1b38b75fe3621690ff1dbc5ee89403dafe"
             },
+            "public/js/tinymash-content.js": {
+                "bytes": 935,
+                "sha256": "b6b918425a3a1c76e953c1a03337a0c11aa782550aa9fd64dab3210bfe8a2da5"
+            },
             "public/js/tinymash-markdown-editor.js": {
-                "bytes": 36954,
-                "sha256": "6e237c2e6f08265c5513138e4a41ea149a4302907b7d4c66dfe0728fa3facc2e"
+                "bytes": 40384,
+                "sha256": "4d618ad59b3ac04fd2bd1663e992c77b76eb8dd4d5adecc4fb03175d3afd9250"
+            },
+            "public/plugins/comments/comments.css": {
+                "bytes": 3269,
+                "sha256": "d9382f648916b051950c788862d4a8699d010faba82db60cecd100c537859c0f"
             },
             "public/plugins/directory/directory.css": {
                 "bytes": 10507,
@@ -1790,6 +1911,10 @@
             "public/plugins/social/social.css": {
                 "bytes": 5643,
                 "sha256": "92ad49c22dde0cbd745a4923e6a571948b4f7d27458e3d16262fadafca7023a7"
+            },
+            "public/plugins/subscriptions/subscriptions.css": {
+                "bytes": 635,
+                "sha256": "83149fe6e9af15ad2b69b6a0fcc3bb1ae12b3021d64160d5bb1d7a1650cc061b"
             },
             "public/plugins/syntax-highlighting/syntax-highlighting.css": {
                 "bytes": 16385,
@@ -1928,8 +2053,8 @@
                 "sha256": "9424906d38134bfdcde21c3d7c90673589e6ee7fb9185f5952622d87f1271852"
             },
             "public/plugins/whats-up/whats-up.css": {
-                "bytes": 12155,
-                "sha256": "50d673f465db0864c8e3219895f394033ee4f81217d798813a49ed13ef1b3b6c"
+                "bytes": 12264,
+                "sha256": "0bf4fc89c317ec7ff9443e2aec627ef48f2d5a58cc0bc39908959ad19fdfe32b"
             },
             "public/plugins/whats-up/whats-up.js": {
                 "bytes": 2164,
@@ -1952,16 +2077,16 @@
                 "sha256": "61c763b7883925b27a215b9e507295c0cbb75557db9e81323e24f3ef9e623442"
             },
             "samples/server/apache.sample.conf": {
-                "bytes": 1477,
-                "sha256": "adf2b7ebacf863d21609feeaf0292fe3437d53dce840269093cd92924a9e52f7"
+                "bytes": 1822,
+                "sha256": "5aa604398e70622aafd8442305b550a29b9c10462cc394f60ccc4a179773c17f"
             },
             "samples/server/nginx.sample.conf": {
-                "bytes": 1796,
-                "sha256": "9ab565951c5549014e8b0744a6265d2b3abb900d7cf007a4b66034e520b507f4"
+                "bytes": 2017,
+                "sha256": "012f8b3d94d989bd2b5f300fff740b378fca5ee0f9415ade60761f69ad537d27"
             },
             "samples/server/php-fpm.sample.conf": {
-                "bytes": 3016,
-                "sha256": "c43a5b37ff224655ac3d2395c20268415698349d25c7244d4a1a0d35863ec13c"
+                "bytes": 3072,
+                "sha256": "f535b46d717abfcfd491f35f199575d88b5db1583460d15a4ae34b08a722c41c"
             },
             "samples/server/php-opcache-development.ini": {
                 "bytes": 297,
@@ -2128,8 +2253,8 @@
                 "sha256": "d2ea74f01280912c720bdb546acf75ddaf8e36513c36abebb27c6d3d3d93aa3f"
             },
             "vendor/composer/autoload_files.php": {
-                "bytes": 1405,
-                "sha256": "214cafd56e84ce13c79d06a1f6213deb1d01e29854442a7f9509124111239d76"
+                "bytes": 1499,
+                "sha256": "0116661741aa47d792352387d44698628a7f89e3e4fdb9027b32f7c9a1ccbc64"
             },
             "vendor/composer/autoload_namespaces.php": {
                 "bytes": 139,
@@ -2144,16 +2269,16 @@
                 "sha256": "7215ed1f726fce968ec7ac57aa9b61f10a2f203689d6d459149a012e23aa1e8e"
             },
             "vendor/composer/autoload_static.php": {
-                "bytes": 43643,
-                "sha256": "de12bec31d84fa95008766a5b2c58269f4f975fbb70b24e54c92161742193dde"
+                "bytes": 43746,
+                "sha256": "580a4a0ec213a5de82c1f7c9ac8dfcba56871c2f94f36cb7d585ab81790b507c"
             },
             "vendor/composer/installed.json": {
-                "bytes": 97992,
-                "sha256": "898508192fbf2a140443b24bb37e950c72478add8d8d389b02910a9035da0250"
+                "bytes": 98000,
+                "sha256": "12c6b6155e2a50e2febcf0c078d25508b47666ca6bb664c1ac8767693cf2d196"
             },
             "vendor/composer/installed.php": {
                 "bytes": 13773,
-                "sha256": "f7f2c91a8729352c6dc6c61bd952a288f45f4db85dffaa1539a8537629704091"
+                "sha256": "f36e5c58e09d1c659c13d81a19970719d4a7664ff706a25233c227b9ca13b59d"
             },
             "vendor/composer/platform_check.php": {
                 "bytes": 917,
@@ -2207,21 +2332,25 @@
                 "bytes": 367,
                 "sha256": "c9274d68574ed003b0c18573ddfc2e75354dbf2b6dab9cbf83ca722e269d1277"
             },
+            "vendor/doctrine/lexer/SECURITY.md": {
+                "bytes": 307,
+                "sha256": "e818207eb2f8f104b4d6c50c285106334144a84e144a1c45e0161b01eea6ed38"
+            },
             "vendor/doctrine/lexer/UPGRADE.md": {
                 "bytes": 962,
                 "sha256": "b582d636eb4433d0f792e85184ff1e95f407fd117419cecd88fd7bc04305ce37"
             },
             "vendor/doctrine/lexer/composer.json": {
-                "bytes": 1417,
-                "sha256": "ea2afb009cba598f86b3d85810831d795e1b1739235104f5cd8d24fe59fc8e0f"
+                "bytes": 1353,
+                "sha256": "95dbed5e7c7b3c57d3200ccf9a3f90a9f1d14d60353c7d7dbddc0ae45adae5e6"
             },
             "vendor/doctrine/lexer/src/AbstractLexer.php": {
-                "bytes": 7446,
-                "sha256": "9a35d9ff3c096f79c11cf782fa030c19356a7afc2cbd24a984f3e95091fca505"
+                "bytes": 8131,
+                "sha256": "6c49fee2e5b1bd2fa38ecc7c6b8e4f02d68d66ea8d98b278c85b113212f5d617"
             },
             "vendor/doctrine/lexer/src/Token.php": {
-                "bytes": 1021,
-                "sha256": "9054689fc602d02802b991bc8d8ad5c212cd4542a053885c1be8f0813672952e"
+                "bytes": 1064,
+                "sha256": "3115ad4ed41921a4e3160d7b318d059a4c46912e1a278cc6a148ba5da690f45d"
             },
             "vendor/egulias/email-validator/CONTRIBUTING.md": {
                 "bytes": 6510,
@@ -2584,36 +2713,36 @@
                 "sha256": "41e00b3178a9ec9bdb53b54f06df373ef4c989144a02a897a24a0630c4534541"
             },
             "vendor/flightphp/core/AGENTS.md": {
-                "bytes": 1620,
-                "sha256": "bc0cdd927c197cb9cbfb3c0d0489b531728fda48c4d362fa00c58f8ce8b348eb"
+                "bytes": 1622,
+                "sha256": "b426f4c4f83ba760e166bba1e6d005f22ea1afa4ff324696e145a707690cdb39"
             },
             "vendor/flightphp/core/LICENSE": {
                 "bytes": 1084,
                 "sha256": "7e301d7413c99a9790ff01e0c2a3da9d53196ee3c0032a99c81c48fccf7155a3"
             },
             "vendor/flightphp/core/README.md": {
-                "bytes": 3759,
-                "sha256": "b18d3ca69dba3fc0766565d5bf5057634931a75c5891b458dc44c898e8c88fe3"
+                "bytes": 4052,
+                "sha256": "c07b5983d34b1dadb2b7a9e5161ce43d38d5fa2f96c6906da2d00fce2ae23da8"
             },
             "vendor/flightphp/core/SECURITY.md": {
                 "bytes": 258,
                 "sha256": "ed3e2d0f0bb21312425d899d03efdcf50dd654c80cde83e8ea8cb0f7365b6ce9"
             },
             "vendor/flightphp/core/composer.json": {
-                "bytes": 3751,
-                "sha256": "6fee9ed85e357babed8ba0ba6814fc042255aabc4143e37898063bfe699568e5"
+                "bytes": 3815,
+                "sha256": "2d393f59ebe0ad653b7e8c3653a5c1ad3c1742a7c5be9727b16594cf36a19755"
             },
             "vendor/flightphp/core/flight/Engine.php": {
-                "bytes": 40417,
-                "sha256": "5485447ab177cff38053538cad07e22493a494592e5a1ddb50883a4c40a87be3"
+                "bytes": 40260,
+                "sha256": "9edb03344d15543e4df52818eca659b9fcdef7c6ae640caf0dab01a184e542f5"
             },
             "vendor/flightphp/core/flight/Flight.php": {
-                "bytes": 7317,
-                "sha256": "010ec4718de9db1fce20cc85473ed0a062bdb853e1d8a1f0eeadd882fc2c6c48"
+                "bytes": 7154,
+                "sha256": "5785f6349a71cfc442597c148414170f4d7ee1f900cad4980ce0d44e39e0513d"
             },
             "vendor/flightphp/core/flight/autoload.php": {
-                "bytes": 302,
-                "sha256": "7e36e98d87b2c402d8c6520b5e5c9293cf50229e6fe121c7ef6fc436d6adf10b"
+                "bytes": 337,
+                "sha256": "87317ee7489f781a2b2a532f41eec1826f7e1c8a4f9d6e840064355858d727b4"
             },
             "vendor/flightphp/core/flight/commands/AiGenerateInstructionsCommand.php": {
                 "bytes": 9320,
@@ -2632,52 +2761,56 @@
                 "sha256": "1ed6ccbf9169f261ec323167f8535ac433fcfce317e6b7d09c7e3393d7987159"
             },
             "vendor/flightphp/core/flight/core/Dispatcher.php": {
-                "bytes": 15587,
-                "sha256": "fbffb2ea3e365fb35cfb67eba5ea766753c47c8a31562b90f9a5b0e822b74a8e"
+                "bytes": 18138,
+                "sha256": "dd3bad8313f37308dcd59b9efe4599d21450445bd6331db92a6852e019bc10be"
             },
             "vendor/flightphp/core/flight/core/EventDispatcher.php": {
-                "bytes": 3844,
-                "sha256": "faf2f2b7d33eebd3bee8bc2e25b92adb0a78c2487594cddd965d71b161fdaa02"
+                "bytes": 2098,
+                "sha256": "acb8f7e6934e3a4e89c3c80448e4c69ac3dcfc1c1fd28681c75e5340c2357334"
+            },
+            "vendor/flightphp/core/flight/core/FilteredCallable.php": {
+                "bytes": 2234,
+                "sha256": "f65d199100a49e665c4c0eff64dfdc5f9df4b863efd5584b7d8a542f44325c32"
             },
             "vendor/flightphp/core/flight/core/Loader.php": {
-                "bytes": 6291,
-                "sha256": "b66a2271c95e8cda4d88ef01f0314557ac2f0cf89fbf7edb4c2a6fc24b034e2d"
+                "bytes": 6416,
+                "sha256": "d9fb76d1490e3597a0752ea58c54e2bbcb12988174bec70c4cb221dff9c937df"
             },
             "vendor/flightphp/core/flight/database/PdoWrapper.php": {
-                "bytes": 9434,
-                "sha256": "cdcb1cdef3a8991d4c198714053a6374becb89f8bd99924be9c3007956d22048"
+                "bytes": 9532,
+                "sha256": "03cbe0737af7220ed0dd6c36ee5c91b344f34502f96cb41613d10a20cb7a2780"
             },
             "vendor/flightphp/core/flight/database/SimplePdo.php": {
                 "bytes": 16071,
                 "sha256": "1316c45ed812a5ab5c93a804b4d5db55441fe02f49f4f0aa1c86d927cd72bab3"
             },
             "vendor/flightphp/core/flight/net/Request.php": {
-                "bytes": 26292,
-                "sha256": "6d4024c760658d9c809150265bd9b9c42c96589e445c6b6edbc09d437d071b44"
+                "bytes": 26283,
+                "sha256": "a12c4bcd1ba4ba8009777712a2af3b50aa1c4f2512edada9705a1867fefe3d94"
             },
             "vendor/flightphp/core/flight/net/Response.php": {
-                "bytes": 14058,
-                "sha256": "f623d6825d21d7af8a90bb04e870e858930d05806ef81ae1a7f60c9a8eb027ee"
+                "bytes": 14049,
+                "sha256": "5106ba948a6284104d171031f4f837fd002b0b9f25699cef6e5bc861f4a3a11f"
             },
             "vendor/flightphp/core/flight/net/Route.php": {
-                "bytes": 7098,
-                "sha256": "5f5ff474b283b9985a0f597f27e8f6aab0e381b85d7e97dfc653d2b96fee90bf"
+                "bytes": 7089,
+                "sha256": "0b32be50b6bccc59f153a367349dc445cc32cd9efdc37e13dd83dd6a742a2326"
             },
             "vendor/flightphp/core/flight/net/Router.php": {
-                "bytes": 14620,
-                "sha256": "ea750ca9b607511429dcacbc45cecfc62e7fba14eb1bed02fbf6f60991a7e0c3"
+                "bytes": 14611,
+                "sha256": "fd8ff2704b76a6939f8736a7072e94223a71f87cbfc1d41d1740c699ef7bb75e"
             },
             "vendor/flightphp/core/flight/net/UploadedFile.php": {
                 "bytes": 6045,
                 "sha256": "b7dcb5f9c7a306f18ebae83999127ac5c858afb1c0d8af09f4a95ff1a15b7269"
             },
             "vendor/flightphp/core/flight/template/View.php": {
-                "bytes": 4690,
-                "sha256": "7b243264a97ee82e49bc1ab5343dacf557424c0c5f5cb15c75851809957ad93f"
+                "bytes": 5861,
+                "sha256": "9d3f64f5f9179d25b6229e995edc6d1e702ef4c1036b184521c490725d514732"
             },
             "vendor/flightphp/core/flight/util/Collection.php": {
-                "bytes": 4280,
-                "sha256": "5ada2abf5c48b99ff396bc53db32edb5f86d3fac9ee8453092ff474f75cdf972"
+                "bytes": 4271,
+                "sha256": "b6ccc4cbaa6eb47f01b7502fd54d5b9b0aed4b3140f916d4b7a40c413853d873"
             },
             "vendor/flightphp/core/flight/util/Json.php": {
                 "bytes": 3380,
@@ -3476,8 +3609,8 @@
                 "sha256": "030ffcf8593333ece829b9e7b6ec1b046e61fed7d5dea3f3d165060193e2e87f"
             },
             "vendor/league/commonmark/CHANGELOG.md": {
-                "bytes": 49392,
-                "sha256": "2d3f1c808604d8658c311cbc48416714d232452fb4a27c5c70382c9fb5c626c3"
+                "bytes": 51185,
+                "sha256": "7528b1a7bc9c389b974815d387800d6109cdaf23209cb21260e85444c3838c0e"
             },
             "vendor/league/commonmark/LICENSE": {
                 "bytes": 1651,
@@ -3940,8 +4073,8 @@
                 "sha256": "1d9ac37f35b59b48af6c40eb8f4f17f5fe5b3511d8e065bd68ff4e9025aaab7c"
             },
             "vendor/league/commonmark/src/Extension/DisallowedRawHtml/DisallowedRawHtmlRenderer.php": {
-                "bytes": 1924,
-                "sha256": "2663262bfb5ad7a7c30ab9b6397692777f3fff96a2e9be2b441ae6a38e25c063"
+                "bytes": 2110,
+                "sha256": "44da72e82c06007edda835f38badeb1c8657efeef0d0cd7a36f9541dcc35648c"
             },
             "vendor/league/commonmark/src/Extension/Embed/Bridge/OscaroteroEmbedAdapter.php": {
                 "bytes": 1438,
@@ -4044,16 +4177,16 @@
                 "sha256": "3a3b220a377b76622faccd73ae09d36c5de6035e1f6a13296ad187bdd72a343d"
             },
             "vendor/league/commonmark/src/Extension/Footnote/Renderer/FootnoteBackrefRenderer.php": {
-                "bytes": 2392,
-                "sha256": "79cdb7fd8e42b665c242b7ace1355904507cb35d7cc6705fd1d38b221a9f226b"
+                "bytes": 2811,
+                "sha256": "20c53182916af3f4c1860bc24b6628e622de94a51714d8c6250bb7ab4e127df1"
             },
             "vendor/league/commonmark/src/Extension/Footnote/Renderer/FootnoteContainerRenderer.php": {
                 "bytes": 2113,
                 "sha256": "8f48f32bce261ffb2f356d0bf689ec479ad9a3a22b535ad62ae7974fa9bf5641"
             },
             "vendor/league/commonmark/src/Extension/Footnote/Renderer/FootnoteRefRenderer.php": {
-                "bytes": 2497,
-                "sha256": "6bacd6aec224c9dc540bd30fd66842d07a23b3459fa8ca9fce530ce94c523729"
+                "bytes": 2921,
+                "sha256": "d5412d6b5330aa20d71d53f6b2f5db195f51312759b7e1155ad9d2d5703cc988"
             },
             "vendor/league/commonmark/src/Extension/Footnote/Renderer/FootnoteRenderer.php": {
                 "bytes": 2273,
@@ -4148,8 +4281,8 @@
                 "sha256": "e7aee9f90997b757248e7648f3c351ee85d1cf7dc7608a78bb4d03b788ab5cda"
             },
             "vendor/league/commonmark/src/Extension/InlinesOnly/InlinesOnlyExtension.php": {
-                "bytes": 3715,
-                "sha256": "26cde9d330bb763bc4eea5b42dd5581d023b977a6d35df76e517456d78589a6b"
+                "bytes": 3837,
+                "sha256": "b66ccb0854931dd742cccf74ba2de6027dccc421221f8bdea6879d1f4e246337"
             },
             "vendor/league/commonmark/src/Extension/Mention/Generator/CallbackGenerator.php": {
                 "bytes": 1602,
@@ -4244,8 +4377,8 @@
                 "sha256": "79b81f168a762b15c203e1b4b528bfe7b843e8a4f665d25a9c2d31eb711e842f"
             },
             "vendor/league/commonmark/src/Extension/Table/TableParser.php": {
-                "bytes": 6611,
-                "sha256": "54bb3f518bea336e23fa78b267cbc2f2efaf098efb222beaae80bdc74a15c562"
+                "bytes": 6796,
+                "sha256": "4a64e47ed418f3414b224727df29735c07b18d243cd98b294cf20ef4b0090eeb"
             },
             "vendor/league/commonmark/src/Extension/Table/TableRenderer.php": {
                 "bytes": 1493,
@@ -4268,8 +4401,8 @@
                 "sha256": "2da34c36d42cffffa7a953a4fe50f89aabdff406e020e454895d4778057d34e8"
             },
             "vendor/league/commonmark/src/Extension/Table/TableStartParser.php": {
-                "bytes": 4920,
-                "sha256": "bd9a402610228cfc3a27581c6e7730f067a1f69109635481483362055fd17225"
+                "bytes": 5601,
+                "sha256": "56794f92150669c9aa5de8f5b3b46aaaa2e3b317eb9248e34330211fa28a243c"
             },
             "vendor/league/commonmark/src/Extension/TableOfContents/Node/TableOfContents.php": {
                 "bytes": 449,
@@ -4668,8 +4801,8 @@
                 "sha256": "39bc34d80c1793da956fcc0e83bec836d4968f30ef831a2afb7e7b8d1b98bfc8"
             },
             "vendor/league/commonmark/src/Util/RegexHelper.php": {
-                "bytes": 11503,
-                "sha256": "d76af2d47cce70b46bf04c81bc60454b6ebe11dd3e9c5c7d38399a35982ef02e"
+                "bytes": 11515,
+                "sha256": "dc58063b057f57dfb45a8428ae0df8eea5b064c7952328b20e6a04c7908d10b5"
             },
             "vendor/league/commonmark/src/Util/SpecReader.php": {
                 "bytes": 2237,
@@ -5784,8 +5917,8 @@
                 "sha256": "5d991c8a315052b6d3a758e008e832f7357a441a0f5505ac540f8d576b1a3b2a"
             },
             "vendor/symfony/console/ArgumentResolver/ValueResolver/BuiltinTypeValueResolver.php": {
-                "bytes": 2287,
-                "sha256": "1b10dfd0a0bce23b670cbf97c72e8cf209953a57d9e8710019fd42ca1e4befdc"
+                "bytes": 2917,
+                "sha256": "7092647a7be6fbe3b62c8e81af51a6ec015a37a03071092fb7762b6f1a7b0d38"
             },
             "vendor/symfony/console/ArgumentResolver/ValueResolver/DateTimeValueResolver.php": {
                 "bytes": 3360,
@@ -5804,8 +5937,8 @@
                 "sha256": "5551a8b5abef7073ff919a68257e9e8ba9622a86fdc78add9291738c85dde4a5"
             },
             "vendor/symfony/console/ArgumentResolver/ValueResolver/ServiceValueResolver.php": {
-                "bytes": 2965,
-                "sha256": "34b09f1f47b7d16cdbb3405cfab23169563afe5b778c640e4b559ed5d3e383b3"
+                "bytes": 3218,
+                "sha256": "dd8d5a5248c0a5321228f897317d77d7ee5bd504c2f79d1ad32c6f6114e4c757"
             },
             "vendor/symfony/console/ArgumentResolver/ValueResolver/TraceableValueResolver.php": {
                 "bytes": 1158,
@@ -5828,8 +5961,8 @@
                 "sha256": "0d5ea34f05c3bdc5e870a3e9d8cc9c1d5ac64774fc92ae3e771833a53174a046"
             },
             "vendor/symfony/console/Attribute/AsCommand.php": {
-                "bytes": 1695,
-                "sha256": "5305102cd6b1f37ced94cd360c0f32505460786121949cb616c90b9d166c2313"
+                "bytes": 1773,
+                "sha256": "ea122d03f599cc26c4f2041f550f4afc41385de630465c41cc4dc266d9d28d00"
             },
             "vendor/symfony/console/Attribute/AsTargetedValueResolver.php": {
                 "bytes": 605,
@@ -5884,8 +6017,8 @@
                 "sha256": "b764d1a356a42cd787d43adc44ff76a46d8c7a470f2b8fb4f08ba1291d0aa714"
             },
             "vendor/symfony/console/Command/Command.php": {
-                "bytes": 22530,
-                "sha256": "26bf2082c1093a00ed6a9c47c1cc647cd89e4edbf7ce4cf5aee6a6e401e274fc"
+                "bytes": 24240,
+                "sha256": "1d9a3c323f1477006d0cdb64e6e55709a2bbb3958b7e5a1f266aac385d394dd0"
             },
             "vendor/symfony/console/Command/CompleteCommand.php": {
                 "bytes": 9091,
@@ -5900,8 +6033,8 @@
                 "sha256": "8e56b4de3e8bd8d17bf4a772c59891eab213248f66b78a5ffe588ddb66477696"
             },
             "vendor/symfony/console/Command/InvokableCommand.php": {
-                "bytes": 8735,
-                "sha256": "6512ea0f5cdfa1533b6c59ee34aeba80ff0f5c88c419f9853a259fcf64fd55c7"
+                "bytes": 8940,
+                "sha256": "abeb02197d2918e86e3120c0c724b964a9626708f88ceddea20d226cd6976333"
             },
             "vendor/symfony/console/Command/LazyCommand.php": {
                 "bytes": 5724,
@@ -5980,12 +6113,12 @@
                 "sha256": "9d24a57fecc52e01075bb003fb7e40abce96ecd6d739519bdb196d8f2df0c30d"
             },
             "vendor/symfony/console/Debug/CliRequest.php": {
-                "bytes": 1872,
-                "sha256": "5019b8eb0ac55de1ee7f58deca705b37e3179c728eda429cc00d868e526956d3"
+                "bytes": 1870,
+                "sha256": "ae3cfefb2f50a4bc3c741f28f1582b7217f8e04cb6aa30c823aeb14bb0c7cede"
             },
             "vendor/symfony/console/DependencyInjection/AddConsoleCommandPass.php": {
-                "bytes": 7578,
-                "sha256": "236d1dadd68272e9b8fcbcd7edd8810ce973f9d58fccb94bc5ab0e82d9f1b6ad"
+                "bytes": 9697,
+                "sha256": "407b8c2a568b80d6b715e8ad9c2447cb4076c32b3e3a05e47601ca54956c1bd9"
             },
             "vendor/symfony/console/DependencyInjection/ConsoleArgumentValueResolverPass.php": {
                 "bytes": 3030,
@@ -6080,16 +6213,16 @@
                 "sha256": "cb04b1baee5f953f34c4653a841d498703faff843de35218dcd5ea151ffb3407"
             },
             "vendor/symfony/console/Exception/InvalidArgumentException.php": {
-                "bytes": 882,
-                "sha256": "1e8d68b7fda22ae7678ed4bdf83e70c529dfa5dd9c904153eeb4b5a56a80510e"
+                "bytes": 1162,
+                "sha256": "77f61d0941904fab1425d17de588c1bfbcc4a845386a9222ff47a0026c5ef006"
             },
             "vendor/symfony/console/Exception/InvalidFileException.php": {
                 "bytes": 1208,
                 "sha256": "5f8bffd3d160028ea7319b8f56122747120b7cebdcaf985ea1be7886d26bc97c"
             },
             "vendor/symfony/console/Exception/InvalidOptionException.php": {
-                "bytes": 951,
-                "sha256": "e7bb83bffc15c63ad71d4761183e09a6080252a9e4d72b21ce473bb168713303"
+                "bytes": 1229,
+                "sha256": "4631dc91f26612e10b8e7ff3f26d5b5b27cad363c52253f73f9d959e57986261"
             },
             "vendor/symfony/console/Exception/LogicException.php": {
                 "bytes": 426,
@@ -6120,8 +6253,8 @@
                 "sha256": "ba8dcc4c5a51d028abd669abf4ea7e3966b2dba827f299ef2084febf203b45de"
             },
             "vendor/symfony/console/Formatter/OutputFormatter.php": {
-                "bytes": 9297,
-                "sha256": "43766ce0a1abff7ffda30ea227c835a7ad88a1c9f01d37a04233ea402410b345"
+                "bytes": 8654,
+                "sha256": "047c9aa2aa46380033c70d77f27761fa325056ce8e73579898ea94242baec191"
             },
             "vendor/symfony/console/Formatter/OutputFormatterInterface.php": {
                 "bytes": 1259,
@@ -6180,8 +6313,8 @@
                 "sha256": "4a7a35021ec0ab25bef91d1e5465797b136f0ee7b7b30bd48b9082448ded86c2"
             },
             "vendor/symfony/console/Helper/OutputWrapper.php": {
-                "bytes": 3011,
-                "sha256": "7b834f6604246491834a9f99cff067521ae35f88ffa7fb7dda26cb7873d1ac53"
+                "bytes": 3239,
+                "sha256": "138d252d388309cb4885b4aba32717feafe678c1347c49aee3cc07fb0f9f41d8"
             },
             "vendor/symfony/console/Helper/ProcessHelper.php": {
                 "bytes": 4823,
@@ -6196,8 +6329,8 @@
                 "sha256": "569b83e50d65bc4e63c0e0af83460b39d1884318b635b46c4e0d6bee2ec8205e"
             },
             "vendor/symfony/console/Helper/QuestionHelper.php": {
-                "bytes": 23237,
-                "sha256": "98e589a119fc1a7bcbf6b5e56463e790ba4327b0276b7e69d8bae3afc9952bfe"
+                "bytes": 23245,
+                "sha256": "54287461616362c50ab34a41a2b28df13914d25e5c6e906035af2afc347481a9"
             },
             "vendor/symfony/console/Helper/SymfonyQuestionHelper.php": {
                 "bytes": 3231,
@@ -6376,8 +6509,8 @@
                 "sha256": "5f667df443c962970b54d7e2fac908041f7c6018f8c08fe14f721e99490739fd"
             },
             "vendor/symfony/console/Question/Question.php": {
-                "bytes": 8289,
-                "sha256": "3bd0803a68f8556b21159fe00270a90586a8fbf1a6cfd0c41476926a28d27eac"
+                "bytes": 8294,
+                "sha256": "4568f68304a28b8002ccfb1fb32b938ff0c43c743aa7ef6d8f933ac84184375d"
             },
             "vendor/symfony/console/README.md": {
                 "bytes": 859,
@@ -6388,16 +6521,16 @@
                 "sha256": "8fdff52a7430dba14fb97239c7fe414710991f16da269374e0936a1385f3a318"
             },
             "vendor/symfony/console/Resources/completion.bash": {
-                "bytes": 3079,
-                "sha256": "0ea39b637d8b6ef13b0e5f92734d88c3e25a47c5f60ec0a0c8c726727dbcfcf8"
+                "bytes": 4156,
+                "sha256": "aef8296538b17cb94c0d6cb5b30e9f8ca22a8964cb9f8dc6708a34357ecd232a"
             },
             "vendor/symfony/console/Resources/completion.fish": {
-                "bytes": 745,
-                "sha256": "aa6947da1e2b4083dcffd241b998e9d988369a1de3b54c348ef2b7c29c8626ed"
+                "bytes": 1074,
+                "sha256": "f2db8203a2b2cd7b8951a4a1a4c20c699d4f53aad3763fa0fb98815da6fc1efe"
             },
             "vendor/symfony/console/Resources/completion.zsh": {
-                "bytes": 2845,
-                "sha256": "be26f25f44641f0f592e41e027d87a90fac64b38e99d41abd2d09ea710299a2a"
+                "bytes": 3123,
+                "sha256": "a067ea1468979b80a85b683905affe587e95830bf3d1d54c63c6f4cf87f85595"
             },
             "vendor/symfony/console/Resources/config/console.php": {
                 "bytes": 4380,
@@ -6824,12 +6957,12 @@
                 "sha256": "8a372d67156d72f8504c2ac5633ddf2020940ef096bc86dca4373c40250d6c92"
             },
             "vendor/symfony/mailer/Transport/Smtp/SmtpTransport.php": {
-                "bytes": 13263,
-                "sha256": "78a3089019d64df16bfb363e594e0fef7169491bb9a1bc5253e20c0cf1e08e54"
+                "bytes": 13786,
+                "sha256": "14ccc95fe3b9269dcbb5966f26b8545a5be1047c1aaa1aff33f3692cd065869f"
             },
             "vendor/symfony/mailer/Transport/Smtp/Stream/AbstractStream.php": {
-                "bytes": 4107,
-                "sha256": "6be1e743ea17313b61c812076f39a843aba521018bf622ee2f89f487669fe2e5"
+                "bytes": 4555,
+                "sha256": "0401eb293773e97e810f7515cd1edc4aa5068720604c1f6cc37da2b6ca0067cb"
             },
             "vendor/symfony/mailer/Transport/Smtp/Stream/ProcessStream.php": {
                 "bytes": 2187,
@@ -6856,8 +6989,8 @@
                 "sha256": "2de79829afefe2e93855f8016d4a509bea221b265af65a9df4953d68b2b91710"
             },
             "vendor/symfony/mime/Address.php": {
-                "bytes": 5290,
-                "sha256": "0b60a8f251f308af85a45508493502c1ac0c1e3e8b3b406b920bb4a1d10a988d"
+                "bytes": 5554,
+                "sha256": "bffc48194eb78af38b117b8b86460cc6d85e1f7ef9e114eb233f2eb003b80087"
             },
             "vendor/symfony/mime/BodyRendererInterface.php": {
                 "bytes": 418,
@@ -6988,8 +7121,8 @@
                 "sha256": "eb25e50e99e3a351c5a635eec6a459833d3f4b8b809b7452b1664772ef6e1972"
             },
             "vendor/symfony/mime/Header/AbstractHeader.php": {
-                "bytes": 11168,
-                "sha256": "d2524136a51b1c5432dc580c27392841b5c2227514082e4c18c593bc2ec846a0"
+                "bytes": 11430,
+                "sha256": "7666d1c095785bea27c07e3dc00a6ddc6ae1968dddbdec253573c61ceadf80a0"
             },
             "vendor/symfony/mime/Header/DateHeader.php": {
                 "bytes": 1380,
@@ -7016,8 +7149,8 @@
                 "sha256": "18f19b6e48916f6231b4839b0ee85ad3eba971d7721aa5845db338284a13b2d0"
             },
             "vendor/symfony/mime/Header/ParameterizedHeader.php": {
-                "bytes": 6366,
-                "sha256": "72454057736a5d16ea810a718bb479dceb81166a18fcfd75eb2414d2643b2976"
+                "bytes": 6349,
+                "sha256": "e8c8830ceba54325503f2b672d06f3a3aa101241931a426fb96a0ee559f5235a"
             },
             "vendor/symfony/mime/Header/PathHeader.php": {
                 "bytes": 1275,
@@ -7176,8 +7309,8 @@
                 "sha256": "29e499b556556e92cd209708ced3ca334ed86c7ee63bd3dbaedd38b3a7ff2c65"
             },
             "vendor/symfony/polyfill-intl-grapheme/Grapheme.php": {
-                "bytes": 13737,
-                "sha256": "e48963a7bb3458baa6691a6641b239f90e022f3b5c2cd9ec4d1f0db4d7fef41d"
+                "bytes": 18192,
+                "sha256": "434503b2bd3a89c405ecdcf13e4275e1b45b5dcb05af4ecf589e7751355f677e"
             },
             "vendor/symfony/polyfill-intl-grapheme/LICENSE": {
                 "bytes": 1068,
@@ -7188,12 +7321,12 @@
                 "sha256": "cb6a58a3c35fe7858a20f86aa649bb191a095ed9dae7c3aa7b859e213d99a1fa"
             },
             "vendor/symfony/polyfill-intl-grapheme/bootstrap.php": {
-                "bytes": 2967,
-                "sha256": "356c4b7e565eb25919dc31c504bcd91353c0777e7de99809676e11e27db7e076"
+                "bytes": 2997,
+                "sha256": "0ac063f8cb8b106853b2019d0c68b0f1a0b8375c70c30bf30fa84a58c1baf7dc"
             },
             "vendor/symfony/polyfill-intl-grapheme/bootstrap80.php": {
-                "bytes": 3476,
-                "sha256": "e51c7890e24f9104a86421b570fafc170d3c9a9237b60bda1938b384b0a19a00"
+                "bytes": 3506,
+                "sha256": "43545654fa702221600261758f0190b8476a94bfdb4c11dfa6902b309b589714"
             },
             "vendor/symfony/polyfill-intl-grapheme/bootstrap85.php": {
                 "bytes": 2459,
@@ -7204,8 +7337,8 @@
                 "sha256": "df0f6d22a918f050d35c9321474548200c09e69961f39e791e6a1edc51edfa05"
             },
             "vendor/symfony/polyfill-intl-idn/Idn.php": {
-                "bytes": 34260,
-                "sha256": "a48925e44a0eb96fa970c79169a1b21ea61471bef3641515568e7dee6a0cc6b3"
+                "bytes": 34747,
+                "sha256": "b16f9ed99e1ea7bad346e03bdab6e0347ff990bb2ee677da1a69412959f9f571"
             },
             "vendor/symfony/polyfill-intl-idn/Info.php": {
                 "bytes": 493,
@@ -7220,40 +7353,40 @@
                 "sha256": "25df08ccce19fd0b088bf049ec068c49fcb1342bda15236eaee49f68d0a348eb"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/DisallowedRanges.php": {
-                "bytes": 8938,
-                "sha256": "d51ac53504a05cb8a3f0d559e9651b7dd217305f0dc726aa790884cdaa966331"
+                "bytes": 8850,
+                "sha256": "8daa5073086d50914830818697fdce19780d722b91d326b6bbfdbaf49d7cc40c"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/Regex.php": {
-                "bytes": 100593,
-                "sha256": "bca6a982cc8596c922a6a5040f8a9612320c06282138ec98d5e7bc853065f6da"
+                "bytes": 103556,
+                "sha256": "eb37395ed0d99a7ea936439fa2534a4ddd5c41ffbe745036b8ab1a2ade89d1da"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/deviation.php": {
                 "bytes": 83,
                 "sha256": "99a5e49efead1d6ee1780af3023d1f5fef26c7febb693e1ff9531c40c9dd63a3"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/disallowed.php": {
-                "bytes": 44492,
-                "sha256": "1fd2115a03d5cf31fed318fffb19a0a41e0caff9526a7f0b6d73037ecc1393d6"
+                "bytes": 47229,
+                "sha256": "e0dd354f397924fc15a24480d6b35d4f63bfe5cf91baf2bb46be139fb64dd0f8"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/disallowed_STD3_mapped.php": {
                 "bytes": 5442,
                 "sha256": "4b0c8682d28c96a7c9d7543d7f2177569d66cb2a47749090ac67ad48359111d3"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/disallowed_STD3_valid.php": {
-                "bytes": 964,
-                "sha256": "7afc76f69129190acdd6a5ea0e74520fd99159cd5c8c152388a733307848bfdd"
+                "bytes": 916,
+                "sha256": "9d404a4cf4044a11b0865493cd3a5ad793c3c771c2fecf002b09bb92d527f5c5"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/ignored.php": {
-                "bytes": 4832,
-                "sha256": "a8feb976e2b2275eefbc5d25fb9d52970bd5a966a88cf1d27395cdd70f2ab78a"
+                "bytes": 4848,
+                "sha256": "fff8d116a7efe00a54809e7cb59f1a74193c38e5bf100c8120c0d69612ccd487"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/mapped.php": {
-                "bytes": 103243,
-                "sha256": "8bac58f0d71c7d30ff9f9400b281647ae114a52eedc9588b7f3a8d0622744a4b"
+                "bytes": 106132,
+                "sha256": "69e6e7f6ad35e94c337888c794ffe93aaabe9c0149e8f35fadfe12ebbc401484"
             },
             "vendor/symfony/polyfill-intl-idn/Resources/unidata/virama.php": {
-                "bytes": 853,
-                "sha256": "136c161169ba3bba05298cc751b98d4481143c875b5ae0af31ea09ff3e5878d7"
+                "bytes": 908,
+                "sha256": "b2d2372cb04835a6e4683944a9a1db97d800ff59ff62a567480006695aa5b906"
             },
             "vendor/symfony/polyfill-intl-idn/bootstrap.php": {
                 "bytes": 4625,
@@ -7272,8 +7405,8 @@
                 "sha256": "eaa5d6e59ff1d5322ae36d3ab9124460df72d2d0c8af60a99222e8a90dcbdf31"
             },
             "vendor/symfony/polyfill-intl-normalizer/Normalizer.php": {
-                "bytes": 11364,
-                "sha256": "b34009db71a86fd14db8128f2930342dd11f7d209fc658fdbd0d785be97d0b63"
+                "bytes": 11745,
+                "sha256": "6ac464fc24012207cd73ef50c1390c9fb7aca742c186b91efdd3992092cfcda0"
             },
             "vendor/symfony/polyfill-intl-normalizer/README.md": {
                 "bytes": 432,
@@ -7324,8 +7457,8 @@
                 "sha256": "eaa5d6e59ff1d5322ae36d3ab9124460df72d2d0c8af60a99222e8a90dcbdf31"
             },
             "vendor/symfony/polyfill-mbstring/Mbstring.php": {
-                "bytes": 39882,
-                "sha256": "88fb393db9fc2b2237262aadea5b51c65732f627f946f7325378871a8403c2d6"
+                "bytes": 59886,
+                "sha256": "33e1210305586da1de675ae40b5f2b54e8ee4e7c66ef5871f9a9f02ef893e136"
             },
             "vendor/symfony/polyfill-mbstring/README.md": {
                 "bytes": 370,
@@ -7372,8 +7505,8 @@
                 "sha256": "5cdd128a427eb331ad5130a446f6c4c29e067d6939c52b925864d9732d404d09"
             },
             "vendor/symfony/polyfill-php80/PhpToken.php": {
-                "bytes": 2253,
-                "sha256": "638be1e64db969e05ec0b0ac76c1f143355eb0694f47ea73a38cd36dfb69477c"
+                "bytes": 2358,
+                "sha256": "4e8f84679934f5192d6dd08eb8690f2140e117d3af71d6796a0a448c7aea4716"
             },
             "vendor/symfony/polyfill-php80/README.md": {
                 "bytes": 919,
@@ -7412,8 +7545,8 @@
                 "sha256": "56e762e45c7d6d7873c19a5dac018ca43f5f9a881f8cd9100d1d08d0182b9544"
             },
             "vendor/symfony/polyfill-php85/Php85.php": {
-                "bytes": 5896,
-                "sha256": "53ea92ef4447bc0e89462bcab9fd08d0322d169cbc6024dbc7e15dee1dff1709"
+                "bytes": 8016,
+                "sha256": "a11a02e4175d7c32ef649c08212fc8edcfdee7b1326ba7ccea39240a1cda7fee"
             },
             "vendor/symfony/polyfill-php85/README.md": {
                 "bytes": 937,
@@ -7436,20 +7569,20 @@
                 "sha256": "80bef461eda96cf4f3ccab6af66d8054fd6f10f57192ee25be92445aa7d25aa4"
             },
             "vendor/symfony/polyfill-php85/bootstrap.php": {
-                "bytes": 1570,
-                "sha256": "b40bb89199e8dedcf55ef1597be54216a9bb134647138925b3f43a1fa0001d55"
+                "bytes": 1600,
+                "sha256": "953fc79cbcd5a35b6dcdbbd7323b67aed3d9c09dc96feefd53ff2d08fe2a058c"
             },
             "vendor/symfony/polyfill-php85/bootstrap80.php": {
-                "bytes": 687,
-                "sha256": "24bfb1ae1051d43baaf689075426f5c338443fdde1705cf4ccc45d2b555afc94"
+                "bytes": 717,
+                "sha256": "50b672dcae90d04470cc18597e177fbb4beb218292cf47876e321cf52abf1fac"
             },
             "vendor/symfony/polyfill-php85/composer.json": {
                 "bytes": 916,
                 "sha256": "7b0c4b37943137573e77855500caa8f6e92081636affe2f571d5148853b58f24"
             },
             "vendor/symfony/service-contracts/Attribute/Required.php": {
-                "bytes": 657,
-                "sha256": "3df112bb7d6a4edafcd9a1039eddb27a7a52fdb18e9a820d5786408f4ad06df5"
+                "bytes": 898,
+                "sha256": "ad55556b566c7c3a1b4465cc4b97c33ba913101ac5945ed6bd25a162203b1cad"
             },
             "vendor/symfony/service-contracts/Attribute/SubscribedService.php": {
                 "bytes": 1553,
@@ -7520,12 +7653,12 @@
                 "sha256": "5fc96946c978032a17498395ef7280f37ad5ee9606c0f3656bbf8c9ade315cd3"
             },
             "vendor/symfony/string/AbstractUnicodeString.php": {
-                "bytes": 29215,
-                "sha256": "f187c665862a981e720552e66fa570218302932bba17c717c0eb7a30d62e06d8"
+                "bytes": 29276,
+                "sha256": "712e63eccb3b6d8f427053d687e88441715179b3a54ec9ac92c0aa01ed7d8b53"
             },
             "vendor/symfony/string/ByteString.php": {
-                "bytes": 13723,
-                "sha256": "7d767d6b41cf7eaa3bb35c57e81764432dc31cd746e5229157c8ce1da564af1a"
+                "bytes": 13895,
+                "sha256": "55562cd128a02f83f5ca18216446086ea9b914e731ccd90d0024e50e8e4cee76"
             },
             "vendor/symfony/string/CHANGELOG.md": {
                 "bytes": 1330,
@@ -7548,8 +7681,8 @@
                 "sha256": "b3a02fa3b10775ae52c75ca36d37e9c3affdd598345ada3ef45c95bf18a37057"
             },
             "vendor/symfony/string/Inflector/EnglishInflector.php": {
-                "bytes": 18135,
-                "sha256": "a4543deaf17c77564358421c1d5a95ca672afbe0487fdc308a24df319287773c"
+                "bytes": 18430,
+                "sha256": "e436b172eb357b670b14b23779e6fffa40c582207a816df8337598ff0ca9ea7b"
             },
             "vendor/symfony/string/Inflector/FrenchInflector.php": {
                 "bytes": 5963,

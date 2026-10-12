@@ -669,8 +669,8 @@ class TinyMashFediverseService {
     protected function buildReadinessWarnings( array $entry, array $resolved, array $preview ) : array {
         $warnings = [];
         $content = (string) ( $entry['content'] ?? '' );
-        $summary = trim( (string) ( $entry['summary'] ?? '' ) );
-        $status_text = trim( (string) ( $preview['status_text'] ?? '' ) );
+        $summary = mb_trim( (string) ( $entry['summary'] ?? '' ) );
+        $status_text = mb_trim( (string) ( $preview['status_text'] ?? '' ) );
 
         if ( ! empty( $preview['will_truncate'] ) ) {
             $warnings[] = 'The generated Fediverse post exceeded the configured character limit. This outbound preview has already been shortened.';
@@ -740,7 +740,7 @@ class TinyMashFediverseService {
     }
 
     protected function buildExcerptFromMarkdown( string $markdown ) : string {
-        $markdown = trim( $markdown );
+        $markdown = mb_trim( $markdown );
         if ( $markdown === '' ) {
             return( '' );
         }
@@ -754,7 +754,7 @@ class TinyMashFediverseService {
     }
 
     protected function normalizeStatusFragmentText( string $text, bool $is_rendered_html = false ) : string {
-        $text = trim( $text );
+        $text = mb_trim( $text );
         if ( $text === '' ) {
             return( '' );
         }
@@ -806,7 +806,7 @@ class TinyMashFediverseService {
     protected function renderStatusTextNode( \DOMNode $node ) : string {
         if ( $node instanceof \DOMText ) {
             $text = $node->nodeValue ?? '';
-            if ( trim( $text ) === '' && str_contains( $text, "\n" ) ) {
+            if ( mb_trim( $text ) === '' && str_contains( $text, "\n" ) ) {
                 return( '' );
             }
             return( $text );
@@ -832,16 +832,16 @@ class TinyMashFediverseService {
             $marker = $node->parentNode instanceof \DOMElement && strtolower( $node->parentNode->tagName ) === 'ol'
                 ? $this->getOrderedListItemNumber( $node ) . '. '
                 : '- ';
-            return( $marker . trim( $text ) . "\n" );
+            return( $marker . mb_trim( $text ) . "\n" );
         }
         if ( in_array( $tag, [ 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'div', 'tr' ], true ) ) {
-            return( trim( $text ) . "\n\n" );
+            return( mb_trim( $text ) . "\n\n" );
         }
         if ( in_array( $tag, [ 'ul', 'ol' ], true ) ) {
-            return( rtrim( $text ) . "\n\n" );
+            return( mb_rtrim( $text ) . "\n\n" );
         }
         if ( in_array( $tag, [ 'td', 'th' ], true ) ) {
-            return( trim( $text ) . "\t" );
+            return( mb_trim( $text ) . "\t" );
         }
 
         return( $text );
@@ -863,7 +863,7 @@ class TinyMashFediverseService {
         $text = preg_replace( '/[^\S\n]+/u', ' ', $text ) ?? '';
         $text = preg_replace( '/ *\n */u', "\n", $text ) ?? '';
         $text = preg_replace( "/\n{3,}/u", "\n\n", $text ) ?? '';
-        return( trim( $text ) );
+        return( mb_trim( $text ) );
     }
 
     protected function flattenMarkdownLinks( string $text ) : string {
@@ -871,7 +871,7 @@ class TinyMashFediverseService {
             preg_replace_callback(
                 '/\[(.*?)\]\((https?:\/\/[^)\s]+)\)/iu',
                 static function( array $matches ) : string {
-                    $label = trim( (string) ( $matches[1] ?? '' ) );
+                    $label = mb_trim( (string) ( $matches[1] ?? '' ) );
                     $url = trim( (string) ( $matches[2] ?? '' ) );
                     if ( $url === '' ) {
                         return( $label );
@@ -893,7 +893,7 @@ class TinyMashFediverseService {
                 '/<a\b[^>]*href=(["\'])(.*?)\1[^>]*>(.*?)<\/a>/isu',
                 static function( array $matches ) : string {
                     $url = trim( html_entity_decode( (string) ( $matches[2] ?? '' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
-                    $label = trim( html_entity_decode( strip_tags( (string) ( $matches[3] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+                    $label = mb_trim( html_entity_decode( strip_tags( (string) ( $matches[3] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
                     if ( $url === '' ) {
                         return( $label );
                     }
@@ -965,7 +965,7 @@ class TinyMashFediverseService {
             $this->notification_service->createNotification(
                 'fediverse_delivery_failed',
                 'Fediverse delivery failed',
-                'Unable to deliver "' . trim( (string) ( $entry['title'] ?? 'Untitled post' ) ) . '" to Mastodon: ' . $error_message,
+                'Unable to deliver "' . mb_trim( (string) ( $entry['title'] ?? 'Untitled post' ) ) . '" to Mastodon: ' . $error_message,
                 [
                     'severity' => 'warning',
                     'target_username' => (string) ( $entry['author_slug'] ?? '' ),

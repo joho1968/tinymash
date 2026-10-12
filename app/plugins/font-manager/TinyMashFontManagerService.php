@@ -2,8 +2,10 @@
 
 use app\classes\TinyMashFilesystem;
 use app\classes\TinyMashLockedJsonFile;
+use app\classes\TinyMashText;
 
 require_once dirname( __DIR__, 2 ) . '/classes/TinyMashLockedJsonFile.php';
+require_once dirname( __DIR__, 2 ) . '/classes/TinyMashText.php';
 
 class TinyMashFontManagerService {
 
@@ -72,7 +74,7 @@ class TinyMashFontManagerService {
 
         uasort(
             $families,
-            static fn( array $left, array $right ) : int => strcasecmp( (string) ( $left['name'] ?? '' ), (string) ( $right['name'] ?? '' ) )
+            static fn( array $left, array $right ) : int => TinyMashText::compareCaseInsensitive( (string) ( $left['name'] ?? '' ), (string) ( $right['name'] ?? '' ) )
         );
 
         return(
@@ -489,7 +491,7 @@ class TinyMashFontManagerService {
 
     protected function findFamilyIdByName( string $family_name, array $settings ) : string {
         foreach ( is_array( $settings['families'] ?? null ) ? $settings['families'] : [] as $family ) {
-            if ( strcasecmp( (string) ( $family['name'] ?? '' ), $family_name ) === 0 ) {
+            if ( TinyMashText::equalsCaseInsensitive( (string) ( $family['name'] ?? '' ), $family_name ) ) {
                 return( $this->normalizeId( (string) ( $family['id'] ?? '' ) ) );
             }
         }
@@ -497,12 +499,9 @@ class TinyMashFontManagerService {
     }
 
     protected function normalizeFamilyName( string $name ) : string {
-        $name = function_exists( 'mb_trim' ) ? mb_trim( $name ) : trim( $name );
-        $name = preg_replace( '/\s+/', ' ', $name ) ?? '';
-        if ( function_exists( 'mb_substr' ) ) {
-            return( mb_substr( $name, 0, 80 ) );
-        }
-        return( substr( $name, 0, 80 ) );
+        $name = mb_trim( $name );
+        $name = preg_replace( '/\s+/u', ' ', $name ) ?? '';
+        return( mb_substr( $name, 0, 80 ) );
     }
 
     protected function normalizeId( string $id ) : string {

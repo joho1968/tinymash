@@ -12,6 +12,7 @@ use app\classes\TinyMashPlugins;
 use app\classes\TinyMashSecurity;
 use app\classes\TinyMashTheme;
 use app\classes\TinyMashUserRepository;
+use app\classes\TinyMashUrlResolver;
 
 return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $plugin_key = (string) ( $plugin['key'] ?? 'signage' );
@@ -24,6 +25,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $media_service = $plugins->getService( 'media.service' );
     $theme = $plugins->getService( 'theme' );
     $user_repository = $plugins->getService( 'user.repository' );
+    $url_resolver = $plugins->getService( 'url.resolver' );
 
     if ( ! $config instanceof TinyMashConfig
         || ! $security instanceof TinyMashSecurity
@@ -42,7 +44,8 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         $content_repository,
         $media_service,
         $config,
-        $user_repository
+        $user_repository,
+        $url_resolver instanceof TinyMashUrlResolver ? $url_resolver : null
     );
     \Flight::set( 'plugin.signage.service', $service );
     $plugins->registerMediaUsageContributor(
@@ -98,7 +101,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'sections' => [
                 [
                     'title' => 'Loops and access',
-                    'markdown' => 'Each enabled loop has a launch URL containing an access key. The launch URL authorizes the display browser and redirects to the clean loop URL. Regenerate the key to revoke an old launch URL.',
+                    'markdown' => 'A keyed launch URL authorizes the display browser, then redirects to the clean loop URL. Regenerate the key to revoke old access.',
                 ],
                 [
                     'title' => 'Slides',
@@ -106,7 +109,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'Display limits',
-                    'markdown' => 'Supported display options include local image backgrounds, cover/contain/stretch/center/tile fitting, light/dark presentation, timing overrides, and fade or directional transitions. Documents, video, sound, and dissolve transitions are not supported.',
+                    'markdown' => 'Options cover local backgrounds, image fit, color mode, timing, and transitions. Documents, video, sound, and dissolve are unsupported.',
                 ],
             ],
         ]
@@ -121,7 +124,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         header( 'Cache-Control: private, no-store' );
         header( 'X-Robots-Tag: noindex, nofollow' );
         header( 'Referrer-Policy: no-referrer' );
-        echo $json( $payload );
+        echo $json( $plugins->resolveOutputData( $payload ) );
     };
     $protected_headers = static function() : void {
         header( 'Cache-Control: private, no-store' );
@@ -321,7 +324,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         foreach ( $loops as $loop ) {
             $loop_id = (string) $loop['id'];
             $selected = $selected_loop_id === $loop_id;
-            $loop_navigation_html .= '<a class="d-block py-2 px-2 border-bottom text-decoration-none text-body' . ( $selected ? ' bg-body-tertiary' : '' ) . '" href="' . $escape( $plugin_url . '?loop=' . rawurlencode( $loop_id ) ) . '" data-tm-signage-loop-row="' . $escape( $loop_id ) . '"' . ( $selected ? ' aria-current="page"' : '' ) . '><span class="d-block fw-semibold text-break" data-tm-signage-loop-name>' . $escape( (string) $loop['name'] ) . '</span><span class="d-block small text-body-secondary"><span class="' . ( ! empty( $loop['enabled'] ) ? 'text-success' : '' ) . '" data-tm-signage-loop-state>' . ( ! empty( $loop['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span> <span aria-hidden="true">&middot;</span> ' . count( (array) $loop['slides'] ) . ' slides</span><span class="d-block small text-body-secondary font-monospace text-truncate" data-tm-signage-loop-path>/signage/' . $escape( (string) $loop['slug'] ) . '</span></a>';
+            $loop_navigation_html .= '<a class="d-block py-2 px-2 border-bottom text-decoration-none text-body' . ( $selected ? ' bg-body-tertiary' : '' ) . '" href="' . $escape( $plugin_url . '?loop=' . rawurlencode( $loop_id ) ) . '" data-tm-signage-loop-row="' . $escape( $loop_id ) . '"' . ( $selected ? ' aria-current="page"' : '' ) . '><span class="d-block fw-semibold text-break" data-tm-signage-loop-name>' . $escape( (string) $loop['name'] ) . '</span><span class="d-block small text-body-secondary"><span class="' . ( ! empty( $loop['enabled'] ) ? 'text-success-emphasis' : '' ) . '" data-tm-signage-loop-state>' . ( ! empty( $loop['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span> <span aria-hidden="true">&middot;</span> ' . count( (array) $loop['slides'] ) . ' slides</span><span class="d-block small text-body-secondary font-monospace text-truncate" data-tm-signage-loop-path>/signage/' . $escape( (string) $loop['slug'] ) . '</span></a>';
         }
         $body .= '<div class="row g-4 align-items-start" data-tm-signage-workspace><aside class="col-12 col-lg-4 col-xl-3">';
         if ( empty( $loops ) ) {
@@ -345,7 +348,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 foreach ( $selected_loop['slides'] as $index => $slide ) {
                     $slide_id = (string) $slide['id'];
                     $title = (string) $slide['title'] !== '' ? (string) $slide['title'] : 'Untitled slide';
-                    $body .= '<tr id="tm-signage-slide-row-' . $escape( $slide_id ) . '" data-tm-signage-slide-id="' . $escape( $slide_id ) . '"><td><span class="text-body-secondary me-2">' . ( $index + 1 ) . '.</span><span data-tm-signage-slide-row-title>' . $escape( $title ) . '</span></td><td>' . $escape( ucfirst( (string) $slide['type'] ) ) . '</td><td>' . ( (int) $slide['delay_seconds'] > 0 ? (int) $slide['delay_seconds'] . ' s' : 'Inherited' ) . '</td><td>' . $escape( ucfirst( str_replace( '-', ' ', (string) $slide['transition'] ) ) ) . '</td><td><span class="' . ( ! empty( $slide['enabled'] ) ? 'text-success' : 'text-body-secondary' ) . '">' . ( ! empty( $slide['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></td><td>' . $slide_actions_html( $loop_id, $slide_id ) . '</td></tr>';
+                    $body .= '<tr id="tm-signage-slide-row-' . $escape( $slide_id ) . '" data-tm-signage-slide-id="' . $escape( $slide_id ) . '"><td><span class="text-body-secondary me-2">' . ( $index + 1 ) . '.</span><span data-tm-signage-slide-row-title>' . $escape( $title ) . '</span></td><td>' . $escape( ucfirst( (string) $slide['type'] ) ) . '</td><td>' . ( (int) $slide['delay_seconds'] > 0 ? (int) $slide['delay_seconds'] . ' s' : 'Inherited' ) . '</td><td>' . $escape( ucfirst( str_replace( '-', ' ', (string) $slide['transition'] ) ) ) . '</td><td><span class="' . ( ! empty( $slide['enabled'] ) ? 'text-success-emphasis' : 'text-body-secondary' ) . '">' . ( ! empty( $slide['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></td><td>' . $slide_actions_html( $loop_id, $slide_id ) . '</td></tr>';
                 }
                 $body .= '</tbody></table></div><div class="d-grid d-lg-none" data-tm-signage-slide-mobile-list>';
                 foreach ( $selected_loop['slides'] as $index => $slide ) {
@@ -353,7 +356,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     $title = (string) $slide['title'] !== '' ? (string) $slide['title'] : 'Untitled slide';
                     $duration = (int) $slide['delay_seconds'] > 0 ? (int) $slide['delay_seconds'] . ' s' : 'Inherited duration';
                     $transition = ucfirst( str_replace( '-', ' ', (string) $slide['transition'] ) );
-                    $body .= '<article class="d-grid gap-2 py-3 border-top" data-tm-signage-slide-id="' . $escape( $slide_id ) . '"><div class="d-flex align-items-start justify-content-between gap-2"><div class="text-break"><span class="text-body-secondary me-2">' . ( $index + 1 ) . '.</span><span class="fw-semibold" data-tm-signage-slide-row-title>' . $escape( $title ) . '</span></div><span class="' . ( ! empty( $slide['enabled'] ) ? 'text-success' : 'text-body-secondary' ) . '">' . ( ! empty( $slide['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></div><div class="small text-body-secondary">' . $escape( ucfirst( (string) $slide['type'] ) ) . ' <span aria-hidden="true">&middot;</span> ' . $escape( $duration ) . ' <span aria-hidden="true">&middot;</span> ' . $escape( $transition ) . '</div>' . $slide_actions_html( $loop_id, $slide_id ) . '</article>';
+                    $body .= '<article class="d-grid gap-2 py-3 border-top" data-tm-signage-slide-id="' . $escape( $slide_id ) . '"><div class="d-flex align-items-start justify-content-between gap-2"><div class="text-break"><span class="text-body-secondary me-2">' . ( $index + 1 ) . '.</span><span class="fw-semibold" data-tm-signage-slide-row-title>' . $escape( $title ) . '</span></div><span class="' . ( ! empty( $slide['enabled'] ) ? 'text-success-emphasis' : 'text-body-secondary' ) . '">' . ( ! empty( $slide['enabled'] ) ? 'Enabled' : 'Disabled' ) . '</span></div><div class="small text-body-secondary">' . $escape( ucfirst( (string) $slide['type'] ) ) . ' <span aria-hidden="true">&middot;</span> ' . $escape( $duration ) . ' <span aria-hidden="true">&middot;</span> ' . $escape( $transition ) . '</div>' . $slide_actions_html( $loop_id, $slide_id ) . '</article>';
                 }
                 $body .= '</div>';            }
             $body .= '</section>';
@@ -818,7 +821,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                             var path = row.querySelector("[data-tm-signage-loop-path]");
                             if (state) {
                                 state.textContent = payload.loop.enabled ? "Enabled" : "Disabled";
-                                state.className = payload.loop.enabled ? "text-success" : "";
+                                state.className = payload.loop.enabled ? "text-success-emphasis" : "";
                             }
                             if (name) {
                                 name.textContent = payload.loop.name || "";
@@ -1097,8 +1100,10 @@ HTML;
         $background = $show_background && is_array( $loop )
             ? $service->getEffectiveBackground( $loop, [] )
             : [ 'url' => '', 'fit' => 'cover', 'overlay' => 'dark' ];
-        $stylesheet_url = '/plugins/signage/signage.css?v=' . (string) @ filemtime( $project_root . '/public/plugins/signage/signage.css' );
-        echo '<!doctype html><html lang="en" data-bs-theme="' . $mode . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Not found | Signage</title><link rel="stylesheet" href="/ext/bs/css/bootstrap.min.css"><link rel="stylesheet" href="' . $escape( $stylesheet_url ) . '"></head><body class="tm-signage tm-signage-mode-' . $mode . '"><main class="tm-signage-player tm-signage-not-found" data-tm-signage-not-found><div class="tm-signage-stage">';
+        $background = $plugins->resolveOutputData( [ 'background' => $background ] )['background'];
+        $stylesheet_url = $plugins->resolveBrowserUrl( '/plugins/signage/signage.css?v=' . (string) @ filemtime( $project_root . '/public/plugins/signage/signage.css' ) );
+        $bootstrap_url = $plugins->resolveBrowserUrl( '/ext/bs/css/bootstrap.min.css' );
+        echo '<!doctype html><html lang="en" data-bs-theme="' . $mode . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Not found | Signage</title><link rel="stylesheet" href="' . $escape( $bootstrap_url ) . '"><link rel="stylesheet" href="' . $escape( $stylesheet_url ) . '"></head><body class="tm-signage tm-signage-mode-' . $mode . '"><main class="tm-signage-player tm-signage-not-found" data-tm-signage-not-found><div class="tm-signage-stage">';
         if ( (string) ( $background['url'] ?? '' ) !== '' ) {
             echo '<div class="tm-signage-background tm-signage-fit-' . $escape( (string) $background['fit'] ) . '"' . $tile_style( (string) $background['fit'], (string) $background['url'] ) . '><img src="' . $escape( (string) $background['url'] ) . '" alt=""></div>';
             if ( (string) ( $background['overlay_area'] ?? 'full' ) === 'full' ) {
@@ -1124,12 +1129,16 @@ HTML;
             }
         }
         $js_urls[] = '/plugins/signage/signage.js?v=' . (string) @ filemtime( $project_root . '/public/plugins/signage/signage.js' );
+        $css_urls = array_map( fn( string $url ) : string => $plugins->resolveBrowserUrl( $url ), $css_urls );
+        $js_urls = array_map( fn( string $url ) : string => $plugins->resolveBrowserUrl( $url ), $js_urls );
         echo '<!doctype html><html lang="en" data-bs-theme="' . $escape( (string) $loop['color_mode'] ) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . $escape( (string) $loop['name'] ) . ' | Signage</title>';
         foreach ( array_unique( $css_urls ) as $url ) {
             echo '<link rel="stylesheet" href="' . $escape( $url ) . '">';
         }
-        $manifest = $service->buildPlayerManifest( $loop );
-        echo '</head><body class="tm-signage tm-signage-mode-' . $escape( (string) $loop['color_mode'] ) . '"><main id="tm-signage-player" class="tm-signage-player" style="--tm-signage-content-scale:' . $escape( (string) ( (int) $manifest['content_scale_percent'] / 100 ) ) . '" data-slide-endpoint="/signage/' . $escape( rawurlencode( (string) $loop['slug'] ) ) . '/slides/" data-manifest-endpoint="/signage/' . $escape( rawurlencode( (string) $loop['slug'] ) ) . '/manifest" data-manifest-hash="' . $escape( (string) $manifest['hash'] ) . '" data-content-scale-percent="' . (int) $manifest['content_scale_percent'] . '" data-slides="' . $escape( $json( $manifest['slides'] ) ) . '" data-fullscreen-start="' . ( ! empty( $loop['prompt_fullscreen_start'] ) ? '1' : '0' ) . '" data-honor-reduced-motion="' . ( ! empty( $loop['honor_reduced_motion'] ) ? '1' : '0' ) . '"><div class="tm-signage-stage" aria-live="polite">';
+        $manifest = $plugins->resolveOutputData( $service->buildPlayerManifest( $loop ) );
+        $slide_endpoint = $plugins->resolveBrowserUrl( '/signage/' . rawurlencode( (string) $loop['slug'] ) . '/slides/' );
+        $manifest_endpoint = $plugins->resolveBrowserUrl( '/signage/' . rawurlencode( (string) $loop['slug'] ) . '/manifest' );
+        echo '</head><body class="tm-signage tm-signage-mode-' . $escape( (string) $loop['color_mode'] ) . '"><main id="tm-signage-player" class="tm-signage-player" style="--tm-signage-content-scale:' . $escape( (string) ( (int) $manifest['content_scale_percent'] / 100 ) ) . '" data-slide-endpoint="' . $escape( $slide_endpoint ) . '" data-manifest-endpoint="' . $escape( $manifest_endpoint ) . '" data-manifest-hash="' . $escape( (string) $manifest['hash'] ) . '" data-content-scale-percent="' . (int) $manifest['content_scale_percent'] . '" data-slides="' . $escape( $json( $manifest['slides'] ) ) . '" data-fullscreen-start="' . ( ! empty( $loop['prompt_fullscreen_start'] ) ? '1' : '0' ) . '" data-honor-reduced-motion="' . ( ! empty( $loop['honor_reduced_motion'] ) ? '1' : '0' ) . '"><div class="tm-signage-stage" aria-live="polite">';
         if ( empty( $loop['prompt_fullscreen_start'] ) ) {
             echo '<div class="tm-signage-empty"><div class="tm-signage-empty-title">Waiting for slides</div><div class="tm-signage-empty-detail">No available slides in this loop.</div></div>';
         }
@@ -1202,7 +1211,7 @@ HTML;
                 }
                 $protected_headers();
                 \Flight::response()->status( 303 );
-                header( 'Location: /signage/' . rawurlencode( (string) $loop['slug'] ), true, 303 );
+                header( 'Location: ' . $plugins->resolveBrowserUrl( '/signage/' . rawurlencode( (string) $loop['slug'] ) ), true, 303 );
                 return;
             }
             if ( ! $service->currentVisitorCanAccess( $loop ) ) {

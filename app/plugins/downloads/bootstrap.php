@@ -86,23 +86,23 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             'sections' => [
                 [
                     'title' => 'Overview',
-                    'markdown' => 'Create public folder pages and routed file downloads. Root folders use `/downloads`; author folders use `/<author>/downloads`.',
+                    'markdown' => 'Create public folders and routed downloads under `/downloads` or `/<author>/downloads`.',
                 ],
                 [
                     'title' => 'Scopes',
-                    'markdown' => 'Author folders stay in their author space and do not automatically appear in the root downloads area. Admins can manage root and author folders; authors manage their own author folders.',
+                    'markdown' => 'Author folders stay in their author space. Admins manage all scopes; authors manage their own scope.',
                 ],
                 [
                     'title' => 'Files',
-                    'markdown' => 'Files stay outside public asset paths and are served through routed URLs. Upload one or more files into a folder; download counts and recent activity remain visible only in management.',
+                    'markdown' => 'Files stay outside public asset paths and use routed URLs. Counts and recent activity appear only in management.',
                 ],
                 [
                     'title' => 'Linking from content',
-                    'markdown' => 'The editor internal-link picker includes enabled download folders and files. Inserted links are normal Markdown links to routed Downloads URLs. To embed a contained folder listing in content, use `[[downloads path="/downloads/folder-slug"]]` or `[[downloads path="/author/downloads/folder-slug"]]`.',
+                    'markdown' => 'The internal-link picker lists enabled folders and files. Embed a folder with `[[downloads path="/downloads/folder-slug"]]` or an author-scoped path.',
                 ],
                 [
                     'title' => 'Browsing',
-                    'markdown' => 'Public folder pages show `..` when visitors can move up within the current browsing root. A shortcode keeps browsing inside its starting folder. Disabling the bare root index does not disable direct folder or file URLs.',
+                    'markdown' => '`..` moves up within the browsing root. Shortcodes remain inside their starting folder. Direct URLs work when the root index is disabled.',
                 ],
                 [
                     'title' => 'Accepted formats',
@@ -110,7 +110,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 ],
                 [
                     'title' => 'File dates',
-                    'markdown' => 'Browser uploads do not provide a reliable original file modified or created time. Downloads initializes the file date to the upload time and lets admins/authors edit that date after upload.',
+                    'markdown' => 'Uploads use the upload time as the file date. Admins and authors can edit it afterward.',
                 ],
                 [
                     'title' => 'Import limits',
@@ -131,7 +131,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             header( 'X-Content-Type-Options: nosniff' );
         }
 
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT );
     };
 
     $root_index_browseable = static function() use ( $plugins, $plugin_key ) : bool {
@@ -312,7 +312,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
             $form_id = 'tm-downloads-file-' . preg_replace( '/[^A-Za-z0-9_-]+/', '-', $file_id );
             $public_url = (string) ( $file['public_url'] ?? '' );
             $download_count = (int) ( $file['download_count'] ?? 0 );
-            $file_title = trim( (string) ( $file['title'] ?? '' ) );
+            $file_title = mb_trim( (string) ( $file['title'] ?? '' ) );
             if ( $file_title === '' ) {
                 $file_title = (string) ( $file['original_filename'] ?? 'Untitled file' );
             }
@@ -842,7 +842,7 @@ HTML );
         $view_data['theme_public_footer_fragments'] = [];
         $view_data['theme_body_classes'] = trim( (string) ( $view_data['theme_body_classes'] ?? '' ) . ' tm-downloads-area-view' );
 
-        \Flight::view()->render(
+        $plugins->renderPublicPage(
             'public/downloads.latte',
             array_merge(
                 $view_data,
@@ -907,7 +907,7 @@ HTML );
         $children = is_array( $tree['children'] ?? null ) ? $tree['children'] : [];
         $files = $format_public_files( is_array( $tree['files'] ?? null ) ? $tree['files'] : [] );
         $return_url = $sanitize_return_url( (string) ( $entry['url'] ?? '' ) );
-        $title = trim( (string) ( $attributes['title'] ?? '' ) );
+        $title = mb_trim( (string) ( $attributes['title'] ?? '' ) );
         if ( $title === '' ) {
             $title = (string) ( $catalogue['title'] ?? 'Downloads' );
         }
@@ -921,7 +921,7 @@ HTML );
         $timezone_label = $date_formatter->getTimezoneAbbreviation();
         $html = '<div class="tm-downloads-page tm-downloads-embed" data-tm-heading-scope="component">';
         $html .= '<div class="tm-downloads-header"><h2 class="tm-downloads-title">' . $escape( $title ) . '</h2>';
-        if ( trim( (string) ( $catalogue['intro'] ?? '' ) ) !== '' ) {
+        if ( mb_trim( (string) ( $catalogue['intro'] ?? '' ) ) !== '' ) {
             $html .= '<div class="tm-downloads-description">' . nl2br( $escape( (string) $catalogue['intro'] ) ) . '</div>';
         }
         $html .= '</div>';
@@ -944,7 +944,7 @@ HTML );
                 if ( ! is_array( $file ) ) {
                     continue;
                 }
-                $description = trim( (string) ( $file['description'] ?? '' ) );
+                $description = mb_trim( (string) ( $file['description'] ?? '' ) );
                 $filename = (string) ( $file['original_filename'] ?? $file['title'] ?? '' );
                 $html .= '<div class="tm-downloads-file-row" role="row">';
                 $html .= '<div class="tm-downloads-file-cell tm-downloads-file-name" role="cell"><a class="tm-downloads-file-link" href="' . $escape( (string) ( $file['public_url'] ?? '' ) ) . '" title="' . $escape( $filename ) . '">' . $escape( $filename ) . '</a></div>';
@@ -1088,7 +1088,7 @@ HTML );
                 $security->setFlash( 'downloads.notice', [ 'type' => 'success', 'message' => $uploaded_count === 1 ? 'Download file uploaded.' : $uploaded_count . ' download files uploaded.' ] );
             } catch ( \InvalidArgumentException $e ) {
                 $messages = [
-                    'catalogue' => 'Choose a folder you can manage.',
+                    'catalogue' => 'Choose an available folder.',
                     'upload' => 'Choose a file to upload.',
                     'size' => 'The file is empty or larger than the 200 MB limit.',
                     'type' => 'That file type is not allowed for downloads.',

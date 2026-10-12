@@ -24,6 +24,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="tinymash-base-path" content="{$tinymash_base_path ?? ''}">
         <meta name="color-scheme" content="light dark">
         <meta name="theme-color" content="{$theme_initial_bs_theme === 'dark' ? $theme_color_dark : $theme_color_light}" data-tm-theme-color>
         <script>
@@ -243,7 +244,8 @@
                         }
                     } catch (error) {
                     }
-                    document.cookie = screenModeCookieName + '=' + mode + '; Path=/; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
+                    const cookiePath = {=json_encode(($tinymash_base_path ?? '') !== '' ? (string) $tinymash_base_path : '/')|noescape};
+                    document.cookie = screenModeCookieName + '=' + mode + '; Path=' + cookiePath + '; SameSite=Strict; Max-Age=7776000' + secureSuffix + ';';
                     applyScreenMode(mode);
                 }
 

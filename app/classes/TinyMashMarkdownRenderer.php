@@ -109,6 +109,7 @@ final class TinyMashUnderlineExtension implements ExtensionInterface {
 class TinyMashMarkdownRenderer {
 
     protected const EMOJI_SHORTCODE_PATTERN = '(?<![A-Za-z0-9]):[a-z0-9_+-]+:(?![A-Za-z0-9])';
+    protected const EMOJI_GRAPHEME_PATTERN = '(?:(?=\p{Extended_Pictographic})\X|\p{Regional_Indicator}{2}|[#*0-9]\x{FE0F}?\x{20E3})';
 
     protected const ALLOWED_HTML_TAGS = [
         'a', 'abbr', 'b', 'blockquote', 'br', 'code', 'dd', 'del', 'div', 'dl', 'dt', 'em',
@@ -523,7 +524,7 @@ class TinyMashMarkdownRenderer {
             }
 
             $text = (string) ( $child_node->nodeValue ?? '' );
-            if ( trim( $text ) === '' ) {
+            if ( mb_trim( $text ) === '' ) {
                 if ( preg_match( '/^\s+$/', $text ) === 1 ) {
                     $paragraph->removeChild( $child_node );
                     continue;
@@ -600,7 +601,7 @@ class TinyMashMarkdownRenderer {
             return( null );
         }
 
-        $pattern = '/(==([^=\r\n][^=\r\n]*?)==|' . self::EMOJI_SHORTCODE_PATTERN . ( $classic_smileys_enabled ? '|' . $this->getSmileyPattern() : '' ) . '|\p{Extended_Pictographic}(?:\x{FE0F}|\x{200D}\p{Extended_Pictographic})*)/u';
+        $pattern = '/(==([^=\r\n][^=\r\n]*?)==|' . self::EMOJI_SHORTCODE_PATTERN . ( $classic_smileys_enabled ? '|' . $this->getSmileyPattern() : '' ) . '|' . self::EMOJI_GRAPHEME_PATTERN . ')/u';
         if ( ! preg_match_all( $pattern, $text, $matches, PREG_OFFSET_CAPTURE ) ) {
             return( null );
         }
@@ -787,7 +788,7 @@ class TinyMashMarkdownRenderer {
             return( '<span class="tm-emoji">' . htmlspecialchars( $this->emoji_smiley_map[$token], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</span>' );
         }
 
-        if ( preg_match( '/^\p{Extended_Pictographic}(?:\x{FE0F}|\x{200D}\p{Extended_Pictographic})*$/u', $token ) === 1 ) {
+        if ( preg_match( '/^' . self::EMOJI_GRAPHEME_PATTERN . '$/u', $token ) === 1 ) {
             return( '<span class="tm-emoji">' . htmlspecialchars( $token, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</span>' );
         }
 

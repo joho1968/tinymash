@@ -460,7 +460,7 @@ class TinyMashContentRepository {
 
     public function searchPublishedEntries( string $query, ?string $author_slug = null, ?string $language = null, int $page = 1, int $per_page = 10, ?callable $entry_filter = null ) : array {
         $this->search_profiling_metrics = [];
-        $normalized_query = function_exists( 'mb_trim' ) ? mb_trim( $query ) : trim( $query );
+        $normalized_query = mb_trim( $query );
         $search_terms = $this->normalizeSearchTerms( $normalized_query );
         if ( $search_terms === [] ) {
             $pagination = $this->buildPaginationMeta( 0, $page, $per_page );
@@ -2140,8 +2140,8 @@ class TinyMashContentRepository {
                 'tags' => $normalized_entry['tags'],
                 'labels' => $normalized_entry['labels'],
                 'plugin_settings' => $this->normalizeComparablePluginSettings( $normalized_entry['plugin_settings'] ),
-                'title' => trim( (string) ( $translation['title'] ?? '' ) ),
-                'summary' => trim( (string) ( $translation['summary'] ?? '' ) ),
+                'title' => mb_trim( (string) ( $translation['title'] ?? '' ) ),
+                'summary' => mb_trim( (string) ( $translation['summary'] ?? '' ) ),
                 'content' => (string) ( $translation['content'] ?? '' ),
             ]
         );
@@ -2900,10 +2900,10 @@ class TinyMashContentRepository {
                 'aggregate_to_root' => ! empty( $raw_entry['aggregate_to_root'] ),
                 'sticky' => $entry_type === 'post' && ! empty( $raw_entry['sticky'] ),
                 'featured' => ! empty( $raw_entry['featured'] ),
-                'seo_title' => trim( (string) ( $raw_entry['seo_title'] ?? '' ) ),
-                'seo_description' => trim( (string) ( $raw_entry['seo_description'] ?? '' ) ),
-                'seo_social_title' => trim( (string) ( $raw_entry['seo_social_title'] ?? '' ) ),
-                'seo_social_description' => trim( (string) ( $raw_entry['seo_social_description'] ?? '' ) ),
+                'seo_title' => mb_trim( (string) ( $raw_entry['seo_title'] ?? '' ) ),
+                'seo_description' => mb_trim( (string) ( $raw_entry['seo_description'] ?? '' ) ),
+                'seo_social_title' => mb_trim( (string) ( $raw_entry['seo_social_title'] ?? '' ) ),
+                'seo_social_description' => mb_trim( (string) ( $raw_entry['seo_social_description'] ?? '' ) ),
                 'seo_social_image_media_id' => trim( (string) ( $raw_entry['seo_social_image_media_id'] ?? '' ) ),
                 'seo_social_image' => $this->normalizeMediaImage( $raw_entry['seo_social_image'] ?? [] ),
                 'seo_canonical_url' => trim( (string) ( $raw_entry['seo_canonical_url'] ?? '' ) ),
@@ -2933,15 +2933,15 @@ class TinyMashContentRepository {
                 'author_slug' => $scope === 'author' ? $this->normalizeAuthorSlug( (string) ( $editor_entry['author_slug'] ?? '' ) ) : '',
                 'slug' => $this->normalizeEditorPathPart( (string) ( $editor_entry['slug'] ?? '' ) ),
                 'storage_slug' => $entry_type === 'page' ? $this->normalizeEditorPathPart( (string) ( $editor_entry['storage_slug'] ?? '' ) ) : '',
-                'title' => trim( (string) ( $editor_entry['title'] ?? '' ) ),
-                'summary' => trim( (string) ( $editor_entry['summary'] ?? '' ) ),
+                'title' => mb_trim( (string) ( $editor_entry['title'] ?? '' ) ),
+                'summary' => mb_trim( (string) ( $editor_entry['summary'] ?? '' ) ),
                 'tags' => $this->normalizeTagList( $editor_entry['tags'] ?? [] ),
                 'labels' => [],
                 'plugin_settings' => $this->normalizePluginSettings( $editor_entry['plugin_settings'] ?? [] ),
-                'seo_title' => trim( (string) ( $editor_entry['seo_title'] ?? '' ) ),
-                'seo_description' => trim( (string) ( $editor_entry['seo_description'] ?? '' ) ),
-                'seo_social_title' => trim( (string) ( $editor_entry['seo_social_title'] ?? '' ) ),
-                'seo_social_description' => trim( (string) ( $editor_entry['seo_social_description'] ?? '' ) ),
+                'seo_title' => mb_trim( (string) ( $editor_entry['seo_title'] ?? '' ) ),
+                'seo_description' => mb_trim( (string) ( $editor_entry['seo_description'] ?? '' ) ),
+                'seo_social_title' => mb_trim( (string) ( $editor_entry['seo_social_title'] ?? '' ) ),
+                'seo_social_description' => mb_trim( (string) ( $editor_entry['seo_social_description'] ?? '' ) ),
                 'seo_social_image_media_id' => trim( (string) ( $editor_entry['seo_social_image_media_id'] ?? '' ) ),
                 'seo_social_image' => $this->normalizeMediaImage( $editor_entry['seo_social_image'] ?? [] ),
                 'seo_canonical_url' => trim( (string) ( $editor_entry['seo_canonical_url'] ?? '' ) ),
@@ -2971,7 +2971,7 @@ class TinyMashContentRepository {
             'owner_username' => $this->normalizeAuthorSlug( (string) ( $media_image['owner_username'] ?? '' ) ),
             'filename' => basename( trim( (string) ( $media_image['filename'] ?? '' ) ) ),
             'url' => trim( (string) ( $media_image['url'] ?? '' ) ),
-            'alt_text' => trim( (string) ( $media_image['alt_text'] ?? '' ) ),
+            'alt_text' => mb_trim( (string) ( $media_image['alt_text'] ?? '' ) ),
             'mime' => trim( (string) ( $media_image['mime'] ?? '' ) ),
             'width' => max( 0, (int) ( $media_image['width'] ?? 0 ) ),
             'height' => max( 0, (int) ( $media_image['height'] ?? 0 ) ),
@@ -3046,7 +3046,7 @@ class TinyMashContentRepository {
         if ( $entry['slug'] === '' ) {
             throw new \InvalidArgumentException( 'Slug is required.' );
         }
-        if ( $entry['content'] === '' ) {
+        if ( $entry['content'] === '' && ! $this->hasPhotosGalleryContent( $entry ) ) {
             throw new \InvalidArgumentException( 'Content is required.' );
         }
         if ( $entry['seo_canonical_url'] !== '' && ! $this->isValidSeoCanonicalUrl( $entry['seo_canonical_url'] ) ) {
@@ -3059,6 +3059,22 @@ class TinyMashContentRepository {
         if ( $entry['type'] === 'page' && $entry['parent_slug'] === $page_storage_slug && $entry['parent_slug'] !== '' ) {
             throw new \InvalidArgumentException( 'Parent slug cannot match slug.' );
         }
+    }
+
+    protected function hasPhotosGalleryContent( array $entry ) : bool {
+        $photos = is_array( $entry['plugin_settings']['photos'] ?? null ) ? $entry['plugin_settings']['photos'] : [];
+        if ( (string) ( $photos['gallery_enabled'] ?? '' ) !== '1' ) {
+            return( false );
+        }
+
+        $media_ids = preg_split( '/[\s,]+/', (string) ( $photos['gallery_media_ids'] ?? '' ) ) ?: [];
+        foreach ( $media_ids as $media_id ) {
+            if ( preg_match( '/^media_[A-Za-z0-9_-]+$/', $media_id ) === 1 ) {
+                return( true );
+            }
+        }
+
+        return( false );
     }
 
     protected function findRawEntryIndexById( array $raw_entries, string $entry_id ) : ?int {
@@ -3858,7 +3874,7 @@ class TinyMashContentRepository {
             if ( ! is_string( $value ) ) {
                 continue;
             }
-            $value = trim( $value );
+            $value = mb_trim( $value );
             if ( $value !== '' ) {
                 $normalized_values[] = $value;
             }
@@ -3881,7 +3897,7 @@ class TinyMashContentRepository {
                 continue;
             }
 
-            $value = ltrim( trim( $value ), '#' );
+            $value = ltrim( mb_trim( $value ), '#' );
             $value = $this->normalizePathToken( $value );
             $value = preg_replace( '/\s+/u', '-', $value ) ?? '';
             $value = preg_replace( '/[^a-z0-9_-]+/', '-', $value ) ?? '';
@@ -3921,9 +3937,7 @@ class TinyMashContentRepository {
     }
 
     protected function normalizePathToken( string $value ) : string {
-        $value = function_exists( 'mb_strtolower' )
-            ? mb_strtolower( trim( $value ), 'UTF-8' )
-            : strtolower( trim( $value ) );
+        $value = mb_strtolower( trim( $value ), 'UTF-8' );
         if ( $value === '' ) {
             return( '' );
         }
@@ -4047,7 +4061,7 @@ class TinyMashContentRepository {
     }
 
     protected function normalizeSearchTerms( string $query ) : array {
-        $query = function_exists( 'mb_strtolower' ) ? mb_strtolower( $query ) : strtolower( $query );
+        $query = mb_strtolower( $query, 'UTF-8' );
         $terms = preg_split( '/\s+/u', $query, -1, PREG_SPLIT_NO_EMPTY );
         if ( ! is_array( $terms ) ) {
             return( [] );
@@ -4055,7 +4069,7 @@ class TinyMashContentRepository {
 
         $normalized_terms = [];
         foreach ( $terms as $term ) {
-            $term = function_exists( 'mb_trim' ) ? mb_trim( $term ) : trim( $term );
+            $term = mb_trim( $term );
             $term = preg_replace( '/^[^\p{L}\p{N}#]+|[^\p{L}\p{N}]+$/u', '', $term ) ?? $term;
             if ( mb_strlen( $term ) < 2 ) {
                 continue;
@@ -4066,7 +4080,7 @@ class TinyMashContentRepository {
             if ( $term === '' ) {
                 continue;
             }
-            $term = function_exists( 'mb_strtolower' ) ? mb_strtolower( $term ) : strtolower( $term );
+            $term = mb_strtolower( $term, 'UTF-8' );
             $normalized_terms[] = [
                 'term' => $term,
                 'hash_prefixed' => $hash_prefixed,
@@ -4118,7 +4132,7 @@ class TinyMashContentRepository {
         }
 
         $raw_text = implode( ' ', $parts );
-        $raw_text = function_exists( 'mb_strtolower' ) ? mb_strtolower( $raw_text ) : strtolower( $raw_text );
+        $raw_text = mb_strtolower( $raw_text, 'UTF-8' );
 
         return( preg_match( '/(?<![\p{L}\p{N}])#' . preg_quote( $term, '/' ) . '(?![\p{L}\p{N}])/u', $raw_text ) === 1 );
     }
@@ -4137,6 +4151,7 @@ class TinyMashContentRepository {
                 'gallery_position' => 'after_content',
                 'gallery_media_ids' => '',
                 'gallery_image_overrides' => '{}',
+                'gallery_linked_media' => '{}',
             ]
         ) ) {
             unset( $normalized['photos'] );
@@ -4197,7 +4212,7 @@ class TinyMashContentRepository {
         }
 
         $search_text = $this->stripMarkdownForSearch( implode( "\n", $parts ) );
-        return( function_exists( 'mb_strtolower' ) ? mb_strtolower( $search_text ) : strtolower( $search_text ) );
+        return( mb_strtolower( $search_text, 'UTF-8' ) );
     }
 
     protected function buildSearchIndexEntry( array $entry ) : array {
@@ -4248,7 +4263,7 @@ class TinyMashContentRepository {
     }
 
     protected function buildSearchSummaryText( string $summary, string $content ) : string {
-        $summary = trim( $summary );
+        $summary = mb_trim( $summary );
         if ( $summary !== '' ) {
             return( $summary );
         }
@@ -4284,7 +4299,7 @@ class TinyMashContentRepository {
         $content = preg_replace( '/[*_~#>]+/u', ' ', $content ) ?? $content;
         $content = str_replace( '|', ' ', $content );
 
-        return( trim( preg_replace( '/\s+/u', ' ', strip_tags( $content ) ) ?? '' ) );
+        return( mb_trim( preg_replace( '/\s+/u', ' ', strip_tags( $content ) ) ?? '' ) );
     }
 
     protected function getEntryMetadataFiles() : array {
@@ -4894,10 +4909,10 @@ class TinyMashContentRepository {
             'aggregate_to_root' => ! empty( $entry['aggregate_to_root'] ),
             'sticky' => ! empty( $entry['sticky'] ),
             'featured' => ! empty( $entry['featured'] ),
-            'seo_title' => trim( (string) ( $entry['seo_title'] ?? '' ) ),
-            'seo_description' => trim( (string) ( $entry['seo_description'] ?? '' ) ),
-            'seo_social_title' => trim( (string) ( $entry['seo_social_title'] ?? '' ) ),
-            'seo_social_description' => trim( (string) ( $entry['seo_social_description'] ?? '' ) ),
+            'seo_title' => mb_trim( (string) ( $entry['seo_title'] ?? '' ) ),
+            'seo_description' => mb_trim( (string) ( $entry['seo_description'] ?? '' ) ),
+            'seo_social_title' => mb_trim( (string) ( $entry['seo_social_title'] ?? '' ) ),
+            'seo_social_description' => mb_trim( (string) ( $entry['seo_social_description'] ?? '' ) ),
             'seo_social_image_media_id' => trim( (string) ( $entry['seo_social_image_media_id'] ?? '' ) ),
             'seo_social_image' => $this->normalizeMediaImage( $entry['seo_social_image'] ?? [] ),
             'seo_canonical_url' => trim( (string) ( $entry['seo_canonical_url'] ?? '' ) ),

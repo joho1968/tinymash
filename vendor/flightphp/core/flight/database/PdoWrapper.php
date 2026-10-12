@@ -91,11 +91,14 @@ class PdoWrapper extends PDO
      * @param string $sql   - Ex: "SELECT id FROM table WHERE something = ?"
      * @param array<int|string,mixed> $params - Ex: [ $something ]
      *
-     * @return mixed
+     * @return mixed|false
      */
     public function fetchField(string $sql, array $params = [])
     {
         $result = $this->fetchRow($sql, $params);
+        if ($result === null || count($result) === 0) {
+            return false;
+        }
         $data = $result->getData();
         return reset($data);
     }

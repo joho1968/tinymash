@@ -64,6 +64,16 @@ printf '%s' "$PASSWORD" | php8.4 bin/tinymash.php setup \
 
 If a config already exists, `setup` warns first. Interactive reruns ask for confirmation. Non-interactive reruns require `--update`. Existing config is preserved; setup updates only the site name, base URL, default language, timezone, public/private flag, admin e-mail, and selected superadmin user.
 
+Empty or malformed existing configuration must be repaired before rerunning setup; `--update` does not replace it with defaults. Base URLs must use HTTP or HTTPS and contain no credentials, query, or fragment. A URL subpath is supported. Reruns preserve the selected user's display name and editor preference, and keep the password when none is supplied.
+
+Fresh setup requires empty user, content, draft, media, and plugin-data stores. It takes a nonblocking exclusive writer lease, writes the administrator first, and publishes config last. If the site is busy or updater maintenance is active, retry after that work finishes. Setup never boots plugins.
+
+If an interrupted setup leaves exactly one valid active superadmin, no config, and otherwise empty authoritative stores, recover with `setup --update`. Unattended recovery requires explicit `--site-name`, `--base-url`, and `--admin-user` values. Use the existing username; omit password input to retain its password. Interactive recovery also asks for confirmation.
+
+Unexpected files or surviving `.tinymash-setup-*` files in `app/config/` require host inspection first. Preserve the account and staged files for review; do not remove accounts or clear whole directories to reopen setup. Existing-site updates do not provide rollback across config and user files.
+
+Without configuration, web requests return an unavailable response and ordinary CLI commands stop before application boot. Core help/version, setup, update recovery, deploy audit, and upgrade preparation remain available. Fresh installations can also use the host-token browser flow described in [INSTALL.md](INSTALL.md#browser-setup).
+
 Password options:
 
 ```bash

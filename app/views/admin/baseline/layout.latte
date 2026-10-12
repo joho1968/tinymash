@@ -20,12 +20,21 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="tinymash-base-path" content="{$tinymash_base_path ?? ''}">
         <meta name="color-scheme" content="light dark">
         {if ! empty( $csrf_token )}
         <meta name="tinymash-csrf-token" content="{$csrf_token}">
         {/if}
         <script>
             (() => {
+                const configuredBasePath = {=json_encode((string) ($tinymash_base_path ?? ''))|noescape};
+                window.tinymashBrowserPath = (path) => {
+                    path = String(path || '');
+                    if (!configuredBasePath || !path.startsWith('/') || path.startsWith('//') || path === configuredBasePath || path.startsWith(configuredBasePath + '/')) {
+                        return path;
+                    }
+                    return configuredBasePath + path;
+                };
                 const root = document.documentElement;
                 root.setAttribute('data-tm-screen-mode-script', '1');
                 const screenModeCookieName = {=json_encode($screen_mode_cookie_name)|noescape};
@@ -174,6 +183,7 @@
         <script src="{$admin_theme_js_url}"></script>
         {/foreach}
         <script src="/js/tinymash-markdown-editor.js"></script>
+        <script src="/js/tinymash-content.js"></script>
         {include 'partials/layout-bootstrap.latte'}
     </body>
 </html>

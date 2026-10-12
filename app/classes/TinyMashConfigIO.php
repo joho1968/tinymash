@@ -302,6 +302,7 @@ class TinyMashConfigIO {
                 'rendered_content_cache_enabled' => $this->normalizeBoolean( $this->config['site']['rendered_content_cache_enabled'] ?? true ),
                 'unknown_shortcode_mode' => $this->normalizeUnknownShortcodeMode( $this->config['site']['unknown_shortcode_mode'] ?? 'code' ),
                 'forwarded_ip_mode' => $this->normalizeForwardedIpMode( $this->config['site']['forwarded_ip_mode'] ?? 'off' ),
+                'trusted_proxy_cidrs' => implode( ', ', $this->config['site']['trusted_proxy_cidrs'] ?? [] ),
                 'public_cache_warm_basic_auth_username' => trim( (string) ( $this->config['site']['public_cache_warm_basic_auth_username'] ?? '' ) ),
                 'public_cache_warm_basic_auth_password' => (string) ( $this->config['site']['public_cache_warm_basic_auth_password'] ?? '' ),
                 'public_cache_warm_insecure_tls' => $this->normalizeBoolean( $this->config['site']['public_cache_warm_insecure_tls'] ?? false ),
@@ -463,6 +464,7 @@ class TinyMashConfigIO {
             $this->config['site']['password_reset_max_identifier_requests'] = $this->normalizePasswordResetThrottleCount( $settings['password_reset_max_identifier_requests'] ?? $this->config['site']['password_reset_max_identifier_requests'] ?? 3, 3 );
             $this->config['site']['filesystem_umask'] = $this->normalizeFilesystemUmask( $settings['filesystem_umask'] ?? $this->config['site']['filesystem_umask'] ?? '0007' );
             $this->config['site']['forwarded_ip_mode'] = $this->normalizeForwardedIpMode( $settings['forwarded_ip_mode'] ?? $this->config['site']['forwarded_ip_mode'] ?? 'off' );
+            $this->config['site']['trusted_proxy_cidrs'] = TinyMashClientIpResolver::parseTrustedRanges( $settings['trusted_proxy_cidrs'] ?? $this->config['site']['trusted_proxy_cidrs'] ?? [] );
             $this->config['site']['public_cache_warm_basic_auth_username'] = trim( (string) ( $settings['public_cache_warm_basic_auth_username'] ?? $this->config['site']['public_cache_warm_basic_auth_username'] ?? '' ) );
             if ( array_key_exists( 'public_cache_warm_basic_auth_password', $settings ) && (string) $settings['public_cache_warm_basic_auth_password'] !== '' ) {
                 $this->config['site']['public_cache_warm_basic_auth_password'] = (string) $settings['public_cache_warm_basic_auth_password'];

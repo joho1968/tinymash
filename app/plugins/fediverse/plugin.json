@@ -1,7 +1,7 @@
 {
     "key": "fediverse",
     "name": "Fediverse",
-    "version": "0.99.2",
+  "version": "0.99.4",
     "description": "Publishes posts to Mastodon-compatible accounts through a delivery queue.",
     "author_name": "joho",
     "author_email": "joho+tinymash@boojam.se",

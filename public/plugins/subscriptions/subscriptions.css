@@ -1,0 +1,41 @@
+.tm-subscriptions {
+    display: grid;
+    gap: 0.6rem;
+    margin-inline: auto;
+    max-width: 34rem;
+    text-align: left;
+    width: 100%;
+}
+
+.tm-subscriptions-summary {
+    margin: 0;
+}
+
+.tm-subscriptions-form {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.tm-subscriptions-fields {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.tm-subscriptions-fields input {
+    min-width: 0;
+}
+
+.tm-subscriptions-trap {
+    height: 0;
+    overflow: hidden;
+    position: absolute;
+    width: 0;
+}
+
+.tm-subscriptions-page {
+    display: grid;
+    gap: 1rem;
+    margin-inline: auto;
+    max-width: 44rem;
+}

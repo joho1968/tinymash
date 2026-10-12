@@ -154,7 +154,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $plugins->getPluginSystemSettings( $plugin_key ),
                 $context
             );
-            return( trim( (string) ( $result['message'] ?? 'No Fediverse deliveries were due.' ) ) );
+            return( mb_trim( (string) ( $result['message'] ?? 'No Fediverse deliveries were due.' ) ) );
         },
         'delivery',
         'Process Fediverse delivery queue'
@@ -202,7 +202,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                     fwrite( STDOUT, 'retried: ' . (int) ( $result['retried'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'failed: ' . (int) ( $result['failed'] ?? 0 ) . PHP_EOL );
                     fwrite( STDOUT, 'skipped: ' . (int) ( $result['skipped'] ?? 0 ) . PHP_EOL );
-                    fwrite( STDOUT, 'message: ' . trim( (string) ( $result['message'] ?? 'No Fediverse deliveries were due.' ) ) . PHP_EOL );
+                    fwrite( STDOUT, 'message: ' . mb_trim( (string) ( $result['message'] ?? 'No Fediverse deliveries were due.' ) ) . PHP_EOL );
                 },
             ]
         );
@@ -214,10 +214,10 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
     $fediverse_url = $admin_url . '/fediverse';
     $fediverse_readiness_url = $admin_url . '/fediverse/readiness';
 
-    $send_json = static function( array $payload, int $status_code = 200 ) : void {
+    $send_json = static function( array $payload, int $status_code = 200 ) use ( $plugins ) : void {
         \Flight::response()->status( $status_code );
         header( 'Content-Type: application/json; charset=UTF-8' );
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
     };
 
     $parse_tags = static function( string $raw_tags ) : array {
@@ -367,7 +367,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
 
                 $entry_id = trim( (string) ( $log_item['entry_id'] ?? '' ) );
                 $entry = $entry_id !== '' ? $content_repository->getAccessibleEntryById( $entry_id, null, null, true ) : null;
-                $entry_title = is_array( $entry ) ? trim( (string) ( $entry['title'] ?? '' ) ) : '';
+                $entry_title = is_array( $entry ) ? mb_trim( (string) ( $entry['title'] ?? '' ) ) : '';
                 if ( $entry_title === '' ) {
                     $entry_title = $entry_id !== '' ? ( 'Entry ' . $entry_id ) : 'Unknown entry';
                 }
@@ -376,7 +376,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $recorded_at_display = $recorded_at_utc !== '' ? $date_formatter->formatUtcDateTime( $recorded_at_utc ) : 'Unknown';
                 $action = trim( (string) ( $log_item['action'] ?? '' ) );
                 $status = trim( (string) ( $log_item['status'] ?? '' ) );
-                $message = trim( (string) ( $log_item['message'] ?? '' ) );
+                $message = mb_trim( (string) ( $log_item['message'] ?? '' ) );
                 $remote_status_url = trim( (string) ( $log_item['context']['remote_status_url'] ?? '' ) );
 
                 $body_html .= '<tr>';
@@ -457,7 +457,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
                 $preview = is_array( $eligibility['preview'] ?? null ) ? $eligibility['preview'] : [];
                 $warnings = is_array( $eligibility['warnings'] ?? null ) ? $eligibility['warnings'] : [];
                 $message_class = ! empty( $eligibility['eligible'] ) ? 'alert-success' : 'alert-secondary';
-                $message = trim( (string) ( $eligibility['message'] ?? 'Only published posts can be sent to the Fediverse.' ) );
+                $message = mb_trim( (string) ( $eligibility['message'] ?? 'Only published posts can be sent to the Fediverse.' ) );
                 $entry_type = strtolower( trim( (string) ( $draft['type'] ?? $draft['entry_type'] ?? 'post' ) ) );
                 $entry_status = strtolower( trim( (string) ( $draft['status'] ?? 'unpublished' ) ) );
                 $readiness_state = (string) ( $eligibility['state'] ?? 'blocked' );

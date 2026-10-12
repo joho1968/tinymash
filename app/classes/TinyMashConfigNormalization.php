@@ -1,6 +1,8 @@
 <?php
 namespace app\classes;
 
+require_once __DIR__ . '/TinyMashClientIpResolver.php';
+
 trait TinyMashConfigNormalization {
 
     protected function applyDefaults() : void {
@@ -121,6 +123,11 @@ trait TinyMashConfigNormalization {
         $this->config['site']['rendered_content_cache_enabled'] = $this->normalizeBoolean( $this->config['site']['rendered_content_cache_enabled'] ?? true );
         $this->config['site']['unknown_shortcode_mode'] = $this->normalizeUnknownShortcodeMode( $this->config['site']['unknown_shortcode_mode'] ?? 'code' );
         $this->config['site']['forwarded_ip_mode'] = $this->normalizeForwardedIpMode( $this->config['site']['forwarded_ip_mode'] ?? 'off' );
+        try {
+            $this->config['site']['trusted_proxy_cidrs'] = TinyMashClientIpResolver::parseTrustedRanges( $this->config['site']['trusted_proxy_cidrs'] ?? [] );
+        } catch ( \InvalidArgumentException ) {
+            $this->config['site']['trusted_proxy_cidrs'] = [];
+        }
         $this->config['site']['public_cache_warm_basic_auth_username'] = trim( (string) ( $this->config['site']['public_cache_warm_basic_auth_username'] ?? '' ) );
         $this->config['site']['public_cache_warm_basic_auth_password'] = (string) ( $this->config['site']['public_cache_warm_basic_auth_password'] ?? '' );
         if ( $this->config['site']['public_cache_warm_basic_auth_username'] === '' ) {
@@ -270,7 +277,10 @@ trait TinyMashConfigNormalization {
 
     protected function normalizeForwardedIpMode( mixed $value ) : string {
         $mode = strtolower( trim( (string) $value ) );
-        if ( ! in_array( $mode, [ 'off', 'cf-connecting-ip', 'x-forwarded-for-first' ], true ) ) {
+        if ( $mode === 'x-forwarded-for-first' ) {
+            $mode = 'x-forwarded-for';
+        }
+        if ( ! in_array( $mode, [ 'off', 'cf-connecting-ip', 'x-forwarded-for' ], true ) ) {
             return( 'off' );
         }
 
@@ -352,7 +362,7 @@ trait TinyMashConfigNormalization {
             'owner_username' => strtolower( trim( (string) ( $site_image['owner_username'] ?? '' ) ) ),
             'filename' => basename( trim( (string) ( $site_image['filename'] ?? '' ) ) ),
             'url' => trim( (string) ( $site_image['url'] ?? '' ) ),
-            'alt_text' => trim( (string) ( $site_image['alt_text'] ?? '' ) ),
+            'alt_text' => mb_trim( (string) ( $site_image['alt_text'] ?? '' ) ),
             'mime' => trim( (string) ( $site_image['mime'] ?? '' ) ),
             'width' => max( 0, (int) ( $site_image['width'] ?? 0 ) ),
             'height' => max( 0, (int) ( $site_image['height'] ?? 0 ) ),

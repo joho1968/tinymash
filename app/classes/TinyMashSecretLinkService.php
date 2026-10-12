@@ -12,10 +12,12 @@ class TinyMashSecretLinkService {
 
     protected TinyMashConfig $config;
     protected string $store_filename;
+    protected ?TinyMashUrlResolver $url_resolver;
 
-    public function __construct( TinyMashConfig $config, string $store_filename ) {
+    public function __construct( TinyMashConfig $config, string $store_filename, ?TinyMashUrlResolver $url_resolver = null ) {
         $this->config = $config;
         $this->store_filename = $store_filename;
+        $this->url_resolver = $url_resolver;
     }
 
     public function isEnabled() : bool {
@@ -293,13 +295,16 @@ class TinyMashSecretLinkService {
         }
 
         $secure_cookie = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on';
+        $cookie_path = $this->url_resolver instanceof TinyMashUrlResolver && $this->url_resolver->getBasePath() !== ''
+            ? $this->url_resolver->getBasePath()
+            : '/';
         if ( empty( $tokens ) ) {
             setcookie(
                 self::COOKIE_NAME,
                 '',
                 [
                     'expires' => time() - 3600,
-                    'path' => '/',
+                    'path' => $cookie_path,
                     'secure' => $secure_cookie,
                     'httponly' => true,
                     'samesite' => 'Lax',
@@ -314,7 +319,7 @@ class TinyMashSecretLinkService {
             implode( ',', array_keys( $tokens ) ),
             [
                 'expires' => $has_indefinite_record ? 0 : $expires_at_timestamp,
-                'path' => '/',
+                'path' => $cookie_path,
                 'secure' => $secure_cookie,
                 'httponly' => true,
                 'samesite' => 'Lax',

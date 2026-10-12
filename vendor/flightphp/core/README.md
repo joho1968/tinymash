@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/flightphp/docs/refs/heads/master/public/images/redesign/logo+icon+slogan@dark.jpg" />
+  <img alt="Flight PHP Logo" src="https://raw.githubusercontent.com/flightphp/docs/refs/heads/master/public/images/redesign/logo+icon+slogan@light.jpg" width="100%" />
+</picture>
+
 [![Version](https://poser.pugx.org/flightphp/core/version)](https://packagist.org/packages/flightphp/core)
 [![Monthly Downloads](https://poser.pugx.org/flightphp/core/d/monthly)](https://packagist.org/packages/flightphp/core)
 ![PHPStan: Level 6](https://img.shields.io/badge/PHPStan-level%206-brightgreen.svg?style=flat)
@@ -22,13 +27,10 @@ composer require flightphp/core
 or you can download a zip of this repo. Then you would have a basic `index.php` file like the following:
 
 ```php
-// if installed with composer
-require 'vendor/autoload.php';
-// or if installed manually by zip file
-// require 'flight/Flight.php';
+require 'flight/autoload.php';
 
 Flight::route('/', function () {
-  echo 'hello world!';
+    echo 'hello world!';
 });
 
 Flight::start();
@@ -38,19 +40,22 @@ Flight::start();
 
 Yes! Flight is fast. It is one of the fastest PHP frameworks available. You can see all the benchmarks at [TechEmpower](https://www.techempower.com/benchmarks/#section=data-r18&hw=ph&test=frameworks)
 
-See the benchmark below with some other popular PHP frameworks. This is measured in requests processed within the same timeframe. 
+See the benchmark below with some other popular PHP frameworks. This is measured in requests processed within the same timeframe.
 
-| Framework | Plaintext Requests| JSON Requests|
-| --------- | ------------ | ------------ |
-| Flight      | 190,421    | 182,491 |
-| Yii         | 145,749    | 131,434 |
-| Fat-Free    | 139,238	   | 133,952 |
-| Slim        | 89,588     | 87,348  |
-| Phalcon     | 95,911     | 87,675  |
-| Symfony     | 65,053     | 63,237  |
-| Lumen	      | 40,572     | 39,700  |
-| Laravel     | 26,657     | 26,901  |
-| CodeIgniter | 20,628     | 19,901  |
+```mermaid
+---
+config:
+  xyChart:
+    showDataLabel: true
+---
+xychart-beta
+  title "PHP Framework Performance (TechEmpower, requests/sec)"
+  x-axis "Framework" ["Flight", "Yii", "Fat-Free", "Slim", "Phalcon", "Symfony", "Lumen", "Laravel", "CodeIgniter"]
+  y-axis "Requests/sec (x1000)" 0 --> 200
+  %% Series 1: Plaintext, Series 2: JSON
+  bar [190.4, 145.7, 139.2, 89.6, 95.9, 65.1, 40.6, 26.7, 20.6]
+  bar [182.5, 131.4, 134.0, 87.3, 87.7, 63.2, 39.7, 26.9, 19.9]
+```
 
 ## Skeleton App
 
@@ -75,9 +80,10 @@ If you have a current project on v2, you should be able to upgrade to v3 with no
 > [!IMPORTANT]
 > Flight requires `PHP 7.4` or greater.
 
-**Note:** PHP 7.4 is supported because at the current time of writing (2024) PHP 7.4 is the default version for some LTS Linux distributions. Forcing a move to PHP >8 would cause a lot of heartburn for those users.
-
-The framework also supports PHP >8.
+> [!NOTE]
+> PHP 7.4 is supported because at the current time of writing (2024) PHP 7.4 is the default version for some LTS Linux distributions.
+> Forcing a move to PHP 8 would cause a lot of heartburn for those users.
+> The framework also supports PHP 8.
 
 # Roadmap
 

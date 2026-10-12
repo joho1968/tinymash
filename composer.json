@@ -4,6 +4,7 @@
     "type": "project",
     "license": "AGPL-3.0-or-later",
     "require": {
+        "ext-mbstring": "*",
         "flightphp/core": "^3.15",
         "latte/latte": "^3.0",
         "flightphp/runway": "^1.1",

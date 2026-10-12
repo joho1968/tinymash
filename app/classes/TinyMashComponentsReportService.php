@@ -427,7 +427,7 @@ class TinyMashComponentsReportService {
 
                 $index[$normalized_package_name][] = [
                     'advisory_id' => trim( (string) ( $advisory['advisoryId'] ?? $advisory['cve'] ?? '' ) ),
-                    'title' => trim( (string) ( $advisory['title'] ?? '' ) ),
+                    'title' => mb_trim( (string) ( $advisory['title'] ?? '' ) ),
                     'severity' => trim( (string) ( $advisory['severity'] ?? '' ) ),
                     'link' => trim( (string) ( $advisory['link'] ?? '' ) ),
                 ];
@@ -464,7 +464,7 @@ class TinyMashComponentsReportService {
                 'version' => $this->normalizeDisplayedVersion( (string) ( $package['version'] ?? '' ) ),
                 'latest' => $this->normalizeDisplayedVersion( (string) ( $package['latest'] ?? '' ) ),
                 'latest_status' => trim( (string) ( $package['latest-status'] ?? '' ) ),
-                'description' => trim( (string) ( $package['description'] ?? '' ) ),
+                'description' => mb_trim( (string) ( $package['description'] ?? '' ) ),
                 'direct_dependency' => ! empty( $package['direct-dependency'] ),
                 'security_advisories' => [],
             ];

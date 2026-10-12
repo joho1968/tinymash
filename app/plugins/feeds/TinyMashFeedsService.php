@@ -247,7 +247,7 @@ class TinyMashFeedsService {
                 continue;
             }
 
-            $rendered_entry = $this->content_renderer->renderEntry( $entry, $this->theme );
+            $rendered_entry = $this->content_renderer->renderEntry( $entry, $this->theme, 'feed' );
             $updated_at_utc = trim( (string) ( $entry['updated_at_utc'] ?? '' ) );
             $published_at_utc = trim( (string) ( $entry['published_at_utc'] ?? '' ) );
             $entry_url = $this->buildAbsoluteUrl( (string) ( $rendered_entry['url'] ?? '/' ), $base_url );

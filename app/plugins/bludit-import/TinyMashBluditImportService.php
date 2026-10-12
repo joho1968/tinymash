@@ -323,7 +323,7 @@ class TinyMashBluditImportService {
                     }
 
                     $summary = $this->summarizeHtml( $localized_html, (string) ( $entry['summary'] ?? '' ) );
-                    $content = trim( $localized_html );
+                    $content = mb_trim( $localized_html );
                     if ( $content === '' ) {
                         $content = $summary !== '' ? $summary : '';
                     }
@@ -537,7 +537,7 @@ class TinyMashBluditImportService {
     }
 
     protected function localizeHtmlMedia( string $html, array $entry, array $preview, array &$attached_media_ids, array &$missing_media ) : string {
-        $html = trim( $html );
+        $html = mb_trim( $html );
         if ( $html === '' ) {
             return( '' );
         }
@@ -605,7 +605,7 @@ class TinyMashBluditImportService {
             $media_owner = (string) ( $preview['target_scope'] ?? 'root' ) === 'author'
                 ? (string) ( $preview['target_author_slug'] ?? '' )
                 : 'root';
-            $alt_text = trim( html_entity_decode( $image->getAttribute( 'alt' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+            $alt_text = mb_trim( html_entity_decode( $image->getAttribute( 'alt' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
             $import = $this->media_import_bridge->importLocalFile(
                 'bludit-import',
                 $media_owner,
@@ -723,14 +723,14 @@ class TinyMashBluditImportService {
     }
 
     protected function summarizeHtml( string $html, string $fallback = '', int $word_limit = 40 ) : string {
-        $fallback = trim( $fallback );
+        $fallback = mb_trim( $fallback );
         if ( $fallback !== '' ) {
             return( $fallback );
         }
 
-        $text = trim( html_entity_decode( strip_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+        $text = mb_trim( html_entity_decode( strip_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
         $text = preg_replace( '/\s+/u', ' ', $text );
-        $text = is_string( $text ) ? trim( $text ) : '';
+        $text = is_string( $text ) ? mb_trim( $text ) : '';
         if ( $text === '' ) {
             return( '' );
         }

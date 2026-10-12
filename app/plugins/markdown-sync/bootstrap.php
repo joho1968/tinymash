@@ -331,7 +331,7 @@ return static function( TinyMashPlugins $plugins, array $plugin ) : void {
         header( 'Content-Type: application/json; charset=UTF-8' );
         header( 'Cache-Control: no-store, max-age=0' );
         header( 'X-Content-Type-Options: nosniff' );
-        echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
+        echo json_encode( $plugins->resolveOutputData( $payload ), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
     };
     $receive_request = static function() use ( $sync_service ) : array {
         $content_length = (int) ( $_SERVER['CONTENT_LENGTH'] ?? 0 );

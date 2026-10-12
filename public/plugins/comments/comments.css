@@ -1,0 +1,163 @@
+.tm-comments-region {
+    border-block-start: 1px solid var(--bs-border-color, rgba(127, 127, 127, 0.35));
+    display: grid;
+    gap: 2rem;
+    margin-block-start: 2rem;
+    padding-block-start: 2rem;
+}
+
+.tm-comments {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+}
+
+.tm-comments-title {
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+.tm-comment-role {
+    color: var(--bs-secondary-color, color-mix(in srgb, currentColor 68%, transparent));
+}
+
+.tm-comments-count,
+.tm-comment-role {
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+.tm-comments-list,
+.tm-comments-replies {
+    display: grid;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.tm-comments-list > li,
+.tm-comments-replies > li,
+.tm-comment,
+.tm-comment-body {
+    min-width: 0;
+}
+
+.tm-comments-replies {
+    border-inline-start: 0.2rem solid var(--bs-border-color, rgba(127, 127, 127, 0.35));
+    margin-block-start: 1rem;
+    padding-inline-start: 1rem;
+}
+
+.tm-comment {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.tm-comment-header {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+}
+
+.tm-comments-region .tm-comments-thread .tm-comment-header a.tm-comment-date {
+    color: var(--bs-secondary-color, color-mix(in srgb, currentColor 68%, transparent));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875em;
+    text-decoration: none !important;
+}
+
+.tm-comments-region .tm-comments-thread .tm-comment-header a.tm-comment-date:hover,
+.tm-comments-region .tm-comments-thread .tm-comment-header a.tm-comment-date:focus-visible {
+    text-decoration: underline !important;
+}
+
+.tm-comment-body > :last-child {
+    margin-block-end: 0;
+}
+
+.tm-comment-body {
+    overflow-wrap: anywhere;
+}
+
+.tm-comment-actions,
+.tm-comments-cancel-reply {
+    font-size: 0.875em;
+}
+
+.tm-comments-compose-header {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+}
+
+.tm-comments-compose {
+    background: var(--bs-tertiary-bg, color-mix(in srgb, currentColor 6%, transparent));
+    border-radius: 0.5rem;
+    padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.tm-comments-form {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 42rem;
+}
+
+.tm-comments-form label {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.tm-comments-form .tm-comments-notify {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    width: fit-content;
+}
+
+.tm-comments-form-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    justify-content: space-between;
+}
+
+.tm-comments-privacy {
+    font-size: 0.875em;
+    margin: 0;
+}
+
+.tm-comments-region .tm-comments-form-actions a.tm-comments-privacy {
+    color: var(--bs-body-color, currentColor);
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+}
+
+.tm-comments-identity {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tm-comments-trap {
+    height: 0;
+    overflow: hidden;
+    position: absolute;
+    width: 0;
+}
+
+.tm-comments-page {
+    display: grid;
+    gap: 1rem;
+    margin-inline: auto;
+    max-width: 44rem;
+}
+
+@media (max-width: 36rem) {
+    .tm-comments-identity {
+        grid-template-columns: 1fr;
+    }
+}

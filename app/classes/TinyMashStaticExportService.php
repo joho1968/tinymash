@@ -229,7 +229,7 @@ class TinyMashStaticExportService {
         $entries = $this->filterPublicEntries( is_array( $aggregated_page['items'] ?? null ) ? $aggregated_page['items'] : [] );
         $rendered_entries = $this->content_renderer->renderEntrySummaries( $entries, $this->theme );
         $landing_entry = $this->resolveThemeLandingEntry( 'root', '' );
-        $rendered_landing_entry = is_array( $landing_entry ) ? $this->content_renderer->renderEntry( $landing_entry, $this->theme ) : null;
+        $rendered_landing_entry = is_array( $landing_entry ) ? $this->content_renderer->renderEntry( $landing_entry, $this->theme, 'static_export' ) : null;
         $view_data = array_merge(
             $this->theme->getBaseViewData( 'Home', null, null, $this->getStaticExportRenderContext() ),
             $this->buildThemeListingViewData( $rendered_entries ),
@@ -273,7 +273,7 @@ class TinyMashStaticExportService {
                 'listing_pagination' => $this->buildPaginationViewData( is_array( $author_home['pagination'] ?? null ) ? $author_home['pagination'] : [], $this->theme->getAuthorURL( $author_slug ), $page ),
                 'author_home_can_edit' => false,
                 'author_home_edit_url' => '',
-                'docs_landing_entry' => is_array( $docs_landing_entry ) ? $this->content_renderer->renderEntry( $docs_landing_entry, $this->theme ) : null,
+                'docs_landing_entry' => is_array( $docs_landing_entry ) ? $this->content_renderer->renderEntry( $docs_landing_entry, $this->theme, 'static_export' ) : null,
             ]
         );
 
@@ -289,7 +289,7 @@ class TinyMashStaticExportService {
         $this->applyAuthorThemeContext( $author_slug );
         $tag_scope = $author_slug !== '' ? 'author' : 'root';
         $rendered_entry = $this->decorateRenderedEntryWithTagLinks(
-            $this->content_renderer->renderEntry( $entry, $this->theme ),
+            $this->content_renderer->renderEntry( $entry, $this->theme, 'static_export' ),
             $tag_scope,
             $author_slug
         );
@@ -1010,7 +1010,7 @@ class TinyMashStaticExportService {
 
             $plugin_key = trim( (string) ( $contribution['plugin_key'] ?? '' ) );
             if ( (string) ( $contribution['status'] ?? '' ) !== 'ran' ) {
-                $message = trim( (string) ( $contribution['message'] ?? '' ) );
+                $message = mb_trim( (string) ( $contribution['message'] ?? '' ) );
                 $this->warnings[] = 'Static export contribution failed for ' . ( $plugin_key !== '' ? $plugin_key : 'a plugin' ) . ( $message !== '' ? ': ' . $message : '.' );
                 continue;
             }

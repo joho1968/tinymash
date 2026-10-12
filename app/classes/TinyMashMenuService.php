@@ -85,7 +85,7 @@ class TinyMashMenuService {
             $type = 'page';
         }
 
-        $label = trim( (string) ( $item['label'] ?? '' ) );
+        $label = mb_trim( (string) ( $item['label'] ?? '' ) );
         $path = trim( preg_replace( '@/+@', '/', (string) ( $item['path'] ?? '' ) ) ?? '', '/' );
         $url = trim( (string) ( $item['url'] ?? '' ) );
         $new_tab = ! empty( $item['new_tab'] );
@@ -183,7 +183,7 @@ class TinyMashMenuService {
 
             return(
                 [
-                    'title' => trim( (string) ( $item['label'] ?? '' ) ) !== '' ? trim( (string) $item['label'] ) : (string) ( $entry['title'] ?? $path ),
+                    'title' => mb_trim( (string) ( $item['label'] ?? '' ) ) !== '' ? mb_trim( (string) $item['label'] ) : (string) ( $entry['title'] ?? $path ),
                     'url' => '/' . str_replace( '%2F', '/', rawurlencode( $path ) ),
                     'children' => $resolved_children,
                     'is_current' => $current_path !== '' && $path === $current_path,
@@ -204,7 +204,7 @@ class TinyMashMenuService {
 
         return(
             [
-                'title' => trim( (string) ( $item['label'] ?? '' ) ) !== '' ? trim( (string) $item['label'] ) : $url,
+                'title' => mb_trim( (string) ( $item['label'] ?? '' ) ) !== '' ? mb_trim( (string) $item['label'] ) : $url,
                 'url' => $url,
                 'children' => $resolved_children,
                 'is_current' => $is_relative && $parsed_path !== '' && $parsed_path === $current_path,

@@ -37,6 +37,15 @@ final class TinyMashDeployPolicy {
         'users',
     ];
 
+    public const AUDIT_MANAGED_EXACT_PATHS = [
+        '.tinymash-install-origin',
+        '.tinymash-install-token',
+    ];
+
+    public const AUDIT_MANAGED_PATH_PREFIXES = [
+        '.tinymash-update-',
+    ];
+
     public static function isAuditIgnoredPath( string $relative_path ) : bool {
         $relative_path = trim( str_replace( '\\', '/', $relative_path ), '/' );
         if ( in_array( $relative_path, self::AUDIT_IGNORED_EXACT_PATHS, true ) ) {
@@ -45,6 +54,21 @@ final class TinyMashDeployPolicy {
 
         foreach ( self::AUDIT_IGNORED_PATH_PREFIXES as $prefix ) {
             if ( $relative_path === $prefix || str_starts_with( $relative_path, $prefix . '/' ) ) {
+                return( true );
+            }
+        }
+
+        return( false );
+    }
+
+    public static function isAuditManagedPath( string $relative_path ) : bool {
+        $relative_path = trim( str_replace( '\\', '/', $relative_path ), '/' );
+        if ( in_array( $relative_path, self::AUDIT_MANAGED_EXACT_PATHS, true ) ) {
+            return( true );
+        }
+
+        foreach ( self::AUDIT_MANAGED_PATH_PREFIXES as $prefix ) {
+            if ( str_starts_with( $relative_path, $prefix ) ) {
                 return( true );
             }
         }

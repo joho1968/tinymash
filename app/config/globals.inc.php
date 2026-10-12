@@ -1,7 +1,7 @@
 <?php
 
 const APP_NAME          = 'tinymash';
-const APP_VERSION       = '0.99.2';
+const APP_VERSION       = '0.99.4';
 const APP_TITLE_SEP     = ' - ';
 const APP_ROOT_PATH     = __DIR__ . '/..';
 const APP_VIEWS_PATH    = APP_ROOT_PATH . '/views';
@@ -372,6 +372,33 @@ if ( ! function_exists( 'tinymash_get_runtime_temp_subdirectory' ) ) {
             if ( tinymash_prepare_runtime_temp_directory( $target_directory, true ) ) {
                 return( $target_directory );
             }
+        }
+
+        return( dirname( __DIR__, 2 ) . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . $subdirectory );
+    }
+}
+
+if ( ! function_exists( 'tinymash_get_runtime_temp_subdirectory_path' ) ) {
+    function tinymash_get_runtime_temp_subdirectory_path( string $subdirectory ) : string {
+        $subdirectory = trim( str_replace( [ '/', '\\' ], DIRECTORY_SEPARATOR, $subdirectory ), DIRECTORY_SEPARATOR );
+        if ( $subdirectory === '' ) {
+            return( tinymash_get_runtime_temp_directory() );
+        }
+        if ( preg_match( '/^[a-z0-9][a-z0-9._-]*$/i', $subdirectory ) !== 1 ) {
+            throw new InvalidArgumentException( 'Invalid runtime temporary subdirectory.' );
+        }
+
+        foreach ( tinymash_get_runtime_temp_candidates() as $candidate ) {
+            $base_directory = rtrim( trim( (string) $candidate ), DIRECTORY_SEPARATOR );
+            if ( $base_directory === '' || ! tinymash_prepare_runtime_temp_directory( $base_directory ) ) {
+                continue;
+            }
+
+            $target_directory = $base_directory . DIRECTORY_SEPARATOR . $subdirectory;
+            if ( is_link( $target_directory ) || ( file_exists( $target_directory ) && ! is_dir( $target_directory ) ) ) {
+                continue;
+            }
+            return( $target_directory );
         }
 
         return( dirname( __DIR__, 2 ) . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . $subdirectory );
